@@ -7,6 +7,7 @@ deterministic: the same facts and clock give the same list. A card is placed at 
 it has reached; the first matching rule below wins.
 """
 from backend.canvas import opora_agent_state_review_gates as review_gates
+from backend.canvas import opora_agent_state_rules as rules
 
 _GATE_HEALTH = {"blocked": "blocking", "pending": "waiting", "ready": "ok"}
 
@@ -43,7 +44,7 @@ def card_stage(card, accepted, latest, claim, link, gate, now):
             return _entry(node, "work", "blocking", "lease_past_deadline", execution)
         return _entry(node, "work", "ok", "runs_active", execution)
     if latest and latest["results"]:
-        if latest["acceptedRevision"] != accepted:
+        if rules.stale_evidence(latest, accepted):
             return _entry(node, "evidence", "waiting", "stale_evidence", execution)
         return _entry(node, "review", "waiting", "human_review_required", execution)
     if claim:

@@ -13,7 +13,8 @@ from backend.canvas.opora_execution_results import ExecutionResults
 from backend.canvas.test_opora_changesets import SCOPE, accept, baseline, legacy_save, propose
 from backend.canvas.test_opora_changesets import service as service  # noqa: PLC0414
 from backend.canvas.test_opora_execution_budgets import configure, v2
-from backend.canvas.test_opora_executions import claim, credentials
+from backend.canvas.test_opora_executions import accept_graph_change, claim, credentials
+from backend.canvas.test_opora_executions import chain as chain  # noqa: PLC0414
 from backend.canvas.test_opora_process_sync import route
 
 
@@ -229,3 +230,26 @@ def test_action_priority_is_one_list_matching_the_documented_table():
     shuffled = [{"verb": verb, "targetId": target} for verb in reversed(rules.VERB_ORDER) for target in ("b", "a")]
     assert [(item["verb"], item["targetId"]) for item in rules.ordered(shuffled)] == [
         (verb, target) for verb in rules.VERB_ORDER for target in ("a", "b")]
+
+
+def test_result_after_unrelated_accepted_change_stays_reviewable_own_spec_change_is_stale(service, chain):
+    """Výsledek zastará jen změnou výřezu karty (jako běh, #188), ne posunem přijaté hlavy jinde."""
+    refs = chain
+    authority = ExecutionResults(service)
+    record = claim(authority, node=refs["ca"])
+    accept_graph_change(service, {"nodes": [{"ref": "other", "kind": "node", "name": "Unrelated"}]})
+    authority.submit(record["executionId"], {**credentials(record), "requestId": "r", "result": {"summary": "done"}})
+    document = read(service)
+    head = document["heads"]["acceptedHead"]
+    assert head != record["acceptedRevision"]
+    assert stage(document, "evidence")["reason"] == "evidence_reported"
+    assert stage(document, "review")["reason"] == "human_review_required"
+    assert [item["targetId"] for item in verbs(document, "review")] == [record["executionId"]]
+    card = next(item for item in document["cards"] if item["nodeId"] == refs["ca"])
+    assert (card["stage"], card["reason"]) == ("review", "human_review_required")
+    accept(service, propose(service, nodes=(refs["ca"],), goal="Changed own spec"), head)
+    document = read(service)
+    assert stage(document, "evidence")["reason"] == "stale_evidence"
+    assert stage(document, "review")["reason"] == "nothing_to_review" and not verbs(document, "review")
+    card = next(item for item in document["cards"] if item["nodeId"] == refs["ca"])
+    assert (card["stage"], card["reason"]) == ("evidence", "stale_evidence")

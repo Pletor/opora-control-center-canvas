@@ -21,7 +21,7 @@ def _done(db, project, workspace, node):
     return bool(row and row[0])
 
 
-def _latest(db, project, workspace, node):
+def _latest(db, project, workspace, node, accepted=None, done=False):
     repo = Executions(db, project, workspace)
     records = repo.history(node)
     if not records:
@@ -30,8 +30,13 @@ def _latest(db, project, workspace, node):
     deadline = min(record["expiresAt"], record.get("budget", {}).get("runDeadlineAt", record["expiresAt"]))
     count = db.execute("SELECT COUNT(*) FROM opora_execution_results WHERE project_id=? AND workspace_id=?"
                        " AND execution_id=?", (project, workspace, record["executionId"])).fetchone()[0]
-    return {"id": record["executionId"], "state": record["state"], "acceptedRevision": record["acceptedRevision"],
-            "deadline": deadline, "results": count}
+    latest = {"id": record["executionId"], "state": record["state"], "acceptedRevision": record["acceptedRevision"],
+              "deadline": deadline, "results": count}
+    if count and accepted is not None and not done:
+        # Stejný výřez karty jako agent-state; běh v1 bez canvasu rozhodne hlava (`slice_changed`).
+        from backend.canvas.opora_executions import OporaExecutions
+        latest["staleEvidence"] = OporaExecutions(None).slice_changed(repo, record, accepted)
+    return latest
 
 
 def _link(db, project, workspace, node):
@@ -78,7 +83,8 @@ def compute(db, project, workspace, node, now=None):
     gate = _gate(db, project, workspace, row, now)
     link = None if row is None else public(row)
     card = {"nodeId": node, "doneConfirmed": _done(db, project, workspace, node)}
-    entry = card_stages.card_stage(card, accepted, _latest(db, project, workspace, node), None, link, gate, now)
+    latest = _latest(db, project, workspace, node, accepted, card["doneConfirmed"])
+    entry = card_stages.card_stage(card, accepted, latest, None, link, gate, now)
     return entry, gate_summary(gate)
 
 
