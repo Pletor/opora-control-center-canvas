@@ -8,7 +8,7 @@ import Board from "@/editor/canvas/board/components/Board";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
 import { useLeases } from "@/editor/canvas/node-card/logic/use-leases";
 import { useSourceStatus } from "@/editor/canvas/node-card/logic/use-source-status";
-import { confirmProposal } from "@/editor/canvas/node-card/logic/completion-proposals";
+import { closeCardAfterMerge, confirmProposal } from "@/editor/canvas/node-card/logic/completion-proposals";
 import { addAction, buildBlockNodes, closeOpen, materialPreviewUrl, toggleOpen, type BlockApi, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import PipelinePicker from "@/editor/workflow/pipeline-picker/components/PipelinePicker";
 import { openIdeas } from "@/editor/node-detail/ideas/logic/ideas-model";
@@ -823,6 +823,14 @@ export default function App() {
   }
   // Potvrzení navrženého uzavření karty (starší desktop-v3 tok, akce karty `confirm`).
   const confirmProposalNow = (id: string) => desktop.mutate(confirmProposal(id));
+  // Uzavření karty po sloučení PR z detailu karty (akce `close_card` z agent-state); vrací chybu, nebo "".
+  async function closeCardNow(id: string, note: string): Promise<string> {
+    try {
+      return (await desktop.mutate(closeCardAfterMerge(id, note))) ? "" : desktop.error || "Uzavření karty se nepodařilo uložit.";
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
+    }
+  }
   function selectProject(id: string, sourceKind?: string) {
     generation.current++;
     setView(null);
@@ -1525,6 +1533,7 @@ export default function App() {
       <CardDrawerHost project={project} workspace={workspace} nodes={graph.nodes} editor={{
         readOnly: !view || view.readOnly, busy, workspaces: view?.workspaces ?? [], resultRevision: desktop.revision, specRefreshRevision: planAppliedRevision,
         onSave: (n) => run(() => save({ ...graph, nodes: graph.nodes.map((old) => (old.id === n.id ? n : old)) })),
+        onCloseCard: closeCardNow,
         onWorkspace: () => open("workspace"), onOpenNode: openNode, onOpenVault: openVault,
         fragmentRefs: (id) => desktop.state.nodes[id]?.fragmentRefs,
       }} />

@@ -51,7 +51,7 @@ export function statusLine(card: CardEntry | null): StatusLine {
 }
 
 const HUMAN_VERBS = new Set(["accept_baseline", "accept", "close_card", "review", "proposal.resolve_conflict", "verification.fix"]);
-const BLOCK_TEXT: Record<string, string> = {
+export const BLOCK_TEXT: Record<string, string> = {
   human_only: "rozhoduje člověk", budget_exhausted: "vyčerpaný rozpočet", budget_policy_required: "chybí pravidla běhů",
   blocked_by_predecessor: "čeká na předchůdce", not_implemented: "modul není napojen", done_state_incomplete: "definice hotovo není splněna",
   plan_steps_missing: "zadání nemá kroky",
