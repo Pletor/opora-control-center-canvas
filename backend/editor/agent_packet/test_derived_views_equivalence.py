@@ -20,6 +20,7 @@ from backend.editor.agent_packet.work_overview import STATUSES, overview_of
 
 # --- Referenční (původní) implementace -------------------------------------------------------------
 
+# Od plné autonomie (#137) uzavře sektor i `agent`; kdo smí zapsat, hlídá služba (acts_as_human), odvozený pohled čte zapsané `by`.
 def old_sector_status(graph, state):
     by_id = {node["id"]: node for node in graph["nodes"]}
     result = {}
@@ -45,9 +46,9 @@ def old_sector_status(graph, state):
             scenario = by_id.get(gate_id, {}).get("scenario")
             run = state["nodes"].get(gate_id, {}).get("scenarioRun", {})
             scenario_ready = not scenario or (run.get("command") == scenario["command"] and run.get("failed") == 0)
-            verified = bool(gate.get("confirmed") and gate.get("by") == "human" and members and closed == len(members) and scenario_ready)
+            verified = bool(gate.get("confirmed") and gate.get("by") in ("human", "agent") and members and closed == len(members) and scenario_ready)
         else:
-            verified = bool(members and closed == len(members)) or bool(own.get("confirmed") and own.get("by") == "human")
+            verified = bool(members and closed == len(members)) or bool(own.get("confirmed") and own.get("by") in ("human", "agent"))
         result[sector["id"]] = {"gateNodeId": gate_id, "status": "verified" if verified else "running", "closed": closed, "total": len(members)}
     return result
 

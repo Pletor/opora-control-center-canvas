@@ -82,8 +82,9 @@ def test_scope_hash_and_index_corruption_fail_closed(repo):
         repo.head()
 
 
+# Úložiště od plné autonomie (#137) přijímá `agent` pod jeho jménem; bránu „jen člověk“ drží služba (acts_as_human). Cizí druh původce odmítá dál.
 @pytest.mark.parametrize("updates", [{"schemaVersion": True}, {"enabled": 1}, {"repository": {"id": True, "fullName": "owner/repo", "baseBranch": "main"}},
-                                      {"by": {"kind": "agent", "name": "Worker"}}, {"createdAt": "2026-10-21T10:00:00"}])
+                                      {"by": {"kind": "bot", "name": "Worker"}}, {"createdAt": "2026-10-21T10:00:00"}])
 def test_stored_policy_shape_is_strict(updates):
     with pytest.raises(ValueError):
         validate_policy(content(**updates))

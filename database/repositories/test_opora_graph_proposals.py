@@ -23,7 +23,7 @@ def test_insert_requires_transaction_and_deduplicates_exact_record(graphs):
     assert len(list(repo.summaries())) == 1
 
 
-@pytest.mark.parametrize("mutation", ["version", "missing", "duplicate-spec", "digest", "scope", "restricted"])
+@pytest.mark.parametrize("mutation", ["version", "missing", "duplicate-spec", "digest", "scope", "restricted", "goal-without-checks"])
 def test_self_consistent_malformed_record_is_rejected(graphs, mutation):
     item = proposal(graphs)
     content = copy.deepcopy({key: value for key, value in item.items() if key not in ("id", "accepted")})
@@ -37,8 +37,11 @@ def test_self_consistent_malformed_record_is_rejected(graphs, mutation):
         content["graphDigest"] = "0" * 64
     elif mutation == "scope":
         content["workspace"] = "other"
+    elif mutation == "restricted":
+        # `checks`/`goal_mode`/`card` jsou od #180 povolená pole karty; omezené zůstává cokoli jiného.
+        content["additions"]["nodes"][0]["unsupported"] = True
     else:
-        content["additions"]["nodes"][0]["checks"] = []
+        content["additions"]["nodes"][0].update({"goal_mode": "until_checks_pass", "checks": []})
     identifier = content_id(content)
     repo = graphs.repository("draft", "draft")
     with repo.db:

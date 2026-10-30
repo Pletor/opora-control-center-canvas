@@ -81,7 +81,7 @@ def test_human_ack_binds_risk_digest_policy_and_exact_preceding_head(db):
            "risk": "elevated", "riskDigest": "d" * 64, "parentAcceptedHead": "e" * 40, "reviewHead": finding["id"]}
     result = repo.append(ack, finding["id"])
     assert repo.read(result["id"])["riskDigest"] == "d" * 64
-    for patch in ({"riskDigest": "bad"}, {"reviewHead": None}, {"by": {"kind": "agent", "name": "Worker"}}):
+    for patch in ({"riskDigest": "bad"}, {"reviewHead": None}, {"by": {"kind": "bot", "name": "Worker"}}):
         with pytest.raises(ValueError):
             repo.append({**ack, **patch}, finding["id"])
 
@@ -108,7 +108,8 @@ def test_immutable_sql_records_and_references_reject_replace_recursive_off(db, t
                 db.execute(sql)
 
 
-@pytest.mark.parametrize("change", [{"enabled": 1}, {"schemaVersion": True}, {"by": {"kind": "agent", "name": "Worker"}},
+# Úložiště od plné autonomie (#137) přijímá `agent` pod jeho jménem; bránu „jen člověk“ drží služba (acts_as_human). Cizí druh původce odmítá dál.
+@pytest.mark.parametrize("change", [{"enabled": 1}, {"schemaVersion": True}, {"by": {"kind": "bot", "name": "Worker"}},
     {"rules": {"requireAcknowledgementFrom": "critical", "blockOpenFindings": 0}}])
 def test_policy_strict_boolean_and_actor_types(db, change):
     db.execute("BEGIN IMMEDIATE")

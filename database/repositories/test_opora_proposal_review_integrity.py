@@ -50,13 +50,14 @@ def test_unique_idempotency_replace_cannot_erase_old_event_with_new_id(db):
     assert review.events() == [first]
 
 
+# Úložiště od plné autonomie (#137) přijímá `agent` pod jeho jménem; bránu „jen člověk“ drží služba (acts_as_human). Cizí druh původce odmítá dál.
 def test_resolve_requires_human_exact_target_resolution_and_reason(db):
     review = ProposalReview(db, "p", "w", "content", "a" * 40)
     finding = review.append(event(type="finding", severity="blocking"), None)
     base = {key: value for key, value in event(finding["id"], "resolve").items() if key not in {"message", "anchor"}}
     item = {**base, "by": {"kind": "human", "name": "Reviewer"}, "type": "resolve",
             "targetEventId": finding["id"], "resolution": "accepted", "reason": "Explicitly accepted known risk"}
-    for patch in ({"by": {"kind": "agent", "name": "Worker"}}, {"reason": ""}, {"targetEventId": "unknown"}, {"resolution": "ignored"}):
+    for patch in ({"by": {"kind": "bot", "name": "Worker"}}, {"reason": ""}, {"targetEventId": "unknown"}, {"resolution": "ignored"}):
         with pytest.raises(ValueError):
             review.append({**item, **patch}, finding["id"])
     assert review.append(item, finding["id"])["targetEventId"] == finding["id"]
