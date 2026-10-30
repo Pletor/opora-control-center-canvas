@@ -41,6 +41,23 @@ def test_plan_preserves_all_card_fields_in_graph_and_brief(tmp_path):
         assert all(brief['node'][key] == value for key, value in card.items())
 
 
+@pytest.mark.parametrize("effort", ["low", "medium", "high", "max"])
+def test_plan_stores_card_effort_and_rejects_unknown_one(tmp_path, effort):
+    """O10 (docs/brain-heart-orchestrator.md §12): `card.effort` low|medium|high|max se uloží; jiná hodnota dávku odmítne."""
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        digest = seed(client)
+        plan = component()
+        plan['nodes'][0]['card'] = {'layer': 'backend', 'effort': 'extreme'}
+        refused = send(client, digest, plan)
+        assert refused.status_code == 409 and 'Neplatná karta' in refused.json()['error']
+        plan['nodes'][0]['card'] = {'layer': 'backend', 'effort': effort}
+        saved = send(client, digest, plan)
+        assert saved.status_code == 200, saved.text
+        view = client.get('/api/view', params=SCOPE).json()
+        node = next(n for n in view['graph']['nodes'] if n['id'] == saved.json()['refs']['component'])
+        assert node['card']['effort'] == effort
+
+
 @pytest.mark.parametrize("parent,expected_parent", [("@n0", "n0"), ("@s0", "s0"), ("@a0", None), (None, None)])
 def test_catalog_creates_actual_child_with_spec_criteria_and_rules(tmp_path, parent, expected_parent):
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:

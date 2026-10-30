@@ -3,6 +3,7 @@ validací `/api/canvas-plan`, odmítnutí nese text serveru a ostrý `plan` sám
 karta je pro orchestrátora `claim` ready. Supervisor ani model neběží."""
 import json
 import re
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -60,6 +61,21 @@ def test_prompt_example_is_the_tool_example_and_passes_the_real_dry_run(heart):
     assert done["ok"] is True and done["dryRun"] is True and set(done["refs"]) == {"mvp", "model", "cli"}
     assert "accepted" not in done
     assert call("GET", "/api/oporahub/agent-state", query=SCOPE)["heads"]["acceptedHead"] is None
+
+
+def test_plan_example_carries_card_effort_and_the_prompt_explains_it():
+    efforts = [node["card"]["effort"] for node in opora_heart.PLAN_EXAMPLE["nodes"] if "effort" in node.get("card", {})]
+    assert "medium" in efforts and set(efforts) <= {"low", "medium", "high", "max"}
+    prompt = (Path(opora_heart.__file__).parent / "prompt.md").read_text(encoding="utf-8")
+    assert "card.effort" in prompt and "low|medium|high|max" in prompt
+
+
+def test_plan_with_unknown_card_effort_is_rejected_with_the_server_text(heart):
+    _, _, tmp_path = heart
+    bad = json.loads(json.dumps(opora_heart.PLAN_EXAMPLE))
+    bad["nodes"][1]["card"]["effort"] = "extreme"
+    done = plan(tmp_path, bad, "--dry-run")
+    assert done["status"] in (409, 422) and "karta" in done["hint"].lower()
 
 
 def test_rejected_plan_tells_the_heart_what_the_server_said(heart):

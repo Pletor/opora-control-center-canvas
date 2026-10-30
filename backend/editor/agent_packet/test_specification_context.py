@@ -117,3 +117,30 @@ def test_capture_under_the_project_lock_builds_the_view_once(tmp_path, monkeypat
             captured = capture_specification(service, SCOPE["project"], SCOPE["workspace"], "app")
         assert len(captured["specification"]["cards"]) > 2
         assert built == [SCOPE["workspace"]]
+
+
+def test_card_effort_reaches_the_assignment_specification(tmp_path):
+    """O10 (brain-heart-orchestrator §12): `card.effort` jde do zadání beze změny; změna úsilí mění otisk zadání."""
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        prepared(client)
+        service = client.app.state.service
+
+        def captured(effort):
+            current = client.get("/api/view", params=SCOPE).json()
+            value = copy.deepcopy(current["graph"])
+            value["nodes"] += [node("sec", kind="sector"), {**node("eff", "sec"), "card": {"layer": "backend", **effort}}]
+            saved = client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": value, "digest": current["digest"]})
+            assert saved.status_code == 200, saved.text
+            return capture_specification(service, SCOPE["project"], SCOPE["workspace"], "eff")
+
+        high = captured({"effort": "high"})
+        item = next(n for n in high["specification"]["graph"]["nodes"] if n["id"] == "eff")
+        assert item["effort"] == "high" and item["layer"] == "backend"
+        # Karta bez `effort` ho v zadání nemá (výchozí `medium` doplňuje až kancelář).
+        current = client.get("/api/view", params=SCOPE).json()
+        value = copy.deepcopy(current["graph"])
+        next(n for n in value["nodes"] if n["id"] == "eff")["card"] = {"layer": "backend"}
+        assert client.post("/api/graph", headers=HEADERS, json={**SCOPE, "graph": value, "digest": current["digest"]}).status_code == 200
+        plain = capture_specification(service, SCOPE["project"], SCOPE["workspace"], "eff")
+        assert "effort" not in next(n for n in plain["specification"]["graph"]["nodes"] if n["id"] == "eff")
+        assert plain["contextVersion"] != high["contextVersion"]
