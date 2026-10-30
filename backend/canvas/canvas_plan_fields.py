@@ -42,4 +42,5 @@ def position_of(value, label):
     if any(type(value[key]) not in (int, float) or not math.isfinite(value[key])
            or abs(value[key]) > 1_000_000 for key in ("x", "y")):
         fail(label, "position vyžaduje konečné souřadnice x/y v rozsahu ±1000000.")
-    return value["x"], value["y"]
+    # Seznam, ne n-tice: zápis do JSON by n-tici vrátil jako seznam a záznam by se při čtení lišil od zapsaného.
+    return [value["x"], value["y"]]
