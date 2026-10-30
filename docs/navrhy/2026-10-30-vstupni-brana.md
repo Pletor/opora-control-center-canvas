@@ -108,6 +108,11 @@ OpenViking je jen volitelné zrcadlo, zdrojem pravdy zůstává SQLite.
 1. **Řez 1 (backend):** tabulky, determinismus (otisk, duplicita, FTS5), zápis vstupu ze tří zdrojů, stanovisko `duplicate` nebo `pending`, řádek vstupu pro srdce se stanoviskem a sekce `VSTUPY` ve snímku, `GET /api/intake`.
    Proti §4 se liší dvě věci: kandidáti jsou zatím 3 nejbližší dřívější *vstupy* téhož prostoru (požadavky a milníky ještě nevznikají), a FTS5 drží vlastní kopii textu s `entry_id`, ne vnější obsah (rowid tabulky s textovým klíčem se smí po VACUUM přečíslovat). Eskalace srdce (`ask` od srdce pro člověka) vstupem není.
 2. **Řez 2:** Jev (`decision/intake.py`), povolení a strop, `opora_heart.py intake`, pravidlo `later_extension` v promptu srdce.
+   Řez 2 – odchylky:
+   - Věta vstupu zůstává neměnná, stanovisko (`verdict`, `layer`, `area_id`, `confidence`, `reason`, `jev_calls`) se přepisuje na místě. Jev nikdy nepřepíše stanovisko srdce.
+   - Jev se ptá jen na vstupy `pending` z aktuálního UTC dne: nejdřív vstupy dávky, nejvýš 5 na dávku. Strop počítá součet `jev_calls` vstupů zapsaných ten den. Nejistá odpověď nebo porucha zapíše `pending` s vrstvou `jev` a `jev_calls` 1, takže se na vstup podruhé neptá.
+   - Srdce zapisuje stanovisko přes `POST /api/brain/heart/intake` (jen token srdce, jen jeho prostor). Snímek ve `VSTUPY` ukazuje vstupy, které srdce ještě nepotvrdilo (vrstva `determinism` nebo `jev`).
+   - Povolení a strop mění člověk zatím jen přes `POST /api/brain/intake-setting`. UI nastavení projektu pro ně ještě není.
 3. **Řez 3:** milníky (`intake_milestones`, kritéria z karet), `opora_heart.py milestone`, potvrzení člověkem.
 4. **Řez 4 (frontend):** pohled „Požadavky a plán“ ve Velínu, jeden dílek na oblast.
 

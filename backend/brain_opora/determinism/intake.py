@@ -5,7 +5,9 @@ Každá věta člověka nebo pracovníka (zpráva v panelu srdce, lístek `chang
 (malá písmena, bez diakritiky a interpunkce, zúžené mezery). Stejný otisk ve stejném pracovním prostoru =
 stanovisko `duplicate` (převezme požadavek, oblast a milník dřívějšího vstupu), jinak `pending`
 a rozhodne srdce. Ke vstupu se navíc spočítají kandidáti: nejbližší 3 dřívější vstupy podle bm25 z FTS5.
-Kandidáti se neukládají, jdou jen do řádku vstupu pro srdce. Nic tu nevolá model.
+Kandidáti se neukládají, jdou jen do řádku vstupu pro srdce. Nic tu nevolá model; `pending` může před dávkou
+zařadit Jev (`backend/brain_opora/decision/intake.py`, řez 2). Srdce stanovisko potvrdí nebo opraví (`confirm`,
+`opora_heart.py intake`, vrstva `heart`).
 
 Zápis vstupu nikdy nesmí shodit původní tok (zprávu, lístek, fragment): `safe_record` chybu jen zaloguje
 a vrátí None; částečný zápis vrátí savepoint.
@@ -27,7 +29,9 @@ CANDIDATES = 3
 QUERY_TERMS = 32  # nejvýš slov ve výrazu FTS5
 RECENT = 8  # vstupů v sekci VSTUPY snímku
 LIST = 50  # vstupů v GET /api/intake
-OPEN = ("pending", "duplicate")  # stanoviska, která snímek ukazuje (řez 1 jiná nemá)
+UNDECIDED = ("determinism", "jev")  # vrstvy vstupů, které snímek ukazuje (srdce je ještě nepotvrdilo)
+VERDICTS = ("done", "extends_in_progress", "fix_for_milestone", "changes_intent", "later_extension", "needs_info")
+REASON = 300  # znaků zdůvodnění srdce
 NON_WORD = re.compile(r"[\W_]+", re.UNICODE)
 
 
@@ -101,8 +105,9 @@ def safe_record(db, workspace, source, source_ref, text, created_at):
 
 
 def line_info(entry):
-    """Zkratka vstupu pro řádek dávky srdce: `{id, verdict, candidates}`."""
-    return {"id": entry["id"], "verdict": entry["verdict"], "candidates": list(entry.get("candidates") or [])}
+    """Zkratka vstupu pro řádek dávky srdce: `{id, verdict, layer, areaId, confidence, candidates}`."""
+    return {"id": entry["id"], "verdict": entry["verdict"], "layer": entry.get("layer"), "areaId": entry.get("areaId"),
+            "confidence": entry.get("confidence"), "candidates": list(entry.get("candidates") or [])}
 
 
 def for_source(db, source, source_ref):
@@ -112,11 +117,32 @@ def for_source(db, source, source_ref):
 
 
 def recent(db, workspace, limit=RECENT):
-    """Poslední vstupy prostoru se stanoviskem `pending` / `duplicate` pro sekci VSTUPY snímku."""
-    return IntakeEntries(db).recent(workspace, limit, OPEN)
+    """Poslední vstupy prostoru, které srdce ještě nepotvrdilo (vrstva determinismu nebo Jevu), pro sekci VSTUPY."""
+    return IntakeEntries(db).recent(workspace, limit, layers=UNDECIDED)
 
 
-def _areas(service, project, workspace):
+def confirm(service, session, entry_id, verdict, reason=""):
+    """Srdce potvrdí nebo opraví stanovisko vstupu svého prostoru (vrstva `heart`); `POST /api/brain/heart/intake`.
+    Oblast a počet volání Jevu zůstanou, jistota Jevu se smaže. Neznámé stanovisko 422, cizí vstup 404."""
+    if verdict not in VERDICTS:
+        raise invalid(f"Neznámé stanovisko {verdict!r}.", "Stanovisko je jedno z: " + ", ".join(VERDICTS) + ".")
+    if not isinstance(reason, str) or len(reason) > REASON or "\0" in reason:
+        raise invalid(f"reason je text do {REASON} znaků.", "Jedna věta, proč toto stanovisko.")
+    project, workspace = session["project_id"], session["workspace_id"]
+    with service.lock_for(project):
+        db = service.db_for(project)
+        with db:
+            store = IntakeEntries(db)
+            entry = store.get(entry_id) if isinstance(entry_id, str) else None
+            if entry is None or entry["workspaceId"] != workspace:
+                raise GateError(404, "intake_entry_not_found", "Vstup v tomto pracovním prostoru neexistuje.",
+                                "ID vstupu (ie_…) je ve snímku v sekci VSTUPY nebo v řádku vstupu dávky.")
+            store.set_verdict(entry_id, verdict=verdict, layer="heart", reason=reason.strip() or f"srdce: {verdict}")
+            entry = store.get(entry_id)
+    return {key: entry[key] for key in ("id", "verdict", "layer", "areaId", "reason")}
+
+
+def areas(service, project, workspace):
     """Oblasti plátna (`kind == "area"`) pracovního prostoru; nečitelný graf = žádné."""
     try:
         nodes = service.view(project, workspace)["graph"]["nodes"]
@@ -141,9 +167,9 @@ def overview(service, project, workspace, limit=LIST):
     """`GET /api/intake`: oblasti, posledních `limit` vstupů a počty `pending` / `duplicates`. Jen čtení;
     neznámý projekt nebo prostor 404, chybějící prostor 422."""
     _check_scope(service, project, workspace)
-    areas = _areas(service, project, workspace)
+    found = areas(service, project, workspace)
     with service.reading(project):
         store = IntakeEntries(service.db_for(project))
         entries, counts = store.recent(workspace, limit), store.counts(workspace)
-    return {"areas": areas, "entries": entries, "pending": counts.get("pending", 0),
+    return {"areas": found, "entries": entries, "pending": counts.get("pending", 0),
             "duplicates": counts.get("duplicate", 0)}

@@ -9,6 +9,7 @@
     python opora_heart.py answer --ticket ID --text T
     python opora_heart.py cancel --task ID
     python opora_heart.py escalate --text T
+    python opora_heart.py intake --entry ie_… --verdict V [--reason R]
     python opora_heart.py decide --text T [--node N] [--pin] [--workspace W]
     python opora_heart.py prune --node ID [--node ID]… [--dry-run] [--no-accept] [--workspace W]
     python opora_heart.py rule --text T
@@ -61,6 +62,8 @@ ACTIVE = "active_workspace.json"  # prostor posledního přijatého plánu (kopi
 _OPENER = build_opener(ProxyHandler({}))  # loopback bez systémové proxy
 DILNA = Path("dilna")
 CONTEXTS = ("tasks", "tickets", "journal", "messages", "rules", "decisions", "tree", "plan-of")
+# Stanoviska vstupní brány, která srdce smí dát (kopie determinism.intake.VERDICTS, nástroj je jen stdlib).
+VERDICTS = ("done", "extends_in_progress", "fix_for_milestone", "changes_intent", "later_extension", "needs_info")
 LAYERS = ("fe", "be", "db", "api", "cache", "infra", "security", "data", "ops")  # vrstvy výzkumu (§3d)
 SCRIPT = re.compile(r"[A-Za-z0-9_-]+\Z")
 RUN_TIMEOUT, STDOUT_LIMIT, STDERR_LIMIT = 120, 8000, 2000
@@ -701,6 +704,9 @@ def run(args):
         return {key: task[key] for key in ("taskId", "status")}
     if args.command == "escalate":
         return call("POST", "/api/brain/heart/escalate", {**scope(), "text": args.text})
+    if args.command == "intake":
+        body = {**scope(), "entry": args.entry, "verdict": args.verdict} | ({"reason": args.reason} if args.reason else {})
+        return call("POST", "/api/brain/heart/intake", body)
     if args.command in ("decide", "rule"):
         path, payload = (("/api/desktop-v3/decision", decision_payload(args)) if args.command == "decide"
                          else ("/api/desktop-v3/rule", rule_payload(args)))
@@ -752,6 +758,10 @@ def parser():
     answer.add_argument("--text", required=True)
     commands.add_parser("cancel").add_argument("--task", required=True)
     commands.add_parser("escalate").add_argument("--text", required=True)
+    verdict = commands.add_parser("intake")  # stanovisko vstupu brány (docs/navrhy/2026-10-30-vstupni-brana.md §3)
+    verdict.add_argument("--entry", required=True)
+    verdict.add_argument("--verdict", required=True, choices=VERDICTS)
+    verdict.add_argument("--reason")
     decide = commands.add_parser("decide")
     decide.add_argument("--text", required=True)
     decide.add_argument("--node")

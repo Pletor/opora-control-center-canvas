@@ -5,6 +5,8 @@ Logika je v `backend/brain_opora/determinism/gate_setting.py` a `task_queue.py`;
 přepínač mění jen člověk v UI (`require_human`, i při plné autonomii agentů). Úkoly píše a ruší člověk nebo
 srdce téhož projektu (docs/brain-heart.md §5, `writer.py`); agent s plnou autonomií bez tokenu srdce ne.
 Zeď projektu se zapnutou bránou člověka i srdce pouští, zápis úkolu tedy funguje i tam.
+`/intake-setting` = povolení a denní strop Jevu vstupní brány (`intake_setting.py`, docs/navrhy/2026-10-30-vstupni-brana.md
+§7): čte kdokoli, mění jen člověk (`require_human`).
 """
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -12,7 +14,7 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.api.brain_opora import models
 from backend.api.brain_opora.writer import writer
-from backend.brain_opora.determinism import gate_setting, task_queue
+from backend.brain_opora.determinism import gate_setting, intake_setting, task_queue
 from backend.brain_opora.determinism.gate_payloads import GateError, parse_body
 from backend.canvas.activity_log import require_human
 
@@ -42,6 +44,23 @@ def create_brain_router(service):
             return gate_setting.write(service, parse_body(await request.body()))
         except GateError as error:
             return JSONResponse(error.body(), status_code=error.status)
+
+    @router.get("/intake-setting", responses=models.answers(200, models.IntakeSettingOut, 404, 422))
+    def read_intake_setting(project: str = ""):
+        try:
+            return intake_setting.get(service, project)
+        except GateError as error:
+            return _refused(error)
+
+    @router.post("/intake-setting", openapi_extra=models.body(models.IntakeSettingIn),
+                 responses=models.answers(200, models.IntakeSettingOut, 403, 404, 409, 422))
+    async def save_intake_setting(request: Request):
+        # Jev posílá větu člověka mimo stroj: povolení a strop mění jen člověk (docs/navrhy/2026-10-30-vstupni-brana.md §7).
+        require_human(request.state.actor, "Jev vstupní brány zapíná a jeho strop mění jen člověk v UI.")
+        try:
+            return intake_setting.write(service, parse_body(await request.body()))
+        except GateError as error:
+            return _refused(error)
 
     @router.get("/tasks", responses=models.answers(200, models.TasksOut, 404, 422))
     def list_tasks(project: str = "", workspace: str = "", status: str = ""):

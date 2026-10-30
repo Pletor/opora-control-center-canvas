@@ -88,7 +88,12 @@ Modules (intake gate, slice 1, contract `docs/navrhy/2026-10-30-vstupni-brana.md
   workspace = verdict `duplicate` (requirement, area and milestone copied from the earlier entry), else `pending`
   (layer `determinism`). Candidates are the 3 nearest earlier entries by FTS5 bm25; they are not stored and only go
   into the heart's input line. `safe_record` runs under a savepoint and never breaks the original flow.
-  `overview` backs `GET /api/intake`. `snapshot.py` shows the last 8 `pending` / `duplicate` entries as `VSTUPY`
-  (omitted when empty).
+  `overview` backs `GET /api/intake`. `snapshot.py` shows the last 8 entries the heart has not confirmed yet (layer
+  `determinism` or `jev`) as `VSTUPY` with the verdict, JEV confidence and area (omitted when empty).
+  `confirm` (slice 2) is the heart's verdict (`POST /api/brain/heart/intake`, `opora_heart.py intake`): one of the six
+  verdicts of §3, layer `heart`, only for an entry of the token's workspace; the sentence itself never changes.
+- `intake_setting.py` (slice 2, §7): `settings.brain.intake = {jev, jevPerDay}` in `project.json` next to the gate
+  switch. Missing or corrupt = JEV off, 200 calls a day. Only a human changes it (`POST /api/brain/intake-setting`);
+  `gate_setting.write` keeps it when the gate is flipped.
 
 Rule: nothing here calls a model, and nothing imports `decision` or `heart`.

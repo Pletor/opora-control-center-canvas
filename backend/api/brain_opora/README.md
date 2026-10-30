@@ -13,6 +13,9 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
 - `brain_routes.py`: the gate switch. `GET /api/brain/gate-setting?project=` is readable by anyone,
   `POST /api/brain/gate-setting {project, enabled}` is human only (`require_human`, even with full agent autonomy).
   Contract: `docs/brain-gate.md` §1. The wall itself lives in `backend/brain_opora/determinism/wall.py`.
+  `GET /api/brain/intake-setting?project=` (anyone) and `POST /api/brain/intake-setting {project, jev, jevPerDay?}`
+  (human only) hold the JEV permission and daily cap of the intake gate (`determinism/intake_setting.py`,
+  `docs/navrhy/2026-10-30-vstupni-brana.md` §7).
 - `brain_routes.py` also carries the task queue (`docs/brain-gate.md` §6, H1b): `GET /api/brain/tasks?project&workspace&status?`
   is readable by anyone; `POST /api/brain/tasks {project, workspace, nodeId?, title, body}` and
   `POST /api/brain/tasks/{id}/cancel?project=` accept a human or the heart of the same project (`writer.py`); the
@@ -25,7 +28,9 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
   `docs/brain-heart-orchestrator.md` §8; gate on, else 409 `gate_off`) queues a wake and answers `{queued: true, pending}`;
   `GET /api/brain/heart/status?project=` returns the session, the last 5 batches, sleeping and `nextAllowedAt`;
   `GET /api/brain/heart/snapshot?project&workspace` returns `{snapshot}`; `POST /api/brain/heart/escalate
-  {project, workspace, text}` (heart token only) creates an `ask` ticket for the human.
+  {project, workspace, text}` (heart token only) creates an `ask` ticket for the human; `POST /api/brain/heart/intake
+  {project, workspace, entry, verdict, reason?}` (heart token of that workspace only, else 401 / 403) confirms or
+  corrects an intake verdict (`intake.confirm`, layer `heart`; unknown entry 404 `intake_entry_not_found`).
 - Human channel to the heart (H2b1, `docs/brain-heart-channel.md` §2): `GET /api/brain/heart/escalations?project&workspace`
   (human only, loopback) lists the heart's open questions for the human (`ask` tickets with `for: "human"` from a
   heart session), newest first: `{escalations: [{ticketId, text, createdAt, taskId?}]}`. When a human answers such a
