@@ -66,6 +66,7 @@ Modul `backend/brain_opora/determinism/triggers.py` se vyhodnocuje v dávce srdc
 | `card.over_budget` | `costUsd` > 2× medián pro daný štítek | probudit srdce |
 | `milestone.done` | všechna kritéria splněná | probudit srdce: odložené požadavky s podmínkou „po milníku X“ jsou k otevření |
 | `milestone.progress` | % milníku = průměr % jeho karet | jen zobrazení, nebudí |
+| `graph.human_change` | člověk přijal návrh plánu (`changeset.accepted` s autorem `human`) | probudit srdce jednou na revizi: přečíst změnu a navázat |
 
 Každý spouštěč srdce probudí jen jednou na stav (klíč `trigger:karta:stav`), takže nevzniká záplava. Mediány se počítají z hotových karet projektu. Bez historie (méně než 5 karet) se `stalled` a `over_budget` nevyhodnocují.
 
@@ -106,6 +107,24 @@ Každý spouštěč srdce probudí jen jednou na stav (klíč `trigger:karta:sta
 - **`evidence`:** `thin`, když karta má nejvýš 1 krok a 0 souborů, jinak `ok` (v `gauge` i v `run`). Při `thin` se štítek nevydává: `label: "?"`, `recommended: null`, `mismatch` se nepočítá. Běh se vezme z `card.effort`/`card.model` (`source: card`), jinak bezpečný výchozí `medium` · sonnet+opus (`source: default`, `reason: "málo podkladů – doplň kroky a soubory"`). Snímek srdce ukáže `[? – doplň kroky a soubory]`.
 - **Riziko z textu:** bez souborů hledá `risk_of` v názvu, `purpose` a `acceptance` kroků signály citlivých cest. Pravidla review kódu mají jen globy, proto se klíčová slova globů (`migrations`, `schema`, `auth`, `secret`) převádějí na slova textu (migrace, schéma, RLS, auth, oprávnění, secret) a signál platí jen, když jeho slovo v pravidlech je. Shoda dá nejvýš `elevated` s `reasons: ["text: migrace"]`; `critical` dávají jen skutečné soubory.
 - **Prompt srdce:** realizační karta má 2–8 kroků, každý s `kind` a `files`.
+
+### Řez 3 – odchylky
+
+- **Ruční úprava plátna nemá událost.** Uložení grafu (`save_graph`) do outboxu nic nepíše, proto `graph.human_change`
+  budí jen přijetí návrhu (`changeset.accepted`). Událost má napevno `actor: human`, i když přijímá srdce, takže
+  spouštěč čte autora revize (`by.kind`) a přijetí srdcem nebudí. Platí pro přijetí grafu, zadání i obsahu.
+  „Revize N“ je pořadí revize v prostoru.
+- **Klíče jednou na stav:** `trigger:card:<nodeId>:too_big:XL<body>@<prostor>` (ID karet se mezi prostory mohou
+  opakovat), `…:retry:<ID posledního selhaného běhu>` (každé nové selhání budí znovu), `…:stalled:<ID běhu>`,
+  `…:over_budget:<ID běhu>`, `trigger:graph:<revize>:human_change`.
+- **Kdy se vyhodnocuje:** supervisor při prvním čtení projektu, po událostech `changeset.accepted`, `lease.claimed`,
+  `lease.expired`, `result.reported`, `stage.changed`, `card.reopened` nejvýš jednou za minutu a bez událostí jednou
+  za 10 min (zaseknutý běh žádnou událost nepošle). Vyhodnocují se jen prostory s přijatým plánem (nejvýš 5) a v nich
+  prvních 40 karet `ProcessSync`. Při projekci událostí se nevyhodnocuje.
+- **Doba běhu hotové karty** = claim → poslední hlášení výsledku (`opora_execution_results.createdAt`), z historie
+  100 nejnovějších běhů prostoru. `stalled` vyžaduje, aby za posledních 3× medián nepřišla žádná událost `step.*`.
+- **`card.retry`** běží i u karty `blocked` nebo `needs-steps`; u XL (bez úsilí) doporučí rozdělení.
+- **`card.over_budget`** se nevyhodnocuje, dokud `costUsd` chybí; Velín zatím spouštěče neukazuje (řez 4).
 
 ## 8. Ověření
 

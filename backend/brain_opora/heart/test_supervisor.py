@@ -321,3 +321,50 @@ def test_reached_milestone_wakes_the_heart_once_after_card_closed_without_a_new_
     assert "- milník ms_1 „Hledání“ splněn – odložené požadavky k otevření: rq_1" in runner.calls[-1]  # snímek
     assert "POŽADAVKY:\n- rq_1 · deferred (po ms_1) · oblast a1 · Hybridní" in runner.calls[-1]
     assert IntakeRequirements(db).get("rq_1")["status"] == "deferred"
+
+
+def test_human_acceptance_of_a_plan_wakes_the_heart_once_per_revision(setup):
+    """Spouštěč `graph.human_change` (řez 3): `changeset.accepted`, jehož revizi přijal člověk, budí srdce jednou;
+    přijetí srdcem (autor `agent`) nebudí."""
+    from backend.canvas.opora_events import emit_event
+
+    service, heart, clock, runner, _ = setup
+    db = service.db_for("draft")
+    heart.poll_events(clock.now)  # první čtení
+    with db:
+        for identifier, kind in (("r1", "agent"), ("r2", "human")):
+            record = {"id": identifier, "by": {"kind": kind, "name": "x"}, "createdAt": "2026-10-30T1" + identifier[1]}
+            db.execute("INSERT INTO opora_spec_revisions VALUES('draft','draft',?,NULL,?,?,?)",
+                       (identifier, "p" + identifier, record["createdAt"], json.dumps(record)))
+            emit_event(db, project_id="draft", workspace_id="draft", kind="changeset.accepted", actor="human",
+                       data={"proposalId": "p" + identifier, "acceptedHead": identifier})
+    heart.poll_events(clock.now)
+    [(workspace, item, due)] = heart.pending["draft"]
+    assert (workspace, due, item["type"], item["revision"]) == ("draft", clock.now + supervisor.WINDOW, "humanChange", 2)
+    heart.cursors.clear()  # restart: událost už outbox nepřinese a značka drží
+    heart.poll_events(clock.now)
+    assert len(heart.pending["draft"]) == 1
+    clock.now += supervisor.WINDOW
+    assert heart.run_once() == ["draft"]
+    assert "- SPOUŠTĚČ graph.human_change: člověk změnil plán (revize 2)" in runner.calls[-1]
+
+
+def test_card_triggers_run_on_first_read_after_events_at_most_once_a_minute_and_every_ten_minutes(setup, monkeypatch):
+    service, heart, clock, runner, _ = setup
+    calls = []
+
+    def wakes(service, project, workspaces, at, now):
+        calls.append(workspaces)
+        return [("w1", {"type": "cardTrigger", "kind": "card.retry", "nodeId": "n1", "title": "T", "detail": "d"})]
+
+    monkeypatch.setattr(supervisor, "card_wakes", wakes)
+    heart.poll_events(clock.now)
+    assert calls == [None]  # první čtení: všechny prostory s přijatým plánem
+    assert heart.pending["draft"][0][1]["type"] == "cardTrigger"
+    heart._cards("draft", {"w1"}, clock.now + 30)  # událost do minuty počká
+    assert calls == [None]
+    heart._cards("draft", set(), clock.now + supervisor.CARD_GAP)
+    assert calls == [None, {"w1"}]
+    heart._cards("draft", set(), clock.now + supervisor.CARD_GAP + 1)  # bez události nic
+    heart._cards("draft", set(), clock.now + supervisor.CARD_GAP + supervisor.CARD_POLL)
+    assert calls == [None, {"w1"}, None]

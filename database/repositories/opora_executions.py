@@ -51,6 +51,13 @@ class Executions:
                                + condition + " ORDER BY rowid DESC LIMIT 100", parameters).fetchall()
         return [json.loads(row[1]) | {"owner": row[0]} for row in rows]
 
+    def reported_at(self):
+        """`{executionId: createdAt}` posledního hlášení výsledku každého běhu prostoru (jeden seskupený SELECT);
+        doba běhu hotové karty pro spouštěč `card.stalled`."""
+        rows = self.db.execute("SELECT execution_id, MAX(json_extract(record, '$.createdAt')) FROM opora_execution_results"
+                               " WHERE project_id=? AND workspace_id=? GROUP BY execution_id", self.scope).fetchall()
+        return {row[0]: row[1] for row in rows if row[1]}
+
     def receipts(self, identifier):
         self.read(identifier)
         rows = self.db.execute("SELECT record FROM opora_execution_results WHERE project_id=? AND workspace_id=?"

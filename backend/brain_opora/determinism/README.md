@@ -114,6 +114,17 @@ Modules (milestones and requirements, slice 3, contract `docs/navrhy/2026-10-30-
   `trigger:milestone:<id>:done`); requirement status is left to the heart. `plan` backs the per-area part of
   `GET /api/intake`. `snapshot.py` shows met milestones as `MILNÍKY` and the last 8 open / deferred requirements as
   `POŽADAVKY` (both omitted when empty).
+- `triggers.py` (slice 4 of the contract, card triggers §4): a fixed table of pure functions over the card gauge and the
+  history of done cards. `card.too_big` = label XL on a `ready` card (label `?` of thin evidence never fires);
+  `card.retry` = `failures` ≥ 2, recommends `effort` one step higher (XL: split); `card.stalled` = a running run older
+  than 3× the median run time of done cards with the same label and no `step.*` event in that time; `card.over_budget`
+  = `costUsd` > 2× the median, prepared but idle while the price is null. Medians need ≥ 5 done cards
+  (`done.confirmed`) with the label; run time = claim → last result receipt. `facts` reads one workspace once
+  (`ProcessSync` up to 40 cards, accepted context, execution history, receipts, last step events, confirmed cards);
+  `wakes` marks `heart_triggers` once per state, key `trigger:card:<nodeId>:<kind>:<state>` (too_big
+  `XL<points>@<workspace>`, retry = id of the last failed run, stalled / over_budget = run id) and returns
+  `cardTrigger` inputs. `human_change` = `graph.human_change`: a `changeset.accepted` whose revision was accepted by
+  a human (`by.kind == human`, not the heart), once per revision (`trigger:graph:<revision>:human_change`).
 - `requirements.py`: `intake.confirm` with `requirement`: `new` (needs `title`) creates a requirement in the entry's
   area: `later_extension` = `deferred` with `openCondition` (given, else the area's active milestone, else 422),
   otherwise `open` in the active milestone; `rq_…` only links the entry (several entries, one requirement).

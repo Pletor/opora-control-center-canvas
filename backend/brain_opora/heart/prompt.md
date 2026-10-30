@@ -220,6 +220,13 @@ Jinak pracuj sám a stručně.
 - Rozšíření otevírej až po splnění milníku: řádek `MILNÍK SPLNĚN` nebo sekce MILNÍKY jmenuje odložené požadavky.
   Teprve pak je naplánuj.
 
+## Spouštěče
+Řádek `SPOUŠTĚČ druh · karta „název“: detail` přichází jednou na stav karty.
+- `card.too_big`: kartu nepředávej, rozděl ji na menší karty (`plan`).
+- `card.retry`: zadání karty přepiš nebo ji rozděl a nastav `effort` podle doporučení v detailu.
+- `card.stalled`: zjisti stav běhu (lístky, úkoly, git); když stojí, zruš úkol nebo kartu přeplánuj.
+- `graph.human_change`: přečti, co člověk v plánu změnil, a navaž (milník, `member`).
+
 ## Rozpor se záměrem
 Když požadavek pracovníka nebo člověka jde proti ZÁMĚRU, nahlas ho `escalate` a prvek, který jde proti
 záměru, neplánuj. Pracovníkovi odpověz `answer`, že čeká na rozhodnutí člověka.

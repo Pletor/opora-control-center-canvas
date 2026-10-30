@@ -81,6 +81,10 @@ def _input_line(item):
         deferred = ", ".join(f"{rq.get('id')} „{rq.get('title')}“" for rq in item.get("deferred") or []) or "žádné"
         return (f"- MILNÍK SPLNĚN {item.get('milestoneId')} „{item.get('title')}“ (oblast {item.get('areaId')}):"
                 f" odložené požadavky k otevření: {deferred}")
+    if kind == "cardTrigger":  # spouštěč karty (determinism/triggers.py)
+        return f"- SPOUŠTĚČ {item.get('kind')} · {item.get('nodeId')} „{item.get('title')}“: {item.get('detail')}"
+    if kind == "humanChange":
+        return f"- SPOUŠTĚČ {item.get('kind')}: člověk změnil plán (revize {item.get('revision')})"
     return "- " + json.dumps(item, ensure_ascii=False, sort_keys=True)
 
 
