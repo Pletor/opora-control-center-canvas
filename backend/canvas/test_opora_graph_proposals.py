@@ -81,7 +81,7 @@ def test_failure_after_graph_and_documents_rolls_back_everything(graphs, service
     assert db.execute("SELECT COUNT(*) FROM node_spec_revisions WHERE node_id=?", (item["refs"]["new"],)).fetchone()[0] == 0
 
 
-@pytest.mark.parametrize("field", ["site", "gateNodeId", "checks", "rules", "blocks", "text", "criteria", "agentRole"])
+@pytest.mark.parametrize("field", ["site", "gateNodeId", "rules", "blocks", "text", "criteria", "agentRole"])
 def test_forbidden_addition_fields_are_rejected_before_build(graphs, field):
     with pytest.raises(ValueError, match="Unsupported"):
         proposal(graphs, plan={"nodes": [{"ref": "x", "kind": "node", "name": "X", field: "value"}]})

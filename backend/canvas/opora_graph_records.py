@@ -5,6 +5,7 @@ import json
 from backend.canvas.architecture_graph import split
 from backend.canvas.graph import digest, valid_id, validate_graph
 from backend.canvas.opora_change_validation import identifier, scope
+from backend.canvas.opora_graph_build import PERSISTED_NODE_KEYS
 from backend.editor.node.node_specs import validate_payload
 
 
@@ -51,7 +52,7 @@ def validate_record(record, *, manifest=False):
     validate_graph(graph)
     for node in record["additions"]["nodes"]:
         if (node["kind"] not in ("node", "sector", "area")
-                or not set(node) <= {"id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf"}):
+                or not set(node) <= PERSISTED_NODE_KEYS):
             raise ValueError("Unsupported persisted graph addition.")
     for edge in record["additions"]["edges"]:
         if not set(edge) <= {"id", "source", "target", "port", "carries"} or edge.get("port", "next") != "next":

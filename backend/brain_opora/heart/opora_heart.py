@@ -363,44 +363,43 @@ def adopt_everywhere(warnings):
 
 
 # Přírůstek nad přijatým grafem (O2c): stejná cesta jako formulář „Rozšíření plánu“ v UI (frontend/hub/graph-proposals).
-# Návrh grafu umí jen tato pole uzlu a jen vazby `next`; `card` a `checks` z dávky se do přírůstku nepřenesou.
-ADDITION_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf"}
-ADDITION_DROPPED = ("card", "checks")
+# Návrh grafu nese tatáž pole karty jako první plán (`card` s effortem, `checks`, `goal_mode`, spec.steps), jen vazby `next`.
+ADDITION_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf",
+                 "card", "checks", "goal_mode"}
 ADDITION_EDGE_KEYS = {"from", "to", "port", "carries"}
 ADDITION_SHAPE = ("Plán nad už přijatým grafem jde jako návrh grafu: uzel jen s poli ref, kind (node|sector|area), "
-                  "name, parent, purpose, spec, sourceRef, position, size, memberOf; vazby jen next (from, to); "
-                  "nic dalšího (text, bloky, pravidla, rozhodnutí). Existující uzel odkazuj \"@<id>\".")
+                  "name, parent, purpose, spec (i steps), card (i effort), checks, goal_mode, sourceRef, position, size, "
+                  "memberOf; vazby jen next (from, to); nic dalšího (text, bloky, pravidla, rozhodnutí). "
+                  "Existující uzel odkazuj \"@<id>\".")
 
 
 def addition_plan(plan):
-    """Dávka → plán návrhu grafu. Vrací (plán, vynechaná pole); jiná pole odmítne česky, než je odmítne server."""
+    """Dávka → plán návrhu grafu; jiná pole odmítne česky, než je odmítne server."""
     if not set(plan) <= {"nodes", "edges"}:
         raise Failure({"error": f"Přírůstek plánu neumí {', '.join(sorted(set(plan) - {'nodes', 'edges'}))}.",
                        "code": "plan_shape", "hint": ADDITION_SHAPE})
-    nodes, dropped = [], set()
+    nodes = []
     for index, node in enumerate(plan.get("nodes") or []):
         if not isinstance(node, dict):
             raise Failure({"error": f"nodes[{index}] není objekt.", "code": "plan_shape", "hint": ADDITION_SHAPE})
-        extra = set(node) - ADDITION_KEYS - set(ADDITION_DROPPED)
+        extra = set(node) - ADDITION_KEYS
         if extra or node.get("kind") not in ("node", "sector", "area"):
             what = f"neznámé pole {', '.join(sorted(extra))}" if extra else f"druh {node.get('kind')!r}"
             raise Failure({"error": f"nodes[{index}]: {what}.", "code": "plan_shape", "hint": ADDITION_SHAPE})
-        dropped |= set(node) & set(ADDITION_DROPPED)
-        nodes.append({key: value for key, value in node.items() if key in ADDITION_KEYS})
+        nodes.append(node)
     edges = []
     for index, edge in enumerate(plan.get("edges") or []):
         if not isinstance(edge, dict) or not set(edge) <= ADDITION_EDGE_KEYS or edge.get("port", "next") != "next":
             raise Failure({"error": f"edges[{index}]: jen vazba next (from, to).", "code": "plan_shape",
                            "hint": ADDITION_SHAPE})
         edges.append(edge)
-    return {"nodes": nodes, "edges": edges}, sorted(dropped)
+    return {"nodes": nodes, "edges": edges}
 
 
 def submit_addition(args, plan, context):
     """Plán nad přijatým grafem: `POST /api/oporahub/graph-proposals` s přírůstkem, pak jeho přijetí tokenem srdce.
     Karty vzniknou na plátně až přijetím, takže pracovní a přijatý graf se nerozejdou a claimy ostatních karet platí."""
-    addition, dropped = addition_plan(plan)
-    warnings = [f"Pole {', '.join(dropped)} se do přírůstku nad přijatým grafem nepřenáší."] if dropped else []
+    addition, warnings = addition_plan(plan), []
     adopted = []
     if not args.dry_run and not args.no_accept and stale_architecture(context):
         context, adopted = adopt_architecture(context), ["adopt_architecture", "accept"]

@@ -12,6 +12,7 @@ from backend.app.factory import create_app
 from backend.brain_opora.determinism import tokens
 from backend.brain_opora.heart import command, opora_heart
 from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, SCOPE, seed
+from backend.editor.agent_packet.specification_context import capture_specification
 
 
 def prompt_example():
@@ -117,7 +118,7 @@ def test_second_plan_over_the_accepted_graph_is_accepted_and_keeps_earlier_claim
     refs = first["refs"]
     step = [{"id": "s1", "order": 1, "title": "Export a test", "dependsOn": [], "acceptance": ["test exportu projde"]}]
     more = {"nodes": [{"ref": "export", "kind": "node", "parent": "@" + refs["mvp"], "name": "[task] Export do CSV",
-                       "purpose": "Úkoly do souboru.", "card": {"layer": "backend", "status": "ready"},
+                       "purpose": "Úkoly do souboru.", "card": {"layer": "backend", "status": "ready", "effort": "high"},
                        "spec": {"goal": "python ukoly.py export zapíše CSV.", "non_goals": "",
                                 "acceptance": "python -m unittest projde", "steps": step},
                        "checks": [{"id": "unit", "command": "python -m unittest"}]}],
@@ -126,7 +127,7 @@ def test_second_plan_over_the_accepted_graph_is_accepted_and_keeps_earlier_claim
     assert dry["ok"] is True and dry["dryRun"] is True and "accepted" not in dry
     done = plan(tmp_path, more)
     assert done["ok"] is True and done["accepted"] is True, done
-    assert done["acceptSteps"] == ["graph_addition", "accept"] and done["warnings"]
+    assert done["acceptSteps"] == ["graph_addition", "accept"] and done["warnings"] == []
     state, ready = claims(call)
     assert state["heads"]["workingDiffers"] is False
     export = done["refs"]["export"]
@@ -136,10 +137,32 @@ def test_second_plan_over_the_accepted_graph_is_accepted_and_keeps_earlier_claim
     view = call("GET", "/api/view", query=SCOPE)["graph"]
     node = next(item for item in view["nodes"] if item["id"] == export)
     assert node["parentId"] == refs["mvp"]
+    # Karta pozdějšího plánu nese card (i effort) a checks jako první plán a dojdou do zadání dělníka.
+    assert node["card"] == more["nodes"][0]["card"] and node["checks"] == more["nodes"][0]["checks"]
+    client = heart[0]
+    assigned = next(item for item in capture_specification(client.app.state.service, "draft", "draft", export)
+                    ["specification"]["graph"]["nodes"] if item["id"] == export)
+    assert assigned["effort"] == "high" and assigned["checks"] == more["nodes"][0]["checks"]
     assert {(edge["source"], edge["target"]) for edge in view["edges"]} >= {(export, refs["cli"])}
     history = call("GET", "/api/oporahub/graph-proposals", query=SCOPE)["items"]
     assert [item["accepted"] for item in history] == [True, True]
     assert all(item["by"] == {"kind": "agent", "name": "heart"} for item in history)
+
+
+def test_later_plan_with_unknown_card_effort_is_rejected_like_the_first_plan(heart):
+    _, _, tmp_path = heart
+    bad = json.loads(json.dumps(opora_heart.PLAN_EXAMPLE))
+    bad["nodes"][1]["card"]["effort"] = "extreme"
+    first = plan(tmp_path, bad, "--dry-run")
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    later = {"nodes": [{**bad["nodes"][1], "ref": "bad", "parent": "@" + refs["mvp"]}], "edges": []}
+    done = plan(tmp_path, later)
+    assert done["status"] in (409, 422) and "Neplatná karta uzlu." in done["error"] and "Neplatná karta uzlu." in first["error"]
+    assert len(call_history(heart)) == 1  # nic nového nevzniklo
+
+
+def call_history(heart):
+    return heart[1]("GET", "/api/oporahub/graph-proposals", query=SCOPE)["items"]
 
 
 def test_no_accept_leaves_the_plan_for_the_human(heart):

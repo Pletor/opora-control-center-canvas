@@ -71,7 +71,8 @@ mechanická změna jednoho souboru (přejmenování, konstanta, doc); `medium` =
 rozdělit na menší karty. Podle toho kancelář vybere model a úsilí dělníka.
 Odmítnutá dávka vrátí v `hint` text serveru: oprav jen to pole. Ostrý `plan` plán sám přijme (`accepted: true`, karty
 jdou orchestrátorovi); `accepted: false` s `hint` znamená, že přijetí zůstalo na člověku: neopakuj dávku.
-Další plán nad už přijatým grafem jde jako návrh grafu: jen pole ze vzoru (bez `card` a `checks`), vazby jen
+Další plán nad už přijatým grafem jde jako návrh grafu: pole ze vzoru včetně `card` (i `card.effort`),
+`checks` a `spec.steps` stejně jako první plán, vazby jen
 `next`, existující kartu odkazuj `"@<id>"` z PLÁNU snímku.
 Karty řetěz vazbou `next` jen tam, kde karta opravdu potřebuje výsledek předchůdce; špatnou závislost odeber `unlink`.
 

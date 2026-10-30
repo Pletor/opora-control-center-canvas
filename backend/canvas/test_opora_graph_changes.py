@@ -112,3 +112,38 @@ def test_mixed_addition_and_edit_preserve_stable_ids_and_default_specs(edits, se
     result = approve(edits, rebased)
     spec = next(doc for doc in result["documents"] if doc["nodeId"] == item["refs"]["fresh"])
     assert spec["revision"] == 1 and spec["fields"] == {"goal": "", "non_goals": "", "acceptance": ""}
+
+
+def test_added_card_carries_card_effort_and_checks_to_the_assignment(edits, service):
+    """Pozdější plán (návrh změn grafu) nese pole karty jako dávka plánu: card s effortem, checks, goal_mode."""
+    from backend.canvas.opora_proposal_risk import classify_risk
+    from backend.editor.agent_packet.specification_context import capture_specification
+    card = {"layer": "backend", "status": "ready", "effort": "high"}
+    checks = [{"id": "unit", "command": "python -m unittest"}]
+    item = change(edits, {"updateNodes": [{"id": "a", "fields": {"name": "Reviewed"}}],
+                         "nodes": [{"ref": "task", "kind": "node", "name": "[task] Export", "card": card,
+                                    "checks": checks, "goal_mode": "until_checks_pass"}]})
+    record = edits.repository("draft", "draft").read(item["id"])
+    assert classify_risk("graph-change", record)["level"] == "elevated"
+    approve(edits, item)
+    node_id = item["refs"]["task"]
+    node = next(node for node in service.view("draft", "draft")["graph"]["nodes"] if node["id"] == node_id)
+    assert node["card"] == card and node["checks"] == checks and node["goal_mode"] == "until_checks_pass"
+    spec = capture_specification(service, "draft", "draft", node_id)["specification"]
+    assigned = next(node for node in spec["graph"]["nodes"] if node["id"] == node_id)
+    assert assigned["effort"] == "high" and assigned["checks"] == checks
+
+
+@pytest.mark.parametrize(("extra", "message"), [
+    ({"card": {"effort": "extreme"}}, "Neplatná karta uzlu."),
+    ({"checks": [{"id": "unit"}]}, "Kontrola vyžaduje id a command."),
+])
+def test_added_card_with_invalid_card_fields_is_rejected_like_canvas_plan(edits, service, extra, message):
+    from backend.canvas.canvas_plan_build import build
+    from backend.canvas.graph import validate_graph
+    node = {"ref": "task", "kind": "node", "name": "Task", **extra}
+    with pytest.raises(ValueError) as canvas_plan:
+        validate_graph(build({"nodes": [node]}, service.view("draft", "draft")["graph"], {"nodes": {}}).new_graph())
+    with pytest.raises(ValueError) as proposal:
+        change(edits, {"updateNodes": [{"id": "a", "fields": {"name": "Reviewed"}}], "nodes": [node]})
+    assert str(proposal.value) == str(canvas_plan.value) == message
