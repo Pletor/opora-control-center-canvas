@@ -72,3 +72,23 @@ describe("api conditional GET", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("api human session", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("renews the UI session after a restart and repeats a human-only read once", async () => {
+    const calls: string[] = [];
+    const replies = [
+      new Response('{"error":"Otázky srdce čte jen člověk v UI.","humanRequired":true}', { status: 428 }),
+      new Response('{"escalations":[]}', { status: 200 }),
+    ];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      calls.push(url);
+      if (url === "/api/access/ui-session") return new Response("{}", { status: 200 });
+      return replies.shift()!;
+    }));
+    const url = "/api/brain/heart/escalations?project=p1&workspace=w1";
+    expect(await api(url)).toEqual({ escalations: [] });
+    expect(calls).toEqual([url, "/api/access/ui-session", url]);
+  });
+});
