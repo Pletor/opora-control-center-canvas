@@ -1,0 +1,62 @@
+/* VÝSLECH SRDCE U POŽADAVKU (blok `brief-panel`)
+   Příběh: pod větou požadavku se otevře rozhovor se srdcem. Nahoře jedna věta, co srdce právě dělá; když čeká na
+   člověka, panel má zlatý okraj vlevo (stejná řeč jako návrh milníku, který čeká na ruku člověka). Jasno má okraj
+   zelený, práce srdce tichý šedý. Panel je odsazený a užší než karta oblasti, aby bylo vidět, ke kterému požadavku
+   patří, a nesoupeřil s milníkem o pozornost. */
+.brief-panel {
+  display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding: 8px 10px;
+  border-left: 3px solid var(--line-strong); border-radius: 0 6px 6px 0; background: var(--surface-2);
+  font-size: 13px; color: var(--ink);
+}
+.brief-panel--ask { border-left-color: var(--gold); background: var(--gold-soft); }
+.brief-panel--clear { border-left-color: var(--ok); }
+.brief-panel--empty { flex-direction: row; align-items: center; flex-wrap: wrap; padding: 0; border: 0; background: transparent; }
+.brief-panel__status { margin: 0; font-weight: 600; }
+.brief-panel__muted { margin: 0; color: var(--ink-muted); font-size: 12px; }
+.brief-panel__label { display: block; font: 600 11px var(--mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-muted); }
+
+/* Otázky: každá je samostatný lístek. Nejdřív otázka tučně, pod ní doporučení srdce (to, co člověk nejspíš jen
+   potvrdí) a šedě důvod, aby člověk věděl, proč se srdce ptá a co odpověď v plánu změní. */
+.brief-panel__questions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.brief-panel__question {
+  display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--gold-line);
+}
+.brief-panel__ask { margin: 0; font-weight: 600; }
+.brief-panel__recommended { margin: 0; }
+.brief-panel__why { margin: 0; color: var(--ink-2); font-size: 12px; }
+
+/* Odpověď: „Potvrdit doporučení“ je plné tlačítko, protože je to nejčastější cesta jedním klikem; „Odpovědět jinak“
+   rozbalí textové pole přes celou šířku lístku. Při odesílání tlačítka ztichnou, chyba je česká věta pod nimi. */
+.brief-panel__actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.brief-panel__button {
+  border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink);
+  padding: 4px 10px; font: 500 12px var(--font); cursor: pointer;
+}
+.brief-panel__button--primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.brief-panel__button:disabled { opacity: 0.5; cursor: default; }
+.brief-panel__form { display: flex; flex-direction: column; gap: 6px; }
+.brief-panel__input {
+  width: 100%; box-sizing: border-box; resize: vertical; padding: 6px 8px; border: 1px solid var(--line-strong);
+  border-radius: 6px; background: var(--surface); color: var(--ink); font: 13px var(--font);
+}
+.brief-panel__error { margin: 0; color: var(--danger); font-size: 12px; }
+
+/* Pochopení: rozbalovací část, otevřená sama, když srdce na nic nečeká. Cíl je první a větším písmem, protože vše
+   ostatní se k němu vztahuje. U každé části je malý štítek původu: „od vás“ tiše, „z rešerše“ v barvě akce
+   a „odvozeno“ zlatě, aby bylo na první pohled vidět, co srdce přidalo nad rámec zadání. */
+.brief-panel__synthesis, .brief-panel__answered { display: flex; flex-direction: column; gap: 6px; }
+.brief-panel__summary { cursor: pointer; font-weight: 600; color: var(--ink-2); }
+.brief-panel__goal { margin: 4px 0 0; font-size: 14px; }
+.brief-panel__users { margin: 0; color: var(--ink-2); }
+.brief-panel__section { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+.brief-panel__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.brief-panel__part, .brief-panel__criterion, .brief-panel__reply { display: flex; flex-direction: column; }
+.brief-panel__origin, .brief-panel__check { font-size: 11px; color: var(--ink-muted); overflow-wrap: anywhere; }
+.brief-panel__origin--research { color: var(--accent); }
+.brief-panel__origin--derived { color: var(--gold); }
+
+/* Hranice a co chybí: hranice začínají pomlčkou jako škrtnutý seznam „tohle ne“; chybějící věci jsou kroužky
+   checklistu, který se vyprázdní, až srdce dojde k jasnu. */
+.brief-panel__boundary::before { content: "– "; color: var(--ink-muted); }
+.brief-panel__missing::before { content: "○ "; color: var(--ink-muted); }

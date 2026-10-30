@@ -129,3 +129,45 @@ def test_heart_token_decides_a_milestone_only_when_project_autonomy_is_on(tmp_pa
         client.cookies.clear()
         done = client.post("/api/intake/milestone", headers=heart, json=decision)
         assert done.status_code == 200 and done.json()["status"] == "active", done.text
+
+
+def test_brief_answer_and_start_are_the_human_channel(tmp_path):
+    """Výslech, řez 3 (docs/navrhy/2026-10-30-vyslech-srdce.md §7): odpověď a „Vyslechni mě k tomu“ smí člověk v UI,
+    „Vyslechni mě“ agent jen s plnou autonomií, odpověď vždy jen člověk; `GET /api/intake` pak ukáže odpověď a syntézu."""
+    from backend.brain_opora.determinism import brief
+    from backend.brain_opora.determinism.test_brief import CLEAR, SESSION, add
+    from backend.canvas.test_canvas_plan import HEADERS, SCOPE, seed
+
+    agent = {**HEADERS, "X-Opora-Actor": "agent; name=dev"}
+    app = create_app(tmp_path)
+    with TestClient(app, base_url=ORIGIN) as client:
+        seed(client)
+        service = app.state.service
+        db = service.db_for("draft")
+        with db:
+            add(db, "rq_1", ["fix_for_milestone"], area=None)
+            add(db, "rq_2", ["needs_info"], area=None)
+        brief.save_synthesis(service, SESSION, "rq_1", CLEAR, "t1")
+        brief.ask(service, SESSION, "rq_1", "Stačí denní trend?", "Ano, denní.", "Hodinový je drahý.", "t2")
+        brief.ask(service, SESSION, "rq_1", "Kdo to čte?", "Člověk.", "Rozsah.", "t3")
+        answer = {**SCOPE, "requirement": "rq_1", "question": "q1", "accept": True}
+        start = {**SCOPE, "requirement": "rq_2"}
+        assert client.post("/api/intake/brief/answer", headers=agent, json=answer).status_code == 403
+        assert client.post("/api/intake/brief/start", headers=agent, json=start).status_code == 403
+        done = client.post("/api/intake/brief/answer", headers=HEADERS, json=answer)
+        assert done.status_code == 200 and done.json()["answer"] == "Ano, denní.", done.text
+        assert client.post("/api/intake/brief/answer", headers=HEADERS, json=answer).json()["code"] == (
+            "brief_question_answered")
+        made = client.post("/api/intake/brief/start", headers=HEADERS, json=start)
+        assert made.status_code == 201 and made.json() == {"requirement": "rq_2", "status": "draft"}, made.text
+        assert client.post("/api/intake/brief/start", headers=HEADERS, json=start).status_code == 409
+        shown = {item["id"]: item["brief"] for item in client.get("/api/intake", params=SCOPE).json()["unassigned"]}
+        assert shown["rq_1"]["synthesis"]["goal"] == CLEAR["goal"]
+        assert [item["answer"] for item in shown["rq_1"]["questions"]] == ["Ano, denní.", None]
+        assert shown["rq_2"]["status"] == "draft" and shown["rq_2"]["synthesis"] is None
+        assert client.post("/api/project-settings/agent-autonomy", headers=HEADERS,
+                           json={"project": "draft", "full": True}).status_code == 200
+        # Odpověď na výslech zůstává člověku i při plné autonomii; spustit výslech agent smí.
+        own = client.post("/api/intake/brief/answer", headers=agent,
+                          json={**start, "question": "q2", "requirement": "rq_1", "answer": "Celý tým."})
+        assert own.status_code == 403, own.text

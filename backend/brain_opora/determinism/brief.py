@@ -1,13 +1,18 @@
 """Výslech srdce, vrstva determinismu (docs/navrhy/2026-10-30-vyslech-srdce.md, řez 1), bez modelu.
 
 - `needs_brief` je tabulka §2: kdy se výslech spustí (nový požadavek `fix_for_milestone`, otevřené rozšíření
-  `later_extension`, `changes_intent` na dopady, karta `ready` s měřákem `evidence: thin` krátce). Řádek
-  „člověk klikne ve Velínu“ přijde v řezu 3.
+  `later_extension`, `changes_intent` na dopady, karta `ready` s měřákem `evidence: thin` krátce, člověk klikne
+  ve Velínu „Vyslechni mě k tomu“ = `asked`, řez 3).
 - `situation` složí spis požadavku (§3.1): vstupy doslova a podobné vstupy, ZÁMĚR, oblast, milník s kritérii,
   související karty se štítkem měřáku (`card_gauge`), pravidla a rozhodnutí. `collect_situation` fakta přečte.
 - `clarity` je kontrola kritérií jasna (§4); stav `clear` nastaví jen `save_synthesis`, když nic nechybí.
 - `save_synthesis` / `ask` jsou příkazy srdce `brief` a `ask` (§7): syntéza a nejvýš 3 otevřené otázky
-  s doporučenou odpovědí, nejvýš 3 kola. Odpovídá jen člověk (řez 3).
+  s doporučenou odpovědí, nejvýš 3 kola.
+- `answer` / `start` jsou kanál člověka z Velínu (řez 3, `POST /api/intake/brief/answer` a `/brief/start`, routa
+  pouští jen `require_authority`): odpověď nebo potvrzené doporučení se zapíše do `questions[].answer` /
+  `answered_at` (ne do `intake_entries`, §10.3); „Vyslechni mě k tomu“ založí spis `draft` se značkou `askedAt`.
+  `human_wakes` / `fire_human` z toho udělají vstup dávky jednou na odpověď (`trigger:brief:<rq>:answer:<q>`)
+  a jednou na žádost (`trigger:brief:<rq>:asked`).
 - `requirement_wakes` / `card_hit` jsou spouštěč výslechu: jednou na stav (`heart_triggers`, klíč
   `trigger:brief:<rq>:<důvod>` a `trigger:brief:card:<uzel>:thin@<prostor>`). Vypnutý výslech
   (`settings.brain.brief.enabled`, `brief_setting.py`, řez 2) nebudí nic.
@@ -20,6 +25,7 @@ import sqlite3
 from backend.brain_opora.determinism import brief_setting
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas import card_gauge
+from backend.canvas.graph import valid_id
 from database.repositories.heart_triggers import HeartTriggers
 from database.repositories.intake_briefs import IntakeBriefs
 from database.repositories.intake_entries import IntakeEntries
@@ -35,7 +41,9 @@ TEXT, QUESTION, WHY, SYNTHESIS = 300, 500, 300, 20000  # znaků textu položky, 
 CARDS, RULES, SIMILAR = 20, 10, 3  # nejvýš karet, pravidel/rozhodnutí a podobných vstupů ve spisu
 WINDOW_HOURS = 24  # spouštěč požadavku jen s vstupem novějším než tolik hodin (staré požadavky se nevyslýchají)
 REASONS = {"new": "nový požadavek", "opened": "otevřené rozšíření", "changes_intent": "mění záměr, vyslechni dopady",
-           "thin": "karta k předání má málo podkladů, doplň kroky a soubory"}
+           "thin": "karta k předání má málo podkladů, doplň kroky a soubory",
+           "asked": "člověk ve Velínu požádal o výslech",
+           "answer": "odpověď člověka na výslech, uprav syntézu (brief), polož další otázku, nebo rozhodni"}
 MISSING = {"goal": "goal: cíl jednou větou", "users": "users: pro koho",
            "acceptance": f"acceptance: aspoň {ACCEPTANCE} kritéria s check test|measure|observe",
            "outOfScope": "outOfScope: hranice, co ne",
@@ -54,9 +62,10 @@ SPENT_HINT = "strop rešerše vyčerpán, rozhodni z toho, co máš"
 SOURCES = 6  # nejvýš ověřených zdrojů jedné rešerše ve spisu
 
 
-def needs_brief(*, status, verdicts=(), brief_status=None, evidence=None, enabled=True):
+def needs_brief(*, status, verdicts=(), brief_status=None, evidence=None, enabled=True, asked=False):
     """Důvod výslechu podle tabulky §2, nebo None; vypnutý výslech (`enabled` False) nikdy.
     Karta (`evidence` není None): `ready` + `thin` → `thin`.
+    Člověk ve Velínu klikl „Vyslechni mě k tomu“ (`asked`): požadavek `open` nebo `deferred` → `asked`.
     Požadavek: jen `open`; `changes_intent` mezi vstupy → `changes_intent` (i po jasnu, na dopady); s jasnem
     nic; zakládající vstup (první) `fix_for_milestone` → `new`, `later_extension` (už otevřený) → `opened`;
     `duplicate`, `done`, `extends_in_progress` a ostatní nic."""
@@ -64,6 +73,8 @@ def needs_brief(*, status, verdicts=(), brief_status=None, evidence=None, enable
         return None
     if evidence is not None:
         return "thin" if status == "ready" and evidence == "thin" else None
+    if asked:
+        return "asked" if status in ("open", "deferred") else None
     if status != "open" or not verdicts:
         return None
     if "changes_intent" in verdicts:
@@ -229,10 +240,11 @@ def collect_situation(service, project, workspace, requirement_id):
 
 
 def view(brief):
-    """`brief` požadavku v `GET /api/intake`: `{status, questions, missing}`, bez spisu None."""
+    """`brief` požadavku v `GET /api/intake`: `{status, synthesis, questions, missing}`, bez spisu None.
+    Syntézu (cíl, části s původem, kritéria, hranice) čte panel výslechu ve Velínu (řez 3)."""
     if brief is None:
         return None
-    return {"status": brief["status"], "questions": brief["questions"],
+    return {"status": brief["status"], "synthesis": brief["synthesis"], "questions": brief["questions"],
             "missing": clarity(brief["synthesis"], brief["questions"])}
 
 
@@ -411,3 +423,144 @@ def research_spend(service, session, requirement_id, cost, fragment=None, digest
             status = "research" if brief["status"] == "draft" and brief.get("synthesis") is None else brief["status"]
             store.save({**brief, "research": research, "costUsd": spent, "status": status, "updatedAt": now})
     return {"requirement": requirement_id, "spentUsd": spent, "capUsd": cap, "leftUsd": round(max(cap - spent, 0), 6)}
+
+
+ANSWER_HINT = ('{"project": "<id>", "workspace": "main", "requirement": "rq_…", "question": "q1", "accept": true}'
+               ' nebo místo accept "answer": "text odpovědi"')
+START_HINT = '{"project": "<id>", "workspace": "main", "requirement": "rq_…"}'
+
+
+def _scope(service, payload, keys, optional, hint):
+    """Tělo kanálu člověka: přesně `keys` (+ volitelné), existující projekt a platný prostor."""
+    if not isinstance(payload, dict) or not set(keys) <= set(payload) or set(payload) - set(keys) - set(optional):
+        raise invalid(f"Tělo je {{{', '.join(keys)}}}" + (f" a jedno z {', '.join(optional)}." if optional else "."),
+                      hint)
+    project, workspace = payload["project"], payload["workspace"]
+    if not isinstance(project, str) or not service.project_exists(project):
+        raise GateError(404, "project_not_found", "Projekt neexistuje.", "ID projektu najdete v GET /api/bootstrap.")
+    if not isinstance(workspace, str) or not valid_id(workspace):
+        raise invalid("Neplatný pracovní prostor.", "Použijte main, draft nebo ID pracovního prostoru.")
+    return project, workspace
+
+
+def _answer_text(payload):
+    """`(odpověď, potvrzeno)`: vlastní text, nebo `accept: true` (doporučení srdce, text doplní volající)."""
+    if ("answer" in payload) == ("accept" in payload) or ("accept" in payload and payload["accept"] is not True):
+        raise invalid("Pošli buď answer (text odpovědi), nebo accept: true (potvrzení doporučení).", ANSWER_HINT)
+    if "accept" in payload:
+        return None, True
+    text = payload["answer"]
+    if not isinstance(text, str) or not text.strip() or len(text) > QUESTION or "\0" in text:
+        raise invalid(f"answer je neprázdný text do {QUESTION} znaků.", ANSWER_HINT)
+    return text.strip(), False
+
+
+def _open_question(brief, question_id):
+    if brief is None:
+        raise GateError(404, "brief_not_found", "Požadavek zatím nemá spis výslechu.",
+                        "Výslech založí srdce, nebo člověk tlačítkem „Vyslechni mě k tomu“.")
+    index = next((number for number, item in enumerate(brief["questions"])
+                  if isinstance(item, dict) and item.get("id") == question_id), None)
+    if index is None:
+        raise GateError(404, "brief_question_not_found", "Otázka ve spisu požadavku není.",
+                        "ID otázky (q1…) je v GET /api/intake u požadavku v brief.questions.")
+    if brief["questions"][index].get("answer") is not None:
+        raise GateError(409, "brief_question_answered", "Na otázku už je odpověď.",
+                        "Další otázku položí srdce v příští dávce.")
+    return index
+
+
+def answer(service, payload, now):
+    """Odpověď člověka na otázku výslechu (`POST /api/intake/brief/answer`, §3.4, řez 3): `answer` = vlastní text,
+    `accept: true` = doporučená odpověď srdce. Zapíše `answer`, `answered_at` a `accepted` do otázky spisu; stav
+    `clear` tu nevzniká (syntézu po odpovědi upraví srdce příkazem `brief`). Odpovědět jde jen jednou, jinak 409."""
+    project, workspace = _scope(service, payload, ("project", "workspace", "requirement", "question"),
+                                ("answer", "accept"), ANSWER_HINT)
+    text, accepted = _answer_text(payload)
+    requirement_id = payload["requirement"]
+    with service.lock_for(project):
+        db = service.db_for(project)
+        with db:
+            _requirement(db, workspace, requirement_id)
+            store = IntakeBriefs(db)
+            brief = store.get(requirement_id)
+            index = _open_question(brief, payload["question"])
+            questions = list(brief["questions"])
+            item = questions[index]
+            value = item["recommended"] if accepted else text
+            questions[index] = {**item, "answer": value, "answered_at": now, "accepted": accepted}
+            waiting = sum(1 for entry in questions if entry.get("answer") is None)
+            status = "grilling" if waiting else brief["status"]
+            missing = clarity(brief["synthesis"], questions)
+            store.save({**brief, "questions": questions, "status": status, "updatedAt": now})
+    return {"requirement": requirement_id, "question": payload["question"], "answer": value, "accepted": accepted,
+            "status": status, "open": waiting, "missing": missing}
+
+
+def start(service, payload, now):
+    """„Vyslechni mě k tomu“ (§2, řez 3): založí spis požadavku ve stavu `draft` se spisem a značkou `askedAt`;
+    srdce ho pak dostane jednou (`human_wakes`). Existující spis 409 `brief_exists`, vypnutý výslech 409."""
+    project, workspace = _scope(service, payload, ("project", "workspace", "requirement"), (), START_HINT)
+    if not brief_setting.read(service, project)["enabled"]:
+        raise GateError(409, "brief_disabled", "Výslech je v nastavení projektu vypnutý.",
+                        "Zapněte ho v nastavení mozku (brain.brief).")
+    with service.reading(project):
+        requirement = _requirement(service.db_for(project), workspace, payload["requirement"])
+    if needs_brief(status=requirement["status"], asked=True) is None:
+        raise GateError(409, "brief_requirement_closed", "Vyslechnout jde jen otevřený nebo odložený požadavek.",
+                        "Požadavek je už vyřízený.")
+    spis = collect_situation(service, project, workspace, requirement["id"]) or {}
+    with service.lock_for(project):
+        db = service.db_for(project)
+        with db:
+            _requirement(db, workspace, requirement["id"])
+            store = IntakeBriefs(db)
+            if store.get(requirement["id"]) is not None:
+                raise GateError(409, "brief_exists", "Požadavek už spis výslechu má.",
+                                "Otázky a syntéza jsou v GET /api/intake u požadavku.")
+            store.save({"requirementId": requirement["id"], "workspaceId": workspace, "status": "draft",
+                        "situation": {**spis, "askedAt": now}, "questions": [], "rounds": 0, "updatedAt": now})
+    return {"requirement": requirement["id"], "status": "draft"}
+
+
+def answer_key(requirement_id, question_id):
+    return f"trigger:brief:{requirement_id}:answer:{question_id}"
+
+
+def _answer_line(item):
+    question = f"otázka {item.get('id')} „{_short(item.get('text'), 160)}“"
+    if item.get("accepted"):
+        return f"{question} → člověk potvrdil doporučení „{_short(item.get('answer'), 200)}“"
+    return (f"{question} → člověk odpověděl „{_short(item.get('answer'), 200)}“"
+            f" (doporučení bylo „{_short(item.get('recommended'), 120)}“)")
+
+
+def human_wakes(db):
+    """Kandidáti `[(prostor, klíč, vstup brief)]` z kanálu člověka, na které srdce ještě nebudilo: žádost
+    „Vyslechni mě k tomu“ (`askedAt` ve spisu) a každá zodpovězená otázka. Jen čte. Nastavení `brain.brief` je
+    nezastaví, protože jde o přímou akci člověka (vypnutý výslech novou žádost odmítne už `start`)."""
+    triggers, requirements, found = HeartTriggers(db), IntakeRequirements(db), []
+    rows = db.execute("SELECT DISTINCT workspace_id FROM intake_briefs ORDER BY workspace_id").fetchall()
+    for (workspace,) in rows:
+        for requirement_id, item in sorted(IntakeBriefs(db).of_workspace(workspace).items()):
+            requirement = requirements.get(requirement_id)
+            if requirement is None:
+                continue
+            base = {"type": "brief", "requirementId": requirement_id, "title": requirement["title"]}
+            situation = item.get("situation") or {}
+            key = requirement_key(requirement_id, "asked")
+            if situation.get("askedAt") and not triggers.fired(key):
+                detail = summary(situation) if situation.get("requirement") else ""
+                found.append((workspace, key, {**base, "reason": "asked", "detail": detail}))
+            for question in item["questions"]:
+                if not isinstance(question, dict) or question.get("answer") is None:
+                    continue
+                key = answer_key(requirement_id, question.get("id"))
+                if not triggers.fired(key):
+                    found.append((workspace, key, {**base, "reason": "answer", "detail": _answer_line(question)}))
+    return found
+
+
+def fire_human(db, candidates, at):
+    """Pod zámkem volajícího zapíše značky kandidátů `human_wakes`; vrací `[(prostor, vstup)]` jen poprvé zapsaných."""
+    return [(workspace, item) for workspace, key, item in candidates if HeartTriggers(db).fire(key, workspace, at)]

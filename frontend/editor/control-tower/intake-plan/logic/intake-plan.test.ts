@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { criteriaDone, intakePlan, parseIntake, summaryParts } from "./intake-plan";
 import { intakeFixture } from "./intake-fixture";
+import { briefFixture } from "../brief-panel/logic/brief-fixture";
 
 const names: Record<string, string> = { k1: "Sloupec vector(1024)", k2: "Hledání podle modelu" };
 const nameOf = (id: string) => names[id] ?? id;
@@ -44,4 +45,10 @@ describe("Požadavky a plán", () => {
     expect(() => parseIntake({ areas: "x" })).toThrow("neplatnou odpověď");
     expect(parseIntake(intakeFixture)).toBe(intakeFixture);
   });
+});
+
+it("požadavek nese výslech srdce jako model panelu, bez spisu null", () => {
+  const plan = intakePlan({ ...intakeFixture, unassigned: [{ ...intakeFixture.unassigned[0], brief: briefFixture }] }, nameOf);
+  expect(plan.areas[0].requirements[0].brief).toBeNull();
+  expect(plan.unassigned[0].brief).toMatchObject({ status: "grilling", tone: "ask", open: [{ id: "q2" }] });
 });

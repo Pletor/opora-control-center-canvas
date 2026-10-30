@@ -118,6 +118,35 @@ Požadavek je `clear`, když syntéza obsahuje všechno z tohoto seznamu:
    - Strop syntézy („jedno volání s poradcem“) kód nehlídá. Řídí ho skill.
    - Nová routa a kopie skillu začnou platit až po restartu serveru 8740. Do té doby `skill vyslech` vrátí `skill_missing` a srdce jede podle části Výslech v promptu.
 3. **Velín:** syntéza a otázky s doporučením, odpověď člověka.
+
+   Odchylky řezu 3:
+   - Odpověď člověka se **neukládá do `intake_entries`** (§6 a otevřená otázka řezu 1): CHECK sloupce `source` by
+     vyžadoval přestavbu tabulky. Odpověď je jen v `intake_briefs.questions[]`: `answer`, `answered_at` a navíc
+     `accepted` (true = potvrzené doporučení). Schéma tabulek se nemění.
+   - `POST /api/intake/brief/answer {project, workspace, requirement, question, answer | accept: true}` (logika
+     `brief.answer`): právě jedno z `answer` (text do 500 znaků) a `accept: true` (vezme `recommended`). Odpovědět jde
+     jen na otevřenou otázku (404 `brief_question_not_found`, 409 `brief_question_answered`, bez spisu 404
+     `brief_not_found`). Smí jen člověk (`require_human`), i při plné autonomii: jinak by si srdce na své otázky odpovídalo
+     samo (§9 platí beze změny). Spustit výslech („Vyslechni mě k tomu“) smí i agent při plné autonomii.
+   - Odpověď stav `clear` nenastaví ani po poslední otázce: stav zůstane `grilling`, dokud srdce syntézu neuloží znovu
+     (`brief`). Jasno dál potvrzuje jen `save_synthesis`.
+   - Řádek §2 „Vyslechni mě k tomu“: `needs_brief(..., asked=True)` → `asked` u požadavku `open` i `deferred`.
+     `POST /api/intake/brief/start {project, workspace, requirement}` (`brief.start`, stejné oprávnění, 201) založí
+     spis `draft` se spisem situace a značkou `situation.askedAt`. Existující spis 409 `brief_exists` (tlačítko je jen
+     u požadavku bez spisu), vypnutý výslech 409 `brief_disabled`, vyřízený požadavek 409 `brief_requirement_closed`.
+     Okno 24 h spouštěče se na žádost člověka nevztahuje.
+   - Probuzení: `brief.human_wakes` / `fire_human` v `heart/inputs.brief_wakes` (supervisor ho volá při každém
+     průchodu outboxu). Jednou na odpověď (`trigger:brief:<rq>:answer:<q>`) a jednou na žádost
+     (`trigger:brief:<rq>:asked`), i s vypnutým `brain.brief`, protože jde o přímou akci člověka. Srdce v dávce vidí
+     `VÝSLECH: rq_… „název“ (odpověď člověka na výslech, uprav syntézu (brief), …) · spis: otázka q1 „…“ → člověk
+     potvrdil doporučení „…“` (nebo „odpověděl „…“ (doporučení bylo „…“)“). Text za `· spis:` je u odpovědi otázka
+     a odpověď. Řádek dávky (`heart/batch.py`) se nemění.
+   - `GET /api/intake` nese u požadavku navíc `brief.synthesis`, aby Velín ukázal cíl, části s původem, kritéria
+     a hranice.
+   - Velín: dílek `frontend/editor/control-tower/intake-plan/brief-panel/` pod každým otevřeným, odloženým i
+     nezařazeným požadavkem. Původ části se ukazuje jako „od vás“ / „z rešerše“ / „odvozeno“ se zdrojem, chybějící
+     věci česky bez technických klíčů, ID jen v `data-oh-*`.
+   - Nové routy začnou platit až po restartu serveru 8740.
 4. **Ověření na Ample:** požadavek „chci metriky X, Y, Z“. Syntéza musí obsahovat i položky s původem `rešerše`/`odvozeno`, výslech nejvýš 3 kola a karty pak mají štítek jiný než „?“.
 
 ### Doplnění kroků existující karty

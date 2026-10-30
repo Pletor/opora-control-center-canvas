@@ -105,6 +105,9 @@ Modules (intake gate, slice 1, contract `docs/navrhy/2026-10-30-vstupni-brana.md
   {enabled, researchUsd}`. Missing or corrupt = on, 0.30 USD research cap per requirement. Off = `brief.needs_brief`
   never wakes the heart. Human, or an agent with full autonomy, changes it (`POST /api/brain/brief-setting`).
   `brief.research_budget` / `research_spend` guard the cap and sum research cost into `intake_briefs.cost_usd`.
+  Slice 3: `brief.answer` / `brief.start` are the human channel from the control tower (answers go to
+  `questions[].answer` / `answered_at` / `accepted`, not to `intake_entries`); `human_wakes` / `fire_human` wake the
+  heart once per answer (`trigger:brief:<rq>:answer:<q>`) and once per start (`trigger:brief:<rq>:asked`).
 
 Modules (milestones and requirements, slice 3, contract `docs/navrhy/2026-10-30-metriky-a-spoustece.md` §4, §5):
 - `milestones.py`: the heart only proposes a milestone of an area (`propose`, `POST /api/brain/heart/milestone`,

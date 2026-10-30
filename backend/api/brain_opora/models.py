@@ -280,6 +280,39 @@ class BriefAskOut(BaseModel):
     missing: list[str]
 
 
+class BriefAnswerIn(BaseModel):
+    """Odpověď člověka na otázku výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §7, řez 3): buď `answer`,
+    nebo `accept: true` (doporučená odpověď srdce)."""
+    project: str
+    workspace: str
+    requirement: str
+    question: str = Field(..., description="ID otázky (q1…) z brief.questions v GET /api/intake.")
+    answer: str | None = None
+    accept: Literal[True] | None = None
+
+
+class BriefAnswerOut(BaseModel):
+    requirement: str
+    question: str
+    answer: str
+    accepted: bool
+    status: str
+    open: int
+    missing: list[str]
+
+
+class BriefStartIn(BaseModel):
+    """„Vyslechni mě k tomu“ (§2, řez 3): člověk ve Velínu žádá výslech k požadavku."""
+    project: str
+    workspace: str
+    requirement: str
+
+
+class BriefStartOut(BaseModel):
+    requirement: str
+    status: Literal["draft"]
+
+
 class BriefResearchIn(BaseModel):
     """Strop rešerše požadavku (docs/navrhy/2026-10-30-vyslech-srdce.md §8): bez `costUsd` kontrola před rešerší,
     s `costUsd` přičtení ceny (a výtahu) po rešerši."""

@@ -14,7 +14,8 @@ over_budget) po událostech běhu a plánu (`TRIGGER_EVENTS`) a ruční změna p
 jejíž revizi přijal člověk).
 Spouštěč výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §2) dává vstup `brief`: `brief_wakes` pro požadavky
 (nový, otevřené rozšíření, `changes_intent`) se spisem a krátký výslech karty `ready` s tenkými podklady přes
-`card_wakes` (`brief.card_hit`); obojí jednou na stav (`heart_triggers`).
+`card_wakes` (`brief.card_hit`); obojí jednou na stav (`heart_triggers`). Odpověď člověka na otázku výslechu
+a „Vyslechni mě k tomu“ z Velínu budí přes `brief_wakes` také, jednou na odpověď a jednou na žádost.
 """
 from datetime import UTC, datetime, timedelta
 
@@ -76,20 +77,24 @@ def card_wakes(service, project, workspaces, at, now):
 def brief_wakes(service, project, at, now):
     """`[(prostor, vstup brief)]` požadavků, které podle `brief.needs_brief` potřebují výslech a srdce na ten stav
     ještě nebudilo (jen se vstupem z posledních `brief.WINDOW_HOURS` h). Kandidáti se čtou bez zámku, spis mimo
-    zámek, značka a spis `draft` se zapíší v jedné transakci. Vypnutý výslech (`brain.brief`) nebudí nic."""
-    if not brief_setting.read(service, project)["enabled"]:
-        return []
+    zámek, značka a spis `draft` se zapíší v jedné transakci. Vypnutý výslech (`brain.brief`) nebudí nic.
+    Kanál člověka z Velínu (řez 3, `brief.human_wakes`) budí vždy: jednou na odpověď na otázku výslechu
+    a jednou na žádost „Vyslechni mě k tomu“; tyto vstupy jdou v dávce první."""
+    enabled = brief_setting.read(service, project)["enabled"]
     since = (datetime.fromtimestamp(now, UTC) - timedelta(hours=brief.WINDOW_HOURS)).strftime(
         "%Y-%m-%dT%H:%M:%SZ")
     with service.reading(project):
-        candidates = brief.requirement_wakes(service.db_for(project), since)
-    if not candidates:
+        db = service.db_for(project)
+        candidates = brief.requirement_wakes(db, since) if enabled else []
+        human = brief.human_wakes(db)
+    if not candidates and not human:
         return []
     files = {item["id"]: brief.collect_situation(service, project, space, item["id"]) for space, item, _ in candidates}
     found = []
     with service.lock_for(project):
         db = service.db_for(project)
         with db:
+            found += brief.fire_human(db, human, at)
             for space, item, reason in candidates:
                 value = brief.open_brief(db, space, item, reason, files[item["id"]], at)
                 if value is not None:

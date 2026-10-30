@@ -1,10 +1,13 @@
 // Pohled „Požadavky a plán“ ve Velínu (docs/navrhy/2026-10-30-vstupni-brana.md §6, metriky-a-spoustece.md §7 řez 4)
 // nad `GET /api/intake?project=&workspace=`: souhrn vstupů a jeden dílek na oblast (aktivní milník s postupem
-// a kritérii, návrhy srdce, otevřené a odložené požadavky). Čistá funkce: jména karet dodá volající z grafu.
+// a kritérii, návrhy srdce, otevřené a odložené požadavky, u každého výslech srdce `brief`, řez 3 výslechu).
+// Čistá funkce: jména karet dodá volající z grafu.
+import { briefView, type BriefView } from "../brief-panel/logic/brief-model";
 
 export type IntakeCriterion = { id: string; text: string; cards: (string | { id: string; done: boolean })[]; done?: boolean };
 export type IntakeMilestone = { id: string; title: string; criteria: IntakeCriterion[]; status: string; progress?: number; done?: boolean };
-export type IntakeRequirement = { id: string; title: string; status: string; openCondition: string | null; milestoneId: string | null };
+export type IntakeRequirement = { id: string; title: string; status: string; openCondition: string | null; milestoneId: string | null;
+  brief?: unknown };
 export type IntakeArea = { id: string; name: string; milestone: IntakeMilestone | null; proposed: IntakeMilestone[];
   requirements: IntakeRequirement[]; deferred: IntakeRequirement[] };
 export type IntakeEntry = { id: string; layer: string; verdict: string };
@@ -13,7 +16,7 @@ export type IntakeResponse = { areas: IntakeArea[]; unassigned: IntakeRequiremen
 export type PlanCard = { id: string; name: string; done: boolean | null };
 export type PlanCriterion = { id: string; text: string; done: boolean | null; cards: PlanCard[] };
 export type PlanMilestone = { id: string; title: string; progress: number | null; done: boolean; criteria: PlanCriterion[] };
-export type PlanRequirement = { id: string; title: string; condition: string | null };
+export type PlanRequirement = { id: string; title: string; condition: string | null; brief: BriefView | null };
 export type PlanArea = { id: string; name: string; empty: boolean; milestone: PlanMilestone | null; proposed: PlanMilestone[];
   requirements: PlanRequirement[]; deferred: PlanRequirement[] };
 export type PlanSummary = { entries: number; fresh: number; pending: number; duplicates: number };
@@ -46,7 +49,8 @@ export function intakePlan(data: IntakeResponse, nameOf: (id: string) => string)
   const titles = new Map<string, string>();
   for (const area of data.areas) for (const item of [area.milestone, ...list(area.proposed)]) if (item) titles.set(item.id, item.title);
   const requirement = (item: IntakeRequirement): PlanRequirement => ({ id: item.id, title: item.title,
-    condition: item.openCondition ? (titles.has(item.openCondition) ? `otevře se po splnění milníku „${titles.get(item.openCondition)}“` : `podmínka otevření: ${item.openCondition}`) : null });
+    condition: item.openCondition ? (titles.has(item.openCondition) ? `otevře se po splnění milníku „${titles.get(item.openCondition)}“` : `podmínka otevření: ${item.openCondition}`) : null,
+    brief: briefView(item.brief) });
   const areas = data.areas.map(area => {
     const plan = { id: area.id, name: area.name || area.id, milestone: area.milestone ? milestone(area.milestone, nameOf) : null,
       proposed: list(area.proposed).map(item => milestone(item, nameOf)), requirements: list(area.requirements).map(requirement),

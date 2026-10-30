@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decideMilestone, decisionError, intakeUrl, readIntake } from "./intake-api";
+import { answerBrief, briefError, decideMilestone, decisionError, intakeUrl, readIntake, startBrief } from "./intake-api";
 
 describe("API pohledu Požadavky a plán", () => {
   it("čte /api/intake se zakódovaným projektem a prostorem a ověří odpověď", async () => {
@@ -22,5 +22,19 @@ describe("API pohledu Požadavky a plán", () => {
     expect(decisionError("reject", new Error("Milník je active, rozhodnout jde jen o návrh.")))
       .toBe("Milník se nepodařilo zamítnout: Milník je active, rozhodnout jde jen o návrh.");
     expect(decisionError("activate", "x")).toBe("Milník se nepodařilo aktivovat: neznámá chyba");
+  });
+
+  it("výslech: potvrzení doporučení posílá accept, vlastní odpověď text, start jen požadavek", async () => {
+    const calls: [string, object | undefined][] = [];
+    const call = (async (url: string, body?: object) => { calls.push([url, body]); return {}; }) as never;
+    await answerBrief("p", "w", "rq_1", "q1", null, call);
+    await answerBrief("p", "w", "rq_1", "q2", "Celý tým.", call);
+    await startBrief("p", "w", "rq_2", call);
+    expect(calls).toEqual([
+      ["/api/intake/brief/answer", { project: "p", workspace: "w", requirement: "rq_1", question: "q1", accept: true }],
+      ["/api/intake/brief/answer", { project: "p", workspace: "w", requirement: "rq_1", question: "q2", answer: "Celý tým." }],
+      ["/api/intake/brief/start", { project: "p", workspace: "w", requirement: "rq_2" }]]);
+    expect(briefError("answer", new Error("Na otázku už je odpověď."))).toBe("Odpověď se nepodařilo odeslat: Na otázku už je odpověď.");
+    expect(briefError("start", null)).toBe("Výslech se nepodařilo spustit: neznámá chyba");
   });
 });
