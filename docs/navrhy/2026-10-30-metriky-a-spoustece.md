@@ -90,6 +90,16 @@ Každý spouštěč srdce probudí jen jednou na stav (klíč `trigger:karta:sta
 4. **Velín:** odznak karty (štítek, % kroků, % dod, riziko), postup milníku a pohled „Požadavky a plán“.
 5. **Kancelář:** spuštění dělníka podle `run` (model, úsilí, poradce). Jde do repozitáře kanceláře, ne do OPORY.
 
+### Řez 2 – odchylky
+
+- **Riziko:** `classify_risk` klasifikuje záznam návrhu (`proposal_kind`, změny), ne soubory. `card_gauge.risk_of` proto bere pravidla review kódu (`opora_review_risk`, `opora_review_jobs.toml`). Citlivá cesta (`risk.sensitive`, např. migrace, schéma, auth, `pyproject.toml`) znamená `critical`. Bezpečnostní cesta (`security.paths`) nebo aspoň `medium_files` souborů znamená `elevated`. Globy kroků se porovnávají jako cesty.
+- **`costUsd` je zatím vždy `null`.** Účetní kniha rozpočtů (`opora_execution_budget_ledger`) vede pokusy a opravná kola, cenu ne. Cenu v USD (`listCostCents`) mají jen záznamy pozorovatelů exekucí. Napojení přijde se spouštěčem `card.over_budget` (řez 3).
+- **`failures`** = běhy skončené bez výsledku (`released`, `cancelled`, `revoked`), které nepatří k otevřenému nebo sloučenému PR. Sloučení PR totiž běh také uvolní. `attempts` a `failures` se počítají z jedné historie běhů agent-state, která má strop 100 nejnovějších běhů projektu (`Executions.history`).
+- **`age`** = sekundy od claimu nejnovějšího běhu, jen když běh drží platnou lhůtu, jinak `null`. Porovnání s velikostí (medián podle štítku) je až spouštěč `card.stalled`.
+- **`run` v zadání** nese navíc `handout` a `humanReview`, aby kancelář XL nespustila a u `critical` věděla o review. Běžící běh v1 porovnává otisk s `run` ze svého claimu (`OporaExecutions.pinned_digest`), takže změna štítku nebo `card.effort` během běhu ho neodvolá. Běhy převzaté před zavedením `run` ho v zadání nemají a porovnání ho vynechá. V řídkém kontextu (v2) je zadání neměnné od claimu a `run` se přidá jen novým claimům.
+- **`card.effort` a XL:** když rozhodlo srdce nebo člověk (`source: card`), karta se předá (`handout: true`) i při doporučení XL. Odchylku ukáže `mismatch`. `card.model` od srdce nebo člověka má přednost před modelem z tabulky O10.
+- **Měřák** se počítá jen pro karty na zobrazené stránce `cards[]` (strop 100). Navíc nese `pointsBreakdown` (rozpis bodů), aby byl součet průhledný.
+
 ## 8. Ověření
 
 - Karta Ample se 3 kroky a 2 soubory dostane štítek S, tedy sonnet s poradcem opus. Karta se 14 kroky, krokem design a migrací (`critical`) dostane XL a nepředá se; srdce dostane `card.too_big`.

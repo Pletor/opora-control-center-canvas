@@ -8,6 +8,7 @@ import time
 from datetime import UTC, datetime
 from urllib.parse import urlencode
 
+from backend.canvas import card_gauge
 from backend.canvas import opora_agent_state_auto_rebase as rebasing_state
 from backend.canvas import opora_agent_state_cards as card_stages
 from backend.canvas import opora_agent_state_commands as commands
@@ -116,9 +117,10 @@ class AgentState:
                                 "stale": item["parentRevision"] != accepted, "adopt": _adoption(kind, {**full, **item})})
         return sorted(pending, key=lambda item: (item["createdAt"], item["id"]))
 
-    def executions(self, db, project, workspace, accepted=None, closed=()):
+    def executions(self, db, project, workspace, accepted=None, closed=(), history=None):
+        """`history` = už načtená historie běhů (`Executions.history`), ať ji měřák karty nečte znovu."""
         repo, latest = Executions(db, project, workspace), {}
-        for record in repo.history():
+        for record in repo.history() if history is None else history:
             if record["nodeId"] in latest:
                 continue
             deadline = min(record["expiresAt"], record.get("budget", {}).get("runDeadlineAt", record["expiresAt"]))
@@ -179,8 +181,9 @@ class AgentState:
             cards = {key: {**item, "journeys": blocking.get(key, [])} for key, item in cards.items()}
             pending = self.proposals(db, project, workspace, accepted)
             needs_graph = graph_manifest_missing(db, project, workspace, accepted, context["documents"])
+            history = Executions(db, project, workspace).history()  # jednou: poslední běhy i měřák karty
             latest = self.executions(db, project, workspace, accepted,
-                                     {key for key, item in cards.items() if item.get("doneConfirmed")})
+                                     {key for key, item in cards.items() if item.get("doneConfirmed")}, history)
             claims = self.claims(project, workspace, process["items"])
             linked = pulls.read(canvas, project, workspace)
             claims = self.without_open_pulls(claims, latest, linked, accepted)
@@ -198,6 +201,7 @@ class AgentState:
             cursor, last_events = outbox.read(db, project, workspace)  # Same lock + connection = same snapshot.
             holes, holes_total = map_gaps.read(canvas, project, workspace)  # Main check + worktree overlay.
             alerts = guards_state.open_findings(db, project, workspace)  # Guard findings without map holes.
+            graph = canvas.view(project, workspace)["graph"]  # steady_reads: stejný pohled, žádné nové čtení
         dag_state.block_claims(claims, dag)
         fresh = [item for item in pending if not item["stale"]]
         reported = [item for item in latest if item["results"]]
@@ -227,6 +231,9 @@ class AgentState:
             cards, linked, gates, local), latest, now), last_events)
         entries = guards_state.attach(entries, guards_state.by_card(alerts))
         shown, total, next_offset = card_stages.page(entries, cards_offset)  # cap only cards[], never actions
+        # Měřák a štítek (docs/navrhy/2026-10-30-metriky-a-spoustece.md §2–3): jen zobrazené karty, z načtených faktů.
+        shown = card_gauge.attach(shown, graph, context["acceptedDocuments"], card_gauge.tally(history, linked),
+                                  latest, now)
         autonomy = project_autonomy(self.canvas, project)
         if autonomy["full"]:
             actions = _autonomous(actions)
