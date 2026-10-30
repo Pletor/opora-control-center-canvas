@@ -11,7 +11,10 @@ Co člověk vidí u požadavku:
   - co srdce pochopilo (rozbalovací, otevřené, když srdce na nic nečeká): cíl, pro koho, části s původem
     (od vás / z rešerše / odvozeno), kritéria přijetí s tím, čím se ověří, a co se dělat nebude;
   - co do jasna ještě chybí, česky bez technických klíčů;
-  - vaše dřívější odpovědi (rozbalovací).
+  - vaše dřívější odpovědi (rozbalovací);
+  - vedle věty stavu **Otevřít ve Schránce**, když spis nese kořen požadavku ve Schránce (`fragmentId`,
+    `fragmentScope`; docs/navrhy/2026-10-31-vyslech-ve-schrance.md, řez 1). Klik jde přes `actions.onOpenVault`
+    nahoru (`IntakePlan` → `ControlTower` → App `openVault(scope, fragmentId)`), panel sám nic neotevírá.
 - **Bez spisu** jen tlačítko **Vyslechni mě k tomu**.
 
 V hlavním textu nejsou ID požadavků ani otázek; ID nese jen `data-oh-*` pro agenty.
@@ -23,7 +26,7 @@ text odpovědi drží `BriefQuestion` sám.
 
 Soubory:
 
-- `logic/brief-model.ts`: `briefView` (brief → model panelu), `statusText`, `missingText`, `briefKey`, typy.
+- `logic/brief-model.ts`: `briefView` (brief → model panelu), `statusText`, `missingText`, `briefKey`, `vaultLink`, typy.
   Test `brief-model.test.ts`, vzor `logic/brief-fixture.ts`.
 - `components/BriefPanel.tsx` (skládá dílky, test `BriefPanel.test.ts`), `BriefQuestion.tsx`, `BriefSynthesis.tsx`.
 - `styles/brief-panel.css`: blok `brief-panel`.

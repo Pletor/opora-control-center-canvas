@@ -1,6 +1,7 @@
 // Panel výslechu u požadavku (docs/navrhy/2026-10-30-vyslech-srdce.md §7, řez 3). Se spisem: stav, otevřené
 // otázky s doporučením, co srdce pochopilo a co ještě chybí, nakonec vaše dřívější odpovědi. Bez spisu jen tlačítko
 // „Vyslechni mě k tomu“. Rodič skládá dílky a hlásí odpovědi a spuštění přes `actions` nahoru do `IntakePlan`.
+// Má-li požadavek kořen ve Schránce, „Otevřít ve Schránce“ ho ohlásí nahoru (`actions.onOpenVault`).
 import { briefKey, type BriefActions, type BriefView } from "../logic/brief-model";
 import BriefQuestion from "./BriefQuestion";
 import BriefSynthesis from "./BriefSynthesis";
@@ -22,7 +23,12 @@ export default function BriefPanel({ requirement, brief, actions }: Props) {
   }
   return (
     <section className={`brief-panel brief-panel--${brief.tone}`} aria-label="Výslech srdce" data-oh-brief={brief.status}>
-      <p className="brief-panel__status">{brief.statusText}</p>
+      <div className="brief-panel__head">
+        <p className="brief-panel__status">{brief.statusText}</p>
+        {brief.vault && actions.onOpenVault && <button type="button" className="brief-panel__button brief-panel__button--vault"
+          onClick={() => actions.onOpenVault!(brief.vault!.scope, brief.vault!.fragmentId)}
+          data-oh-action="brief-open-vault" data-oh-fragment={brief.vault.fragmentId}>Otevřít ve Schránce</button>}
+      </div>
       {brief.open.length > 0 && <ol className="brief-panel__questions" aria-label="Otázky srdce">
         {brief.open.map(question => {
           const key = briefKey(requirement, question.id);

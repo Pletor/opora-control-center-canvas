@@ -12,6 +12,12 @@
 .brief-panel--clear { border-left-color: var(--ok); }
 .brief-panel--empty { flex-direction: row; align-items: center; flex-wrap: wrap; padding: 0; border: 0; background: transparent; }
 .brief-panel__status { margin: 0; font-weight: 600; }
+
+/* Hlavička spisu: věta stavu vlevo, vpravo tichý odkaz „Otevřít ve Schránce“. Výslech žije ve Schránce (kořen
+   požadavku, části, otázky K upřesnění); Velín jen ukazuje stav, takže cesta do celku je hned vedle věty, ale
+   obrysová a menší než odpověď na otázku, aby nepřebila to, na co srdce čeká. */
+.brief-panel__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.brief-panel__button--vault { padding: 2px 8px; font-size: 11px; color: var(--ink-2); background: transparent; }
 .brief-panel__muted { margin: 0; color: var(--ink-muted); font-size: 12px; }
 .brief-panel__label { display: block; font: 600 11px var(--mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-muted); }
 

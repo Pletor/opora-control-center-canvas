@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { briefKey, briefView, missingText, statusText } from "./brief-model";
+import { briefKey, briefView, missingText, statusText, vaultLink } from "./brief-model";
 import { briefFixture } from "./brief-fixture";
 
 describe("Výslech srdce: model panelu", () => {
@@ -44,4 +44,13 @@ describe("Výslech srdce: model panelu", () => {
 it("klíč zápisu: otázka požadavku, nebo spuštění výslechu", () => {
   expect(briefKey("rq_1", "q2")).toBe("brief:rq_1:q2");
   expect(briefKey("rq_1")).toBe("brief:rq_1");
+});
+
+describe("Výslech ve Schránce: odkaz na kořen požadavku", () => {
+  it("spis s kořenem nese fragment a rozsah, bez kořene nic", () => {
+    expect(briefView({ ...briefFixture, fragmentId: "f1", fragmentScope: "s0" })!.vault).toEqual({ fragmentId: "f1", scope: "s0" });
+    expect(vaultLink({ fragmentId: "f1", fragmentScope: null })).toEqual({ fragmentId: "f1", scope: "" });
+    expect(briefView(briefFixture)!.vault).toBeNull();
+    expect(vaultLink({ fragmentId: " " })).toBeNull();
+  });
 });

@@ -32,12 +32,14 @@ const FILTERS: { id: VelinFilter; label: string }[] = [
 ];
 
 type Props = { project: string; workspace: string; graph: Graph; projectName?: string; onOpen: (nodeId: string) => void; onOpenMap?: () => void;
+  /** Schránka na fragmentu (od App, `openVault`): „Otevřít ve Schránce“ u výslechu požadavku. */
+  onOpenVault?: (scope: string, fragmentId: string) => void;
   /** Schopnost projektu (od App): práce ve worktree se čte jen u projektů, které worktree mají. */
   worktreeLive?: boolean;
   /** Plná autonomie agentů projektu (od App, useAgentAutonomy); zapnutá = trvalý štítek nahoře. */
   autonomy?: AgentAutonomy };
 
-export default function ControlTower({ project, workspace, graph, projectName, onOpen, onOpenMap, worktreeLive = false, autonomy = AUTONOMY_OFF }: Props) {
+export default function ControlTower({ project, workspace, graph, projectName, onOpen, onOpenMap, onOpenVault, worktreeLive = false, autonomy = AUTONOMY_OFF }: Props) {
   const agent = useAgentState(project, workspace);
   const [filter, setFilter] = useState<VelinFilter>("all");
   const [mode, setMode] = useState<VelinView>("cards");
@@ -76,7 +78,7 @@ export default function ControlTower({ project, workspace, graph, projectName, o
         <AgentAutonomyBadge autonomy={autonomy} place="velin" />
         <span className="velin__source">agent-state · snímek {agent.state ? new Date(agent.state.generatedAt).toLocaleTimeString("cs-CZ") : "—"}</span>
       </header>
-      {mode === "plan" && <IntakePlan project={project} workspace={workspace} graph={graph} onOpen={onOpen} />}
+      {mode === "plan" && <IntakePlan project={project} workspace={workspace} graph={graph} onOpen={onOpen} onOpenVault={onOpenVault} />}
       {mode === "cards" && agent.error && !agent.state && <p className="velin__empty" role="alert">{agent.error}</p>}
       {mode === "cards" && !agent.state && !agent.error && <p className="velin__empty">Načítám stav pro agenty…</p>}
       {mode === "cards" && view && all && <div className="velin__grid">

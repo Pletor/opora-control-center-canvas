@@ -108,6 +108,13 @@ Modules (intake gate, slice 1, contract `docs/navrhy/2026-10-30-vstupni-brana.md
   Slice 3: `brief.answer` / `brief.start` are the human channel from the control tower (answers go to
   `questions[].answer` / `answered_at` / `accepted`, not to `intake_entries`); `human_wakes` / `fire_human` wake the
   heart once per answer (`trigger:brief:<rq>:answer:<q>`) and once per start (`trigger:brief:<rq>:asked`).
+- `brief_vault_link.py` (`docs/navrhy/2026-10-31-vyslech-ve-schrance.md`, slice 1): write-through of the brief into the
+  Schránka after the brief's own transaction. Root fragment `brief` per requirement (verbatim founding entry, or the
+  founding `brief_fragment` itself) in `situation.fragmentId` / `fragmentScope`; synthesis parts as child fragments
+  paired by order (`partFragments`, changed text = `revise`), assumptions and `ask` questions as `question`
+  (K upřesnění), the human answer from the control tower as `answer`. Writes use `BriefVault.apply(..., intake=False)`
+  so no new intake entry (and no new requirement) is born; failures are only logged (`safely`). `clarity` still reads
+  `intake_briefs`.
 
 Modules (milestones and requirements, slice 3, contract `docs/navrhy/2026-10-30-metriky-a-spoustece.md` §4, §5):
 - `milestones.py`: the heart only proposes a milestone of an area (`propose`, `POST /api/brain/heart/milestone`,

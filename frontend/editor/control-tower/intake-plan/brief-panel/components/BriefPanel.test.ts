@@ -45,3 +45,12 @@ it("bez spisu jen tlačítko Vyslechni mě k tomu", () => {
 it("spis bez syntézy řekne, že pochopení ještě není", () => {
   expect(render({ status: "draft", synthesis: null, questions: [], missing: [] })).toContain("Pochopení zatím není sepsané.");
 });
+
+it("kořen ve Schránce: tlačítko Otevřít ve Schránce, jen když ho rodič umí otevřít", () => {
+  const linked = { ...briefFixture, fragmentId: "f1", fragmentScope: "" };
+  const html = render(linked, { onOpenVault: () => {} });
+  expect(html).toContain("Otevřít ve Schránce");
+  expect(html).toContain("data-oh-fragment=\"f1\"");
+  expect(render(linked)).not.toContain("Otevřít ve Schránce");
+  expect(render(briefFixture, { onOpenVault: () => {} })).not.toContain("Otevřít ve Schránce");
+});
