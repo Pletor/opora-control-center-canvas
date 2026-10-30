@@ -128,6 +128,20 @@ export function setEditorEdgeCarries(graph: Graph, edgeId: string, carries: Edge
   return { ...graph, edges: graph.edges.map((item) => item.id === edgeId ? next : item) };
 }
 
+/** Vazby, které člověk v editoru kreslí (`next` mezi kartami, `flow` mezi oblastmi), smí také odebrat; jiné porty ne. */
+export function canRemoveEditorEdge(edge: { port?: string | null }): boolean {
+  const port = edge.port ?? "next";
+  return port === "next" || port === "flow";
+}
+
+/** Člověk odebere špatně nakreslenou vazbu; uzly zůstanou. Chybějící vazba nebo cizí port = chyba. */
+export function removeEditorEdge(graph: Graph, edgeId: string): Graph {
+  const edge = graph.edges.find((item) => item.id === edgeId);
+  if (!edge) throw new Error("Vazba již neexistuje.");
+  if (!canRemoveEditorEdge(edge)) throw new Error("Odebrat jde jen vazbu next nebo flow.");
+  return { ...graph, edges: graph.edges.filter((item) => item.id !== edgeId) };
+}
+
 /**
  * Člověk určí, kterou sekci stránky komponenta realizuje (`card.section`, docs/architektura-pro-agenty.md §3.3);
  * `null` = neurčeno (klíč zmizí, nic se nedoplňuje). Ostatní pole karty zůstanou. Existenci sekce tu nehlídáme:

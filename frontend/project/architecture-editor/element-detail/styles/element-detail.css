@@ -106,6 +106,13 @@
 .element-detail__carries-label { font-size: 11px; color: var(--ae-muted, #a2bacb); }
 .element-detail__carries-select { font: inherit; font-size: 11px; padding: 2px 6px; color: inherit; background: var(--ae-bg, #0c1723); border: 1px solid var(--ae-line, #304b5a); border-radius: 6px; }
 
+/* Odstranit vazbu: pod řádkem nakreslené vazby tichý textový odkaz vpravo, ne velké tlačítko. Špatně
+   tažená vazba se dá jedním klikem vzít zpět a znovu nakreslit; červená barva přijde až pod kurzorem,
+   aby seznam vazeb v klidu nepůsobil jako výstraha. */
+.element-detail__link-remove { justify-self: end; padding: 1px 4px; font: inherit; font-size: 11px; color: var(--ae-muted, #a2bacb); background: none; border: 0; cursor: pointer; }
+.element-detail__link-remove:hover:not(:disabled) { color: #ff8a8a; text-decoration: underline; }
+.element-detail__link-remove:disabled { cursor: default; opacity: .5; }
+
 /*
  * Práce: nahoře sedm bran definice hotovo jako dlaždice (sdílené s detailem karty), pod nimi kroky plánu jako
  * tichý seznam „název vlevo, stav vpravo“ a nakonec běh: kdo staví, který krok běží a kolik nálezů strážců

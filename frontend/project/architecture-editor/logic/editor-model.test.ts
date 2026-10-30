@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph, PageSite } from "@/shared/types/logic/types";
-import { architectureEditorId, connectEditorNodes, connectionProblem, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, resizeEditorNode, setEditorEdgeCarries, setEditorNodeSection, setEditorPageSite, validateEditorRoute } from "./editor-model";
+import { architectureEditorId, connectEditorNodes, connectionProblem, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, removeEditorEdge, resizeEditorNode, setEditorEdgeCarries, setEditorNodeSection, setEditorPageSite, validateEditorRoute } from "./editor-model";
 
 const node = (id: string, parentId: string | null = null, kind: CanvasNode["kind"] = "node"): CanvasNode => ({ id, parentId, kind, name: id, purpose: "Účel", x: 20, y: 40 });
 const graph = (): Graph => ({ nodes: [
@@ -173,6 +173,20 @@ describe("edge carries", () => {
   it("refuses other ports and missing edges", () => {
     expect(() => setEditorEdgeCarries(linked(), "existing", "data")).toThrow("jen vazba next");
     expect(() => setEditorEdgeCarries(linked(), "gone", "data")).toThrow();
+  });
+  it("odebere nakreslenou vazbu next i flow a uzly nechá", () => {
+    const original = linked();
+    const result = removeEditorEdge(original, "n1");
+    expect(result.edges).toEqual([{ id: "existing", source: "other", target: "page", port: "rule" }]);
+    expect(result.nodes).toBe(original.nodes);
+    expect(original.edges).toHaveLength(2);
+    const legacy: Graph = { ...graph(), edges: [{ id: "old", source: "page", target: "child" }, { id: "f1", source: "area", target: "area", port: "flow" }] };
+    expect(removeEditorEdge(legacy, "old").edges.map((edge) => edge.id)).toEqual(["f1"]);
+    expect(removeEditorEdge(legacy, "f1").edges.map((edge) => edge.id)).toEqual(["old"]);
+  });
+  it("neodebere chybějící vazbu ani cizí port", () => {
+    expect(() => removeEditorEdge(linked(), "gone")).toThrow("neexistuje");
+    expect(() => removeEditorEdge(linked(), "existing")).toThrow("jen vazbu next nebo flow");
   });
 });
 

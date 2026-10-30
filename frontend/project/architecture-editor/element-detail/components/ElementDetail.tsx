@@ -33,6 +33,8 @@ export type ElementDetailProps = {
   onSelect: (id: string) => void;
   /** Člověk určil, co po vazbě `next` teče; `null` = neurčeno. Ukládá rodič. */
   onCarries: (edgeId: string, carries: EdgeCarries | null) => void;
+  /** Člověk odebral nakreslenou vazbu (`next` / `flow`). Ukládá rodič. */
+  onRemoveEdge: (edgeId: string) => void;
   /** Člověk určil, kterou sekci stránky komponenta realizuje; `null` = neurčeno. Ukládá rodič. */
   onSection: (nodeId: string, section: string | null) => void;
   /** Člověk uložil záměr a sekce vybrané stránky (záložka Stránka); `original` je stránka, ze které koncept vznikl. Ukládá rodič. */
@@ -50,7 +52,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 /** Pravý sloupec Editoru stránky: kontext agenta a záložky nad jedním prvkem (u stránky navíc a jako první Stránka). Nic neukládá sám. */
 export default function ElementDetail(props: ElementDetailProps) {
-  const { project, workspace, graph, nodeId, domainId, phase, done, disabled, onIdentity, onOpenEditor, onSelect, onCarries, onSection, onPage, onClose } = props;
+  const { project, workspace, graph, nodeId, domainId, phase, done, disabled, onIdentity, onOpenEditor, onSelect, onCarries, onRemoveEdge, onSection, onPage, onClose } = props;
   const [chosen, setChosen] = useState<Tab | null>(null);
   const node = graph.nodes.find((item) => item.id === nodeId) ?? null;
   const page = node?.site?.kind === "page" ? node as CanvasNode & { site: PageSite } : null;
@@ -120,8 +122,8 @@ export default function ElementDetail(props: ElementDetailProps) {
           ) : null}
           {tab === "links" ? (
             <div className="element-detail__pane">
-              <LinkList title="Příchozí vazby" links={links.incoming} empty="Žádná příchozí vazba" onSelect={onSelect} onCarries={onCarries} disabled={disabled} />
-              <LinkList title="Odchozí vazby" links={links.outgoing} empty="Žádná odchozí vazba" onSelect={onSelect} onCarries={onCarries} disabled={disabled} />
+              <LinkList title="Příchozí vazby" links={links.incoming} empty="Žádná příchozí vazba" onSelect={onSelect} onCarries={onCarries} onRemove={onRemoveEdge} disabled={disabled} />
+              <LinkList title="Odchozí vazby" links={links.outgoing} empty="Žádná odchozí vazba" onSelect={onSelect} onCarries={onCarries} onRemove={onRemoveEdge} disabled={disabled} />
             </div>
           ) : null}
           {tab === "work" ? <WorkTab nodeId={nodeId} view={workView(card, fields, done, Date.now())} onOpenEditor={onOpenEditor} /> : null}
