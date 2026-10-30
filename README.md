@@ -170,7 +170,7 @@ kartu s přijatými kroky a bez nedokončených předchůdců, hotovo určuje je
 [Design náhled karty](docs/design-nahled.md) drží screenshoty design karty na hlavě PR (`evidence.preview`),
 lidské „Potvrdit vzhled“, režim karty `brand` / `explore` a DESIGN.md projektu z commitnuté revize
 (`GET /api/oporahub/design-system`); v bráně merge je to jen doklad.
-Volitelné [automatické review kódu](docs/oporahub-review-jobs.md) (`OPORA_REVIEW_JOBS=1`) zařazuje
+Volitelné [automatické review kódu](docs/oporahub-review-jobs.md) (trvale zapnuté přes `[app] review_jobs = true` v `opora.toml`, které přebije `OPORA_REVIEW_JOBS`) zařazuje
 úlohy hledačů a ověřovatelů pro každou novou hlavu PR běhu a počítá bránu merge; pracovníci
 agent-office je přebírají přes `/api/oporahub/review-jobs`. Brána navíc vyžaduje bezpečnostní review
 citlivých změn (`kind: "security"`), důkaz vlastních kontrol agenta pro aktuální hlavu, hlavu postavenou

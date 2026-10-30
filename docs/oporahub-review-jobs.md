@@ -19,7 +19,11 @@ na aktuální cílové větvi) a šablonu PR s testováním, rizikem a plánem n
 ## Zapnutí a konfigurace
 
 Výchozí soubor `backend/canvas/opora_review_jobs.toml` (`enabled = false`).
-`OPORA_REVIEW_JOBS=1` funkci zapne (`0` vypne) bez úpravy souboru;
+`OPORA_REVIEW_JOBS=1` funkci zapne (`0` vypne) bez úpravy souboru. Při spuštění přes
+`uv run opora` ale proměnnou vždy zapíše `tools/opora.py` z nastavení aplikace `[app] review_jobs`
+v `opora.toml` / `opora.local.toml`: review je trvale zapnuté (chybějící klíč = `1`), vypne ho jen
+výslovné `review_jobs = false` a proměnná z prostředí spouštěče se přebije. Start vypíše
+`[opora] review jobs: on/off`. Ruční nastavení proměnné platí jen pro testy a vlastní spouštění backendu;
 `OPORA_REVIEW_JOBS_CONFIG=<cesta>` nahradí celý soubor. Konfigurace se čte jednou
 za proces, změna vyžaduje restart. Neplatná hodnota (např. `required_votes > voters`)
 je chyba, nikdy tiché oslabení.

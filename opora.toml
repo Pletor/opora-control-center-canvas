@@ -11,6 +11,8 @@ open_browser = true            # po startu otevřít http://host:port
 title = "Opora Canvas"
 embed_origins = []             # přesné původy, které smí Oporu vložit do <iframe>; prázdné = zakázáno (DENY)
                                # příklad pro agent-office (v opora.local.toml): ["http://localhost:4600"]
+review_jobs = true             # automatické review PR (brána review): do mainu nic bez bezpečnostního procesu;
+                               # přebije OPORA_REVIEW_JOBS z prostředí, vypíná jen výslovné false
 
 [build]
 frontend = "auto"              # auto = sestavit, když dist/ chybí nebo je starší než frontend/; always; never
