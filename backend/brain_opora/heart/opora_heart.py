@@ -379,6 +379,9 @@ ADDITION_SHAPE = ("Plán nad už přijatým grafem jde jako návrh grafu: uzel j
                   "name, parent, purpose, spec (i steps), card (i effort), checks, goal_mode, sourceRef, position, size, "
                   "memberOf; vazby jen next (from, to); nic dalšího (text, bloky, pravidla, rozhodnutí). "
                   "Existující uzel odkazuj \"@<id>\".")
+ARCHITECTURE_HINT = ("Architekturu (sektor domény se site.kind application, stránky se site.kind page) pošli do main: "
+                     "plan --file F --workspace main (nejdřív s --dry-run). Prostory s přijatým plánem ji převezmou "
+                     "samy; karty pak plánuj v prostoru domény.")
 
 
 def addition_plan(plan):
@@ -391,6 +394,10 @@ def addition_plan(plan):
         if not isinstance(node, dict):
             raise Failure({"error": f"nodes[{index}] není objekt.", "code": "plan_shape", "hint": ADDITION_SHAPE})
         extra = set(node) - ADDITION_KEYS
+        if "site" in extra:
+            # Doména a stránky (site) jsou architektura: ta se píše jen v main a prostory ji převezmou.
+            raise Failure({"error": f"nodes[{index}]: site je architektura, prostor ji nepřijme.",
+                           "code": "plan_architecture", "hint": ARCHITECTURE_HINT})
         if extra or node.get("kind") not in ("node", "sector", "area"):
             what = f"neznámé pole {', '.join(sorted(extra))}" if extra else f"druh {node.get('kind')!r}"
             raise Failure({"error": f"nodes[{index}]: {what}.", "code": "plan_shape", "hint": ADDITION_SHAPE})
