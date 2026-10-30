@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
+from backend.api.brain_opora import test_heart_workspace as spaces
 from backend.brain_opora.determinism import tokens
 from backend.brain_opora.heart import command, opora_heart
 from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, SCOPE, seed
@@ -228,3 +229,61 @@ def test_prune_removes_nodes_with_their_edges_and_never_cascades(heart):
     assert refs["cli"] not in {node["id"] for node in graph["nodes"]}
     assert refs["cli"] not in {edge["target"] for edge in graph["edges"]}
     assert prune(tmp_path, "--node", "missing")["code"] == "prune_unknown_node"
+
+
+@pytest.fixture
+def git_heart(tmp_path, monkeypatch):
+    """Git projekt: architektura v main, karty v pracovním prostoru domény (fixture test_heart_workspace)."""
+    yield from spaces.git_heart(tmp_path, monkeypatch)
+
+
+def test_prune_clears_nodes_left_only_in_the_accepted_plan_and_adopts_the_new_architecture(git_heart):
+    """Živě (Ample): prázdné uzly pod stránkou architektury zůstaly jen v přijatém grafu prostoru, když nová
+    architektura z main stránku vypustila. Pracovní graf je už neměl, takže každá změna grafu padala na 409
+    specifikací a žádná karta nešla převzít. Jeden `prune` je odebere a zároveň převezme architekturu."""
+    client, call, pid, _ = git_heart
+    tool = spaces.tool
+    arch = tool("plan", plan=spaces.ARCHITECTURE)
+    web, home = arch["refs"]["web"], arch["refs"]["home"]
+    wid = tool("workspace", "--domain", web, "--reuse")["workspace"]
+    filler = [{"ref": "s", "kind": "sector", "parent": "@" + home, "name": "Nový sektor"},
+              {"ref": "u", "kind": "node", "parent": "s", "name": "Nový uzel"},
+              {"ref": "u2", "kind": "node", "parent": "@" + home, "name": "Nový uzel"},
+              {"ref": "a", "kind": "area", "parent": "@" + home, "name": "Nová oblast", "size": {"w": 400, "h": 300}}]
+    first = tool("plan", "--workspace", wid, plan={
+        "nodes": [spaces.card("hero", "@" + web, "[task] Úvodní blok"), spaces.card("pata", "@" + web, "[task] Patička"),
+                  *filler],
+        "edges": [{"from": "hero", "to": "pata"}, {"from": "u", "to": "u2"}]})
+    assert first["accepted"] is True, first
+    refs, service = first["refs"], client.app.state.service
+    # Pracovní graf prostoru výplň ztratí mimo návrh grafu (přijatý plán ji drží dál), pak main vypustí stránku.
+    for key in ("s", "u2", "a"):
+        preview = service.removals.preview(pid, wid, "node", refs[key])
+        service.removals.remove({"project": pid, "workspace": wid, "kind": "node", "target": refs[key],
+                                 "digest": preview["digest"], "confirmed": True}, actor="human")
+    main = service.view(pid, "main")
+    service.save_graph(pid, "main", {"nodes": [node for node in main["graph"]["nodes"] if node["id"] != home],
+                                     "edges": main["graph"]["edges"]}, main["digest"], allow_removal=True, actor="human")
+    state, _ = spaces.claims(call, pid, wid)
+    assert state["heads"]["workingDiffers"] is True
+    pair = ["--workspace", wid, "--from", refs["hero"], "--to", refs["pata"]]
+    assert "Existing accepted specifications differ" in tool("unlink", *pair)["error"]
+
+    filler_ids = [refs[key] for key in ("s", "u", "u2", "a")]
+    nodes = [flag for node in filler_ids for flag in ("--node", node)]
+    parent = tool("prune", "--workspace", wid, "--node", refs["s"])  # potomek u jen v přijatém grafu
+    assert parent["code"] == "prune_children" and refs["u"] in parent["error"]
+    dry = tool("prune", "--workspace", wid, *nodes, "--dry-run")
+    assert dry["adoptArchitecture"] is True and len(dry["removedEdges"]) == 1 and "accepted" not in dry
+    done = tool("prune", "--workspace", wid, *nodes)
+    assert done["accepted"] is True and done["removedNodes"] == filler_ids, done
+    state, ready = spaces.claims(call, pid, wid)
+    assert state["heads"]["workingDiffers"] is False and ready[refs["hero"]]["status"] == "ready"
+    accepted = call("GET", "/api/oporahub/graph-proposals/context", query={"project": pid, "workspace": wid})
+    assert accepted["architectureContext"]["differs"] is False
+    assert not {home, *filler_ids} & {node["id"] for node in accepted["acceptedGraph"]["nodes"]}
+
+    assert tool("unlink", *pair)["accepted"] is True
+    more = tool("plan", "--workspace", wid, plan={"nodes": [spaces.card("kontakt", "@" + web, "[task] Kontakt")],
+                                                   "edges": []})
+    assert more["accepted"] is True and more["acceptSteps"] == ["graph_addition", "accept"], more
