@@ -22,6 +22,7 @@ Sada dnes (40 jmen):
 | Stav a směr v zadání karty | `circle`, `check`, `arrow-up`, `arrow-left`, `arrow-right` |
 | Ovládání panelů | `search`, `chevron-left`, `chevron-right`, `panel-left-close`, `panel-left-open`, `panel-right-close`, `panel-right-open`, `grip-vertical`, `home` |
 | Horní lišta | `x`, `chevron-down`, `activity` (Záznam činnosti) |
+| Odstranění na plátně | `trash` (popelnice vazby v Editoru stránky) |
 
 Některá jména slouží dvěma pánům a je to záměr, ne nedopatření: `layout-grid` je mód Struktura i sektor ve stromu vrstev, `component` kategorie Komponenty i uzel, `map` mód Mapa i oblast. Ikona kreslí věc, ne místo — stejná věc má mít všude stejný tvar.
 

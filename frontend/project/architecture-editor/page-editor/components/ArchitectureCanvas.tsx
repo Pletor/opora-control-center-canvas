@@ -15,6 +15,7 @@ import PortMenu from "../port-menu/components/PortMenu";
 import { hasPortMenu, linkTargets } from "../port-menu/logic/port-menu";
 import { menuPosition, newCardPosition, planBox, type Box } from "../port-menu/logic/port-menu-place";
 import { cardPorts } from "../map-card/logic/card-face";
+import { canRemoveEditorEdge } from "../../logic/editor-model";
 import ArchitectureLink, { type MapLinkEdge } from "../map-link/components/ArchitectureLink";
 import type { MapMotion } from "../map-link/logic/link-motion";
 import type { CardState } from "../../card-state/logic/card-state";
@@ -34,6 +35,8 @@ type Props = {
   /** Puštěný prvek; `area` = domovská oblast, která za kartou vyrostla (uloží se s ní jednou změnou). */
   onMove: (id: string, x: number, y: number, area?: Rect & { id: string }) => Promise<void>; onConnect: (source: string, target: string, carries?: EdgeCarries | null) => void;
   onResize: (id: string, w: number, h: number) => Promise<void>;
+  /** Popelnice nakreslené vazby (`next` / `flow`); bez zámku ji nabídne jen odemčené plátno. */
+  onRemoveEdge: (edgeId: string) => void;
   /** `link` = nabídka vazby z portu: nová karta i vazba ze zdroje vzniknou jedním plánem (`catalogPlan`). */
   onInsert: (id: string, targetId: string | null, point: { x: number; y: number }, link?: CatalogLink) => void;
   /** Skutečný stav od rodiče: stav každé karty (`card-state/`) a pohyb vazeb a pulz karet (`map-link/`). */
@@ -107,11 +110,12 @@ export default function ArchitectureCanvas(props: Props) {
     }
     raf = requestAnimationFrame(reveal); return () => cancelAnimationFrame(raf);
   }, [revealId]);
+  const removeEdge = (edgeId: string) => { setHovered(null); latest.current.onRemoveEdge(edgeId); };
   const ids = new Set(nodes.map((node) => node.id));
   const edges: MapLinkEdge[] = graph.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)).map((edge) => {
     const look = edgeLook(edge, graph);
     return { id: edge.id, source: edge.source, target: edge.target, type: "map-link", label: look.label, className: look.className, ariaLabel: look.title,
-      data: { tone: look.stroke, motion: life.motion.links.get(edge.id) },
+      data: { tone: look.stroke, motion: life.motion.links.get(edge.id), onRemove: !disabled && canRemoveEditorEdge(edge) ? removeEdge : undefined },
       markerEnd: { type: MarkerType.ArrowClosed, color: look.color, width: 14, height: 14 },
       style: { stroke: look.stroke, strokeWidth: look.width, strokeDasharray: look.dash } };
   });
