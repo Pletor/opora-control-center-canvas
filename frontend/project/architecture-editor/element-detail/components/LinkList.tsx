@@ -2,6 +2,7 @@ import type { EdgeCarries } from "@/shared/types/logic/types";
 import { EDGE_CARRIES } from "@/shared/types/logic/types";
 import { CARRIES_LABEL, parseCarries } from "@/shared/edge-carries/logic/edge-carries";
 import type { NodeLink } from "../logic/agent-context";
+import { canRemoveEditorEdge } from "../../logic/editor-model";
 
 type Props = {
   title: string;
@@ -11,12 +12,15 @@ type Props = {
   onSelect?: (id: string) => void;
   /** Volba „Co po vazbě teče“ u vazby `next`; bez callbacku nebo se zámkem jen ke čtení. Ukládá rodič. */
   onCarries?: (edgeId: string, carries: EdgeCarries | null) => void;
+  /** Odebrání nakreslené vazby (`next` / `flow`); bez callbacku tlačítko chybí. Ukládá rodič. */
+  onRemove?: (edgeId: string) => void;
   disabled?: boolean;
 };
 
 /** Seznam vazeb jedním směrem: druhý konec a port; klik přenese výběr na druhý konec.
- *  U vazby `next` člověk vybere, co po ní teče (navigace, data, příkaz, událost, nebo neurčeno). */
-export default function LinkList({ title, links, empty, onSelect, onCarries, disabled = false }: Props) {
+ *  U vazby `next` člověk vybere, co po ní teče (navigace, data, příkaz, událost, nebo neurčeno);
+ *  nakreslenou vazbu `next` / `flow` jde jedním klikem odebrat (vrátí se novým tahem). */
+export default function LinkList({ title, links, empty, onSelect, onCarries, onRemove, disabled = false }: Props) {
   return (
     <section className="element-detail__links" aria-label={title}>
       <h4 className="element-detail__subtitle">{title}</h4>
@@ -44,6 +48,11 @@ export default function LinkList({ title, links, empty, onSelect, onCarries, dis
                     {EDGE_CARRIES.map((value) => <option key={value} value={value}>{CARRIES_LABEL[value]}</option>)}
                   </select>
                 </label>
+              ) : null}
+              {onRemove && canRemoveEditorEdge(link) ? (
+                <button type="button" className="element-detail__link-remove" disabled={disabled} onClick={() => onRemove(link.edgeId)}>
+                  Odstranit vazbu
+                </button>
               ) : null}
             </li>
           ))}

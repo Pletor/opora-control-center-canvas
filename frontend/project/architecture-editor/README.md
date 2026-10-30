@@ -20,4 +20,4 @@ Pořadí stránek vychází z uloženého pořadí v `graph.nodes`. Změna pořa
 
 Vazba uzlů a sektorů ukládá existující port `next` jako návaznost práce. Vazba dvou oblastí používá `flow`. Oblast sdružuje prvky geometricky; nepřidává druhou hierarchii rodičů. Přesun oblasti zachovává její členy a respektuje jejich uzavření. Přechody pracovních fází nadále řídí původní workflow v běžném Editoru.
 
-Čisté operace identity, rozsahu, přesunu, vazeb a záměru stránky (`setEditorPageSite`) mají testy vedle `logic/editor-model.ts`. Úplný průchod tvorbou stránek, vložením z knihovny, úpravou zadání a obnovením adresy se ověřuje v prohlížeči nad izolovanými daty.
+Čisté operace identity, rozsahu, přesunu, vazeb a záměru stránky (`setEditorPageSite`) mají testy vedle `logic/editor-model.ts`. Špatně nakreslenou vazbu (`next` mezi kartami, `flow` mezi oblastmi) člověk odebere tlačítkem „Odstranit vazbu“ v záložce Vazby detailu prvku; `removeEditorEdge` nechá uzly a jiné porty odmítne, uloží se přes `/api/graph` se zámkem obou konců. Úplný průchod tvorbou stránek, vložením z knihovny, úpravou zadání a obnovením adresy se ověřuje v prohlížeči nad izolovanými daty.
