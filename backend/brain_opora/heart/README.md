@@ -37,7 +37,9 @@ Modules (H2a):
 - `session.py`: `brain/session.json = {sessionId, batches, lastInputTokens}`; a new session above 60k input tokens
   or after a failed batch.
 - `opora_heart.py`: the heart's only tool, stdlib (`snapshot`, `task`, `answer`, `cancel`, `escalate`, `intake`, `decide`, `rule`, `done`,
-  and the workshop's `ctx`, `run`). It is copied into `brain/` before each batch so the Bash rule is
+  and the workshop's `ctx`, `run`). `member --area <area>|none --nodes id1,id2 [--dry-run]` proposes area membership of
+  existing cards and sectors as a graph proposal with `updateNodes` that change only `memberOf`; it never accepts it,
+  the human does (`docs/brain-heart-orchestrator.md` O2d, test `backend/api/brain_opora/test_heart_member.py`). It is copied into `brain/` before each batch so the Bash rule is
   `Bash(python opora_heart.py:*)`.
 - Workshop (K3, `docs/brain-heart.md` §3b): `write_config` creates `brain/dilna/{data,scripts,out}` and copies
   `rlm.py` there. `ctx <name>` writes `GET /api/brain/heart/context` (`determinism/workshop.py`) to
@@ -53,7 +55,8 @@ Modules (H2a):
   `claude -p` with Read/Grep/Glob and, only when a Chrome/Edge is found, REA web tools plus browser launch from
   `dilna/rea-mcp.json` with compact schemas, result via `research-update`) and `duel` (deterministic, Haiku sub-calls as actors
   `srdce-obhajce-a|b` and judges `srdce-soudce-1|2`, `duel-decide` by the server rule). Both log to `runs.jsonl`.
-- `prompt.md`: the heart's role, task shape with a full example, application-wide rules, when to ask the advisor.
+- `prompt.md`: the heart's role, task shape with a full example (an implementation card has 2–8 steps, each with `kind`
+  and `files`, so the card gauge can size it), application-wide rules, when to ask the advisor.
 
 The heart token comes from `tokens.issue_heart` once per project and workspace; it lives only in memory and in the
 environment of the process. Routes are in `backend/api/brain_opora/heart_routes.py`.

@@ -319,4 +319,5 @@ def test_collect_tags_open_cards_from_the_graph(service):
                                           "edges": [{"id": "e1", "source": "b", "target": "a"}]}, current["digest"])
     facts = snapshot.collect(service, "draft", "draft")
     assert set(facts["runs"]) == {card["id"] for card in facts["cards"]}
-    assert all(tag.startswith("[XS · sonnet") for tag in facts["runs"].values())
+    # Karty bez kroků a souborů nemají z čeho měřit: štítek „?“ (chudé podklady, §7 řez 2 – doplněk).
+    assert set(facts["runs"].values()) == {"[? – doplň kroky a soubory]"}

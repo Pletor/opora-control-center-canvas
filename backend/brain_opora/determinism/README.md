@@ -51,7 +51,7 @@ Modules (H2a, contract `docs/brain-heart.md`):
   last 10 tasks, waiting tickets (≤ 10), last checks (≤ 10). `collect` reads, `render` is pure; the text is cut at
   12 000 characters.
 - `snapshot.py` appends to each open card in `PLÁN` its run tag from `backend/canvas/card_gauge.py` (`[S · sonnet+opus]`;
-  `[XL – nepředávat, rozděl]`; a card effort more than one step off the recommendation shows `ODCHYLKA`), contract
+  `[XL – nepředávat, rozděl]`; a card with ≤ 1 step and no files shows `[? – doplň kroky a soubory]`; a card effort more than one step off the recommendation shows `ODCHYLKA`), contract
   `docs/navrhy/2026-10-30-metriky-a-spoustece.md` §3. One read of the accepted context per snapshot; unreadable = no tags.
 
 Modules (K1, contract `docs/brain-heart.md` §3a, the heart's surroundings):

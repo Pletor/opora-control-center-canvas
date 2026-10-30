@@ -105,3 +105,39 @@ def test_brief_is_the_stable_part():
     run = g.run_of(4, "standard")
     assert g.brief(run) == {"label": "S", "effort": "medium", "model": "sonnet", "advisor": "opus",
                             "handout": True, "humanReview": False}
+
+
+def test_thin_card_gets_question_mark_and_run_from_card():
+    card = node("c", card={"effort": "high", "model": "opus"})
+    run = g.profile(card, graph([card]), [step(1)], config=CONFIG)
+    assert (run["label"], run["evidence"], run["recommended"]) == ("?", "thin", None)
+    assert (run["effort"], run["model"], run["advisor"], run["source"]) == ("high", "opus", "opus", "card")
+    assert "mismatch" not in run and run["handout"] is True
+    assert g.tag(run) == "[? – doplň kroky a soubory]"
+
+
+def test_thin_card_without_effort_gets_safe_default():
+    run = g.profile(node("c"), graph([node("c")]), [], config=CONFIG)
+    assert (run["label"], run["effort"], run["model"], run["advisor"]) == ("?", "medium", "sonnet", "opus")
+    assert run["source"] == "default" and run["reason"] == "málo podkladů – doplň kroky a soubory"
+
+
+def test_text_signals_raise_risk_to_elevated_without_files():
+    s1 = {**node("s1"), "name": "S.1 Tabulky entit (migrace 0045, RLS)"}
+    config = {**CONFIG, "sensitive": ["**/migrations/**", "**/auth/**", "**/*secret*"]}
+    assert g.risk_of([], config, g.text_of(s1, [step(1)])) == {"level": "elevated",
+                                                                 "reasons": ["text: migrace", "text: RLS"]}
+    assert g.risk_of([], config, "Napiš migraci a ulož secret")["level"] == "elevated"  # never critical from text
+    assert g.risk_of([], config, "Seznam úkolů, autor a datum")["level"] == "standard"
+    assert g.risk_of([], {**CONFIG, "sensitive": [], "security": {"paths": []}}, "migrace")["level"] == "standard"
+    run = g.profile(s1, graph([s1]), [step(1)], config=config)
+    assert run["label"] == "?" and run["evidence"] == "thin"
+    files = g.risk_of(["db/migrations/0045.sql"], config, "migrace")
+    assert files["level"] == "critical"  # real files decide, the text is ignored
+
+
+def test_card_with_three_steps_and_two_files_stays_s():
+    titled = {**node("c"), "name": "Migrace 0045"}
+    steps = [step(1, files=["a.py"]), step(2, files=["b.py"]), step(3, kind="test")]
+    run = g.profile(titled, graph([titled]), steps, config=CONFIG)
+    assert (run["label"], run["evidence"], run["points"]) == ("S", "ok", 4.0)
