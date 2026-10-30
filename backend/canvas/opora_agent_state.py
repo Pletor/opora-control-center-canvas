@@ -155,6 +155,15 @@ class AgentState:
                            "budget_exhausted" if "exhausted" in reason else "budget_policy_required"})
         return result
 
+    @staticmethod
+    def without_open_pulls(claims, latest, linked, accepted):
+        """A card whose historical result (changed slice) still has an open or merged PR is not handed out:
+        the PR keeps its precedence (`card_stage`), a new run would race it."""
+        runs = {item["nodeId"]: item for item in latest}
+        pulled = {item["cardId"] for item in linked or [] if item.get("cardId") and item.get("state") in ("open", "merged")}
+        return [claim for claim in claims if not (claim["nodeId"] in pulled and claim["nodeId"] in runs
+                                                  and card_stages.historical(runs[claim["nodeId"]], claim, accepted))]
+
     def read(self, project, workspace, cards_offset=0):
         scope({"project": project, "workspace": workspace})
         canvas, now = self.canvas, self.clock()
@@ -174,6 +183,7 @@ class AgentState:
                                      {key for key, item in cards.items() if item.get("doneConfirmed")})
             claims = self.claims(project, workspace, process["items"])
             linked = pulls.read(canvas, project, workspace)
+            claims = self.without_open_pulls(claims, latest, linked, accepted)
             reviewing = reviews.read(canvas, project, workspace, now)
             attention = formal.attention(db, project, workspace)
             promotions = recurring.actions(db, project)  # Recurring misses → checks.

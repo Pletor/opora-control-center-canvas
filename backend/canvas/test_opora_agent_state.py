@@ -272,3 +272,29 @@ def test_result_after_unrelated_accepted_change_stays_reviewable_own_spec_change
     assert stage(document, "review")["reason"] == "nothing_to_review" and not verbs(document, "review")
     card = next(item for item in document["cards"] if item["nodeId"] == refs["ca"])
     assert (card["stage"], card["reason"]) == ("evidence", "stale_evidence")
+
+
+def test_result_after_own_spec_change_offers_a_claim_again_unless_its_pull_request_is_open(planned, service):
+    """Historický výsledek (změněný výřez karty) kartu neblokuje: znovu ji nabídne `claim` a nový claim projde."""
+    from backend.canvas.test_opora_auto_rebase import propose as propose_fields
+    route(service)
+    record = claim(planned)
+    planned.submit(record["executionId"], {**credentials(record), "requestId": "r", "result": {"summary": "s1 failed"}})
+    head = read(service)["heads"]["acceptedHead"]
+    accept(service, propose_fields(service, "a", goal="Redo with the missing precondition"), head)
+    pulls.register(lambda project, workspace: [{"executionId": record["executionId"], "state": "open", "cardId": "a"}])
+    document = read(service)  # an open PR of that run keeps its precedence: no claim, PR stage
+    assert not verbs(document, "claim")
+    card = next(item for item in document["cards"] if item["nodeId"] == "a")
+    assert (card["stage"], card["reason"]) == ("pull_request", "pull_requests_open")
+    pulls.register(None)
+    document = read(service)
+    [action] = verbs(document, "claim")
+    assert action["status"] == "ready" and action["targetId"] == "a"
+    card = next(item for item in document["cards"] if item["nodeId"] == "a")
+    assert (card["stage"], card["reason"]) == ("claim", "cards_ready")
+    assert not verbs(document, "review")
+    again = claim(planned, "again")
+    assert again["executionId"] != record["executionId"] and again["state"] == "running"
+    card = next(item for item in read(service)["cards"] if item["nodeId"] == "a")
+    assert (card["stage"], card["reason"]) == ("work", "runs_active")

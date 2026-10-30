@@ -91,3 +91,15 @@ def test_page_orders_by_relevance_and_caps_closed_cards_first():
     assert [row["nodeId"] for row in shown] == ["e", "g", "d", "c", "b"] and total == 7 and following == 5
     rest, _, done = page(rows, following, 5)
     assert [row["nodeId"] for row in rest] == ["a", "f"] and done is None
+
+
+def test_historical_result_with_a_claim_shows_the_claim_stage():
+    stale = {**run("reported", 1, revision="b" * 40), "staleEvidence": True}
+    assert stage(latest=stale, claim={"status": "ready"}) == ("claim", "ok", "cards_ready")
+    assert stage(latest=stale, claim={"status": "blocked", "blockReason": "blocked_by_predecessor"}) == (
+        "claim", "blocking", "blocked_by_predecessor")
+    # Výsledek jen po posunu hlavy jinde zůstává k review; otevřené PR má dál přednost.
+    assert stage(latest={**stale, "staleEvidence": False}, claim={"status": "ready"}) == (
+        "review", "waiting", "human_review_required")
+    link = {"executionId": "e1", "state": "open", "cardId": "n"}
+    assert stage(latest=stale, claim={"status": "ready"}, link=link) == ("pull_request", "waiting", "pull_requests_open")
