@@ -140,10 +140,59 @@ def test_related_unaccepted_specification_prevents_dispatch(authority, service):
     assert not authority.context(**SCOPE, node="a")["available"]
 
 
-def test_new_accepted_revision_invalidates_existing_run(authority, service):
+def test_new_accepted_revision_of_own_card_invalidates_existing_run(authority, service):
     from backend.canvas.test_opora_changesets import accept, propose
     record = claim(authority)
-    accept(service, propose(service, nodes=("b",)), record["acceptedRevision"])
+    accept(service, propose(service, nodes=("a",)), record["acceptedRevision"])
+    with pytest.raises(ValueError, match="changed"):
+        authority.heartbeat(record["executionId"], {**credentials(record), "ttlSeconds": 60})
+
+
+@pytest.fixture
+def chain(service):
+    """Plán A→B a C→D přijatý návrhem grafu; běh na A."""
+    from backend.canvas.test_opora_graph_proposals import accept, proposal
+    from backend.canvas.opora_graph_proposals import OporaGraphProposals
+    service.db_for("draft").executescript(SCHEMA)
+    baseline(service)
+    plan = {"nodes": [{"ref": ref, "kind": "node", "name": ref} for ref in ("ca", "cb", "cc", "cd")],
+            "edges": [{"from": "ca", "to": "cb", "port": "next"}, {"from": "cc", "to": "cd", "port": "next"}]}
+    item = proposal(OporaGraphProposals(service), plan=plan)
+    accept(OporaGraphProposals(service), item)
+    return item["refs"]
+
+
+def edge_id(service, source, target):
+    return next(edge["id"] for edge in service.view("draft", "draft")["graph"]["edges"]
+                if edge["source"] == source and edge["target"] == target)
+
+
+def accept_graph_change(service, plan):
+    from backend.canvas.opora_graph_changes import OporaGraphChanges
+    from backend.canvas.test_opora_graph_changes import approve, change
+    edits = OporaGraphChanges(service)
+    return approve(edits, change(edits, plan))
+
+
+def test_unrelated_accepted_graph_change_keeps_run_alive_own_slice_change_revokes(service, chain):
+    from backend.canvas.test_opora_changesets import accept, propose
+    authority = ExecutionResults(service)
+    record = claim(authority, node=chain["ca"])
+    renew = {**credentials(record), "ttlSeconds": 60}
+    accept_graph_change(service, {"removeEdges": [edge_id(service, chain["cc"], chain["cd"])]})
+    accept_graph_change(service, {"nodes": [{"ref": "other", "kind": "node", "name": "Unrelated"}]})
+    head = authority.context(**SCOPE, node=chain["ca"])["acceptedHead"]
+    assert head != record["acceptedRevision"]
+    assert authority.heartbeat(record["executionId"], renew)["state"] == "running"
+    accept(service, propose(service, nodes=(chain["ca"],), goal="Changed own spec"), head)
+    with pytest.raises(ValueError, match="changed"):
+        authority.heartbeat(record["executionId"], renew)
+
+
+def test_removing_own_next_edge_revokes_run(service, chain):
+    authority = ExecutionResults(service)
+    record = claim(authority, node=chain["ca"])
+    accept_graph_change(service, {"removeEdges": [edge_id(service, chain["ca"], chain["cb"])]})
     with pytest.raises(ValueError, match="changed"):
         authority.heartbeat(record["executionId"], {**credentials(record), "ttlSeconds": 60})
 

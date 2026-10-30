@@ -57,6 +57,10 @@ uvolnění ani expiraci nevrací zpět. Platí dosavadní limit karet na vlastn�
 
 Heartbeat i první odevzdání ověřují aktuální rezervaci, token, epochu, expiraci,
 přijatou revizi a kontext. Změna zadání nebo kontextu vyžaduje nové převzetí.
+Porovnává se výřez karty, ne globální přijatá hlava: přijatá změna plánu jinde v grafu
+(nová karta, `unlink` vzdálené vazby, `prune`) posune hlavu, ale běh zůstane platný, dokud se
+nezmění vlastní zadání a kroky karty, její uzel ani dokumenty a vazby souvisejících karet,
+které zadání nese (např. vlastní vazba `next`). Běh si drží `acceptedRevision` z claimu.
 Uvolnění člověkem také zneplatní běh, i když jeho proces ještě běží.
 Opožděné uvolnění starého běhu nesmí smazat rezervaci jeho nástupce.
 
