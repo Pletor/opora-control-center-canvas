@@ -19,6 +19,11 @@
   (`requirement` = `new` s `title`, nebo `rq_…`; docs/navrhy/2026-10-30-metriky-a-spoustece.md §5).
 - `POST /api/brain/heart/milestone {project, workspace, area, title, criteria}`: jen token srdce; návrh milníku oblasti
   (`proposed`, `milestones.propose`). Aktivuje ho jen člověk (`POST /api/intake/milestone`).
+- `POST /api/brain/heart/brief {project, workspace, requirement, synthesis}`: jen token srdce; uloží syntézu výslechu
+  požadavku a vrátí `{requirement, status, missing}`; `clear` jen bez `missing` (`brief.save_synthesis`,
+  docs/navrhy/2026-10-30-vyslech-srdce.md §7).
+- `POST /api/brain/heart/ask {project, workspace, requirement, question, recommended, why}`: jen token srdce; otázka
+  výslechu pro člověka, nejvýš 3 otevřené a 3 kola (`brief.ask`).
 Celá cesta je jen pro loopback (`backend/app/remote_access.py`). Odmítnutí nese `code` a `hint`.
 """
 import time
@@ -28,7 +33,16 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.brain_opora import models
-from backend.brain_opora.determinism import gate, gate_setting, intake, milestones, snapshot, tokens, workshop
+from backend.brain_opora.determinism import (
+    brief,
+    gate,
+    gate_setting,
+    intake,
+    milestones,
+    snapshot,
+    tokens,
+    workshop,
+)
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid, parse_body
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
@@ -36,6 +50,8 @@ from backend.canvas.graph import valid_id
 TEXT_LIMIT = 8000
 INTAKE_KEYS = {"project", "workspace", "entry", "verdict", "reason", "requirement", "title", "openCondition"}
 MILESTONE_KEYS = {"project", "workspace", "area", "title", "criteria"}
+BRIEF_KEYS = {"project", "workspace", "requirement", "synthesis"}
+ASK_KEYS = {"project", "workspace", "requirement", "question", "recommended", "why"}
 EXAMPLE = '{"project": "<id>", "workspace": "main", "text": "Chci web o dvou stránkách: …"}'
 
 
@@ -192,6 +208,33 @@ def create_heart_router(service, supervisor):
             session = await _heart_session(service, request, payload)
             return await run_in_threadpool(milestones.propose, service, session, payload["area"], payload["title"],
                                            payload["criteria"], _now())
+        except GateError as error:
+            return _refused(error)
+
+    @router.post("/brief", openapi_extra=models.body(models.BriefSynthesisIn),
+                 responses=models.answers(200, models.BriefSynthesisOut, 401, 403, 404, 422))
+    async def brief_synthesis(request: Request):
+        try:
+            payload = parse_body(await request.body())
+            if not isinstance(payload, dict) or set(payload) != BRIEF_KEYS:
+                raise invalid("Tělo je přesně {project, workspace, requirement, synthesis}.", brief.HINT)
+            session = await _heart_session(service, request, payload)
+            return await run_in_threadpool(brief.save_synthesis, service, session, payload["requirement"],
+                                           payload["synthesis"], _now())
+        except GateError as error:
+            return _refused(error)
+
+    @router.post("/ask", status_code=201, openapi_extra=models.body(models.BriefAskIn),
+                 responses=models.answers(201, models.BriefAskOut, 401, 403, 404, 409, 422))
+    async def brief_ask(request: Request):
+        try:
+            payload = parse_body(await request.body())
+            if not isinstance(payload, dict) or set(payload) != ASK_KEYS:
+                raise invalid("Tělo je přesně {project, workspace, requirement, question, recommended, why}.",
+                              brief.ASK_HINT)
+            session = await _heart_session(service, request, payload)
+            return await run_in_threadpool(brief.ask, service, session, payload["requirement"], payload["question"],
+                                           payload["recommended"], payload["why"], _now())
         except GateError as error:
             return _refused(error)
 

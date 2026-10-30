@@ -172,6 +172,19 @@ def test_snapshot_answer_escalate_and_done(server, capsys, tmp_path):
     assert (Handler.calls[-1]["path"], Handler.calls[-1]["body"]) == ("/api/brain/heart/milestone", {
         "project": "p1", "workspace": "main", "area": "a1", "title": "Spolehlivé hledání",
         "criteria": [{"text": "Jen dokumenty organizace", "cards": ["n1", "n2"]}, {"text": "Rychlé", "cards": ["n3"]}]})
+    (tmp_path / "brief.json").write_text(json.dumps({"goal": "Metriky"}, ensure_ascii=False), encoding="utf-8")
+    assert run(capsys, "brief", "--requirement", "rq_1", "--synthesis", "@brief.json")[0] == 0
+    assert (Handler.calls[-1]["path"], Handler.calls[-1]["body"]) == ("/api/brain/heart/brief", {
+        "project": "p1", "workspace": "main", "requirement": "rq_1", "synthesis": {"goal": "Metriky"}})
+    assert run(capsys, "brief", "--requirement", "rq_1", "--synthesis", '{"users": "člověk"}')[0] == 0
+    assert Handler.calls[-1]["body"]["synthesis"] == {"users": "člověk"}
+    code, out = run(capsys, "brief", "--requirement", "rq_1", "--synthesis", "@chybi.json")
+    assert code == 1 and json.loads(out)["code"] == "brief_file"
+    assert run(capsys, "ask", "--requirement", "rq_1", "--question", "Kdo?", "--recommended", "Člověk.",
+               "--why", "Určí rozsah.")[0] == 0
+    assert (Handler.calls[-1]["path"], Handler.calls[-1]["body"]) == ("/api/brain/heart/ask", {
+        "project": "p1", "workspace": "main", "requirement": "rq_1", "question": "Kdo?", "recommended": "Člověk.",
+        "why": "Určí rozsah."})
     assert run(capsys, "done", "--summary", "Dva úkoly.") == (0, '{"done": true}')
     assert json.loads((tmp_path / "last_done.json").read_text(encoding="utf-8"))["summary"] == "Dva úkoly."
 

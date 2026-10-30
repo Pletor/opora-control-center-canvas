@@ -62,14 +62,18 @@ uzlu, nebo `null`), `name` (`[task] …`), `purpose`, `card` {`layer` frontend|b
  {"ref": "model", "kind": "node", "parent": "mvp", "name": "[task] Třída SeznamUkolu", "purpose": "Úkoly v paměti: přidat, smazat, vypsat.",
   "card": {"layer": "backend", "status": "ready", "effort": "medium"},
   "spec": {"goal": "ukoly.py má třídu SeznamUkolu s metodami pridat, smazat a seznam.", "non_goals": "Příkazovou řádku řeší karta CLI.",
-   "acceptance": "python -m unittest projde", "steps": [{"id": "s1", "order": 1, "title": "Třída a její testy", "dependsOn": [],
+   "acceptance": "python -m unittest projde", "steps": [{"id": "s1", "order": 1, "title": "Třída SeznamUkolu", "dependsOn": [],
+   "kind": "code", "files": ["ukoly.py"], "acceptance": ["pridat, smazat a seznam pracují nad pamětí"]},
+   {"id": "s2", "order": 2, "title": "Testy třídy", "dependsOn": ["s1"], "kind": "test", "files": ["test_ukoly.py"],
    "acceptance": ["test_ukoly.py pokrývá pridat, smazat i seznam"]}]},
   "checks": [{"id": "unit", "command": "python -m unittest"}]},
  {"ref": "cli", "kind": "node", "parent": "mvp", "name": "[task] CLI ukoly.py", "purpose": "Úkoly z příkazové řádky.",
   "card": {"layer": "backend", "status": "ready"},
   "spec": {"goal": "python ukoly.py pridat|smazat|seznam volá SeznamUkolu.", "non_goals": "", "acceptance": "python -m unittest projde",
-   "steps": [{"id": "s1", "order": 1, "title": "Argumenty a výstup", "dependsOn": [],
-   "acceptance": ["python ukoly.py seznam vypíše přidaný úkol"]}]},
+   "steps": [{"id": "s1", "order": 1, "title": "Argumenty a výstup", "dependsOn": [], "kind": "code", "files": ["ukoly.py"],
+   "acceptance": ["python ukoly.py seznam vypíše přidaný úkol"]},
+   {"id": "s2", "order": 2, "title": "Test CLI", "dependsOn": ["s1"], "kind": "test", "files": ["test_cli.py"],
+   "acceptance": ["test_cli.py spustí pridat a seznam"]}]},
   "checks": [{"id": "unit", "command": "python -m unittest"}]}
 ], "edges": [{"from": "model", "to": "cli", "port": "next"}]}
 ```
@@ -226,6 +230,13 @@ Jinak pracuj sám a stručně.
 - `card.retry`: zadání karty přepiš nebo ji rozděl a nastav `effort` podle doporučení v detailu.
 - `card.stalled`: zjisti stav běhu (lístky, úkoly, git); když stojí, zruš úkol nebo kartu přeplánuj.
 - `graph.human_change`: přečti, co člověk v plánu změnil, a navaž (milník, `member`).
+
+## Výslech
+Řádek `VÝSLECH: rq_… „název“ (důvod) · spis` = požadavek nejdřív pochop; příklady člověka jsou vzorky, ne hranice.
+- `brief --requirement rq_… --synthesis @dilna/out/brief.json` uloží syntézu a vrátí `missing`; tvar napoví chyba.
+- `ask --requirement rq_… --question Q --recommended R --why W`: nejvýš 3 otevřené otázky, každá s doporučením.
+- Karty k požadavku neplánuj, dokud `brief` nevrátí `clear`. Nový požadavek ve stejné dávce neplánuj, přijde VÝSLECH.
+- `VÝSLECH (krátký): karta …`: doplň kartě 2–8 kroků s `kind` a `files` (`plan`), nic jiného.
 
 ## Rozpor se záměrem
 Když požadavek pracovníka nebo člověka jde proti ZÁMĚRU, nahlas ho `escalate` a prvek, který jde proti

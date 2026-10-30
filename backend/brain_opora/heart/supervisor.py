@@ -33,6 +33,7 @@ from backend.brain_opora.heart import batch, command, session
 from backend.brain_opora.heart.inputs import (
     MESSAGE_HOURS,
     backlog,
+    brief_wakes,
     card_wakes,
     closed_workspaces,
     human_changes,
@@ -168,6 +169,7 @@ class HeartSupervisor:
             if cursor is None:
                 self._milestones(project, None, now)  # první čtení: milník mohl dozrát, když supervisor nečetl
                 self._cards(project, set(), now)
+                self._briefs(project, now)
                 continue
             for event in events:
                 self.cursors[project] = event["id"]
@@ -179,6 +181,18 @@ class HeartSupervisor:
                 self._milestones(project, closed, now)
             self._human_changes(project, events, now)
             self._cards(project, trigger_workspaces(events), now)
+            self._briefs(project, now)
+
+    def _briefs(self, project, now):
+        """Spouštěč výslechu požadavku (docs/navrhy/2026-10-30-vyslech-srdce.md §2): požadavek vzniká příkazem srdce
+        bez vlastní události, proto se čte při každém průchodu outboxu. Jednou na stav, s oknem `WINDOW`."""
+        try:
+            found = brief_wakes(self.service, project, _iso(now), now)
+        except Exception:  # noqa: BLE001 - spouštěč nesmí shodit čtení outboxu
+            LOGGER.exception("Srdce: spouštěč výslechu projektu %s selhal.", project)
+            return
+        for workspace, item in found:
+            self._add(project, workspace, item, now + WINDOW)
 
     def _human_changes(self, project, events, now):
         """Spouštěč `graph.human_change`: člověk přijal návrh plánu → srdce jednou na revizi, s oknem `WINDOW`."""

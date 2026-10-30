@@ -271,6 +271,44 @@ def test_heart_token_confirms_an_intake_verdict_and_nobody_else_writes_it(tmp_pa
                     ) == "intake_entry_not_found"
 
 
+def test_heart_token_writes_a_brief_and_asks_and_intake_shows_the_brief(tmp_path):
+    """Výslech, řez 1 (docs/navrhy/2026-10-30-vyslech-srdce.md §7): `brief` a `ask` jen token srdce svého prostoru,
+    `GET /api/intake` nese u požadavku `brief: {status, questions, missing}`."""
+    from backend.brain_opora.determinism.test_brief import CLEAR, add
+
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        gate_on(client)
+        service = client.app.state.service
+        db = service.db_for("draft")
+        with db:
+            add(db, "rq_1", ["fix_for_milestone"], area=None)
+        view = client.get("/api/intake", params=SCOPE).json()
+        assert view["unassigned"][0]["brief"] is None
+        body = {**SCOPE, "requirement": "rq_1", "synthesis": {"goal": "Metriky"}}
+        question = {**SCOPE, "requirement": "rq_1", "question": "Kdo?", "recommended": "Člověk.", "why": "Rozsah."}
+        assert code(client.post("/api/brain/heart/brief", headers=HEADERS, json=body)) == "gate_token_invalid"
+        heart = {**HEADERS, tokens.HEADER: tokens.issue_heart(service, "draft", "draft")[1]}
+        client.cookies.clear()
+        assert code(client.post("/api/brain/heart/ask", headers=heart, json=question)) == "brief_missing"
+        saved = client.post("/api/brain/heart/brief", headers=heart, json=body)
+        assert saved.status_code == 200 and saved.json()["status"] == "draft" and saved.json()["missing"], saved.text
+        asked = client.post("/api/brain/heart/ask", headers=heart, json=question)
+        assert asked.status_code == 201 and asked.json()["question"] == "q1", asked.text
+        assert code(client.post("/api/brain/heart/brief", headers=heart, json={**body, "extra": 1})) == "invalid_payload"
+        assert code(client.post("/api/brain/heart/brief", headers=heart, json={**body, "synthesis": {"x": 1}})
+                    ) == "invalid_payload"
+        assert code(client.post("/api/brain/heart/brief", headers=heart, json={**body, "workspace": "main"})
+                    ) == "gate_scope"
+        assert code(client.post("/api/brain/heart/brief", headers=heart, json={**body, "requirement": "rq_x"})
+                    ) == "intake_requirement_not_found"
+        assert client.post("/api/brain/heart/brief", headers=heart, json={**body, "synthesis": CLEAR}
+                           ).json()["status"] == "grilling"  # otázka čeká na člověka
+        shown = client.get("/api/intake", params=SCOPE).json()["unassigned"][0]["brief"]
+        assert shown["status"] == "grilling" and shown["questions"][0]["recommended"] == "Člověk."
+        assert shown["missing"] == ["otázky výslechu čekají na odpověď člověka"]
+
+
 def test_intake_setting_is_read_by_anyone_and_changed_only_by_a_human(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         seed(client)

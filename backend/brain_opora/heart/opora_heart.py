@@ -12,6 +12,8 @@
     python opora_heart.py intake --entry ie_… --verdict V [--reason R] [--requirement rq_…|new [--title T]
                                  [--open-condition ms_…]]
     python opora_heart.py milestone --area A --title T --criterion "text::nodeId,nodeId" [--criterion …]
+    python opora_heart.py brief --requirement rq_… --synthesis @soubor.json
+    python opora_heart.py ask --requirement rq_… --question Q --recommended R --why W
     python opora_heart.py decide --text T [--node N] [--pin] [--workspace W]
     python opora_heart.py prune --node ID [--node ID]… [--dry-run] [--no-accept] [--workspace W]
     python opora_heart.py member --area AREA|none --nodes ID,ID… [--dry-run] [--workspace W]
@@ -43,6 +45,8 @@ pro skripty `rlm.load`), `--node N` plné zadání podstromu uzlu N do `plan-of-
 hlásí `truncated` a `cut` (vynechané uzly).
 `member` navrhne členství existujících karet a sektorů v oblasti (`--area none` ho zruší) návrhem grafu
 s `updateNodes` jen pole `memberOf`; návrh čeká na přijetí člověkem v UI, srdce ho samo nepřijme.
+`brief` uloží syntézu výslechu požadavku (JSON v souboru `@cesta` nebo přímo) a vrátí `status` a co do jasna chybí
+(`missing`); `ask` položí člověku otázku výslechu s doporučenou odpovědí (docs/navrhy/2026-10-30-vyslech-srdce.md §7).
 `research` (§3d, výzkumný stůl) je v `opora_research.py`, `duel` (§3c) v `opora_duel.py` vedle nástroje.
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
@@ -178,6 +182,20 @@ def criteria(values):
     return result
 
 
+def read_synthesis(value):
+    """Syntéza výslechu: `@cesta` k JSON souboru, jinak JSON přímo v argumentu."""
+    try:
+        text = Path(value[1:]).read_text(encoding="utf-8") if value.startswith("@") else value
+        synthesis = json.loads(text)
+    except (OSError, ValueError) as error:
+        raise Failure({"error": f"Syntézu nejde přečíst: {error}", "code": "brief_file",
+                       "hint": "Ulož syntézu jako JSON objekt do dilna/out/brief.json (Write) a předej @cestu."}) from None
+    if not isinstance(synthesis, dict):
+        raise Failure({"error": "Syntéza musí být JSON objekt.", "code": "brief_file",
+                       "hint": "Objekt {goal, users, parts, acceptance, outOfScope, dependencies, questions…}."})
+    return synthesis
+
+
 def now():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
@@ -226,15 +244,19 @@ PLAN_EXAMPLE = {
          "card": {"layer": "backend", "status": "ready", "effort": "medium"},
          "spec": {"goal": "ukoly.py má třídu SeznamUkolu s metodami pridat, smazat a seznam.",
                   "non_goals": "Příkazovou řádku řeší karta CLI.", "acceptance": "python -m unittest projde",
-                  "steps": [{"id": "s1", "order": 1, "title": "Třída a její testy", "dependsOn": [],
-                             "acceptance": ["test_ukoly.py pokrývá pridat, smazat i seznam"]}]},
+                  "steps": [{"id": "s1", "order": 1, "title": "Třída SeznamUkolu", "dependsOn": [], "kind": "code",
+                             "files": ["ukoly.py"], "acceptance": ["pridat, smazat a seznam pracují nad pamětí"]},
+                            {"id": "s2", "order": 2, "title": "Testy třídy", "dependsOn": ["s1"], "kind": "test",
+                             "files": ["test_ukoly.py"], "acceptance": ["test_ukoly.py pokrývá pridat, smazat i seznam"]}]},
          "checks": [{"id": "unit", "command": "python -m unittest"}]},
         {"ref": "cli", "kind": "node", "parent": "mvp", "name": "[task] CLI ukoly.py",
          "purpose": "Úkoly z příkazové řádky.", "card": {"layer": "backend", "status": "ready"},
          "spec": {"goal": "python ukoly.py pridat|smazat|seznam volá SeznamUkolu.", "non_goals": "",
                   "acceptance": "python -m unittest projde",
-                  "steps": [{"id": "s1", "order": 1, "title": "Argumenty a výstup", "dependsOn": [],
-                             "acceptance": ["python ukoly.py seznam vypíše přidaný úkol"]}]},
+                  "steps": [{"id": "s1", "order": 1, "title": "Argumenty a výstup", "dependsOn": [], "kind": "code",
+                             "files": ["ukoly.py"], "acceptance": ["python ukoly.py seznam vypíše přidaný úkol"]},
+                            {"id": "s2", "order": 2, "title": "Test CLI", "dependsOn": ["s1"], "kind": "test",
+                             "files": ["test_cli.py"], "acceptance": ["test_cli.py spustí pridat a seznam"]}]},
          "checks": [{"id": "unit", "command": "python -m unittest"}]},
     ],
     "edges": [{"from": "model", "to": "cli", "port": "next"}],
@@ -792,6 +814,13 @@ def run(args):
     if args.command == "milestone":
         body = {**scope(), "area": args.area, "title": args.title, "criteria": criteria(args.criterion)}
         return call("POST", "/api/brain/heart/milestone", body)
+    if args.command == "brief":
+        body = {**scope(), "requirement": args.requirement, "synthesis": read_synthesis(args.synthesis)}
+        return call("POST", "/api/brain/heart/brief", body)
+    if args.command == "ask":
+        body = {**scope(), "requirement": args.requirement, "question": args.question,
+                "recommended": args.recommended, "why": args.why}
+        return call("POST", "/api/brain/heart/ask", body)
     if args.command in ("decide", "rule"):
         path, payload = (("/api/desktop-v3/decision", decision_payload(args)) if args.command == "decide"
                          else ("/api/desktop-v3/rule", rule_payload(args)))
@@ -859,6 +888,12 @@ def parser():
     milestone.add_argument("--area", required=True)
     milestone.add_argument("--title", required=True)
     milestone.add_argument("--criterion", action="append", required=True, help='"text::nodeId,nodeId"')
+    brief = commands.add_parser("brief")  # syntéza výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §7)
+    brief.add_argument("--requirement", required=True)
+    brief.add_argument("--synthesis", required=True, help="@cesta k JSON souboru, nebo JSON")
+    ask = commands.add_parser("ask")  # otázka výslechu pro člověka, s doporučenou odpovědí
+    for flag in ("--requirement", "--question", "--recommended", "--why"):
+        ask.add_argument(flag, required=True)
     decide = commands.add_parser("decide")
     decide.add_argument("--text", required=True)
     decide.add_argument("--node")
