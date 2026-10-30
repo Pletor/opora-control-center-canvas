@@ -75,7 +75,10 @@ def test_ok_batch_is_journaled_with_costs_and_summary(tmp_path):
     assert batch.read_journal(tmp_path / "brain") == [entry]
     stored = session.load(tmp_path / "brain")
     assert stored.pop("promptDigest") == hashlib.sha256(command.PROMPT_FILE.read_bytes()).hexdigest()  # rotace po změně promptu
-    assert stored == {"sessionId": RESULT["session_id"], "batches": 1, "lastInputTokens": 20_900}
+    # bez událostí tahů odhad konce dávky: 900 čerstvých + 20 000 čtení / 7 tahů
+    assert stored == {"sessionId": RESULT["session_id"], "batches": 1, "lastInputTokens": 3_757}
+    assert entry["inputTokens"] == 20_900 and entry["contextTokens"] == 3_757
+    assert (entry["fresh"], entry["cacheRead"], entry["cacheCreation"], entry["output"]) == (900, 20_000, 0, 0)
     assert (tmp_path / "brain" / batch.SNAPSHOT).read_text(encoding="utf-8") == "PROJEKT p1"
     second = FakeRunner(Outcome(0, json.dumps(RESULT), ""))
     batch.run(spec(tmp_path), second, clock(200.0, 201.0))
@@ -160,3 +163,28 @@ def test_input_line_carries_jev_confidence_and_area():
                                                        "confidence": 0.5}}])
     assert "Hybrid. [vstup ie_4 · later_extension · jev 0.90 · oblast a1 · podobné: ie_1]" in text
     assert "Jiná. [vstup ie_5 · pending]" in text
+
+
+def test_stream_json_rotates_on_the_last_turn_and_journals_the_split(tmp_path):
+    """`stream-json`: rotace podle kontextu posledního tahu, ne podle součtu všech tahů dávky."""
+    def turn(read, created):
+        return json.dumps({"type": "assistant", "parent_tool_use_id": None, "session_id": RESULT["session_id"],
+                           "message": {"usage": {"input_tokens": 2, "cache_read_input_tokens": read,
+                                                 "cache_creation_input_tokens": created, "output_tokens": 50}}})
+    usage = {"input_tokens": 6, "cache_read_input_tokens": 120_000, "cache_creation_input_tokens": 45_000,
+             "output_tokens": 900}
+    stream = "\n".join([json.dumps({"type": "system", "subtype": "init", "session_id": RESULT["session_id"]}),
+                        turn(20_000, 10_000), turn(30_000, 15_000), turn(45_000, 9_000),
+                        json.dumps({**RESULT, "usage": usage})])
+    entry = batch.run(spec(tmp_path), FakeRunner(Outcome(0, stream, "")), clock(0.0, 1.0))
+    assert entry["status"] == "ok" and entry["costUsd"] == RESULT["total_cost_usd"]
+    assert entry["inputTokens"] == 165_006 and entry["contextTokens"] == 54_002
+    assert (entry["fresh"], entry["cacheRead"], entry["cacheCreation"], entry["output"]) == (6, 120_000, 45_000, 900)
+    assert session.load(tmp_path / "brain")["lastInputTokens"] == 54_002
+    assert session.choose(tmp_path / "brain", lambda: "new")[1] is True  # pod 60k kontextu: další dávka naváže
+
+
+def test_parse_skips_stream_events_and_a_timeout_has_no_result():
+    events = [json.dumps({"type": "system"}), json.dumps({"type": "assistant", "session_id": "s"})]
+    assert batch.parse("\n".join(events)) is None
+    assert batch.parse("\n".join([*events, json.dumps(RESULT)])) == RESULT

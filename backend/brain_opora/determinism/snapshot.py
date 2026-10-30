@@ -1,6 +1,7 @@
 """Snímek projektu pro srdce (docs/brain-heart.md §3): deterministický text bez modelu, s pevným stropem znaků.
 
-`collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky plánu,
+`collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky,
+oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu),
 fronta úkolů, čekající lístky, poslední vstupy vstupní brány (sekce VSTUPY), splněné milníky s odloženými
 požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY), poslední kontroly, deník dávek;
 okolí srdce §3a; skripty dílny §3b; výzkumy a duely srdce ze schránky zadání §3c; stav práce karet z executions
@@ -35,6 +36,7 @@ from database.repositories.opora_executions import Executions
 
 LIMIT = 12_000  # zhruba 4k tokenů
 PAGES = 20
+AREAS, SECTORS = 10, 20  # oblasti a sektory v sekci PLÁN (jejich ID bere `member` a `milestone`)
 TASKS = 10
 TICKETS = 10
 CHECKS = 10
@@ -76,18 +78,24 @@ def _identity(service, project):
 
 
 def _pages(service, project, workspace):
-    """Stránky plánu `{id, name, path, goal, feel}` z grafu plátna; nečitelný graf = žádné stránky."""
+    """`(stránky, oblasti, sektory)` z grafu plátna: stránky `{id, name, path, goal, feel}`, oblasti `{id, name}`
+    a sektory `{id, name, memberOf}`; nečitelný graf = nic. ID oblastí a sektorů potřebují `member` a `milestone`."""
     try:
         nodes = service.view(project, workspace)["graph"]["nodes"]
     except (ValueError, KeyError, OSError, sqlite3.Error):
-        return []
-    pages = []
+        return [], [], []
+    pages, areas, sectors = [], [], []
     for node in nodes:
         site = node.get("site") if isinstance(node.get("site"), dict) else {}
+        name = node.get("name") or node["id"]
         if site.get("kind") == "page":
-            pages.append({"id": node["id"], "name": node.get("name") or node["id"], "path": site.get("path") or "",
+            pages.append({"id": node["id"], "name": name, "path": site.get("path") or "",
                           "goal": site.get("goal") or "", "feel": site.get("feel") or ""})
-    return pages
+        elif node.get("kind") == "area":
+            areas.append({"id": node["id"], "name": name})
+        elif node.get("kind") == "sector":
+            sectors.append({"id": node["id"], "name": name, "memberOf": node.get("memberOf")})
+    return pages, areas, sectors
 
 
 def _memory(service, project, workspace):
@@ -266,7 +274,7 @@ def collect(service, project, workspace):
     name, goal = _identity(service, project)
     rules, decisions = _memory(service, project, workspace)
     messages, journal, scripts = _brain(service, project, workspace)
-    pages, cards = _pages(service, project, workspace), open_cards(service, project, workspace)
+    (pages, areas, sectors), cards = _pages(service, project, workspace), open_cards(service, project, workspace)
     with service.reading(project):
         db = service.db_for(project)
         tasks = HeartTaskStore(db, project).list(workspace)
@@ -279,7 +287,7 @@ def collect(service, project, workspace):
         reached = milestones.reached(db, project, workspace)
         wanted = IntakeRequirements(db).list(workspace, ("open", "deferred"))[-REQUIREMENTS:]
     runs = _runs(service, project, workspace, [card["id"] for card in cards])  # jen otevřené karty
-    return {"runs": runs, "intake": entries, "milestones": reached, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "cards": cards,
+    return {"runs": runs, "intake": entries, "milestones": reached, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
             "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
@@ -296,19 +304,24 @@ def _intent(facts):
 
 
 def _plan(facts):
+    """Řádky sekce PLÁN, každý s plným ID uzlu (bere ho `member`, `milestone`, `--node`, `"@<id>"`): stránky, otevřené
+    karty mimo stránky, oblasti a sektory. Srdce tak ID nehledá přes `ctx tree`, `plan-of` ani nový `snapshot`."""
     stages = {card["id"]: card["stage"] for card in facts["cards"]}
     work, runs = facts.get("work"), facts.get("runs") or {}
 
     def doing(node):  # stav práce z executions (§3 orchestrátoru) a štítek běhu; fakta bez nich je nepíšou
         return ("" if work is None else f" · {_doing(facts, node)}") + (f" · {runs[node]}" if node in runs else "")
 
-    if facts["pages"]:
-        rows = [f"- {_short(page['name'], 80)} · {page['path'] or '—'} · {stages.get(page['id'], 'closed')}"
-                + doing(page["id"]) + (f" · cíl: {_short(page['goal'], 120)}" if page["goal"] else "")
-                for page in facts["pages"][:PAGES]]
-    else:
-        rows = [f"- {_short(card['name'], 80)} · {card['id']} · {card['stage']}" + doing(card["id"])
-                for card in facts["cards"][:PAGES]]
+    pages = facts["pages"][:PAGES]
+    rows = [f"- {_short(page['name'], 80)} · {page['id']} · {page['path'] or '—'} · {stages.get(page['id'], 'closed')}"
+            + doing(page["id"]) + (f" · cíl: {_short(page['goal'], 120)}" if page["goal"] else "") for page in pages]
+    shown = {page["id"] for page in pages}
+    rows += [f"- {_short(card['name'], 80)} · {card['id']} · {card['stage']}" + doing(card["id"])
+             for card in [card for card in facts["cards"] if card["id"] not in shown][:PAGES]]
+    rows += [f"- oblast {_short(area['name'], 60)} · {area['id']}" for area in (facts.get("areas") or [])[:AREAS]]
+    rows += [f"- sektor {_short(sector['name'], 60)} · {sector['id']}"
+             + (f" · oblast {sector['memberOf']}" if sector.get("memberOf") else "")
+             for sector in (facts.get("sectors") or [])[:SECTORS]]
     return rows or ["- (prázdný plán)"]
 
 

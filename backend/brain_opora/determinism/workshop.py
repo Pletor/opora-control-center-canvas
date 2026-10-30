@@ -116,7 +116,7 @@ def plan_of(service, project, workspace=None, node=None):
     """Plán projektu `project` jako data v pořadí grafu.
 
     Výchozí je celý plán zhuštěně, ať se vejde i 150–300 karet: `{id, kind, name, path (jména předků › …), parent,
-    sector, architecture, site?, purpose, goal, acceptance (do `PLAN_OF_SHORT` znaků), steps [titulky], next[]}`.
+    sector, architecture, site?, stage? (stav karty), purpose, goal, acceptance (do `PLAN_OF_SHORT` znaků), steps [titulky], next[]}`.
     `node` dá plné zadání jen toho uzlu a jeho podstromu: `{…, purpose, spec{goal, non_goals, acceptance, steps[{id,
     order, title, acceptance, dependsOn}]}}`. Nad `PLAN_OF_BYTES` JSONu je poslední položka `{truncated: true, total,
     shown, cut: [{id, name}], hint}` a jmenuje každý vynechaný uzel. Neznámý projekt, prostor nebo uzel je 404."""
@@ -158,6 +158,9 @@ def plan_of(service, project, workspace=None, node=None):
                 "parent": item.get("parentId"), "sector": sector(item), "architecture": item["id"] in owned}
         if isinstance(item.get("site"), dict):
             base["site"] = {key: item["site"][key] for key in ("kind", "path") if key in item["site"]}
+        stage = (item.get("card") or {}).get("status") if isinstance(item.get("card"), dict) else None
+        if stage:  # stav karty pro kompaktní řádek `ctx plan-of` (id · cesta · název · stage)
+            base["stage"] = stage
         if node is None:
             base.update({"purpose": _clip(item.get("purpose"), PLAN_OF_SHORT), **_brief(fields)})
         else:

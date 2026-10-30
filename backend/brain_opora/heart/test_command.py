@@ -17,8 +17,8 @@ def build(resume, source_root=None):
 
 def test_new_session_command_matches_the_contract():
     line = build(False, "/src")
-    assert line[:9] == ["claude", "-p", "--output-format", "json", "--model", "haiku", "--advisor", "opus",
-                        "--session-id"]
+    assert line[:10] == ["claude", "-p", "--output-format", "stream-json", "--verbose", "--model", "haiku",
+                         "--advisor", "opus", "--session-id"]
     pairs = {line[i]: line[i + 1] for i in range(1, len(line) - 1) if line[i].startswith("--")}
     assert pairs["--session-id"] == SID and "--resume" not in line
     assert pairs["--setting-sources"] == "project" and pairs["--settings"] == "s.json"

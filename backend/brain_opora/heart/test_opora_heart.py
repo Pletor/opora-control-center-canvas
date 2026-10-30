@@ -436,9 +436,11 @@ def test_workspace_override_is_per_call_and_ctx_plan_of_reads_another_project(se
     run(capsys, "snapshot")  # další volání bez --workspace jde zase do prostoru z prostředí
     assert Handler.calls[-1]["query"]["workspace"] == ["main"]
     code, out = run(capsys, "ctx", "plan-of", "--project", "p2", "--workspace", "w9")
-    assert code == 0 and json.loads(out)["path"] == "dilna/data/plan-of-p2.json"
+    assert code == 0 and json.loads(out)["path"] == "dilna/data/plan-of-p2.txt"  # výchozí: řádek na uzel
     assert Handler.calls[-1]["query"] == {"project": ["p1"], "workspace": ["main"], "name": ["plan-of"],
                                           "of": ["p2"], "ofWorkspace": ["w9"]}
+    code, out = run(capsys, "ctx", "plan-of", "--project", "p2", "--full")
+    assert code == 0 and json.loads(out)["path"] == "dilna/data/plan-of-p2.json"  # zhuštěný JSON pro skripty
     code, out = run(capsys, "ctx", "plan-of", "--project", "p2", "--node", "n7")
     assert code == 0 and json.loads(out)["path"] == "dilna/data/plan-of-p2-n7.json"
     assert Handler.calls[-1]["query"]["ofNode"] == ["n7"]
@@ -450,9 +452,19 @@ def test_ctx_plan_of_reports_which_nodes_were_cut(server, capsys, tmp_path, monk
     marker = {"truncated": True, "total": 3, "shown": 1, "cut": [{"id": "b", "name": "B"}, {"id": "c", "name": "C"}],
               "hint": "…"}
     monkeypatch.setattr(opora_heart, "call", lambda *args, **kwargs: {"items": [{"id": "a"}, marker]})
-    code, out = run(capsys, "ctx", "plan-of", "--project", "p2")
+    code, out = run(capsys, "ctx", "plan-of", "--project", "p2", "--full")
     assert code == 0 and json.loads(out) == {"path": "dilna/data/plan-of-p2.json", "items": 1, "truncated": True,
                                              "total": 3, "cut": ["b", "c"], "bytes": json.loads(out)["bytes"]}
+    code, out = run(capsys, "ctx", "plan-of", "--project", "p2")
+    assert code == 0 and json.loads(out)["cut"] == ["b", "c"] and json.loads(out)["items"] == 1
+    assert (tmp_path / json.loads(out)["path"]).read_text(encoding="utf-8").splitlines() == [
+        "a · — ·  · ?", "… vynecháno 2 uzlů (dočti --node): b, c"]
+
+
+def test_plan_lines_are_one_compact_row_per_node():
+    items = [{"id": "s1", "kind": "sector", "name": "MVP", "path": "", "goal": "g" * 200, "steps": ["x"] * 9},
+             {"id": "n_a", "kind": "node", "name": "[task] A", "path": "MVP", "stage": "ready", "goal": "g" * 200}]
+    assert opora_heart.plan_lines(items) == ["s1 · — · MVP · sector", "n_a · MVP · [task] A · ready"]
 
 
 def test_accepted_plan_remembers_its_workspace(server, capsys, tmp_path):

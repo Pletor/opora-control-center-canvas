@@ -33,7 +33,8 @@ def test_render_has_the_fixed_sections_in_order():
              "FRONTA ÚKOLŮ: ready 0 · assigned 1 (gs_2) · done 1 · failed 0", "LÍSTKY ČEKAJÍCÍ:", "POSLEDNÍ KONTROLY:"]
     positions = [text.index(head) for head in heads]
     assert positions == sorted(positions)
-    assert "- Domů · / · ready · cíl: Uvěřit, že to zvládnu." in text and "- Kontakt · /kontakt · closed" in text
+    assert "- Domů · home · / · ready · cíl: Uvěřit, že to zvládnu." in text
+    assert "- Kontakt · kontakt · /kontakt · closed" in text
     assert text.index("[assigned] Formulář") < text.index("[done] Hero")  # nejnovější úkoly první
     assert "- [assigned] Formulář (ht_2) · drží gs_2 od 2026-10-29T08:00:00Z" in text  # od kdy úkol drží
     assert "- [done] Hero (ht_1)\n" in text
@@ -201,7 +202,7 @@ def test_work_states_from_newest_execution_and_its_pr_link():
                     "merged": "sloučeno abcdef1 · čeká na uzavření", "old": "sloučeno 1234567 · nezapsáno"}
     text = snapshot.render({**FACTS, "pages": [], "work": {"home": "PR #12"}})
     assert "- Domů · home · ready · PR #12" in text
-    assert "- Domů · / · ready · volná · cíl:" in snapshot.render({**FACTS, "work": {}})
+    assert "- Domů · home · / · ready · volná · cíl:" in snapshot.render({**FACTS, "work": {}})
 
 
 def test_blocked_card_names_its_predecessor_and_what_it_waits_for():
@@ -321,3 +322,28 @@ def test_collect_tags_open_cards_from_the_graph(service):
     assert set(facts["runs"]) == {card["id"] for card in facts["cards"]}
     # Karty bez kroků a souborů nemají z čeho měřit: štítek „?“ (chudé podklady, §7 řez 2 – doplněk).
     assert set(facts["runs"].values()) == {"[? – doplň kroky a soubory]"}
+
+
+def test_plan_rows_carry_full_ids_of_pages_cards_areas_and_sectors():
+    """Řádky PLÁN nesou plné ID, ať srdce kvůli `member` a `milestone` nevolá `ctx tree`, `plan-of` ani `snapshot`."""
+    facts = {**FACTS, "cards": [{"id": "home", "name": "Domů", "stage": "ready"},
+                                {"id": "n_upload", "name": "[task] Nahrání souborů", "stage": "ready"}],
+             "areas": [{"id": "a_import", "name": "Import dat"}],
+             "sectors": [{"id": "s_mvp", "name": "MVP", "memberOf": "a_import"}, {"id": "s_web", "name": "Web",
+                                                                                  "memberOf": None}]}
+    plan = snapshot.render(facts).split("PLÁN:\n")[1].split("\nFRONTA ÚKOLŮ")[0].splitlines()
+    assert plan == ["- Domů · home · / · ready · cíl: Uvěřit, že to zvládnu.", "- Kontakt · kontakt · /kontakt · closed",
+                    "- [task] Nahrání souborů · n_upload · ready", "- oblast Import dat · a_import",
+                    "- sektor MVP · s_mvp · oblast a_import", "- sektor Web · s_web"]
+
+
+def test_collect_lists_areas_and_sectors_of_the_canvas(service):
+    view = service.view("draft", "draft")
+    graph = {"nodes": [{"id": "ar", "parentId": None, "kind": "area", "name": "Oblast", "purpose": "", "x": 0, "y": 0,
+                        "size": {"w": 400, "h": 300}},
+                       {"id": "se", "parentId": None, "kind": "sector", "name": "Sektor", "purpose": "", "x": 0, "y": 0,
+                        "memberOf": "ar"}], "edges": []}
+    service.save_graph("draft", "draft", graph, view["digest"])
+    facts = snapshot.collect(service, "draft", "draft")
+    assert facts["areas"] == [{"id": "ar", "name": "Oblast"}]
+    assert facts["sectors"] == [{"id": "se", "name": "Sektor", "memberOf": "ar"}]
