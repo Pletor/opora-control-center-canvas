@@ -76,16 +76,14 @@ def _scope(session):
 # Obsluha je `handle(service, session, body, now) -> odpověď`; tělo už prošlo kontrolou `check`.
 TABLE = (
     Kind("next", "worker", "Další úkol z fronty: držený úkol znovu, jinak nejstarší ready. Prázdná fronta vrátí "
-         "task null a plan (otevřené karty). Úkol nese checkpoint (kontrolní bod sprintu) a sprint {id, goal, milestone, "
-         "done, total}, u úkolu bez sprintu null.", {}, empty_body, task_queue.next_task),
+         "task null a plan (otevřené karty).", {}, empty_body, task_queue.next_task),
     Kind("ask", "worker", "Otázka pro srdce nebo člověka. Lístek čeká ve frontě, odpověď přijde do schránky (inbox).",
          {}, _ask, None),
     Kind("report", "worker", "Hlášení úkolu s kontrolami na sha: vše zelené = done, červená = zpět do ready, "
-         "druhá červená = failed. Mimo kontrolní bod sprintu smí kontroly být deferred (pak done).",
+         "druhá červená = failed.",
          {"invalid_sha": "Pošlete výstup git rev-parse HEAD (nebo jeho zkrácenou podobu).",
           "sha_unknown": "Commitni práci a nahlas sha z `git rev-parse HEAD`.",
           "checks_required": 'Spusťte kontroly a pošlete checks: [{"name": "npm test", "status": "green"}].',
-          "checkpoint_needs_checks": "Spusťte kontroly milníku sprintu a pošlete je jako green nebo red, ne deferred.",
           **TASK_MISSING,
           "task_not_assigned": "Hlaste jen úkol, který vám vrátil next; o další požádejte přes next."},
          report_payload, task_queue.report),

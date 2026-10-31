@@ -22,20 +22,14 @@ def nullable(schema):
 
 
 EMPTY = obj({})
-SPRINT = obj({"id": {**TEXT, "maxLength": 40}, "goal": {"type": "string"}, "milestone": TEXTS}, ("id",))
 TASK_BODY_IN = obj({"why": {"type": "string"}, "do": TEXT, "files": TEXTS, "doneWhen": TEXTS,
                     "dontTouch": {"type": "array", "items": obj({"path": TEXT, "heldBy": TEXT}, ("path", "heldBy"))},
                     "context": obj({"intent": {"type": "string"}, "rules": TEXTS, "pattern": {"type": "string"}}),
-                    "commit": {"type": "string"}, "model": {"type": "string", "enum": list(MODELS)},
-                    "sprint": SPRINT}, ("do",))
+                    "commit": {"type": "string"}, "model": {"type": "string", "enum": list(MODELS)}}, ("do",))
 TASK_BODY = {**TASK_BODY_IN, "required": ["why", "do", "files", "doneWhen", "dontTouch", "context", "commit", "model"]}
-# Sprint úkolu v odpovědi `next` (docs/navrhy/2026-10-31-sprinty-a-uspornost.md §2): cíl, milník a počty úkolů.
-WORKER_SPRINT = obj({"id": TEXT, "goal": {"type": "string"}, "milestone": TEXTS, "done": {"type": "integer"},
-                     "total": {"type": "integer"}}, ("id", "goal", "milestone", "done", "total"))
 WORKER_TASK = obj({"id": ID, "title": TEXT, "nodeId": nullable(ID), "status": {"type": "string"},
-                   "attempts": {"type": "integer"}, "body": TASK_BODY, "checkpoint": {"type": "boolean"},
-                   "sprint": nullable(WORKER_SPRINT)},
-                  ("id", "title", "nodeId", "status", "attempts", "body", "checkpoint", "sprint"))
+                   "attempts": {"type": "integer"}, "body": TASK_BODY},
+                  ("id", "title", "nodeId", "status", "attempts", "body"))
 TASK = obj({"taskId": ID, "seq": {"type": "integer"}, "workspaceId": ID, "nodeId": nullable(ID), "title": TEXT,
             "body": TASK_BODY, "status": {"type": "string", "enum": ["ready", "assigned", "done", "failed", "cancelled"]},
             "sessionId": nullable({"type": "string"}), "attempts": {"type": "integer"}, "createdBy": {"type": "string"},
@@ -50,7 +44,7 @@ TICKET = obj({"ticketId": ID, "seq": {"type": "integer"}, "sessionId": ID, "kind
               "answeredAt", "answeredSeq"))
 CARD = obj({"id": ID, "name": {"type": "string"}, "stage": {"type": "string"}}, ("id", "name", "stage"))
 PLAN_ITEM = obj({**CARD["properties"], "path": {"type": "string"}, "goal": {"type": "string"}}, ("id", "name", "stage"))
-CHECK = obj({"name": TEXT, "status": {"type": "string", "enum": ["green", "red", "deferred"]}, "output": {"type": "string"}},
+CHECK = obj({"name": TEXT, "status": {"type": "string", "enum": ["green", "red"]}, "output": {"type": "string"}},
             ("name", "status"))
 LATER = {"description": "Odpověď člověka nebo srdce přijde později do schránky (druh inbox), obvykle {text}."}
 

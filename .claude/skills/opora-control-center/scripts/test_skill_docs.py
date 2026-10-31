@@ -59,22 +59,6 @@ def test_skill_md_is_a_short_router_linking_every_reference():
             assert "Kdy mě číst" in path.read_text("utf-8"), path.name
 
 
-def test_gate_worker_skill_is_short_points_to_the_real_client_and_gate_md_links_it():
-    """Skill dělníka brány (docs/navrhy/2026-10-31-sprinty-a-uspornost.md §4): klient se neduplikuje, cesta vede na
-    skutečný `opora_gate.py`; `gate.md` na skill odkazuje místo opakování smyčky."""
-    worker = SKILL.parent / "opora-gate-worker" / "SKILL.md"
-    text = worker.read_text("utf-8")
-    assert len(text.splitlines()) <= 120 and text.startswith("---\nname: opora-gate-worker\ndescription: ")
-    assert "<SKILL_DIR>/../opora-control-center/scripts/opora_gate.py" in text and (SKILL / "scripts" / "opora_gate.py").is_file()
-    for mark in ("Opora-Task", '--check "npm run build=deferred" --check "npm test=deferred"', "checkpoint_needs_checks",
-                 "task: null", "dontTouch", "context.rules", "Grep"):
-        assert mark in text, mark
-    links = re.findall(r"\]\((\.\./[^)]+\.md)\)", text)
-    assert links and all((worker.parent / link).resolve().is_file() for link in links)
-    gate = (SKILL / "references" / "gate.md").read_text("utf-8")
-    assert "](../../opora-gate-worker/SKILL.md)" in gate and (SKILL / "references" / "../../opora-gate-worker/SKILL.md").resolve().is_file()
-
-
 def test_examples_pass_the_real_backend_in_agent_order(tmp_path):
     from fastapi.testclient import TestClient
 

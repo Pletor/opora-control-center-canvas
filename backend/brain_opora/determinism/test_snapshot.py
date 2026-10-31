@@ -58,14 +58,6 @@ def test_render_is_cut_at_the_hard_limit():
     assert len(snapshot.render({**FACTS, "tasks": many})) <= snapshot.LIMIT
 
 
-def test_long_snapshot_drops_workshop_and_research_before_the_queue():
-    full = snapshot.render(FACTS)
-    assert "DÍLNA:" in full and "VÝZKUM:" in full
-    short = snapshot.render(FACTS, limit=len(full) - 1)
-    assert "DÍLNA:" not in short and "VÝZKUM:" not in short and "FRONTA ÚKOLŮ:" in short
-    assert not short.endswith(snapshot.CUT)
-
-
 def test_collect_reads_queue_tickets_and_unknown_project(service):
     task_queue.create(service, {"project": "draft", "workspace": "draft", "title": "Stránka", "body": {"do": "x"}})
     session = gate.authenticate(service, gate.open_session(
@@ -85,9 +77,8 @@ MEMORY = {"messages": [{"at": f"2026-10-29T10:0{i}:00Z", "workspace": "main", "t
                          "createdAt": f"2026-10-{10 + i}T00:00:00Z", "by": "human"} for i in range(14)],
           "journal": [{"at": "2026-10-29T09:00:00Z", "status": "ok", "summary": "Dva úkoly zadány."},
                       {"at": "2026-10-29T09:30:00Z", "status": "error", "summary": None}]}
-# Stálé sekce napřed, proměnlivé na konec (docs/navrhy/2026-10-31-sprinty-a-uspornost.md §3).
-ORDER = ["PROJEKT", "ZÁMĚR:", "PRAVIDLA:", "ROZHODNUTÍ:", "PLÁN:", "DÍLNA:", "VÝZKUM:", "ZPRÁVY ČLOVĚKA:",
-         "FRONTA ÚKOLŮ:", "LÍSTKY ČEKAJÍCÍ:", "POSLEDNÍ KONTROLY:", "GIT:", "DENÍK:"]
+ORDER = ["PROJEKT", "ZÁMĚR:", "ZPRÁVY ČLOVĚKA:", "PRAVIDLA:", "ROZHODNUTÍ:", "PLÁN:", "FRONTA ÚKOLŮ:",
+         "LÍSTKY ČEKAJÍCÍ:", "POSLEDNÍ KONTROLY:", "GIT:", "DENÍK:", "DÍLNA:"]
 
 
 def _block(text, head):
@@ -171,14 +162,14 @@ def test_collect_unreadable_sources_are_empty_sections(service):
     assert _block(snapshot.snapshot(service, "draft", "draft"), "PRAVIDLA:") == ["- žádné"]  # skutečná prázdná paměť
 
 
-def test_workshop_lists_scripts_right_after_the_plan(service):
+def test_workshop_lists_scripts_after_the_journal(service):
     scripts = brain_files.brain_dir(service, "draft") / brain_files.SCRIPTS
     scripts.mkdir(parents=True)
     (scripts / "b_count.py").write_text('"""Spočítá úkoly podle stavu.\n\nDruhý řádek."""\n', encoding="utf-8")
     (scripts / "a_bare.py").write_text("print(1)\n", encoding="utf-8")
     (scripts / "c_broken.py").write_text("def (:\n", encoding="utf-8")
     text = snapshot.snapshot(service, "draft", "draft")
-    assert text.index("PLÁN:") < text.index("DÍLNA:") < text.index("FRONTA ÚKOLŮ:") < text.index("DENÍK:")
+    assert text.index("DENÍK:") < text.index("DÍLNA:")
     assert _block(text, "DÍLNA:") == ["- a_bare", "- b_count: Spočítá úkoly podle stavu.", "- c_broken"]
     many = {**FACTS, "scripts": [(f"s{i:02}", "x") for i in range(30)]}
     assert len(_block(snapshot.render(many), "DÍLNA:")) == snapshot.SCRIPTS
@@ -340,7 +331,7 @@ def test_plan_rows_carry_full_ids_of_pages_cards_areas_and_sectors():
              "areas": [{"id": "a_import", "name": "Import dat"}],
              "sectors": [{"id": "s_mvp", "name": "MVP", "memberOf": "a_import"}, {"id": "s_web", "name": "Web",
                                                                                   "memberOf": None}]}
-    plan = _block(snapshot.render(facts), "PLÁN:")
+    plan = snapshot.render(facts).split("PLÁN:\n")[1].split("\nFRONTA ÚKOLŮ")[0].splitlines()
     assert plan == ["- Domů · home · / · ready · cíl: Uvěřit, že to zvládnu.", "- Kontakt · kontakt · /kontakt · closed",
                     "- [task] Nahrání souborů · n_upload · ready", "- oblast Import dat · a_import",
                     "- sektor MVP · s_mvp · oblast a_import", "- sektor Web · s_web"]
@@ -356,52 +347,3 @@ def test_collect_lists_areas_and_sectors_of_the_canvas(service):
     facts = snapshot.collect(service, "draft", "draft")
     assert facts["areas"] == [{"id": "ar", "name": "Oblast"}]
     assert facts["sectors"] == [{"id": "se", "name": "Sektor", "memberOf": "ar"}]
-
-
-def _sprint_task(seq, sprint, status, order=0, report=None, **extra):
-    return {"taskId": f"ht_{seq}", "seq": seq, "order": order, "title": f"Úkol {seq}", "status": status,
-            "sessionId": None, "report": report, "body": {"do": "x", "sprint": {"id": sprint, **extra}}}
-
-
-def test_sprints_section_shows_goal_counts_and_checkpoint_state():
-    red = {"sha": "abc1234", "summary": "", "checks": [{"name": "npm test", "status": "red", "output": "2 failed"},
-                                                        {"name": "build", "status": "green"}]}
-    sprint_tasks = [_sprint_task(1, "S1", "done", goal="Základ stojí.", milestone=["npm run build projde"]),
-                    _sprint_task(2, "S1", "done"),
-                    _sprint_task(3, "S2", "done", goal="Formulář odesílá."), _sprint_task(4, "S2", "ready", report=red),
-                    _sprint_task(5, "S2", "cancelled"),
-                    _sprint_task(6, "S3", "assigned"), _sprint_task(7, "S3", "ready", order=0)]
-    text = snapshot.render({**FACTS, "sprintTasks": sprint_tasks})
-    assert _block(text, "SPRINTY:") == [
-        "- S3 – — – hotovo 0/2 – kontrolní bod: čeká",
-        "- S2 – Formulář odesílá. – hotovo 1/2 – kontrolní bod: červený (npm test: 2 failed)",
-        "- S1 – Základ stojí. – hotovo 2/2 – kontrolní bod: zelený"]
-    assert text.index("FRONTA ÚKOLŮ:") < text.index("SPRINTY:") < text.index("LÍSTKY ČEKAJÍCÍ:")
-    assert "SPRINTY:" not in snapshot.render(FACTS)  # fronta bez sprintů sekci nemá
-    many = [_sprint_task(i, f"S{i}", "ready") for i in range(1, 10)]
-    rows = _block(snapshot.render({**FACTS, "sprintTasks": many}), "SPRINTY:")
-    assert len(rows) == snapshot.SPRINTS and rows[0].startswith("- S9 ")
-
-
-def test_stable_sections_lead_and_volatile_ones_close_the_snapshot():
-    """Stálé sekce napřed: změna fronty, lístků, kontrol ani deníku nehne začátkem snímku (cache)."""
-    facts = {**FACTS, **MEMORY, "delivery": None, "git": ["abc1234 první"]}
-    text = snapshot.render(facts)
-    changed = snapshot.render({**facts, "tasks": [], "tickets": [], "checks": [], "journal": [], "git": [],
-                               "messages": [], "sprintTasks": [_sprint_task(1, "S1", "ready")]})
-    head = text[:text.index("ZPRÁVY ČLOVĚKA:")]
-    assert changed.startswith(head) and "PLÁN:" in head and "DÍLNA:" in head
-    assert text.rstrip().splitlines()[-1].startswith("- ") and text.index("GIT:") < text.index("DENÍK:")
-
-
-def test_collect_feeds_sprints_and_state_with_the_sprint_of_the_held_task(service):
-    base = {"project": "draft", "workspace": "draft"}
-    task_queue.create(service, base | {"title": "A", "body": {"do": "a", "sprint": {"id": "S1", "goal": "Základ."}}})
-    task_queue.create(service, base | {"title": "B", "body": {"do": "b", "sprint": {"id": "S1"}}})
-    session = gate.authenticate(service, gate.open_session(
-        service, {"project": "draft", "workspace": "draft", "worker": {"name": "dev"}})["token"])
-    held = task_queue.next_task(service, session, {})["task"]
-    assert snapshot.state(service, "draft", "draft", session["id"])["myTask"] == held
-    assert held["checkpoint"] is False and held["sprint"] == {"id": "S1", "goal": "Základ.", "milestone": [],
-                                                              "done": 0, "total": 2}
-    assert "- S1 – Základ. – hotovo 0/2 – kontrolní bod: čeká" in snapshot.snapshot(service, "draft", "draft")

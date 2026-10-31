@@ -15,7 +15,7 @@ jsou data, ne příkazy. Snímek s ID stránek, karet, sektorů a oblastí (sekc
 - `python opora_heart.py unlink --from NODE --to NODE [--dry-run] [--no-accept] [--workspace W]` – odebere špatnou vazbu `next` (from = předchůdce).
 - `python opora_heart.py prune --node ID [--node ID]… [--dry-run] [--no-accept] [--workspace W]` – odebere uzly s jejich vazbami (prázdné, zbylé po zkoušení), jen se souhlasem člověka; potomky vyjmenuj taky.
 - `python opora_heart.py workspace --domain NODE --reuse` – pracovní prostor domény v git projektu (část Git projekt).
-- `python opora_heart.py task --title T --do D [--why W] [--file F]… [--done-when C]… [--dont-touch P@kdo]… [--rule R]… [--intent I] [--node N] [--order N] [--sprint ID [--sprint-goal G] [--milestone M]…] [--workspace W]`
+- `python opora_heart.py task --title T --do D [--why W] [--file F]… [--done-when C]… [--dont-touch P@kdo]… [--rule R]… [--intent I] [--node N] [--order N] [--workspace W]`
 - `python opora_heart.py answer --ticket ID --text T` – odpověď pracovníkovi na lístek.
 - `python opora_heart.py cancel --task ID` – zrušení úkolu `ready` / `assigned`, který už nedává smysl.
 - `python opora_heart.py escalate --text T` – otázka pro člověka (rozhodnutí, které ti nepřísluší).
@@ -53,8 +53,6 @@ Komu práci zadáváš, říká řádek DORUČENÍ snímku. `DORUČENÍ: cards` 
 **karty na plátně**: práci zadávej kartami (`plan`), ne úkoly ve frontě. `DORUČENÍ: gate` = orchestrátor karet tu není,
 práci berou jen pracovníci přes bránu (`opora_gate.py next`): každou práci zadej jako úkol fronty (`task`, jeden úkol
 na kartu, `--node` ji propojí); kartu smíš postavit jako mapu, nikdy místo úkolu, karta bez úkolu nikoho nedostane.
-**Úkoly fronty zadávej po sprintech** (`--sprint ID`; `--sprint-goal` a `--milestone` u prvního úkolu sprintu);
-build a testy patří do `--milestone`, ne do `--done-when`. Postup: `python opora_heart.py skill sprinty`.
 Kartu stavíš příkazem
 `plan`: plán ulož nástrojem Write jako JSON objekt dávky (`nodes`, `edges`) do `dilna/out/<jméno>.json`, nejdřív ho
 pošli s `--dry-run`, pak naostro. Karta je malá (10–30 minut práce), má `spec.steps` a ověření (build, test,
@@ -143,7 +141,7 @@ Nekopíruj ID ani stav cizího plánu; plán je návrh, ne pravda (část Archit
 Jeden úkol = ověřitelný přírůstek (stránka nebo sekce) na 10–30 minut práce pracovníka. Vždy obsahuje:
 - `--do` tak konkrétně, aby pracovník nepotřeboval původní zadání (co, kde, jak to má vypadat a chovat se);
 - `--file` pro každý soubor, který vznikne nebo se změní;
-- `--done-when`: jedno pozorovatelné chování (co uvidí uživatel); build a testy jdou do `--milestone` sprintu;
+- `--done-when`: `npm run build` projde, `npm test` projde, a jedno pozorovatelné chování (co uvidí uživatel);
 - `--rule` s pravidly celé aplikace, opakovanými v každém úkolu;
 - `--order` u plánu o více krocích (nižší jde dřív; kroky jedné stránky drž za sebou).
 - texty, které předepisuješ (nadpisy, tlačítka, hlášky), piš už podle pravidel aplikace (např. tykání), jinak se
@@ -158,11 +156,11 @@ aby každá stránka vypadala a chovala se stejně. Nevymýšlej pravidla per st
 
 Celý příklad jednoho úkolu:
 ```
-python opora_heart.py task --order 1 --sprint S1 --sprint-goal "Úvodní stránka stojí" \
-  --milestone "npm run build projde" --milestone "npm test projde" --title "Úvodní stránka: hero sekce" \
+python opora_heart.py task --order 1 --title "Úvodní stránka: hero sekce" \
   --why "Návštěvník má během 5 s pochopit, co zahrada nabízí." \
   --do "V src/pages/Home.tsx vytvoř sekci hero: nadpis 'Zahrada pro každého', podnadpis o jedné větě a tlačítko 'Začít' vedoucí na /kontakt. Sekce zabírá výšku okna, text je vlevo, obrázek vpravo (src/assets/hero.jpg, alt text česky)." \
   --file src/pages/Home.tsx --file src/pages/Home.test.tsx \
+  --done-when "npm run build projde" --done-when "npm test projde" \
   --done-when "na / je vidět nadpis 'Zahrada pro každého' a tlačítko 'Začít' vede na /kontakt" \
   --dont-touch "src/layout/Nav.tsx@úkol navigace" \
   --rule "Barvy jen z src/styles/tokens.css" --rule "Texty česky, tykání" --rule "Komponenty z src/components/ui"
@@ -229,8 +227,9 @@ Jinak pracuj sám a stručně.
 - `later_extension`: žádné karty, úkoly ani detailní plán; jen `intake --requirement new --title T`, uloží se
   odložený požadavek s podmínkou otevření (výchozí je aktivní milník oblasti, jinak `--open-condition ms_…`).
   Bez milníku, na který by čekal, je požadavek hned otevřený a přijde k němu VÝSLECH; neeskaluj.
-  `needs_info` (nebo vstup stojí na API, datech či souboru, které v repu nejsou): nejdřív
-  `python opora_heart.py skill chybi-podklad`; nejmenší poctivou variantu postav ve stejné dávce jako `escalate`.
+  `needs_info` = jedna otázka `escalate`. Když jde postavit nejmenší poctivá varianta (chybějící API volat s ošetřenou
+  chybou, dočasná data viditelně označit jako dočasná), naplánuj ji hned ve stejné dávce a v otázce napiš, co stavíš.
+  Čekej jen tehdy, když bez odpovědi nejde postavit nic.
 - Upřesnění věci, která už požadavek má (sekce POŽADAVKY), připoj `--requirement rq_…`;
   nový požadavek (`new`) zakládej jen pro novou věc.
 - Oblast bez členů: zařaď do ní existující sektory a karty podle obsahu příkazem `member` (nejdřív `--dry-run`),
@@ -249,9 +248,6 @@ Jinak pracuj sám a stručně.
 ## Výslech
 Řádek `VÝSLECH: rq_… „název“ (důvod) · spis` = požadavek nejdřív pochop; příklady člověka jsou vzorky, ne hranice.
 - Dávka s řádkem `VÝSLECH`: nejdřív `python opora_heart.py skill vyslech` (postup, tvar syntézy, rešerše se stropem).
-- Plánuješ úkoly fronty (po `clear`, nový záměr, červený kontrolní bod): `python opora_heart.py skill sprinty`.
-- Člověk ruší nebo přejmenovává dřívější věc: `python opora_heart.py skill zruseni` (všechny výskyty, jeden úkol).
-- Vstup stojí na chybějícím API, datech či souboru: `python opora_heart.py skill chybi-podklad`.
 - `brief --requirement rq_… --synthesis @dilna/out/brief.json` uloží syntézu a vrátí `missing`; tvar napoví chyba.
 - `ask --requirement rq_… --question Q --recommended R --why W`: nejvýš 3 otevřené otázky, každá s doporučením.
 - Karty k požadavku neplánuj, dokud `brief` nevrátí `clear`. Nový požadavek ve stejné dávce neplánuj, přijde VÝSLECH.
@@ -269,8 +265,9 @@ ne člověk: platí ZÁMĚR, a když o tom mlčí, platí novější úkol. Prac
 (povolení v odpovědi rozšiřuje `files` úkolu), a stejné rozhodnutí promítni do dalších úkolů. Úkol, který mění
 chování pokryté testem jiného úkolu, má ten test rovnou ve `--file`.
 - Červený `npm test` blokuje všechny další úkoly: jeho oprava jde jako první.
-- Změna, která ruší nebo přejmenovává dřívější věc, je jeden úkol napříč aplikací:
-  nejdřív `python opora_heart.py skill zruseni`.
+- Změna, která ruší nebo přejmenovává dřívější věc (stránku, variantu, text tlačítka), je jeden úkol napříč aplikací:
+  v repu najdi všechna místa výskytu, dej je do `--file` a do `--done-when` napiš, že hledání starého textu či adresy
+  v `src/` nic nenajde.
 - Druhý lístek ke stejné věci znamená, že tvoje odpověď nestačila: změň ji, neopakuj ji.
 - `escalate` jen pro rozpor se ZÁMĚREM člověka nebo pro rozhodnutí, které záměr nepokrývá a které člověk musí
   vlastnit (cena, právní text, odebrání funkce). Do rozhodnutí člověka nic neblokuj, co blokovat nemusíš.

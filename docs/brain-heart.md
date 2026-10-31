@@ -76,28 +76,18 @@ cwd = <data>/projects/<id>/brain/       env: without ANTHROPIC_API_KEY; OPORA_BA
 ```
 PROJEKT <name> · workspace <w>
 ZÁMĚR: <application site goal / feel, if any>
+ZPRÁVY ČLOVĚKA: <at text> (last 5 of the workspace, ≤ 400 chars each)
 PRAVIDLA: <project rules: approved, then "(návrh)"> (≤ 20)
 ROZHODNUTÍ: <decisions: pinned, then newest> (≤ 10)
 DORUČENÍ: cards|gate – <which command carries work: plan or task> (§3e)
 PLÁN: <pages: name, path, stage> (≤ 20)
-DÍLNA: <scripts> (§3b)
-VÝZKUM: <research and duels> (§3c)
-ZPRÁVY ČLOVĚKA: <at text> (last 5 of the workspace, ≤ 400 chars each)
 FRONTA ÚKOLŮ: ready n · assigned n (by whom) · done n · failed n; last 10 titles with status
-SPRINTY: <id – goal – hotovo d/t – kontrolní bod: čeká | zelený | červený (reason)> (≤ 6 newest; only with sprints)
 LÍSTKY ČEKAJÍCÍ: <id kind text> (≤ 10)
-VSTUPY / POŽADAVKY / MILNÍKY: <only when present>
 POSLEDNÍ KONTROLY: <scope sha status> (≤ 10)
-GIT: <last commits of the source> (§4 of the orchestrator)
-PROSTORY: <workspaces of a git project>
 DENÍK: <at [status] summary> (last 5 batches)
 ```
 
-An empty section prints `- žádné` (§3a). Stable sections come first and volatile ones last
-(`docs/navrhy/2026-10-31-sprinty-a-uspornost.md` §3), so the stable start of the text stays in the prompt cache even
-in a new session. The content of each section does not depend on the order. SPRINTY lists the newest sprints (by their
-newest task); the checkpoint state is that of the last non-cancelled task of the sprint in queue order: `zelený` when
-done, `červený (…)` with the red checks of its last report, otherwise `čeká`.
+An empty section prints `- žádné` (§3a).
 
 It is deterministic and has no model behind it. It is cut at a hard character limit.
 
@@ -124,8 +114,8 @@ Nothing new is stored in a new table: the surroundings reuse what the applicatio
   rotation and the next batch sees it. Rules of the whole application go as `rule`; the human approves them in the
   memory panel. The heart repeats in `--rule` the approved rules and its own proposals (a rejected proposal is
   removed, so it drops out of the snapshot); without proposals the first plan would carry no rules at all.
-- **Order of the snapshot** (stable first, volatile last, §3): `PROJEKT`, `ZÁMĚR`, `PRAVIDLA`, `ROZHODNUTÍ`, `PLÁN`,
-  `ZPRÁVY ČLOVĚKA`, `FRONTA ÚKOLŮ`, `LÍSTKY ČEKAJÍCÍ`, `POSLEDNÍ KONTROLY`, `DENÍK`. Each section has its own line cap; the whole text keeps the
+- **Order of the snapshot:** `PROJEKT`, `ZÁMĚR`, `ZPRÁVY ČLOVĚKA`, `PRAVIDLA`, `ROZHODNUTÍ`, `PLÁN`, `FRONTA ÚKOLŮ`,
+  `LÍSTKY ČEKAJÍCÍ`, `POSLEDNÍ KONTROLY`, `DENÍK`. Each section has its own line cap; the whole text keeps the
   12 000-character limit. An unreadable source is an empty section, never an error.
 - Steps: **K1** = durable messages and the four new snapshot sections (determinism + supervisor, no new tool);
   **K2** = `decide` and `rule` in `opora_heart.py` and the prompt part "Okolí" (what to read, when to `decide`).
@@ -343,7 +333,7 @@ An unreadable table counts as zero. The prompt part „Plán“ follows this lin
 | `snapshot` | prints the snapshot again |
 | `plan --file F [--dry-run] [--no-accept]`, `plan --example` | builds cards: fresh `digest` from `GET /api/view`, then `POST /api/canvas-plan` with the heart token; one retry on a stale digest. A rejected batch puts the server's own error (and `field`/`expected`) into `hint`. A non-dry plan is then accepted by the tool itself: the first plan through canvas-plan + `propose_graph` + graph `accept` from agent-state, every later plan (graph already accepted) as a graph-addition proposal + its `accept` and the output gains `accepted: true\|false` (`code`/`hint` when false); `--no-accept` leaves acceptance to the human; `--example` prints the batch template that is also in the prompt (`docs/brain-heart-orchestrator.md` §3). `--workspace W` plans in workspace W instead of `OPORA_WORKSPACE`. In `main` of a git project only architecture passes and nothing is accepted (output `architecture: true`); the tool then adopts the changed architecture into every workspace with an accepted plan (`adopted: [ids]`), and a plan in a workspace whose architecture moved adopts it first (`acceptSteps` starts with `adopt_architecture`). An accepted plan writes its workspace to `brain/active_workspace.json` (`activeWorkspace` in `GET /api/brain/heart/status`) (§9 O7) |
 | `workspace --domain NODE [--reuse]` | git project: a workspace (git worktree on branch `work/<id>`) bound to the domain NODE (`POST /api/workspaces` with the heart token, `require_domain`); `--reuse` returns the existing workspace of that domain if there is one. Output `{workspace, branch, domain, created}` (`docs/brain-heart-orchestrator.md` §9 O7) |
-| `task --title T --do D [--why] [--file F]… [--done-when C]… [--dont-touch P]… [--node N] [--sprint ID [--sprint-goal G] [--milestone M]…] [--workspace W]` | `POST /api/brain/tasks` with the heart token (only for a worker that works through the gate); `--sprint` puts `body.sprint` (§5) |
+| `task --title T --do D [--why] [--file F]… [--done-when C]… [--dont-touch P]… [--node N] [--workspace W]` | `POST /api/brain/tasks` with the heart token (only for a worker that works through the gate) |
 | `answer --ticket ID --text T` | `POST /api/gate/tickets/{id}/answer` with the heart token |
 | `cancel --task ID` | cancels a task |
 | `escalate --text T` | records a question for the human: an `ask` ticket created by the heart, visible in the velín |
@@ -364,29 +354,6 @@ Errors print `code` and `hint`, and the exit code is not zero.
   project as well as a human. `answeredBy` is then `"heart"`.
 - The `task` body gets an optional `order` field. A lower order goes first; when orders are equal, `seq` decides.
   This lets the heart sequence its plan.
-- **Sprints** (`docs/navrhy/2026-10-31-sprinty-a-uspornost.md` §2). The body gets an optional
-  `sprint: {id, goal?, milestone[]?}`. `next` adds `checkpoint` (no open task of the same sprint after this one in
-  queue order; a task without a sprint is always a checkpoint) and `sprint: {id, goal, milestone, done, total}`. A task
-  that is not a checkpoint may report checks as `deferred` and is then `done`; a checkpoint must report real checks
-  (`deferred` → 422 `checkpoint_needs_checks`), and a red checkpoint goes back to the queue as before. The heart writes
-  the first task of sprint 1 right after clarity and plans the rest while the worker works; a sprint is usually 1–4
-  tasks; `npm run build` / `npm test` belong to the milestone of the sprint, not to every task.
-
-### 5a. Procedures of the heart (`heart/skills/*.md`, Czech)
-
-Long procedures live outside the system prompt and are read on demand with `opora_heart.py skill NAME`
-(`docs/navrhy/2026-10-31-sprinty-a-uspornost.md` §4). `command.write_config` copies every `skills/*.md` into
-`brain/skills/`; a new file needs no registration. `prompt.md` holds one line per procedure saying when to load it.
-
-| Procedure | Load when | Content |
-|---|---|---|
-| `vyslech` | the batch carries `VÝSLECH` | understand, research, synthesis shape, questions to the human |
-| `sprinty` | planning queue tasks (after `clear`, a new intent, a red checkpoint) | sprints of 1–4 tasks with a milestone (`npm run build projde`, `npm test projde`, customer journey); the first task of sprint 1 right away; tiny things merged; a red checkpoint gets a fix task in the same sprint |
-| `zruseni` | a change cancels or renames an earlier thing | grep every pattern (incl. related form fields, payload keys, FAQ/menu/footer texts, CSS classes) in `src/` and tests, one task with all files in `--file`, a `--done-when` "hledání … v src/ nic nenajde" per pattern, tests of the cancelled thing removed or rewritten |
-| `chybi-podklad` | an input relies on an API, data or file missing in the repo (`needs_info`) | verify in the repo, plan the smallest honest variant now (real call with loading/error/empty state, or visibly temporary data) with a test of the error/empty path, `escalate` the gap in the same batch, block nothing else |
-
-The gate worker has its own skill, `.claude/skills/opora-gate-worker/SKILL.md` (loop, `deferred` checks outside the
-checkpoint, targeted reading).
 
 ## 6. The heart's prompt (`heart/prompt.md`, Czech)
 
@@ -396,7 +363,7 @@ The prompt has these parts:
    time. It always states:
    - `do`, concrete enough that the worker does not need the original brief;
    - `files`;
-   - `doneWhen`: an observable behaviour; `npm run build` and `npm test` go to the sprint `milestone` (§5);
+   - `doneWhen`: what `npm run build`, `npm test` and an observable behaviour must show;
    - the rules of the whole application, repeated in `context.rules`.
 3. **Consult the advisor only for:**
    - breaking a new intent down into a plan;

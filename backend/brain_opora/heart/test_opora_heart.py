@@ -122,17 +122,6 @@ def test_task_sends_the_fixed_shape_with_the_heart_token(server, capsys):
                                      "context": {"rules": ["Česky"], "intent": "klid"}}}
 
 
-def test_task_carries_the_sprint_with_goal_and_milestone_only_when_given(server, capsys):
-    code, _ = run(capsys, "task", "--title", "Základ", "--do", "Postav kostru.", "--sprint", "S1", "--sprint-goal",
-                  "Web stojí.", "--milestone", "npm run build projde", "--milestone", "npm test projde")
-    assert code == 0 and Handler.calls[0]["body"]["body"]["sprint"] == {
-        "id": "S1", "goal": "Web stojí.", "milestone": ["npm run build projde", "npm test projde"]}
-    code, _ = run(capsys, "task", "--title", "Patička", "--do", "Doplň patičku.", "--sprint", "S1")
-    assert code == 0 and Handler.calls[1]["body"]["body"]["sprint"] == {"id": "S1"}
-    run(capsys, "task", "--title", "Volný", "--do", "Bez sprintu.")
-    assert "sprint" not in Handler.calls[2]["body"]["body"]
-
-
 def test_plan_sends_the_file_with_a_fresh_digest_and_retries_stale_once(server, capsys, tmp_path):
     plan = {"nodes": [{"ref": "hero", "kind": "node", "name": "Hero", "card": {"status": "draft"}}]}
     (tmp_path / "plan.json").write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")

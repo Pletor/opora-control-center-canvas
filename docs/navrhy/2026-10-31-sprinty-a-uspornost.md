@@ -1,6 +1,10 @@
 # Sprinty, úsporný dělník a správná cena srdce
 
-Stav: schváleno člověkem 2026-10-31 („Oporu upgraduj“). Podklad: eval Zelený balkon m10 proti terminálu
+**Stav: platí jen §1 (#221). §2–§4 (#222, #223) vráceny 2026-10-31 po evalu m11** (kvalita 0,93 → 0,82:
+srdce postupy ze skillů nenačítalo a dostávalo horší informace). Nový pokus až po rozboru, co srdce a dělník
+skutečně dostávají.
+
+Původně schváleno člověkem 2026-10-31 („Oporu upgraduj“). Podklad: eval Zelený balkon m10 proti terminálu
 (`.claude/hillclimb/opora-vs-bare/multi`): stejné množství kódu, ale dělník 60 kol místo 16, 10× víc čteného
 kontextu, `npm run build` + `npm test` po každém úkolu; srdce plánuje celou frontu, než dělník začne; cena
 srdce v navázané relaci se sčítá kumulativně; slepé hodnocení kódu B 7,4 / C 6,1 / E 5,7 (E: chybí S5,
