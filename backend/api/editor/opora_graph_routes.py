@@ -2,7 +2,8 @@
 from fastapi import APIRouter, Request
 
 from backend.api.brain_opora.writer import heart_project
-from backend.canvas.activity_log import HumanRequired, require_authority
+from backend.canvas.activity_labels import created_nodes, proposal_trace
+from backend.canvas.activity_log import HumanRequired, note, note_from, require_authority
 from backend.canvas.opora_graph_acceptance import OporaGraphAcceptance
 from backend.canvas.opora_graph_change_plan import heart_scope
 from backend.canvas.opora_graph_proposals import OporaGraphProposals
@@ -32,7 +33,9 @@ def create_opora_graph_router(service):
     def create(payload: dict, request: Request):
         if heart_project(request):
             heart_scope(payload.get("plan"))  # srdce mění u existujícího uzlu jen memberOf a order (422 heart_edit_scope)
-        return proposals.create(payload, author(request))
+        result = proposals.create(payload, author(request))
+        note(request, created_nodes(result))  # nové uzly mají ID až v odpovědi (stopa karty, docs/zaznam-cinnosti.md)
+        return result
 
     @router.get("/{identifier}")
     def read(identifier: str, project: str, workspace: str):
@@ -44,6 +47,9 @@ def create_opora_graph_router(service):
 
     @router.post("/{identifier}/accept")
     def accept(identifier: str, payload: dict, request: Request):
-        return acceptance.accept(identifier, payload, author(request, human=True))
+        result = acceptance.accept(identifier, payload, author(request, human=True))
+        # Stopa karty: uzly a popisek přijatého návrhu z jeho uloženého záznamu.
+        note_from(request, lambda: proposal_trace(proposals.read(payload["project"], payload["workspace"], identifier)))
+        return result
 
     return router

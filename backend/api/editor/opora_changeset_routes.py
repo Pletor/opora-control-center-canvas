@@ -1,7 +1,8 @@
 """Specifications-only proposal workflow; actor identity comes from the UI/agent session."""
 from fastapi import APIRouter, Query, Request
 
-from backend.canvas.activity_log import HumanRequired, require_authority
+from backend.canvas.activity_labels import proposal_trace
+from backend.canvas.activity_log import HumanRequired, note_from, require_authority
 from backend.canvas.opora_acceptance import OporaAcceptance
 from backend.canvas.opora_changesets import OporaChangesets
 
@@ -49,7 +50,10 @@ def create_opora_changeset_router(service):
 
     @router.post("/changesets/{identifier}/accept")
     def accept(identifier: str, payload: dict, request: Request):
-        return acceptance.accept(identifier, payload, author(request, human=True))
+        result = acceptance.accept(identifier, payload, author(request, human=True))
+        # Stopa karty: uzly a popisek přijatého návrhu z jeho uloženého záznamu.
+        note_from(request, lambda: proposal_trace(changesets.read(payload["project"], payload["workspace"], identifier)))
+        return result
 
     @router.post("/changesets/{identifier}/rebase")
     def rebase(identifier: str, payload: dict, request: Request):

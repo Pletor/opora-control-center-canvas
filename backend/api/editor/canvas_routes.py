@@ -4,6 +4,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
 from backend.api.http_etag import conditional, etag_of
+from backend.canvas.activity_labels import created_nodes
+from backend.canvas.activity_log import note
 from backend.canvas.canvas_index import DEFAULT_LIMIT, build_index, search
 from backend.canvas.canvas_layout import apply_layout, layout_preview
 from backend.canvas.canvas_plan import apply_plan
@@ -79,11 +81,14 @@ def create_canvas_router(service):
         # Dávka plánu (docs/davka-planu.md §3): jen přidává, atomicky; `dryRun` nic nezapíše.
         name = getattr(request.state, "agent", None)
         if request.state.actor != "agent" or not isinstance(name, str) or not name.strip():
-            return apply_plan(service, payload, actor=request.state.actor)
-        # Vlastní dávka agenta přepne kontext jeho živých běhů (re-pin, zefektivneni-opory.md §3.3).
-        from backend.canvas.opora_execution_repin import plan_with_repin
-        return plan_with_repin(service, payload, "agent:" + name,
-                               lambda: apply_plan(service, payload, actor=request.state.actor))
+            result = apply_plan(service, payload, actor=request.state.actor)
+        else:
+            # Vlastní dávka agenta přepne kontext jeho živých běhů (re-pin, zefektivneni-opory.md §3.3).
+            from backend.canvas.opora_execution_repin import plan_with_repin
+            result = plan_with_repin(service, payload, "agent:" + name,
+                                     lambda: apply_plan(service, payload, actor=request.state.actor))
+        note(request, created_nodes(result))  # stopa karty: ID nových uzlů dávky (docs/zaznam-cinnosti.md)
+        return result
 
     @router.get("/drawing")
     def drawing(project: str, workspace: str, layer: str = ""):

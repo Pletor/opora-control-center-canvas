@@ -6,6 +6,8 @@ Architektura je jedna pro projekt a nad všemi worktree; logika je v `backend/ca
 from fastapi import APIRouter, Request
 
 from backend.api.brain_opora.writer import heart_project
+from backend.canvas.activity_labels import architecture_trace
+from backend.canvas.activity_log import note
 from backend.canvas.architecture_order import require_autonomy
 from backend.canvas.migrate_architecture import migrate as migrate_architecture
 
@@ -31,7 +33,20 @@ def create_project_architecture_router(service):
             # Srdce (token ověřený zdí, docs/navrhy/2026-10-31-poradi-karty.md §4): jen ve svém projektu s plnou
             # autonomií a jen pole `order` existujících uzlů; zbytek hlídá `save` proti uložené revizi.
             require_autonomy(payload.get("project") == heart and _autonomy(heart))
-        return service.architecture.save(payload, actor=request.state.actor, order_only=bool(heart))
+        stored = _stored(payload)
+        result = service.architecture.save(payload, actor=request.state.actor, order_only=bool(heart))
+        if stored:  # zápis prošel proti téže revizi, takže rozdíl je přesně to, co se změnilo
+            label, nodes = architecture_trace(stored, payload["graph"])
+            note(request, nodes, label)
+        return result
+
+    def _stored(payload):
+        """Uložený graf architektury pro stopu karty, jen když jeho revize je ta očekávaná; jinak nic."""
+        try:
+            current = service.architecture.public(payload["project"])
+            return current["graph"] if current["revision"] == payload["expectedRevision"] else None
+        except Exception:  # noqa: BLE001 - záznam činnosti je doplněk; neplatný zápis odmítne `save`
+            return None
 
     @router.post("/restore")
     def restore(payload: dict, request: Request):

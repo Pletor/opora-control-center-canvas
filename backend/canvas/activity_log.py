@@ -10,6 +10,7 @@ import json
 import re
 from datetime import UTC, datetime
 
+from backend.canvas.activity_labels import SEPARATOR, body_label, clean, unique
 from backend.canvas.canvas_service import now
 
 ACTORS = ("human", "agent", "unknown")
@@ -42,6 +43,8 @@ MAX_LIMIT = 500
 DEFAULT_LIMIT = 100
 MAX_SUMMARY = 400
 MAX_ROWS = 50_000
+# Poslední změna na uzel: kolik nejnovějších úspěšných zápisů prostoru se projde (jeden dotaz na plátno).
+LATEST_SCAN = 2000
 # Akce agenta díky plné autonomii: značka na konci `summary` (bez změny schématu tabulky).
 AUTONOMY_MARK = "autonomy=full"
 
@@ -63,10 +66,30 @@ def parse_actor(header):
 COMMIT = re.compile(r"[0-9a-f]{7,64}")
 
 
-def describe(body, query, path=""):
+def note(request, node_ids=(), label=""):
+    """Routa doplní záznamu, co zná až při zápisu: ID nových uzlů, uzly přijatého návrhu, rozdíl architektury.
+
+    Middleware ho přidá v `describe(..., hint=...)` k tomu, co dá tělo; selhání tu nikdy neshodí zápis."""
+    hint = getattr(request.state, "activity_hint", None) or {"nodeIds": [], "label": ""}
+    hint = {"nodeIds": [*hint["nodeIds"], *node_ids], "label": label or hint["label"]}
+    request.state.activity_hint = hint
+
+
+def note_from(request, trace):
+    """`note` z `trace() -> (label, nodeIds)`, které čte uložená data; chyba stopy nikdy neshodí hotový zápis."""
+    try:
+        label, nodes = trace()
+    except Exception:  # noqa: BLE001 - záznam činnosti je doplněk, zápis už proběhl
+        return
+    note(request, nodes, label)
+
+
+def describe(body, query, path="", hint=None):
     """Projekt, prostor, karty a krátký popis z těla JSON a query; nic z obsahu textů.
 
-    `path` končící `/local-merge` dá popisu `local_merge commit=<sha>` (docs/lokalni-slouceni.md §2)."""
+    `path` končící `/local-merge` dá popisu `local_merge commit=<sha>` (docs/lokalni-slouceni.md §2).
+    Zápis, který mění karty, má na začátku `summary` čitelný popisek oddělený `SEPARATOR`
+    (`activity_labels.py`); `hint` je doplněk routy z `note`."""
     try:
         payload = json.loads(body) if body else {}
     except (ValueError, UnicodeDecodeError):
@@ -77,9 +100,11 @@ def describe(body, query, path=""):
     workspace = payload.get("workspace") or query.get("workspace") or ""
     nodes = [payload[key] for key in NODE_KEYS if isinstance(payload.get(key), str) and payload[key]]
     parts = [",".join(sorted(key for key in payload if key not in ("project", "workspace")))]
+    plan_text = ""
     if isinstance(payload.get("plan"), dict):
         from backend.canvas.canvas_plan_summary import plan_summary
-        parts.append(plan_summary(payload["plan"]))
+        plan_text = plan_summary(payload["plan"])
+        parts.append(plan_text)
         extensions = payload["plan"].get("extend", [])
         if isinstance(extensions, list):
             nodes.extend(item["node"][1:] for item in extensions if isinstance(item, dict)
@@ -96,11 +121,18 @@ def describe(body, query, path=""):
         parts.append("done.proposed=" + str(bool(output["done"].get("proposed"))).lower())
         if "confirmed" in output["done"]:
             parts.append("done.confirmed=" + str(bool(output["done"]["confirmed"])).lower())
+    label, touched = body_label(path, payload)
+    if plan_text and label.endswith(plan_text):
+        parts.remove(plan_text)  # souhrn dávky už nese popisek celý
+    if hint:
+        touched = [*touched, *hint.get("nodeIds", ())]
+        label = clean(hint["label"]) if hint.get("label") else label
+    technical = " ".join(part for part in parts if part).replace("|", "/")
     return {
         "project": project if isinstance(project, str) else "",
         "workspace": workspace if isinstance(workspace, str) else "",
-        "nodeIds": nodes,
-        "summary": " ".join(part for part in parts if part)[:MAX_SUMMARY],
+        "nodeIds": unique([*nodes, *touched]),
+        "summary": SEPARATOR.join(part for part in (label, technical) if part)[:MAX_SUMMARY],
     }
 
 
@@ -160,6 +192,35 @@ class ActivityLog:
         return {"entries": entries, "nextBefore": entries[-1]["id"] if len(rows) > limit else None}
 
 
+    def latest_by_node(self, *, project, workspace=""):
+        """`{nodeId: {at, actor, agent, label, path}}`: nejnovější úspěšný zápis s uzlem, z posledních `LATEST_SCAN`
+        zápisů projektu (a prostoru) s `nodeIds`. Jen čtení, bez změny schématu."""
+        if not project:
+            raise ValueError("Chybí project.")
+        where, args = ["project_id=?", "node_ids<>'[]'", "status BETWEEN 200 AND 299"], [project]
+        if workspace:
+            where.append("workspace_id=?")
+            args.append(workspace)
+        sql = ("SELECT at,actor,agent,path,node_ids,summary FROM activity_log WHERE " + " AND ".join(where)
+               + " ORDER BY id DESC LIMIT ?")
+        with self.service.registry_lock:
+            rows = self.service.db.execute(sql, (*args, LATEST_SCAN)).fetchall()
+        latest = {}
+        for row in rows:
+            for node in json.loads(row["node_ids"]):
+                if isinstance(node, str) and node not in latest:
+                    latest[node] = {"at": row["at"], "actor": row["actor"], "agent": row["agent"],
+                                    "label": entry_label(row["summary"]), "path": row["path"]}
+        return latest
+
+
+def entry_label(summary):
+    """Čitelný popisek zápisu: část `summary` před `SEPARATOR`, jinak technický popis (zkrácený)."""
+    head, sep, _ = summary.partition(SEPARATOR)
+    text = head if sep else summary.removesuffix(AUTONOMY_MARK)
+    return clean(text)
+
+
 def _moment(value):
     """Čas ISO 8601 v tvaru sloupce `at` (`datetime.isoformat()` v UTC), aby šel porovnat jako řetězec."""
     try:
@@ -174,6 +235,6 @@ def _entry(row):
         "id": row["id"], "at": row["at"], "actor": row["actor"], "agent": row["agent"],
         "method": row["method"], "path": row["path"], "project": row["project_id"],
         "workspace": row["workspace_id"], "nodeIds": json.loads(row["node_ids"]),
-        "status": row["status"], "summary": row["summary"],
+        "status": row["status"], "summary": row["summary"], "label": entry_label(row["summary"]),
         "autonomy": "full" if row["summary"].split(" ")[-1:] == [AUTONOMY_MARK] else None,
     }
