@@ -70,7 +70,9 @@ Vyřešení je **běžný nový návrh** nad aktuální hlavou (člověk nebo ag
 je volitelný, nikdy nutný). Jeho ID se ke konfliktu připojí. Když pole už rozhodla přijatá
 hlava (vyhrává `theirs`), není co navrhnout: `keep: "accepted"` konflikt uzavře jako `resolved`
 bez návrhu řešení (`resolutionProposalId` zůstane `null`), přijatá hlava se nemění a návrh se
-počítá jako vyřízený. Konflikt musí být `open` a jeho `acceptedHead` rovný aktuální hlavě,
+počítá jako vyřízený: smyčka ho už nikdy nezpracuje (žádný nový konflikt, žádný rebase),
+stejně jako redundantní návrh, i když se hlava posune. Konflikt vyřešený přes
+`resolutionProposalId` se chová jako dřív. Konflikt musí být `open` a jeho `acceptedHead` rovný aktuální hlavě,
 jinak 409. Tělo nese právě jedno z `resolutionProposalId` / `keep` (obojí nebo nic = 409).
 Volá člověk nebo agent, stejně jako řešení návrhem:
 

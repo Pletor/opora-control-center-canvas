@@ -163,3 +163,14 @@ def test_resolve_needs_exactly_one_way(service, started, fields):
     rebase, conflict, _, _ = open_conflict(service, started)
     with pytest.raises(ValueError):
         rebase.resolve(conflict["id"], {**SCOPE, **fields}, AGENT)
+
+
+def test_keep_accepted_is_settled_for_good_when_head_moves(service, started):
+    rebase, conflict, head, first = open_conflict(service, started)
+    rebase.resolve(conflict["id"], {**SCOPE, "keep": "accepted"}, AGENT)
+    other = propose(service, "b", goal="Other")
+    accept(service, other, head)
+    again = rebase.run("draft", "draft")
+    assert first["id"] not in {item["proposalId"] for key in ("rebased", "redundant", "conflicts", "skipped")
+                               for item in again[key]}
+    assert rebase.conflicts("draft", "draft", "open")["items"] == []
