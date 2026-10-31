@@ -122,3 +122,27 @@ def test_interrogation_skill_lands_in_brain_and_is_read_only_on_demand(tmp_path)
     missing = subprocess.run([sys.executable, "-I", "opora_heart.py", "skill", "nic"], cwd=tmp_path / "brain",
                              capture_output=True, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     assert missing.returncode == 1 and json.loads(missing.stdout.decode("utf-8"))["code"] == "skill_missing"
+
+
+@pytest.mark.parametrize(("name", "marks"), [
+    ("sprinty", ("--sprint", "--milestone", "npm run build projde", "SPRINTY", "kontrolní bod")),
+    ("zruseni", ("Grep", "--file", "v src/ nic nenajde", "FAQ", "formulář")),
+    ("chybi-podklad", ("escalate", "prázdn", "dočasn", "test")),
+])
+def test_planning_procedures_land_in_brain_and_prompt_only_points_to_them(tmp_path, name, marks):
+    """Sprinty a úspornost, řez 3 (docs/navrhy/2026-10-31-sprinty-a-uspornost.md §4): postupy srdce leží
+    v `brain/skills/`, čte je `opora_heart.py skill NAME` a prompt na každý jen odkazuje jednou řádkou."""
+    import subprocess
+    import sys
+
+    skill = command.SKILLS_DIR / f"{name}.md"
+    text = skill.read_text(encoding="utf-8")
+    assert len(text.splitlines()) <= 80 and all(mark in text for mark in marks)
+    prompt = command.PROMPT_FILE.read_text(encoding="utf-8")
+    assert f"python opora_heart.py skill {name}" in prompt
+    assert "Sprint je ucelený kus" not in prompt and "v repu najdi všechna místa výskytu" not in prompt  # text je v postupu
+    command.write_config(tmp_path / "brain")
+    assert (tmp_path / "brain" / "skills" / f"{name}.md").read_bytes() == skill.read_bytes()
+    done = subprocess.run([sys.executable, "-I", "opora_heart.py", "skill", name], cwd=tmp_path / "brain",
+                          capture_output=True, check=True, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    assert done.stdout.decode("utf-8").replace("\r\n", "\n").strip() == text.strip()
