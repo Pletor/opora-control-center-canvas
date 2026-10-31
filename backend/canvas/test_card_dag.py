@@ -71,6 +71,15 @@ def test_topo_order_and_blocked_by_are_deterministic():
     assert card_dag.blocked_by("abcd", pairs, {"a"}) == {"a": [], "b": [], "c": ["b"], "d": ["c"]}
 
 
+def test_topo_order_breaks_ties_by_intended_order_but_edges_keep_precedence():
+    pairs = [("a", "c"), ("b", "c"), ("c", "d")]
+    assert card_dag.topo_order("dcba", pairs, {}) == card_dag.topo_order("dcba", pairs) == ["a", "b", "c", "d"]
+    assert card_dag.topo_order("dcba", pairs, {"b": 101, "a": 102}) == ["b", "a", "c", "d"]
+    # Karta bez pořadí stojí jako 10000; vazba má přednost, i když následník nese nízké pořadí.
+    assert card_dag.topo_order("xyz", [], {"z": 101}) == ["z", "x", "y"]
+    assert card_dag.topo_order("abc", [("c", "a")], {"a": 101, "b": 201}) == ["b", "c", "a"]
+
+
 @pytest.fixture
 def chained(service):
     """Card `b` precedes card `a`; `a` has an accepted goal and a pipeline, so its claim would be ready."""
@@ -107,6 +116,15 @@ def test_merged_and_written_back_predecessor_unblocks(chained, service):
     assert old["id"] != action["id"]  # A changed blocker set is a new intent.
     pulls.register(lambda p, w: [{"executionId": "x1", "cardId": "b", "state": "merged", "planWrittenBack": False}])
     assert card(AgentState(service).read(**SCOPE), "a")["blockedBy"] == ["b"]
+
+
+def test_agent_state_cards_carry_order_and_topo_index_respects_it(service):
+    current = service.view("draft", "draft")
+    nodes = [{**node, "order": 101} if node["id"] == "b" else node for node in current["graph"]["nodes"]]
+    service.save_graph("draft", "draft", {"nodes": nodes, "edges": []}, current["digest"])
+    document = AgentState(service).read(**SCOPE)
+    assert card(document, "b")["order"] == 101 and card(document, "a")["order"] is None
+    assert card(document, "b")["topoIndex"] < card(document, "a")["topoIndex"]
 
 
 def test_legacy_done_confirmed_predecessor_unblocks(chained, service):

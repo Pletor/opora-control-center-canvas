@@ -10,9 +10,9 @@ from backend.editor.node.node_specs import EMPTY_FIELDS
 # Pole karty pro dělníka nese přírůstek stejně jako dávka plánu (`card` s effortem, `checks`, `goal_mode`);
 # hlídá je tatáž `validate_graph` (validate_card, validate_checks) jako `/api/canvas-plan`, žádné vlastní pravidlo.
 CARD_FIELDS = {"card", "checks", "goal_mode"}
-NODE_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf", *CARD_FIELDS}
+NODE_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf", "order", *CARD_FIELDS}
 # Uložený přidaný uzel (záznam návrhu přírůstku i změn grafu).
-PERSISTED_NODE_KEYS = {"id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf", *CARD_FIELDS}
+PERSISTED_NODE_KEYS = {"id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf", "order", *CARD_FIELDS}
 
 
 def validate_plan(plan):
