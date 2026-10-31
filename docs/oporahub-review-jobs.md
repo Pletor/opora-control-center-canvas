@@ -178,6 +178,8 @@ dál vypořádat s důvodem přes `POST /findings/{id}/resolve` (agent `importan
 Dokud bezpečnostní úloha hlavy běží: `security_review_in_progress`; bez rozhodnutí pro
 hlavu: `security_review_not_enqueued` (obojí `pending`). Bezpečnostní kola nemají strop;
 vznikají jen pro hlavy, které je vyžadují.
+Úlohy zakládá server sám v pravidelném průchodu smyčky PR (`opora_review_sync_poll`, výchozích 30 s,
+`OPORA_REVIEW_SYNC_SECONDS`), nezávisle na kapacitě pracovníků; `claim` a `POST /review-jobs/sync` zůstávají.
 
 ### Důkaz vlastních kontrol
 
