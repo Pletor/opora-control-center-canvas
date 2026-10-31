@@ -337,6 +337,17 @@ def test_plan_rows_carry_full_ids_of_pages_cards_areas_and_sectors():
                     "- sektor MVP · s_mvp · oblast a_import", "- sektor Web · s_web"]
 
 
+def test_plan_puts_cards_with_work_before_the_cap():
+    """Přes PAGES holých karet se karta s prací a blokovaná karta na konci grafu stejně dostanou do PLÁNU s ID."""
+    cards = [{"id": f"c{i}", "name": f"Architektura {i}", "stage": "plan"} for i in range(snapshot.PAGES + 5)]
+    cards += [{"id": "blk", "name": "Blokovaná", "stage": "ready"}, {"id": "run", "name": "Běží", "stage": "ready"}]
+    facts = {**FACTS, "pages": [], "cards": cards, "work": {"run": "běží (agent:dev)"}, "blocked": {"blk": ["run"]},
+             "names": {"run": "Běží"}}
+    plan = snapshot.render(facts).split("PLÁN:\n")[1].split("\nFRONTA ÚKOLŮ")[0].splitlines()
+    assert len(plan) == snapshot.PAGES and plan[0].startswith("- Běží · run · ready · běží")
+    assert plan[1].startswith("- Blokovaná · blk · ready · blokovaná") and plan[2].startswith("- Architektura 0 · c0")
+
+
 def test_collect_lists_areas_and_sectors_of_the_canvas(service):
     view = service.view("draft", "draft")
     graph = {"nodes": [{"id": "ar", "parentId": None, "kind": "area", "name": "Oblast", "purpose": "", "x": 0, "y": 0,
