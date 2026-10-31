@@ -61,8 +61,19 @@
 @keyframes card-face-flash { 0% { opacity: 0; } 25% { opacity: 0.9; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .card-face__flash { animation: none; display: none; } }
 
-/* Postup kroků: segment = krok, zelený hotový, tyrkysový právě běží; pod ním „3/7 · s4 Název kroku“. */
-.card-face__progress { display: flex; flex-direction: column; gap: 5px; }
+/* Postup kroků: segment = krok, zelený hotový, tyrkysový právě běží; pod ním „3/7 · s4 Název kroku“.
+   Celý postup je zároveň tichý vstup do stopy práce karty: vpravo šedé „stopa ›“, při najetí se postup
+   jen jemně podbarví. Karta srdce nemá bloky, a tohle je jediná cesta k tomu, co se na ní dělo. */
+.card-face__progress {
+  display: flex; flex-direction: column; gap: 5px; width: 100%; margin: 0 -4px; padding: 3px 4px;
+  border: 0; border-radius: 6px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+  box-sizing: content-box;
+}
+.card-face__progress:hover, .card-face__progress:focus-visible { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.card-face__progress:hover .card-face__trail-cue, .card-face__progress:focus-visible .card-face__trail-cue { color: var(--accent); }
+.card-face__steps-row { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.card-face__steps-row .card-face__steps { flex: 1; min-width: 0; }
+.card-face__trail-cue { flex: none; font-size: 11px; color: var(--ink-muted); }
 .card-face__segments { display: flex; gap: 3px; }
 .card-face__segments b { flex: 1; height: 6px; border-radius: 2px; background: var(--line); transition: background-color 0.22s; }
 @media (prefers-reduced-motion: reduce) { .card-face__segments b { transition: none; } }

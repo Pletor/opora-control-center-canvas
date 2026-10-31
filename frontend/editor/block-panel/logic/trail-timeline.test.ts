@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseCardTrail } from "./card-trail";
-import { groupByDay, nowLine, runState, sourceMark, stepMark, timeline, TRAIL_SETTINGS, whoName } from "./trail-timeline";
+import { bundleEvents, commonPrefix, groupByDay, nowLine, plural, runState, runWhen, sourceMark, stepMark, timeline, TRAIL_SETTINGS, whoName } from "./trail-timeline";
 
 const run = (id: string, at: string, state = "reported") => ({ executionId: id, owner: "agent:office", createdAt: at, state, steps: [] });
 const event = (at: string, kind: string, label = kind) => ({ at, who: "office", label, kind, source: "det" });
@@ -16,7 +16,7 @@ describe("trail-timeline", () => {
   });
 
   it("osa má nejvýš limit položek z nastavení aplikace", () => {
-    const recent = Array.from({ length: 15 }, (_, i) => event(`2026-10-31T10:${String(10 + i)}:00Z`, "step.done"));
+    const recent = Array.from({ length: 15 }, (_, i) => event(`2026-10-31T10:${String(10 + i)}:00Z`, "step.done", `s${i} hotovo`));
     expect(timeline(parseCardTrail({ nodeId: "n", recent }))).toHaveLength(TRAIL_SETTINGS.limit);
     const crowded = timeline(parseCardTrail({ nodeId: "n", recent, runs: [run("old", "2026-10-31T08:00:00Z")] }));
     expect(crowded).toHaveLength(TRAIL_SETTINGS.limit);
@@ -52,5 +52,29 @@ describe("trail-timeline", () => {
     expect(stepMark("pending").glyph).toBe("○");
     expect(sourceMark("heart").glyph).toBe("✦");
     expect(sourceMark("human").glyph).toBe("H");
+  });
+
+  it("sbalí opakované události jednoho děje za sebou do jedné řádky s počtem", () => {
+    const review = (at: string, verb: string) => ({ at, who: "review", label: `Review pletor/ample#40 (kolo 1) ${verb}`, kind: "pr.review", source: "agent" as const });
+    const bundles = bundleEvents([
+      { at: "2026-10-31T08:45:33Z", who: "opora", label: "Brána merge se změnila", kind: "gate.changed", source: "det" },
+      review("2026-10-31T08:44:50Z", "zveřejněna na GitHubu"), review("2026-10-31T08:44:38Z", "odevzdána"),
+      { at: "2026-10-31T08:44:38Z", who: "opora", label: "Kolo review 1", kind: "review.round", source: "det" },
+      review("2026-10-31T08:44:09Z", "převzata"), review("2026-10-31T08:43:50Z", "uvolněna"),
+      { at: "2026-10-31T08:40:00Z", who: "office", label: "s1 hotovo", kind: "step.done", source: "det" },
+      { at: "2026-10-31T08:39:00Z", who: "office", label: "s2 hotovo", kind: "step.done", source: "det" }]);
+    expect(bundles.map((b) => [b.event.label, b.count])).toEqual([["Brána merge se změnila", 1], ["Review pletor/ample#40 (kolo 1)", 5],
+      ["s1 hotovo", 1], ["s2 hotovo", 1]]);
+    expect(bundles[1]).toMatchObject({ from: "2026-10-31T08:43:50Z", parts: ["uvolněna", "převzata", "odevzdána", "zveřejněna na GitHubu"],
+      event: { who: "review", at: "2026-10-31T08:44:50Z" } });
+    expect(commonPrefix(["a b c", "a b d"])).toBe("a b");
+    expect(commonPrefix(["x", "y"])).toBe("");
+  });
+
+  it("relace: rozsah času u skončené, jen začátek u běžící; české tvary počtu", () => {
+    const base = { executionId: "e", taskId: null, owner: "a", summary: "", source: "agent" as const, attempts: 1, reported: true, steps: [] };
+    expect(runWhen({ ...base, createdAt: "2026-10-31T10:42:00", until: "2026-10-31T12:58:00", state: "reported" })).toBe("10:42–12:58");
+    expect(runWhen({ ...base, createdAt: "2026-10-31T10:42:00", until: "2026-10-31T12:58:00", state: "running" })).toBe("10:42");
+    expect([plural(1, "krok", "kroky", "kroků"), plural(3, "krok", "kroky", "kroků"), plural(8, "krok", "kroky", "kroků")]).toEqual(["1 krok", "3 kroky", "8 kroků"]);
   });
 });

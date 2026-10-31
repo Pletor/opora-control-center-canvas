@@ -43,8 +43,11 @@ const ohAttributes = (face: Face) => ({
   "data-oh-order": face.order ?? "",
 });
 
-/** Celá tvář; `title` je název karty (s přejmenováním), který dodá rodič; klik na poslední změnu hlásí `onHistory`. */
-export default function CardFace({ face, title, onHistory }: { face: Face; title: ReactNode; onHistory?: () => void }) {
+/**
+ * Celá tvář; `title` je název karty (s přejmenováním), který dodá rodič; klik na poslední změnu hlásí `onHistory`,
+ * klik na postup kroků hlásí `onTrail` (boční menu se stopou práce karty).
+ */
+export default function CardFace({ face, title, onHistory, onTrail }: { face: Face; title: ReactNode; onHistory?: () => void; onTrail?: () => void }) {
   return (
     <div className={"card-face card-face--" + face.state} {...ohAttributes(face)}>
       <div className="card-face__top">
@@ -62,12 +65,17 @@ export default function CardFace({ face, title, onHistory }: { face: Face; title
       </div>
       <FaceLastChange change={face.change} onOpen={onHistory} />
       <PrBadge badge={face.pr} />
-      <div className="card-face__progress" title={`Kroky plánu ${face.steps.count}`}>
-        {!!face.steps.segments.length && <div className="card-face__segments" aria-hidden="true">
+      <button type="button" className="card-face__progress nodrag" data-oh-open-trail={face.nodeId}
+        title={`Kroky plánu ${face.steps.count}. Otevřít stopu práce karty`}
+        onClick={(event) => { event.stopPropagation(); onTrail?.(); }}>
+        {!!face.steps.segments.length && <span className="card-face__segments" aria-hidden="true">
           {face.steps.segments.map((segment, index) => <b key={index} className={segment ? "card-face__segment--" + segment : undefined} />)}
-        </div>}
-        <div className="card-face__steps"><b>{face.steps.count}</b> · {face.steps.label}</div>
-      </div>
+        </span>}
+        <span className="card-face__steps-row">
+          <span className="card-face__steps"><b>{face.steps.count}</b> · {face.steps.label}</span>
+          <span className="card-face__trail-cue" aria-hidden="true">stopa ›</span>
+        </span>
+      </button>
       <Footer face={face} />
     </div>
   );

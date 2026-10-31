@@ -16,6 +16,8 @@ export type BoardActionProps = {
   onSelect: (id: string) => void;
   /** Klik na poslední změnu karty; App otevře záznam činnosti s filtrem karty. */
   onCardHistory?: (id: string) => void;
+  /** Klik na postup karty; App otevře boční menu se stopou práce karty. */
+  onCardTrail?: (id: string) => void;
   onTagFilter: (tag: string) => void;
   onEditing: (id: string | null) => void;
   onRename: (id: string, name: string) => void;
@@ -38,6 +40,7 @@ export function useBoardActions(props: BoardActionProps): CardActions {
   return useMemo<CardActions>(() => ({
     open: (id) => latest.current.onSelect(id),
     history: (id) => latest.current.onCardHistory?.(id),
+    trail: (id) => latest.current.onCardTrail?.(id),
     tag: (tag) => latest.current.onTagFilter(tag),
     renameStart: (id) => { if (!latest.current.disabled) latest.current.onEditing(id); },
     renameCancel: () => latest.current.onEditing(null),

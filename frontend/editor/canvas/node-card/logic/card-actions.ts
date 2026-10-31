@@ -23,6 +23,8 @@ export type CardActions = {
   open: (id: string) => void;
   /** Klik na poslední změnu karty: otevřít záznam činnosti s filtrem „Jen vybraná karta“. */
   history: (id: string) => void;
+  /** Klik na postup na tváři karty: otevřít boční menu se stopou práce karty (i bez bloku). */
+  trail: (id: string) => void;
   tag: (tag: string) => void;
   renameStart: (id: string) => void;
   renameCancel: (id: string) => void;
@@ -44,7 +46,7 @@ const idle = () => {};
 const no = async () => false;
 /** Výchozí akce mimo Board (testy, náhled): nic se nestane a nic se neuloží. */
 export const NO_CARD_ACTIONS: CardActions = {
-  open: idle, history: idle, tag: idle, renameStart: idle, renameCancel: idle, renameCommit: idle, renameNode: idle,
+  open: idle, history: idle, trail: idle, tag: idle, renameStart: idle, renameCancel: idle, renameCommit: idle, renameNode: idle,
   commentText: idle, resizeArea: idle, togglePort: idle, cardBlock: idle, confirm: no,
   realize: async () => {}, releaseLease: async () => undefined, ruleWrite: no, ruleReview: no,
 };
