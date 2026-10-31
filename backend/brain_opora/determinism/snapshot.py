@@ -2,8 +2,8 @@
 
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky,
 oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu),
-fronta úkolů, čekající lístky, poslední vstupy vstupní brány (sekce VSTUPY), splněné milníky s odloženými
-požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY), poslední kontroly, deník dávek;
+fronta úkolů, čekající lístky, poslední vstupy vstupní brány (sekce VSTUPY), aktivní milníky s kritérii (hotovo/celkem a karty) a splněné
+milníky s odloženými požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY), poslední kontroly, deník dávek;
 okolí srdce §3a; skripty dílny §3b; výzkumy a duely srdce ze schránky zadání §3c; stav práce karet z executions
 a vazeb PR, docs/brain-heart-orchestrator.md §3, včetně blokace nehotovým předchůdcem z grafu karet agent-state;
 kanál doručení práce cards/gate před sekcí PLÁN, řádek DORUČENÍ, §3e),
@@ -18,6 +18,7 @@ import re
 import sqlite3
 
 from backend.brain_opora.determinism import brain_files, delivery, git_log, intake, milestones
+from database.repositories.intake_milestones import IntakeMilestones
 from database.repositories.intake_requirements import IntakeRequirements
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_queue import for_worker, open_cards
@@ -53,6 +54,7 @@ SCRIPTS = 15
 RESEARCH = 10
 INTAKE_TEXT = 100  # znaků věty v sekci VSTUPY
 MILESTONES = 5  # nejvýš splněných milníků v sekci MILNÍKY
+ACTIVE_MILESTONES = AREAS  # nejvýš rozpracovaných aktivních milníků v sekci MILNÍKY
 REQUIREMENTS = 8  # nejvýš otevřených a odložených požadavků v sekci POŽADAVKY
 GIT_COMMITS, GIT_CHARS = 10, 1200
 SPACES_CHARS = 800  # sekce PROSTORY git projektu
@@ -286,10 +288,12 @@ def collect(service, project, workspace):
         blocked, names = _blocked(service, project, workspace, db)
         entries = intake.recent(db, workspace)
         reached = milestones.reached(db, project, workspace)
+        active = [item for item in (milestones.evaluate(db, project, found) for found in
+                                    IntakeMilestones(db).list(workspace, ("active",))) if not item["done"]]
         wanted = IntakeRequirements(db).list(workspace, ("open", "deferred"))[-REQUIREMENTS:]
         channel = delivery.channel(db, project)
     runs = _runs(service, project, workspace, [card["id"] for card in cards])  # jen otevřené karty
-    return {"delivery": channel, "runs": runs, "intake": entries, "milestones": reached, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
+    return {"delivery": channel, "runs": runs, "intake": entries, "milestones": reached, "active_milestones": active, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
             "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
@@ -448,10 +452,20 @@ def _intake_lines(facts):
     return ["VSTUPY:", *rows] if rows else []
 
 
+def _active_line(item):
+    """Rozpracovaný aktivní milník s plným ID, aby ho srdce nezakládalo podruhé: oblast, kritéria hotovo/celkem a karty."""
+    done = sum(criterion["done"] for criterion in item["criteria"])
+    parts = [f"{criterion['id']} {'hotovo' if criterion['done'] else 'čeká'} (" + ", ".join(
+        card["id"] for card in criterion["cards"]) + ")" for criterion in item["criteria"]]
+    return (f"- milník {item['id']} „{_short(item['title'], 80)}“ aktivní · oblast {item['areaId']} · kritéria "
+            f"{done}/{len(item['criteria'])}: " + "; ".join(parts))
+
+
 def _milestone_lines(facts):
-    """MILNÍKY: splněné aktivní milníky prostoru a odložené požadavky s podmínkou na ně (spouštěč `milestone.done`,
+    """MILNÍKY: rozpracované aktivní milníky prostoru (ID, oblast, kritéria) a splněné aktivní milníky prostoru a odložené požadavky s podmínkou na ně (spouštěč `milestone.done`,
     docs/navrhy/2026-10-30-metriky-a-spoustece.md §4). Stav požadavku nepřepíná, rozhodne srdce. Žádné = bez sekce."""
-    rows = [f"- milník {item['milestone']['id']} „{_short(item['milestone']['title'], 80)}“ splněn – odložené"
+    rows = [_active_line(item) for item in (facts.get("active_milestones") or [])[:ACTIVE_MILESTONES]]
+    rows += [f"- milník {item['milestone']['id']} „{_short(item['milestone']['title'], 80)}“ splněn – odložené"
             f" požadavky k otevření: {', '.join(rq['id'] for rq in item['deferred']) or 'žádné'}"
             for item in (facts.get("milestones") or [])[:MILESTONES]]
     return ["MILNÍKY:", *rows] if rows else []
