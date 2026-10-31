@@ -6,12 +6,45 @@ import type { CardEntry } from "./card-header";
 // z něj se u backendového stavu bere jen odstín „rozpracováno“ u nesplněných dílků.
 export const DOD_KEYS = ["steps", "card_acceptance", "gate_ready", "merged", "plan_written_back", "journeys", "human_close"] as const;
 export type DodKey = typeof DOD_KEYS[number];
-export type DodState = "done" | "active" | "todo" | "unknown";
+/** `after-merge` = splněno sloučením, protože požadavek přibyl do zadání až po něm (mimo standardní proces). */
+export type DodState = "done" | "after-merge" | "active" | "todo" | "unknown";
 export type DodSegment = { key: DodKey; label: string; state: DodState; detail: string; progress: number };
 export type DodView = { source: "backend" | "computed"; done: boolean; segments: DodSegment[];
   /** Druh brány z backendu: `review` (brána OporaHubu), `external` (ochrana větve na GitHubu) nebo `local`
    * (projekt bez GitHubu: sloučení ohlášené `local-merge` + kontroly na commitu, docs/lokalni-slouceni.md). */
-  gate: "review" | "external" | "local" | null };
+  gate: "review" | "external" | "local" | null;
+  /** Jednořádkové upozornění „Mimo standardní proces: …“, prázdné u karty ve standardním procesu. */
+  afterMerge: string };
+
+/** Co uznalo sloučení (docs/oporahub-plan-steps.md, „Kroky přidané po sloučení“): požadavky, PR, sha a kroky. */
+export type AfterMerge = { requirements: string[]; number: number | null; mergeSha: string; steps: { id: string; title: string }[] };
+
+const record = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+
+/** Backendové `dod` (`afterMerge` + `afterMergeEvidence`) i záznam stopy práce (`requirements`, `number`, …). */
+export function parseAfterMerge(raw: unknown): AfterMerge | null {
+  const value = record(raw);
+  if (!value) return null;
+  const evidence = record(value.afterMergeEvidence) ?? value;
+  const list = Array.isArray(value.afterMerge) ? value.afterMerge : value.requirements;
+  const requirements = Array.isArray(list) ? list.filter((item): item is string => typeof item === "string") : [];
+  if (!requirements.length) return null;
+  const steps = (Array.isArray(evidence.steps) ? evidence.steps : []).flatMap((item) => {
+    const step = record(item);
+    return step && typeof step.id === "string" ? [{ id: step.id, title: typeof step.title === "string" ? step.title : "" }] : [];
+  });
+  return { requirements, number: Number.isSafeInteger(evidence.number) ? Number(evidence.number) : null,
+    mergeSha: typeof evidence.mergeSha === "string" ? evidence.mergeSha : "", steps };
+}
+
+/** „Mimo standardní proces: kroky přibyly po sloučení PR #22“; bez PR (lokální sloučení) se uvede krátké sha. */
+export function afterMergeNotice(value: AfterMerge | null): string {
+  if (!value) return "";
+  const where = value.number !== null ? `sloučení PR #${value.number}` : `lokálním sloučení${value.mergeSha ? " " + value.mergeSha.slice(0, 7) : ""}`;
+  const what = value.requirements.includes("steps") ? "kroky přibyly" : "akceptace karty přibyla";
+  return `Mimo standardní proces: ${what} po ${where}`;
+}
 
 const LABEL: Record<DodKey, string> = {
   steps: "Kroky", card_acceptance: "Akceptace karty", gate_ready: "Brána", merged: "Sloučeno",
@@ -92,14 +125,18 @@ export function dodView(facts: DodFacts): DodView {
   const gate = fromBackend ? backendGate(facts.card?.dod) : null;
   const computed = computeDod(facts);
   const steps = stepsSegment(facts);
+  const late = fromBackend ? parseAfterMerge(facts.card?.dod) : null;
   const segments = DOD_KEYS.map(key => {
-    const state: DodState = fromBackend ? (fromBackend[key] ? "done" : computed[key] === "active" ? "active" : "todo") : computed[key];
-    const progress = key === "steps" ? (state === "done" ? 1 : steps.progress) : state === "done" ? 1 : 0;
-    const detail = key === "steps" ? steps.detail : key === "gate_ready" && gate === "external" ? "GitHub"
+    const state: DodState = fromBackend ? (fromBackend[key] ? (late?.requirements.includes(key) ? "after-merge" : "done")
+      : computed[key] === "active" ? "active" : "todo") : computed[key];
+    const progress = state === "done" || state === "after-merge" ? 1 : key === "steps" ? steps.progress : 0;
+    const detail = state === "after-merge" ? (key === "steps" ? `${steps.detail} · po sloučení` : "po sloučení")
+      : key === "steps" ? steps.detail : key === "gate_ready" && gate === "external" ? "GitHub"
       : key === "gate_ready" && gate === "local" ? "lokálně"
       : key === "journeys" && state !== "done" ? blockingJourneysText(facts.card?.dod)
       : state === "unknown" ? "nenapojeno" : "";
     return { key, label: LABEL[key], state, detail, progress };
   });
-  return { source: fromBackend ? "backend" : "computed", done: segments.every(item => item.state === "done"), segments, gate };
+  return { source: fromBackend ? "backend" : "computed", done: segments.every(item => item.state === "done" || item.state === "after-merge"),
+    segments, gate, afterMerge: afterMergeNotice(late) };
 }

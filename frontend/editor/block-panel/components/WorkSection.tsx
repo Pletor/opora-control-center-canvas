@@ -1,6 +1,7 @@
 // „Práce na kartě“: čip stavu a jedna věta (etapa · krok X z Y, zaseklý krok, na co karta čeká), segmenty kroků,
 // kroky ✓/…/✗ s kontrolou nebo commitem, kdo kartu drží a kolik zbývá (nebo kdy ji uvolnil), další krok, PR
-// s počtem commitů a co chybí k hotovu. Řádka „teď: …“ jen když kartu někdo právě drží.
+// s počtem commitů a co chybí k hotovu. Řádka „teď: …“ jen když kartu někdo právě drží. Kroky uznané sloučením
+// (přibyly po něm) mají jantarový štítek „po sloučení“ a karta jednu větu „Mimo standardní proces: …“.
 import PrBadge from "@/shared/pr-badge/components/PrBadge";
 import { useNow } from "@/editor/canvas/card-face/logic/use-now";
 import type { WorkView } from "../logic/panel-work";
@@ -26,6 +27,7 @@ export default function WorkSection({ work, live }: { work: WorkView; live: { te
         <span className={"block-panel__chip block-panel__chip--" + work.chip.tone}>{[work.chip.glyph, work.chip.word].filter(Boolean).join(" ")}</span>
         <span>{work.line}</span>
       </div>
+      {work.afterMerge && <p className="block-panel__notice block-panel__notice--after-merge" role="note" data-oh-after-merge="true">{work.afterMerge}</p>}
       {work.steps.length > 0 && <div className="block-panel__segs" aria-hidden="true">
         {work.steps.map((step) => <b key={step.id} className={"block-panel__seg block-panel__seg--" + step.tone} />)}
       </div>}
@@ -35,7 +37,9 @@ export default function WorkSection({ work, live }: { work: WorkView; live: { te
           <span className="block-panel__step-mark" aria-hidden="true">{step.glyph}</span>
           <span className="block-panel__step-id">{step.id}</span>
           <span className="block-panel__step-title">{step.title}</span>
-          <span className="block-panel__step-note">{step.note}</span>
+          {step.tone === "after" ? <span className="block-panel__badge block-panel__badge--after-merge"
+            title="Krok přibyl do zadání po sloučení PR; uznalo ho sloučení, žádný běh ho nedoložil.">po sloučení</span>
+            : <span className="block-panel__step-note">{step.note}</span>}
         </li>)}
       </ul> : <p className="block-panel__empty">Karta zatím nemá kroky plánu. Naplánuje je srdce.</p>}
       {work.untouched && <p className="block-panel__empty">Na kartě zatím nikdo nepracoval. Až ji dělník převezme branou, objeví se tu kdo, do kdy a co udělal.</p>}

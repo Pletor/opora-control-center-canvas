@@ -1,7 +1,9 @@
 """Read-only process projection over accepted plans, native pipeline and execution facts."""
 import time
 
+from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas.canvas_service import now
+from backend.canvas.opora_card_done import link_for
 from backend.canvas.opora_agent_state_steps import blocked_by, card_plan
 from backend.canvas.opora_changesets import OporaChangesets
 from backend.canvas.opora_execution_validation import validate
@@ -101,6 +103,7 @@ class ProcessSync:
             repo = Executions(canvas.db_for(project), project, workspace)
             executions = OporaExecutions(canvas)
             blocked = blocked_by(canvas, project, workspace)
+            linked = pulls.read(canvas, project, workspace)  # merged link → steps added after the merge
             items = []
             for card in selected if limit is None else selected[:limit]:
                 identifier = card["id"]
@@ -113,7 +116,8 @@ class ProcessSync:
                 if availability["available"] and lease and lease[0] > time.time():
                     availability = {"available": False, "unavailableReason": "Card already has an active lease."}
                 matches = identifier in approved and approved[identifier] == live.get(identifier)
-                plan = card_plan(repo.db, project, workspace, identifier, approved.get(identifier), blocked)
+                plan = card_plan(repo.db, project, workspace, identifier, approved.get(identifier), blocked,
+                                 link_for(linked, identifier))
                 status, reason = _status(live.get(identifier), accepted, matches, stored, execution, availability,
                                          view["readOnly"], available["acceptedHead"] == accepted and accepted is not None,
                                          plan, dead)
@@ -127,7 +131,7 @@ class ProcessSync:
                                            "failedCount": sum(item["status"] == "failed" for item in stages.get("items", [])),
                                            "currentStage": stage["title"] if stage else None},
                               "steps": plan["steps"], "stepItems": plan["stepItems"], "acceptanceEvidence": plan["acceptanceEvidence"],
-                              "blockedBy": plan["blockedBy"],
+                              "afterMerge": plan["afterMerge"], "blockedBy": plan["blockedBy"],
                               "workingMatchesAccepted": matches, "doneConfirmed": bool(stored.get("done", {}).get("confirmed")),
                               "openIdeas": sum(item["status"] == "open" for item in stored.get("ideas", [])),
                               "currentExecution": execution, "executionAvailability": availability,

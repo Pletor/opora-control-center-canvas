@@ -34,7 +34,8 @@ Kód: `backend/canvas/card_trail_read.py` (sběr faktů), `backend/canvas/card_t
              "handoff": "Použij /x", "by": "builder", "updatedAt": "…", "source": "agent"}],
   "judgment": [{"code": "files_mismatch", "stepId": "s1", "executionId": "e1", "outside": ["docs/a.md"],
                 "reason": "Commit mění 1 souborů mimo soubory kroku.", "source": "det"}],
-  "filesKnown": true
+  "filesKnown": true,
+  "afterMerge": null
 }
 ```
 
@@ -48,6 +49,7 @@ Kód: `backend/canvas/card_trail_read.py` (sběr faktů), `backend/canvas/card_t
 | `now` | běžící exekuce (`owner`, `createdAt`, `expiresAt`), jinak úkol brány ve stavu `assigned`; `stepId` = první nehotový krok |
 | `pr` | odkaz PR karty (`link_for`: sloučený vyhrává), i u zavřené karty |
 | `missing` | jediná definice hotovo (`done_state`, stejné díly jako `closure_gate`), karta bez kroků `["steps"]` |
+| `afterMerge` | `null` u karty ve standardním procesu; jinak `{requirements, number, mergeSha, executionId, steps: [{id, title}], label, source: "det"}` = požadavky uznané sloučením, protože přibyly do zadání až po něm (`docs/oporahub-plan-steps.md`, „Kroky přidané po sloučení“); `label` = „Kroky přibyly po sloučení PR #N (sha) – uznány sloučením, mimo standardní proces: …“ |
 | `recent` | posledních 200 událostí karty (bez `lease.heartbeat`) + posledních 200 úspěšných zápisů záznamu činnosti s kartou, sloučeno, nejnovějších 10 |
 | `ports` | vazby z karty (`source == node`) a zpráva `state.edges[edgeId]` |
 

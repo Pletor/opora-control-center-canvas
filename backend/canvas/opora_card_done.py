@@ -8,7 +8,8 @@ journey the card lies on verified by a passed, fresh run (docs/brana-cesty.md §
 the card itself (`opora_card_auto_close`, `by: "opora"`); a manual close in the UI stays possible, never
 required. `card_done_state` is pure; `closure_gate` loads the facts for the close precondition and replaces the legacy evidence/checks/pipeline closure gate for every card
 whose accepted spec has plan steps (cards without steps keep the legacy path readable).
-docs/oporahub-plan-steps.md.
+Steps and card acceptance added to the accepted spec after the merge count as met by the merge (`afterMerge`,
+"Kroky přidané po sloučení"), visibly outside the standard process. docs/oporahub-plan-steps.md.
 """
 REQUIREMENTS = ("steps", "card_acceptance", "gate_ready", "merged", "plan_written_back", "journeys", "human_close")
 def merged_gate(gate, merged):
@@ -33,24 +34,54 @@ def card_done_state(card):
     `gateMode` "review" (default): gate_ready = the OporaHub review gate is `ready`. "external"
     (automated review jobs disabled): GitHub branch protection is the gate, so gate_ready = merged.
     "local" (project without GitHub, docs/lokalni-slouceni.md): gate_ready = merged and the card's
-    latest checks on the merged commit passed (`checksPassed`, True for a card without checks)."""
+    latest checks on the merged commit passed (`checksPassed`, True for a card without checks).
+
+    `afterMerge` (only with `merged`) = {executionId, number, mergeSha, steps: [{id, title}], acceptance}: what the
+    merged run never had in its assignment (`after_merge_facts`). Such steps make up the missing ones and such an
+    acceptance stands in for the evidence; the state then names the requirements met this way in `afterMerge`
+    and carries `afterMergeEvidence`. Nothing is relaxed for an unmerged link."""
     steps = card.get("steps") or {}
+    late = card.get("afterMerge") if card.get("merged") is True and isinstance(card.get("afterMerge"), dict) else None
+    late_steps = list((late or {}).get("steps") or [])
+    total, done = steps.get("total", 0), steps.get("done", 0)
     gate = card.get("gate") or {}
     mode = card.get("gateMode") if card.get("gateMode") in ("external", "local") else "review"
     if mode == "review":
         gate_ready = gate.get("status") == "ready"
     else:
         gate_ready = card.get("merged") is True and (mode == "external" or card.get("checksPassed", True) is True)
-    met = {"steps": steps.get("total", 0) >= 1 and steps.get("done", 0) >= steps.get("total", 0),
-           "card_acceptance": card.get("acceptanceEvidence") is True,
+    after = []
+    if total >= 1 and done < total and late_steps and done + len(late_steps) >= total:
+        after.append("steps")
+    if card.get("acceptanceEvidence") is not True and late is not None and late.get("acceptance") is True:
+        after.append("card_acceptance")
+    met = {"steps": (total >= 1 and done >= total) or "steps" in after,
+           "card_acceptance": card.get("acceptanceEvidence") is True or "card_acceptance" in after,
            "gate_ready": gate_ready,
            "merged": card.get("merged") is True,
            "plan_written_back": card.get("planWrittenBack") is True,
            "journeys": not card.get("journeys"),
            "human_close": card.get("closed") is True}
     missing = [name for name in REQUIREMENTS if not met[name]]
+    evidence = {"executionId": (late or {}).get("executionId"), "number": (late or {}).get("number"),
+                "mergeSha": (late or {}).get("mergeSha"), "steps": late_steps if "steps" in after else []}
     return {"done": not missing, "missing": missing, "gate": mode,
-            **({"blockingJourneys": list(card["journeys"])} if "journeys" in missing else {})}
+            **({"blockingJourneys": list(card["journeys"])} if "journeys" in missing else {}),
+            **({"afterMerge": after, "afterMergeEvidence": evidence} if after else {})}
+
+
+def after_merge_note(state):
+    """The trace sentence of a card met by the merge ("Kroky přidané po sloučení"), "" for a standard card."""
+    after = (state or {}).get("afterMerge") or []
+    if not after:
+        return ""
+    evidence = state.get("afterMergeEvidence") or {}
+    number, sha = evidence.get("number"), (evidence.get("mergeSha") or "")[:7]
+    where = (f"sloučení PR #{number}" if type(number) is int else "lokálním sloučení") + (f" ({sha})" if sha else "")
+    parts = [" ".join(part for part in (item.get("id"), item.get("title")) if part) for item in evidence.get("steps") or []]
+    tail = ([("kroky: " + ", ".join(parts))] if parts else []) + (["akceptace karty"] if "card_acceptance" in after else [])
+    return (f"Kroky přibyly po {where} – uznány sloučením, mimo standardní proces"
+            + (": " + "; ".join(tail) if tail else "") + ".")
 
 
 def closable(state):
@@ -64,13 +95,27 @@ def link_for(links, node):
     return next((item for item in own if item.get("state") == "merged"), own[-1] if own else None)
 
 
+def after_merge_facts(db, project, workspace, node, document, link):
+    """`afterMerge` input of `card_done_state` for a merged `link`, else None (opora_step_results.after_merge)."""
+    from backend.canvas.opora_step_results import after_merge
+
+    if not link or link.get("state") != "merged":
+        return None
+    found = after_merge(db, project, workspace, node, document, link["executionId"])
+    if not found or not (found["steps"] or found["acceptance"]):
+        return None
+    return {"executionId": link["executionId"], "number": link.get("number"), "mergeSha": link.get("mergeSha"), **found}
+
+
 def facts(card, link, gate, closed=False, external=False, local_checks=None):
     """Done-state input from a process card (`steps`, `acceptanceEvidence`, `journeys`), its link and gate;
     `external` = automated review jobs are disabled (gates_by_execution returned None); `local_checks`
     None = the project has GitHub, a bool = local mode with the card's checks result (`local_checks_passed`)."""
     mode = "local" if local_checks is not None else "external" if external else "review"
     merged = bool(link) and link.get("state") == "merged"
-    return {"steps": card.get("steps"), "acceptanceEvidence": card.get("acceptanceEvidence"),
+    late = card.get("afterMerge")
+    late = late if merged and isinstance(late, dict) and late.get("executionId") == link.get("executionId") else None
+    return {"steps": card.get("steps"), "acceptanceEvidence": card.get("acceptanceEvidence"), "afterMerge": late,
             "journeys": card.get("journeys") or [],
             "gate": merged_gate((gate or {}).get("reviewGate"), merged), "gateMode": mode, "merged": merged,
             "planWrittenBack": bool(link) and link.get("planWrittenBack") is True, "closed": closed,
@@ -170,7 +215,9 @@ def closure_gate(canvas, project, workspace, node):
     if local_mode(canvas, project):
         graph = canvas.view(project, workspace)["graph"]
         local = local_checks_by_card(canvas, project, workspace, graph, [link] if link else [], [node])[node]
-    state = card_done_state(facts({"steps": summary, "acceptanceEvidence": evidence, "journeys": blocking}, link, gate,
+    late = after_merge_facts(db, project, workspace, node, document, link)
+    state = card_done_state(facts({"steps": summary, "acceptanceEvidence": evidence, "journeys": blocking,
+                                   "afterMerge": late}, link, gate,
                                   external=gates is None, local_checks=local))
     if not closable(state):
         missing = [name for name in state["missing"] if name != "human_close"]

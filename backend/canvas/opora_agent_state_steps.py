@@ -8,7 +8,7 @@ the `steps` summary (with per-step `items`, aggregated over all runs) and the si
 of done `dod` (opora_card_done) to each agent-state card entry.
 """
 from backend.canvas import opora_card_done as card_done
-from backend.canvas.opora_step_results import progress_detail
+from backend.canvas.opora_step_results import progress_detail, with_after_merge
 
 REQUIRE_STEPS = True  # Product rule; only pre-plan-steps test suites switch it off (backend/conftest.py).
 
@@ -39,15 +39,22 @@ def require_ready(canvas, project, workspace, node, captured):
                            + ", ".join(blockers) + ".")
 
 
-def card_plan(db, project, workspace, node, accepted_document, blocked):
+def card_plan(db, project, workspace, node, accepted_document, blocked, link=None):
+    """Readiness input of one card; with a merged `link` also `afterMerge` (steps and acceptance added after the
+    merge, opora_card_done.after_merge_facts) and those steps as `after_merge` in `stepItems`."""
     summary, evidence, items = progress_detail(db, project, workspace, node, accepted_document)
-    return {"steps": summary, "stepItems": items, "acceptanceEvidence": evidence, "blockedBy": sorted(blocked.get(node) or [])}
+    late = card_done.after_merge_facts(db, project, workspace, node, accepted_document, link) if items else None
+    if late and late["steps"] and summary["done"] + len(late["steps"]) >= summary["total"]:
+        summary, items = with_after_merge(summary, items, {item["id"] for item in late["steps"]})
+    return {"steps": summary, "stepItems": items, "acceptanceEvidence": evidence, "afterMerge": late,
+            "blockedBy": sorted(blocked.get(node) or [])}
 
 
 def dod(card, linked, gates, local=None):
     """`cards[].dod`: one boolean per requirement of the single definition of done (keys = opora_card_done
     REQUIREMENTS) + `gate` kind (`review` / `external` / `local`), `done` and `missing` in contract order; while
-    the journey gate is missing also `blockingJourneys` [{journeyId, applicationId, name, reason}].
+    the journey gate is missing also `blockingJourneys` [{journeyId, applicationId, name, reason}]; requirements
+    met by the merge (added after it) also `afterMerge` + `afterMergeEvidence` (docs/oporahub-plan-steps.md).
     `local` = None (project with GitHub) or `{nodeId: checks passed}` (docs/lokalni-slouceni.md)."""
     link = card_done.link_for(linked, card.get("nodeId"))
     gate = (gates or {}).get(link["executionId"]) if link else None
@@ -56,7 +63,8 @@ def dod(card, linked, gates, local=None):
                                                       external=gates is None, local_checks=checks))
     return {**{name: name not in state["missing"] for name in card_done.REQUIREMENTS},
             "gate": state["gate"], "done": state["done"], "missing": state["missing"],
-            **({"blockingJourneys": state["blockingJourneys"]} if "blockingJourneys" in state else {})}
+            **({"blockingJourneys": state["blockingJourneys"]} if "blockingJourneys" in state else {}),
+            **({key: state[key] for key in ("afterMerge", "afterMergeEvidence")} if "afterMerge" in state else {})}
 
 
 def attach(entries, cards, linked=None, gates=None, local=None):

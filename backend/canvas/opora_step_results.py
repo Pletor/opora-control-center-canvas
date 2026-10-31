@@ -158,6 +158,42 @@ def progress_detail(db, project, workspace, node, document):
     return value, acceptance_evidence(db, project, workspace, node, document), step_items(steps, found)
 
 
+def after_merge(db, project, workspace, node, document, execution_id):
+    """What the merged execution `execution_id` never had in its assignment (docs/oporahub-plan-steps.md,
+    "Kroky přidané po sloučení"): `{steps: [{id, title}], acceptance}` or None when the execution is unknown.
+
+    `steps` = accepted steps the merged run had not pinned (missing or another definition) and nobody reported;
+    a step the merged run pinned stays out (unreported or failed, it blocks as before). `acceptance` = the accepted
+    card document differs from the one the merged run pinned and no newer run reported anything."""
+    repo = Executions(db, project, workspace)
+    history = repo.history(node)  # newest first
+    index = next((at for at, item in enumerate(history) if item["executionId"] == execution_id), None)
+    if index is None:
+        return None
+    assignment = history[index].get("assignment") or {}
+    pinned = {item["id"]: item for item in assignment.get("steps") or [] if isinstance(item, dict) and "id" in item}
+    steps = steps_of((document or {}).get("fields"))
+    found = reports(db, project, workspace, node, steps) if steps else {}
+    late = [{"id": item["id"], "title": item.get("title") or ""} for item in ordered(steps)
+            if item["id"] not in found and not _same(pinned.get(item["id"]), item)]
+    spec = next((item for item in assignment.get("documents") or [] if item.get("nodeId") == node), None)
+    newer = any(repo.receipts(item["executionId"]) for item in history[:index])
+    return {"steps": late, "acceptance": document is not None and not _same(spec, document) and not newer}
+
+
+def with_after_merge(value, items, late):
+    """Step summary and items with the steps met by the merge (`late` ids) as `after_merge`; `current` moves to the
+    first step neither done nor met by the merge. `done` keeps counting only reported steps."""
+    if not late:
+        return value, items
+    marked = [{**item, "status": "after_merge"} if item["id"] in late else item for item in items]
+    current = next((item["id"] for item in marked if item["status"] not in ("done", "after_merge")), None)
+    marked = [{**item, "status": "current"} if item["id"] == current and item["status"] == "waiting"
+              else {**item, "status": "waiting"} if item["id"] != current and item["status"] == "current" else item
+              for item in marked]
+    return {**value, "current": current, "afterMerge": len([item for item in marked if item["status"] == "after_merge"])}, marked
+
+
 def plan_view(service, project, workspace, node, result):
     """Node-spec API: add `plan: {working, accepted, acceptedHead}` steps to a read/write result."""
     working = steps_of(result.get("fields"))

@@ -38,10 +38,11 @@ const RUN_STATE: Record<string, { word: string; tone: "live" | "ok" | "bad" | "i
 };
 export const runState = (state: string) => RUN_STATE[state] ?? { word: state || "neznámý stav", tone: "idle" as const };
 
-export type StepTone = "done" | "cur" | "bad" | "todo";
-/** Značka kroku: ✓ hotovo, ✗ selhalo, … rozpracováno, ○ čeká. */
+export type StepTone = "done" | "after" | "cur" | "bad" | "todo";
+/** Značka kroku: ✓ hotovo, ↺ uznáno sloučením (krok přibyl po něm), ✗ selhalo, … rozpracováno, ○ čeká. */
 export function stepMark(status: string, current = false): { glyph: string; tone: StepTone } {
   if (status === "done") return { glyph: "✓", tone: "done" };
+  if (status === "after_merge") return { glyph: "↺", tone: "after" };
   if (status === "failed") return { glyph: "✗", tone: "bad" };
   if (current || status === "running" || status === "in_progress") return { glyph: "…", tone: "cur" };
   return { glyph: "○", tone: "todo" };

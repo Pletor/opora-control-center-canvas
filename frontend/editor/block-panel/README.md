@@ -56,4 +56,8 @@ Data a logika (`logic/`, čisté funkce s testem vedle):
 - `use-card-trail.ts` (bez testu): lidská UI session jako u historie běhů, jednorázové čtení, nové čtení
   s novým snímkem agent-state.
 
+Kroky přidané po sloučení (`afterMerge` stopy, docs/oporahub-plan-steps.md): krok má tón `after` (↺, jantarový štítek
+`block-panel__badge--after-merge` „po sloučení“), čip `block-panel__chip--after` „mimo proces“ místo zeleného hotovo
+a nad kroky věta `block-panel__notice--after-merge` „Mimo standardní proces: kroky přibyly po sloučení PR #N“.
+
 Data načítá rodič v `app/components/BlockDrawerContent.tsx`. Styl `styles/block-panel.css` (blok `block-panel`).

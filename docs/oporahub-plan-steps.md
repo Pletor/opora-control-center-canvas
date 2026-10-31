@@ -151,6 +151,30 @@ druh brány `gate` (`review` / `external` / `local`), `done`, `missing` a při n
   a `plan_written_back` vznikají z `POST /api/oporahub/executions/{executionId}/local-merge` a `gate_ready` =
   sloučeno + poslední běh kontrol karty na sloučeném commitu je zelený (karta bez kontrol: jen sloučeno).
 
+### Kroky přidané po sloučení
+
+Rozhodnutí člověka 2026-10-31 (Ample #22, „verze B“): krok plánu nebo akceptace karty přidaná do přijatého zadání
+**až po sloučení** PR nemůže mít hlášení žádného běhu, protože ji sloučený běh nikdy neměl v zadání. Taková karta by
+jinak zůstala otevřená navždy. Platí jen pro kartu, jejíž započítaná vazba (`link_for`) je `merged`:
+
+- Přijatý krok, který sloučený běh (`executionId` vazby) neměl připnutý ve svém zadání (chybí, nebo má jinou definici)
+  a nemá žádné platné hlášení (`reports`), je splněný sloučením: stav kroku `after_merge` (ne `done`), doklad =
+  `mergeSha` + číslo PR. Krok, který sloučený běh připnutý **měl** a nenahlásil nebo nahlásil `failed`, drží
+  kartu dál přesně jako dřív.
+- `card_acceptance` bez dokladu proti aktuálnímu zadání je splněná sloučením, když se přijaté zadání karty liší
+  od dokumentu, který sloučený běh připnul, a žádný novější běh než sloučený nic nenahlásil (nový běh = karta je
+  zase ve standardním procesu).
+- Výstup `card_done_state` (a `cards[].dod`) nese při splnění touto cestou `afterMerge: [požadavek, …]` (např.
+  `["steps", "card_acceptance"]`) a `afterMergeEvidence: {executionId, number, mergeSha, steps: [{id, title}]}`;
+  `cards[].steps.items` mají u takových kroků `status: "after_merge"`. Pořadí `missing` ani význam `closable` se
+  nemění, takže server takovou kartu uzavře sám (`opora_card_auto_close`). U nesloučené vazby se nic nepovoluje.
+- Dohledatelnost: poznámka uzavření (`done.note`) a stopa práce karty (`GET /api/oporahub/card-trail`, pole
+  `afterMerge`) nesou větu „Kroky přibyly po sloučení PR #N (sha) – uznány sloučením, mimo standardní proces“ se
+  seznamem kroků, aby šlo pozdější problém dohledat k místu vzniku.
+- UI to nikdy neukáže jako zelené „hotovo“: krok má jantarový štítek „po sloučení“ a karta jednořádkové upozornění
+  „Mimo standardní proces: kroky přibyly po sloučení PR #N“ (definice hotovo v detailu karty, záložka Kroky,
+  panel karty / bloku).
+
 ## Migrace
 
 ```
