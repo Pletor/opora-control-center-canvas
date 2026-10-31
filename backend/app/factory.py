@@ -214,7 +214,8 @@ def create_app(data_root=None):
             return  # příjem živého procesu má vlastní tok (outbox); v záznamu činnosti by jen spamoval
         try:
             actor, agent = request.state.actor, request.state.agent
-            described = describe(getattr(request, "_body", b""), dict(request.query_params), request.url.path)
+            described = describe(getattr(request, "_body", b""), dict(request.query_params), request.url.path,
+                                 getattr(request.state, "activity_hint", None))
             used = getattr(request.state, "authority_context", None)
             activity_log.record(actor=actor, agent=agent, method=request.method, path=request.url.path,
                                 described=described, status=status, autonomy=bool(used and used.used))

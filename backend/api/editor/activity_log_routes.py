@@ -16,4 +16,9 @@ def create_activity_log_router(activity_log):
         return activity_log.list(project=project, workspace=workspace, actor=actor, node_id=nodeId,
                                  limit=limit, before=before, agent=agent, since=since, until=until)
 
+    @router.get("/activity-log/latest-by-node")
+    def latest_by_node(project: str, workspace: str = ""):
+        """`{nodeId: {at, actor, agent, label, path}}`: poslední úspěšná změna každé karty plátna (jeden dotaz)."""
+        return activity_log.latest_by_node(project=project, workspace=workspace)
+
     return router

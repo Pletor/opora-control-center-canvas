@@ -35,9 +35,27 @@ Jeden řádek na každý požadavek jiný než GET/HEAD na `/api/*`, i když sko
 | `agent` | jméno agenta, u člověka prázdné |
 | `method`, `path` | HTTP metoda a cesta |
 | `project_id`, `workspace_id` | z těla (`project`, `workspace`) nebo z query; jinak prázdné |
-| `node_ids` | JSON pole ID karet z těla (`nodeId`, `node`, `sectorId`) |
+| `node_ids` | JSON pole ID dotčených karet (nejvýš 200): z těla (`nodeId`, `node`, `sectorId`) a u zápisů, které mění karty, i ze stopy karty (níže) |
 | `status` | HTTP status odpovědi |
-| `summary` | krátký popis: klíče těla, druh operace (`op.kind`), návrh uzavření (`done.proposed`); na konci `autonomy=full`, když akce prošla díky plné autonomii |
+| `summary` | krátký popis: na začátku čitelný popisek a ` \| ` (jen u zápisů se stopou karty), pak klíče těla, druh operace (`op.kind`), návrh uzavření (`done.proposed`); na konci `autonomy=full`, když akce prošla díky plné autonomii |
+
+## Stopa karty
+
+Zápisy, které mění karty, nesou `nodeIds` dotčených uzlů a čitelný popisek (nejvýš 120 znaků, česky,
+`backend/canvas/activity_labels.py`, docs/navrhy/2026-10-31-viditelnost-srdce-a-karet.md B):
+
+| Zápis | `nodeIds` | Popisek (příklad) |
+|---|---|---|
+| `POST /api/oporahub/graph-proposals` | `updateNodes`, `removeNodes`, `nodes` s ID, konce vazeb `@id`, nové uzly z odpovědi | „Pořadí 12 karet“, „Členství v oblasti u 3 karet“, „Návrh grafu: +3 karty, −1 vazba“ |
+| `POST …/graph-proposals/{id}/accept`, `POST /api/oporahub/changesets/{id}/accept` | uzly z uloženého návrhu | „Přijetí: Pořadí 12 karet“ |
+| `POST /api/oporahub/changesets` (`steps`) | `changes[].nodeId` | „Kroky karty: 4 kroky“, „Návrh zadání: 2 karty“ |
+| `POST /api/project-architecture` | uzly změněné proti uložené revizi | „Architektura: pořadí 12 stránek“ |
+| `POST /api/canvas-plan` | nové uzly (`refs`), bez `dryRun` | „Plán: Přidá 1 sektor, 2 karty …“ |
+| `POST /api/brain/tasks` | `nodeId` | „Úkol do fronty: <název>“ |
+
+Co je známo až při zápisu (ID nových uzlů, obsah přijatého návrhu, rozdíl architektury), doplní routa
+přes `note` / `note_from`; middleware to přidá k tomu, co dá tělo. Selhání stopy nikdy neshodí zápis.
+Jediný převzatý text je název úkolu; ` | ` se v něm i v klíčích těla nahradí `/`, popisek tak nejde podvrhnout.
 
 Obsah textů (zadání, texty karet) se do záznamu nekopíruje; ten má vlastní revize. Selhání
 zápisu do záznamu nikdy neshodí samotný požadavek.
@@ -46,6 +64,10 @@ zápisu do záznamu nikdy neshodí samotný požadavek.
 
 `GET /api/activity-log?project=&workspace=&actor=human|agent&nodeId=&agent=&since=&until=&limit=&before=` vrátí
 `{entries: [...], nextBefore}`, nejnovější první, `limit` 1–500 (výchozí 100), `before` = `id`
-pro další stránku. Bez `actor` vrací obojí. `agent` = přesné jméno agenta (`heart`), `since` / `until` = čas
+pro další stránku. Bez `actor` vrací obojí. Každý záznam nese i `label` (popisek před ` | `, jinak technický popis). `agent` = přesné jméno agenta (`heart`), `since` / `until` = čas
 ISO 8601 (i se `Z`), rozsah včetně krajů; kanál srdce tak čte kroky jedné dávky. Každý záznam nese `autonomy: "full" | null`. V UI: panel „Záznam činnosti“ se záložkami
 **Já** a **Agenti**.
+
+`GET /api/activity-log/latest-by-node?project=&workspace=` vrátí `{nodeId: {at, actor, agent, label, path}}`:
+poslední úspěšný (2xx) zápis každé karty jedním dotazem pro celé plátno. Prochází nejvýš 2000 nejnovějších
+zápisů projektu (a prostoru, je-li zadán) s neprázdnými `nodeIds`; jen čtení, bez změny schématu. Bez `project` 422.
