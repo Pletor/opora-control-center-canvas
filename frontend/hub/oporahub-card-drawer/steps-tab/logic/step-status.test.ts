@@ -7,6 +7,18 @@ const step = (id: string, order: number, dependsOn: string[] = [], acceptance = 
 const steps = [step("s1", 1), step("s2", 2, ["s1"]), step("s3", 3, ["s2"]), step("s4", 4, ["s2"]), step("s5", 5, ["s3", "s4"])];
 const receipt = (createdAt: string, stepResults: unknown[]) => ({ executionId: "ex1", createdAt, result: { summary: "", stepResults } });
 
+describe("step status after the merge", () => {
+  it("keeps the backend after_merge status and counts it as finished", () => {
+    const merged = withBackendSteps(new Map(), [{ id: "s1", status: "done", executionId: "e1" }, { id: "s2", status: "after_merge", executionId: null }]);
+    expect(merged.get("s2")).toMatchObject({ status: "after_merge" });
+    const steps = [{ id: "s1", order: 1, title: "A", acceptance: [], dependsOn: [], files: [], kind: "" },
+      { id: "s2", order: 2, title: "B", acceptance: [], dependsOn: ["s1"], files: [], kind: "" }] as never;
+    const rows = stepRows(steps, merged);
+    expect(rows.map(row => row.status)).toEqual(["done", "after_merge"]);
+    expect(stepProgress(rows)).toMatchObject({ total: 2, done: 2, current: null });
+  });
+});
+
 describe("step status", () => {
   it("keeps the newest report per step and ignores malformed items", () => {
     const results = collectStepResults([

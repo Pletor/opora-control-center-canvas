@@ -8,4 +8,5 @@ Jediný detail karty v aplikaci: drawer zprava se záložkami Zadání · Kroky 
 - Nad patičkou dílek `close-card/`: po sloučení PR akce `close_card` → tlačítko **Uzavřít kartu** (zápis `done` dělá App přes `editor.onCloseCard`), nebo česky, co do uzavření chybí.
 - Záložky jsou dílky `spec-tab/`, `steps-tab/`, `lens-tab/` (obal prostoru `hub/review-lens`, PR Lens), `run-tab/`, `review-tab/`, `history-tab/`.
 - Každý prvek nese `data-oh-*`; celý stav hlavičky je v zrcadle `script#oh-card-drawer`. Kontrakt: `docs/oporahub-ui.md`.
+- Definice hotovo z `cards[].dod`: požadavek uznaný sloučením (`afterMerge`, přibyl po něm) má stav `after-merge` (jantarový dílek) a pod lištou větu `card-drawer__dod-notice` „Mimo standardní proces: …“ (`parseAfterMerge`, `afterMergeNotice` v `logic/card-dod.ts`); záložka Kroky totéž u kroku `after_merge` (štítek „po sloučení“, `steps-tab__notice`).
 - ✕ vpravo nahoře i Escape detail zavřou a vrátí fokus tam, odkud byl otevřen.

@@ -4,12 +4,13 @@ import type { StepRow } from "./step-status";
 export type FillSeverity = "normal" | "warn" | "error";
 export type StepFill = { ratio: number; percent: number; severity: FillSeverity };
 
-/** Selhaný krok = chyba, přeskočený = varování (plán se obešel), jinak běžná modrá. Hotové = done + skipped (jako `stepProgress`). */
+/** Selhaný krok = chyba, přeskočený nebo uznaný sloučením = varování (plán se obešel), jinak běžná modrá.
+ *  Hotové = done + skipped + after_merge (jako `stepProgress`). */
 export function stepFill(rows: Pick<StepRow, "status">[]): StepFill {
   const total = rows.length;
-  const done = rows.filter((row) => row.status === "done" || row.status === "skipped").length;
+  const done = rows.filter((row) => row.status === "done" || row.status === "skipped" || row.status === "after_merge").length;
   const ratio = total ? done / total : 0;
   const severity: FillSeverity = rows.some((row) => row.status === "failed") ? "error"
-    : rows.some((row) => row.status === "skipped") ? "warn" : "normal";
+    : rows.some((row) => row.status === "skipped" || row.status === "after_merge") ? "warn" : "normal";
   return { ratio, percent: Math.round(ratio * 100), severity };
 }

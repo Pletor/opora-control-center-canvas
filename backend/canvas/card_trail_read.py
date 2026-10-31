@@ -65,7 +65,7 @@ def _pr_and_missing(service, project, workspace, node):
     number = (link or {}).get("number")
     pr = {"number": number if type(number) is int else None, "state": link["state"]} if link else None
     state = done_state(service, project, workspace, node)
-    return pr, (state["missing"] if state is not None else ["steps"])
+    return pr, (state["missing"] if state is not None else ["steps"]), state
 
 
 def repo_root(service, project, workspace):
@@ -112,9 +112,10 @@ def gather(service, project, workspace, node):
         raise ValueError("Neplatné nodeId.")
     runs, tasks, events = _runs(service, project, workspace, node)
     edges, names, reports = _graph(service, project, workspace)
-    pr, missing = _pr_and_missing(service, project, workspace, node)
+    pr, missing, state = _pr_and_missing(service, project, workspace, node)
     shas = commit_shas(runs, tasks)
     files = commit_files(repo_root(service, project, workspace), shas)
     return {"nodeId": node, "runs": runs, "tasks": tasks, "events": events,
             "activity": _activity(service, project, workspace, node), "edges": edges, "names": names,
-            "reports": reports, "pr": pr, "missing": missing, "files": files}
+            "reports": reports, "pr": pr, "missing": missing, "files": files,
+            "afterMerge": {key: state[key] for key in ("afterMerge", "afterMergeEvidence")} if state and "afterMerge" in state else None}

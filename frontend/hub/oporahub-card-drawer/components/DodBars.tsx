@@ -1,7 +1,8 @@
 import type { DodView } from "../logic/card-dod";
 import "../styles/card-drawer.css";
 
-/** Sedm dílků definice hotovo (brány karty). Hlavička detailu je kreslí v řádku, úzký sloupec (Detail prvku) jako dlaždice. */
+/** Sedm dílků definice hotovo (brány karty). Hlavička detailu je kreslí v řádku, úzký sloupec (Detail prvku) jako dlaždice.
+ *  Dílek uznaný sloučením (přibyl po něm) je jantarový a pod lištou stojí jedna věta, že karta šla mimo standardní proces. */
 export default function DodBars({ dod, tiles = false }: { dod: DodView; tiles?: boolean }) {
   return <div className={`card-drawer__dod${tiles ? " card-drawer__dod--tiles" : ""}`} role="list" aria-label="Definice hotového"
     data-oh-dod-source={dod.source} data-oh-dod-done={String(dod.done)}>
@@ -13,5 +14,6 @@ export default function DodBars({ dod, tiles = false }: { dod: DodView; tiles?: 
         <span className="card-drawer__dod-name">{segment.label}{segment.key === "steps" && segment.detail ? ` ${segment.detail}` : ""}</span>
       </div>)}
     </div>
+    {dod.afterMerge && <p className="card-drawer__dod-notice" role="note" data-oh-dod-after-merge="true">{dod.afterMerge}</p>}
   </div>;
 }

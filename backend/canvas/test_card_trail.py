@@ -37,7 +37,17 @@ def facts(**extra):
 def test_empty_card_has_empty_trail():
     trail = project_trail(facts(missing=["steps"]))
     assert trail == {"nodeId": "n0", "now": None, "runs": [], "pr": None, "missing": ["steps"], "recent": [],
-                     "ports": [], "judgment": [], "filesKnown": False}
+                     "ports": [], "judgment": [], "filesKnown": False, "afterMerge": None}
+
+
+def test_steps_added_after_the_merge_leave_a_trace_entry():
+    found = {"afterMerge": ["steps"], "afterMergeEvidence": {"executionId": "e1", "number": 22, "mergeSha": "787f3941aa",
+                                                              "steps": [{"id": "s3", "title": "Docs"}]}}
+    entry = project_trail(facts(missing=["human_close"], afterMerge=found))["afterMerge"]
+    assert entry == {"requirements": ["steps"], "number": 22, "mergeSha": "787f3941aa", "executionId": "e1",
+                     "steps": [{"id": "s3", "title": "Docs"}], "source": "det",
+                     "label": "Kroky přibyly po sloučení PR #22 (787f394) – uznány sloučením, mimo standardní proces:"
+                              " kroky: s3 Docs."}
 
 
 def test_reported_run_carries_steps_checks_commits_files_and_sources():

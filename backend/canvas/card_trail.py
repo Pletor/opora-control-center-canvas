@@ -164,6 +164,20 @@ def ports(node, edges, names, reports):
     return found
 
 
+def after_merge(facts):
+    """Záznam „Kroky přibyly po sloučení“ (docs/oporahub-plan-steps.md): co uznalo sloučení mimo standardní proces,
+    s PR, sha a kroky, aby šel pozdější problém dohledat k místu vzniku; None u karty ve standardním procesu."""
+    from backend.canvas.opora_card_done import after_merge_note
+
+    found = facts.get("afterMerge")
+    if not isinstance(found, dict) or not found.get("afterMerge"):
+        return None
+    evidence = found.get("afterMergeEvidence") or {}
+    return {"requirements": list(found["afterMerge"]), "number": evidence.get("number"), "mergeSha": evidence.get("mergeSha"),
+            "executionId": evidence.get("executionId"), "steps": list(evidence.get("steps") or []),
+            "label": after_merge_note(found), "source": "det"}
+
+
 def project_trail(facts):
     """Celá stopa jedné karty z `facts` (tvar viz `card_trail_read.gather`)."""
     files, events = facts.get("files"), facts.get("events") or []
@@ -174,4 +188,4 @@ def project_trail(facts):
             "missing": list(facts.get("missing") or []), "recent": recent(events, facts.get("activity") or []),
             "ports": ports(facts["nodeId"], facts.get("edges") or [], facts.get("names") or {},
                            facts.get("reports") or {}),
-            "judgment": judgment(runs), "filesKnown": files is not None}
+            "judgment": judgment(runs), "filesKnown": files is not None, "afterMerge": after_merge(facts)}

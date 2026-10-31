@@ -22,6 +22,22 @@ const trail = parseCardTrail({
 const judgment = (code: string, stepId: string | null = "s2") =>
   ({ code, stepId, executionId: null, reason: "x", outside: ["a"], source: "det" as const });
 
+describe("panel-work: kroky přidané po sloučení", () => {
+  it("krok uznaný sloučením má jantarový tón, čip není zelené hotovo a karta nese větu mimo proces", () => {
+    const merged = { ...card, steps: { total: 3, done: 2, current: null, items: [{ id: "s1", status: "done", executionId: "e2" },
+      { id: "s2", status: "done", executionId: "e2" }, { id: "s3", status: "after_merge", executionId: null }] } } as unknown as CardEntry;
+    const late = parseCardTrail({ nodeId: "n", runs: [], pr: { number: 22, state: "merged" }, missing: [],
+      afterMerge: { requirements: ["steps"], number: 22, mergeSha: "787f3941aa", steps: [{ id: "s3", title: "Docs" }], label: "x" } });
+    const work = workView(merged, late);
+    expect(work.steps.map((s) => [s.id, s.title, s.glyph, s.tone])).toEqual([
+      ["s1", "s1", "✓", "done"], ["s2", "s2", "✓", "done"], ["s3", "Docs", "↺", "after"]]);
+    expect(work.chip).toEqual({ glyph: "↺", word: "mimo proces", tone: "after" });
+    expect(work.line).toBe("2/3 kroků · 1 po sloučení");
+    expect(work.afterMerge).toBe("Mimo standardní proces: kroky přibyly po sloučení PR #22");
+    expect(workView(card, trail).afterMerge).toBe("");
+  });
+});
+
 describe("panel-work", () => {
   it("práce na kartě: kroky s názvem a kontrolou, další krok, PR, kdo drží a co chybí", () => {
     const work = workView(card, trail);

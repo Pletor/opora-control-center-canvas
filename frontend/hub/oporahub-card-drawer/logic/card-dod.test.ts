@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { agentStateFixture } from "@/hub/oporahub-agent-state/logic/fixtures";
 import type { AgentState } from "@/hub/oporahub-agent-state/logic/agent-state";
-import { backendDod, blockingJourneysText, dodView } from "./card-dod";
+import { afterMergeNotice, backendDod, blockingJourneysText, dodView, parseAfterMerge } from "./card-dod";
 import { cardEntry, nextAction, statusLine } from "./card-header";
 
 function stateWith(card: Record<string, unknown>, actions: AgentState["actions"] = []): AgentState {
@@ -9,6 +9,28 @@ function stateWith(card: Record<string, unknown>, actions: AgentState["actions"]
   return { ...base, actions: [...base.actions, ...actions], cards: [{ nodeId: "c1", stage: "work", health: "ok", reason: "runs_active", executionId: "ex1", ...card } as never] };
 }
 const states = (view: ReturnType<typeof dodView>) => view.segments.map(item => item.state);
+
+describe("requirements met by the merge (added after it)", () => {
+  const dod = { steps: true, card_acceptance: true, gate_ready: true, merged: true, plan_written_back: true, journeys: true,
+    human_close: true, gate: "review", done: true, missing: [], afterMerge: ["steps", "card_acceptance"],
+    afterMergeEvidence: { executionId: "e1", number: 22, mergeSha: "787f3941aa", steps: [{ id: "s3", title: "Docs" }] } };
+  it("shows them amber with a one-line notice, never as a plain green done", () => {
+    const card = cardEntry(stateWith({ steps: { total: 3, done: 2, current: null }, dod }), "c1");
+    const view = dodView({ card });
+    expect(states(view)).toEqual(["after-merge", "after-merge", "done", "done", "done", "done", "done"]);
+    expect(view.segments[0]).toMatchObject({ detail: "2/3 · po sloučení", progress: 1 });
+    expect(view.done).toBe(true);
+    expect(view.afterMerge).toBe("Mimo standardní proces: kroky přibyly po sloučení PR #22");
+  });
+  it("reads the work-trail shape too and says local merges and acceptance-only plainly", () => {
+    const trail = parseAfterMerge({ requirements: ["card_acceptance"], number: null, mergeSha: "abcdef12345", steps: [] });
+    expect(trail).toEqual({ requirements: ["card_acceptance"], number: null, mergeSha: "abcdef12345", steps: [] });
+    expect(afterMergeNotice(trail)).toBe("Mimo standardní proces: akceptace karty přibyla po lokálním sloučení abcdef1");
+    expect(parseAfterMerge({ afterMerge: [] })).toBeNull();
+    expect(afterMergeNotice(null)).toBe("");
+    expect(dodView({ card: cardEntry(stateWith({ dod: { ...dod, afterMerge: undefined } }), "c1") }).afterMerge).toBe("");
+  });
+});
 
 describe("definition of done segments", () => {
   it("computes seven ordered segments from the card snapshot when the backend has no dod", () => {

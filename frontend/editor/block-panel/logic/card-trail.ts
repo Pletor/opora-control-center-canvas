@@ -2,6 +2,7 @@
 // tolerantní čtení. Celek bez `nodeId` je chyba; jednotlivá položka v jiném tvaru se vynechá, ne zobrazí napůl.
 // Čistá data bez Reactu; panel bloku z nich jen kreslí.
 import { isObject, scopeQuery } from "@/hub/oporahub-mirror/logic/hub-read";
+import { parseAfterMerge, type AfterMerge } from "@/hub/oporahub-card-drawer/logic/card-dod";
 
 /** Původ textu: odvodil kód, napsal dělník, doplnilo srdce, napsal člověk. */
 export type TrailSource = "det" | "agent" | "heart" | "human";
@@ -27,6 +28,8 @@ export type TrailPr = { number: number | null; state: "open" | "merged" | "close
 export type CardTrail = {
   nodeId: string; now: TrailNow | null; runs: TrailRun[]; pr: TrailPr | null; missing: string[];
   recent: TrailRecent[]; ports: TrailPort[]; judgment: TrailJudgment[]; filesKnown: boolean;
+  /** Co uznalo sloučení, protože přibylo do zadání až po něm (mimo standardní proces); null u běžné karty. */
+  afterMerge: AfterMerge | null;
 };
 
 const SOURCES: TrailSource[] = ["det", "agent", "heart", "human"];
@@ -88,7 +91,8 @@ function pr(raw: unknown): TrailPr | null {
 export function parseCardTrail(raw: unknown): CardTrail {
   if (!isObject(raw) || !text(raw.nodeId)) throw new Error("Stopa práce karty má neplatný tvar.");
   return { nodeId: text(raw.nodeId), now: now(raw.now), runs: list(raw.runs, run), pr: pr(raw.pr), missing: texts(raw.missing),
-    recent: list(raw.recent, recent), ports: list(raw.ports, port), judgment: list(raw.judgment, judgment), filesKnown: raw.filesKnown === true };
+    recent: list(raw.recent, recent), ports: list(raw.ports, port), judgment: list(raw.judgment, judgment), filesKnown: raw.filesKnown === true,
+    afterMerge: parseAfterMerge(raw.afterMerge) };
 }
 
 export function cardTrailUrl(project: string, workspace: string, node: string): string {

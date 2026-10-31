@@ -85,6 +85,18 @@
 .block-panel__step--bad { margin: 0 -6px; padding: 3px 6px; border-radius: 5px; background: var(--danger-soft); }
 .block-panel__step--bad .block-panel__step-mark { color: var(--danger); }
 
+/* Mimo standardní proces: krok přibyl do zadání až po sloučení PR, takže ho žádný běh nedoložil a uznalo ho
+   sloučení. Proto jantar, ne zelená: čip „↺ mimo proces“, jantarový segment, značka ↺ a štítek „po sloučení“
+   u kroku a nad kroky jedna věta s číslem PR. Karta je zavřená, ale člověk ví, co přibylo po procesu, a kdyby se
+   později objevil problém, ví, kde vznikl. */
+.block-panel__chip--after { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
+.block-panel__seg--after { background: var(--warn); }
+.block-panel__step--after .block-panel__step-mark { color: var(--warn); }
+.block-panel__notice { margin: 0; padding: 4px 8px; border: 1px solid; border-radius: 5px; font-size: 12px; font-weight: 600; }
+.block-panel__notice--after-merge { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
+.block-panel__badge { padding: 0 6px; border: 1px solid; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.block-panel__badge--after-merge { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
+
 /* Fakta karty jako dvojice popisek · hodnota s původem vpravo: kdo drží (A/H/✦ v kolečku) a kolik zbývá,
    další krok, PR v barvách GitHubu a čárkované čipy toho, co chybí k hotovu. */
 .block-panel__kv { display: grid; grid-template-columns: 84px minmax(0, 1fr) 16px; gap: 6px 8px; align-items: center; margin: 0; font-size: 13px; }

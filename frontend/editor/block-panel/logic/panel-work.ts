@@ -2,6 +2,7 @@
 // „Potřebuje úsudek“ (příznaky smyčky s odkazem do detailu karty) a „Port“ (cíl a poslední zpráva).
 // Čisté funkce nad stopou karty (`card-trail.ts`) a snímkem agent-state; panel jen kreslí.
 import type { CardEntry } from "@/hub/oporahub-card-drawer/logic/card-header";
+import { afterMergeNotice } from "@/hub/oporahub-card-drawer/logic/card-dod";
 import type { CardTab } from "@/hub/oporahub-card-drawer/open";
 import { shortReason, STAGE_WORD } from "@/editor/canvas/card-face/logic/face-labels";
 import { prBadge, type PrBadge } from "@/shared/pr-badge/logic/pr-badge";
@@ -13,7 +14,7 @@ import { plural, stepMark, type StepTone } from "./trail-timeline";
 
 export type WorkStep = { id: string; title: string; glyph: string; tone: StepTone; note: string };
 export type WorkView = {
-  chip: { glyph: string; word: string; tone: "run" | "ok" | "bad" | "gap" };
+  chip: { glyph: string; word: string; tone: "run" | "ok" | "after" | "bad" | "gap" };
   /** Text vedle čipu: „implementace · krok 2 ze 3“, „3/3 kroků“, „s2 · 2× červená“, „na kartu …“. */
   line: string;
   stage: string; reason: string; steps: WorkStep[]; next: string | null; pr: PrBadge | null;
@@ -25,6 +26,8 @@ export type WorkView = {
   /** Ještě nikdo nepracoval: žádná relace a nikdo nedrží. */
   untouched: boolean;
   missing: string[];
+  /** „Mimo standardní proces: kroky přibyly po sloučení PR #N“, prázdné u karty ve standardním procesu. */
+  afterMerge: string;
 };
 
 const MISSING: Record<string, string> = {
@@ -57,12 +60,16 @@ export function workView(card: CardEntry | null, trail: CardTrail | null, contex
     for (const step of run.steps) detail.set(step.stepId, { title: step.title, status: step.status, note: checkNote(step.checks, step.commits) });
   const stuck = new Set((trail?.judgment ?? []).filter((item) => item.code === "red_twice").map((item) => item.stepId ?? ""));
   const current = card?.steps?.current ?? trail?.now?.stepId ?? null;
-  const items = card?.steps?.items.length ? card.steps.items.map((item) => ({ id: item.id, status: item.status }))
-    : [...detail].map(([id, info]) => ({ id, status: info.status }));
+  const late = new Set((trail?.afterMerge?.steps ?? []).map((step) => step.id));
+  const items = (card?.steps?.items.length ? card.steps.items.map((item) => ({ id: item.id, status: item.status }))
+    : [...detail].map(([id, info]) => ({ id, status: info.status })))
+    .map((item) => (late.has(item.id) && item.status !== "done" ? { ...item, status: "after_merge" } : item));
+  const titles = new Map((trail?.afterMerge?.steps ?? []).map((step) => [step.id, step.title]));
   const steps = items.map(({ id, status }) => {
     const open = id === current && status !== "done";
     const info = detail.get(id);
     if (stuck.has(id)) return { id, title: info?.title || id, glyph: "✗", tone: "bad" as const, note: "2× červená" };
+    if (status === "after_merge") return { id, title: info?.title || titles.get(id) || id, ...stepMark(status), note: "po sloučení" };
     return { id, title: info?.title || id, ...stepMark(status, open), note: open ? "další krok" : info?.note ?? "" };
   });
   const nextTitle = current ? (detail.get(current)?.title ?? "") : "";
@@ -79,6 +86,7 @@ export function workView(card: CardEntry | null, trail: CardTrail | null, contex
     holder: trail?.now ? { name: trail.now.owner, until: trail.now.until } : null, released,
     untouched: !trail?.now && !trail?.runs.length,
     missing: (trail?.missing ?? []).map((key) => MISSING[key] ?? key),
+    afterMerge: afterMergeNotice(trail?.afterMerge ?? null),
   };
 }
 
@@ -91,6 +99,10 @@ function statusLine(chip: WorkView["chip"], steps: WorkStep[], stage: string, re
     return [stage, `krok ${at >= 0 ? at + 1 : Math.min(done + 1, steps.length)} ${ofCount(steps.length)}`].filter(Boolean).join(" · ");
   }
   if (chip.tone === "ok") return steps.length ? `${done}/${steps.length} kroků` : "";
+  if (chip.tone === "after") {
+    const late = steps.filter((step) => step.tone === "after").length;
+    return [steps.length ? `${done}/${steps.length} kroků` : "", late ? `${late} po sloučení` : ""].filter(Boolean).join(" · ");
+  }
   if (waitingFor.length) return `na ${waitingFor.length === 1 ? "kartu" : "karty"} ${waitingFor.join(", ")}`;
   return [stage, reason].filter(Boolean).join(" · ");
 }
@@ -99,6 +111,8 @@ function statusLine(chip: WorkView["chip"], steps: WorkStep[], stage: string, re
 function workChip(trail: CardTrail | null, steps: WorkStep[]): WorkView["chip"] {
   if (trail?.judgment.some((item) => item.code === "red_twice")) return { glyph: "✗", word: "zaseklé", tone: "bad" };
   if (trail?.now) return { glyph: "●", word: "běží", tone: "run" };
+  // Uznáno sloučením není zelené „hotovo“: karta je hotová mimo standardní proces a člověk to má vidět.
+  if (trail && !trail.missing.length && trail.afterMerge) return { glyph: "↺", word: "mimo proces", tone: "after" };
   if (trail && !trail.missing.length && steps.length) return { glyph: "✓", word: "hotovo", tone: "ok" };
   return { glyph: "", word: "čeká", tone: "gap" };
 }

@@ -4,16 +4,20 @@ import type { PlanStep } from "../../spec-tab/logic/spec-diff";
 // (docs/oporahub-plan-steps.md). Bez `cards[].steps.items` platí pro každý krok nejnovější hlášení; `current` je první nehotový
 // krok v topologickém pořadí, pokud ho agent-state (`cards[].steps.current`) neurčí sám.
 export type StepEvidence = { notes: string; checks: string[]; commits: string[] };
-export type StepResult = { stepId: string; status: "done" | "failed" | "skipped"; evidence: StepEvidence; at: string; executionId: string };
-export type StepStatus = "done" | "failed" | "skipped" | "current" | "waiting";
+/** `after_merge` = krok přibyl do zadání až po sloučení PR a uznalo ho sloučení (jen z agent-state, mimo standardní proces). */
+export type StepResult = { stepId: string; status: "done" | "failed" | "skipped" | "after_merge"; evidence: StepEvidence; at: string; executionId: string };
+export type StepStatus = "done" | "failed" | "skipped" | "after_merge" | "current" | "waiting";
 export type StepRow = PlanStep & { status: StepStatus; isCurrent: boolean; depth: number; result: StepResult | null;
   acceptanceMet: number; blockedBy: string[] };
 /** Značka a slovo stavu kroku; sdílí je záložka Kroky i záložka Práce v Detailu prvku. */
-export const STEP_GLYPH: Record<StepStatus, string> = { done: "✓", failed: "✕", skipped: "↷", current: "▸", waiting: "○" };
-export const STEP_WORD: Record<StepStatus, string> = { done: "hotovo", failed: "selhalo", skipped: "přeskočeno", current: "běží", waiting: "čeká" };
+export const STEP_GLYPH: Record<StepStatus, string> = { done: "✓", failed: "✕", skipped: "↷", after_merge: "↺", current: "▸", waiting: "○" };
+export const STEP_WORD: Record<StepStatus, string> = { done: "hotovo", failed: "selhalo", skipped: "přeskočeno", after_merge: "po sloučení", current: "běží", waiting: "čeká" };
+/** Modifikátor BEM třídy stavu (`after_merge` → `after-merge`). */
+export const stepClass = (status: StepStatus) => status.replace("_", "-");
 export type ReceiptLike = { executionId: string; createdAt: string; result: Record<string, unknown> };
 
 const STATUSES = ["done", "failed", "skipped"] as const;
+const BACKEND_STATUSES = [...STATUSES, "after_merge"] as const;
 const texts = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
 /** Výsledky kroků ze všech potvrzení; novější potvrzení přepíše starší hlášení téhož kroku. */
@@ -24,7 +28,7 @@ export function withBackendSteps(results: Map<string, StepResult>, items: { id: 
   if (!items?.length) return results;
   const merged = new Map<string, StepResult>();
   for (const item of items) {
-    if (!STATUSES.includes(item.status as never)) continue;
+    if (!BACKEND_STATUSES.includes(item.status as never)) continue;
     const local = results.get(item.id);
     merged.set(item.id, local && local.status === item.status ? local
       : { stepId: item.id, status: item.status as StepResult["status"], evidence: { notes: "", checks: [], commits: [] }, at: "", executionId: item.executionId ?? "" });
@@ -65,7 +69,7 @@ export function stepDepths(steps: PlanStep[]): Map<string, number> {
   return depth;
 }
 
-const finished = (status: StepStatus) => status === "done" || status === "skipped";
+const finished = (status: StepStatus) => status === "done" || status === "skipped" || status === "after_merge";
 
 /** Řádky kroků: stav, aktuální krok, hloubka v DAG a co krok ještě blokuje. */
 export function stepRows(steps: PlanStep[], results: Map<string, StepResult>, currentId: string | null = null): StepRow[] {
@@ -92,6 +96,6 @@ export function stepColumns(rows: StepRow[]): StepRow[][] {
 }
 
 export function stepProgress(rows: StepRow[]) {
-  return { total: rows.length, done: rows.filter(row => row.status === "done" || row.status === "skipped").length,
+  return { total: rows.length, done: rows.filter(row => finished(row.status)).length,
     current: rows.find(row => row.isCurrent) ?? null };
 }

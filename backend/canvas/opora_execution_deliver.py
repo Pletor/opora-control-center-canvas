@@ -119,8 +119,9 @@ def done_state(service, project, workspace, node, closed=False):
         if card_done.local_mode(service, project):
             graph = service.view(project, workspace)["graph"]
             local = card_done.local_checks_by_card(service, project, workspace, graph, [link] if link else [], [node])[node]
+        late = card_done.after_merge_facts(db, project, workspace, node, document, link)
         return card_done.card_done_state(card_done.facts(
-            {"steps": summary, "acceptanceEvidence": evidence, "journeys": blocking}, link, gate,
+            {"steps": summary, "acceptanceEvidence": evidence, "journeys": blocking, "afterMerge": late}, link, gate,
             closed=closed, external=gates is None, local_checks=local))
 
 

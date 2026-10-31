@@ -42,6 +42,12 @@
 .card-drawer__dod-seg--human .card-drawer__dod-track { background: var(--gold-soft); box-shadow: inset 0 0 0 1px var(--gold-line); }
 .card-drawer__dod-seg--human.card-drawer__dod-seg--done .card-drawer__dod-fill { background: var(--gold); }
 .card-drawer__dod-name { overflow: hidden; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+/* Uznáno sloučením: požadavek přibyl do zadání až po sloučení PR, takže ho žádný běh nedoložil. Pruh je plný,
+   karta se zavře, ale jantarově, ne zeleně, a pod lištou jedna věta řekne člověku, že tohle šlo mimo standardní
+   proces. Kdyby se později objevil problém, ví, kde vznikl. */
+.card-drawer__dod-seg--after-merge .card-drawer__dod-fill { background: var(--warn); }
+.card-drawer__dod-seg--after-merge .card-drawer__dod-name { color: var(--warn); }
+.card-drawer__dod-notice { margin: 0; padding: 3px 8px; border: 1px solid var(--warn-line); border-radius: 4px; background: var(--warn-soft); color: var(--warn); font-size: 11.5px; font-weight: 600; }
 /* Dlaždice: v úzkém sloupci (Detail prvku) by sedm pruhů v řadě uťalo názvy, proto se tytéž brány složí
    do mřížky po dvou až třech, každá s celým jménem pod pruhem; pořadí i barvy zůstávají stejné jako v hlavičce. */
 .card-drawer__dod--tiles .card-drawer__dod-bars { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px 6px; }

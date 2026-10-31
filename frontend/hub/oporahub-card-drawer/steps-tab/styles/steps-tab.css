@@ -30,6 +30,15 @@
 .steps-tab__node--failed { border-color: var(--danger-line); background: var(--danger-soft); color: var(--danger); }
 .steps-tab__legend { margin-left: auto; font-family: var(--mono); }
 
+/* Kroky přidané po sloučení: přibyly do zadání až po sloučení PR, takže je žádný běh nedoložil a uznalo je
+   sloučení. Jantar místo zelené (segment, uzel, značka ↺ a štítek „po sloučení“) a nad lištou jedna věta, že karta
+   šla mimo standardní proces; člověk tak vidí, co přibylo a kde hledat, kdyby se později objevil problém. */
+.steps-tab__notice { margin: 0; padding: 6px 10px; border: 1px solid var(--warn-line); border-radius: 6px; background: var(--warn-soft); color: var(--warn); font-size: 12px; font-weight: 600; }
+.steps-tab__seg--after-merge { background: var(--warn); }
+.steps-tab__node--after-merge { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
+.steps-tab__step--after-merge .steps-tab__glyph { color: var(--warn); }
+.steps-tab__badge { margin-left: 6px; padding: 0 6px; border: 1px solid var(--warn-line); border-radius: 4px; background: var(--warn-soft); color: var(--warn); font-size: 11px; font-weight: 600; white-space: nowrap; }
+
 .steps-tab__list { margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); list-style: none; }
 .steps-tab__step { border-top: 1px solid var(--line); }
 .steps-tab__step:first-child { border-top: 0; }

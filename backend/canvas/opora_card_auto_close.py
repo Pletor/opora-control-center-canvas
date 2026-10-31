@@ -9,6 +9,9 @@ the activity log as agent `opora` with the card's `nodeIds`.
 `sweep` is a step of the execution PR loop (opora_execution_pr_manager): every merged link still marked
 `awaitingHumanClose` (the name stays) is re-evaluated, so cards waiting before a restart close on its first
 tick. `close_card` is also called by `deliver` right after the merge and checks.
+
+A card met partly by the merge (steps or acceptance added after it, `afterMerge`) closes the same way; its close
+note and activity record carry the trace sentence `card_done.after_merge_note` so a later problem can be traced.
 """
 import copy
 import logging
@@ -31,12 +34,12 @@ def waiting(service, project):
     return [(row[0], row[1]) for row in rows]
 
 
-def _record(service, project, workspace, node):
+def _record(service, project, workspace, node, trace=""):
     from backend.canvas.activity_log import ActivityLog
     try:
         ActivityLog(service).record(actor="agent", agent=ACTOR, method="POST", path=PATH, status=200, described={
             "project": project, "workspace": workspace, "nodeIds": [node],
-            "summary": "card_auto_close done.confirmed by=opora"})
+            "summary": "card_auto_close done.confirmed by=opora" + (" · " + trace if trace else "")})
     except Exception:  # noqa: BLE001 - the log is an addition, never a condition of the close
         LOGGER.warning("Activity log of the card auto close failed for %s.", node)
 
@@ -60,10 +63,11 @@ def close_card(service, project, workspace, node, note=NOTE):
             return False
         value = copy.deepcopy(current) if current else {"phase": "discover", "criteria": [], "steps": []}
         at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
-        value["done"] = {"confirmed": True, "by": ACTOR, "at": at, "note": note[:2000]}
+        trace = card_done.after_merge_note(state)
+        value["done"] = {"confirmed": True, "by": ACTOR, "at": at, "note": (note + (" " + trace if trace else ""))[:2000]}
         store.save_node({"project": project, "workspace": workspace, "expectedRevision": stored["revision"],
                          "nodeId": node, "node": value}, actor="system", execution_actor=ACTOR)
-    _record(service, project, workspace, node)
+    _record(service, project, workspace, node, trace)
     return True
 
 
