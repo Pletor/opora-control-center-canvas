@@ -21,3 +21,19 @@ def test_closed_card_with_stale_result_does_not_stale_stage():
 def test_open_card_with_stale_result_still_waits():
     cards = {"n": {"doneConfirmed": False}, "m": {"doneConfirmed": True}}
     assert evidence([result("n", True), result("m", True)], cards) == (1, "waiting", "stale_evidence")
+
+
+def stage_for(reported, cards, offered):
+    from backend.canvas import opora_agent_state_cards as card_stages
+    entry = rules.evidence_stage(card_stages.evidence_results(reported, cards, offered, HEAD), HEAD)
+    return entry["count"], entry["health"], entry["reason"]
+
+
+def test_stale_result_on_card_offering_claim_again_is_history():
+    cards = {"n": {"doneConfirmed": False}}
+    assert stage_for([result("n", True)], cards, {"n": {"status": "ready"}}) == (0, "ok", "no_evidence")
+
+
+def test_stale_result_on_card_without_claim_offer_still_waits():
+    cards = {"n": {"doneConfirmed": False}}
+    assert stage_for([result("n", True)], cards, {}) == (1, "waiting", "stale_evidence")

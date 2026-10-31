@@ -221,9 +221,11 @@ class AgentState:
         # A dead run whose card offers a claim again is handed back: it no longer blocks the work stage.
         offered = {item["nodeId"]: item for item in claims}
         working = [item for item in latest if not card_stages.dead_run(item, offered.get(item["nodeId"]), now)]
+        # Historical result (changed slice, card offers a claim again) is history for the card, so for the stage too.
+        evidence = card_stages.evidence_results(reported, cards, offered, accepted)
         stages = [rules.plan_stage(context), rebasing_state.proposal_stage(pending, rebasing),
                   rules.acceptance_stage(context, fresh, now), rules.claim_stage(claims),
-                  rules.work_stage(working, now), rules.evidence_stage(rules.open_results(reported, cards), accepted),
+                  rules.work_stage(working, now), rules.evidence_stage(evidence, accepted),
                   rules.review_stage(to_review, reviewing), *rules.pull_stages(reported, linked)]
         gaps = [*rules.GAPS, *([rules.PULL_GAP] if linked is None else [])]
         gaps = [gap for gap in rebasing_state.gaps(gaps, rebasing) if reviewing is None or gap[0] != "ai_review"]
