@@ -4,16 +4,15 @@ Server provede za agenta to, co jde odvodit bez modelu, stejnými funkcemi jako 
 1. kroky a výsledek (`ExecutionResults.submit`: `stepResults`, `selfChecks` s `headSha`, `decisions`),
 2. lokální sloučení v projektu bez GitHubu (`LocalMerge`, výchozí commit = `git rev-parse HEAD`),
 3. běh kontrol na `scope = nodeId` a sha (`CheckRuns`; červená zastaví uzavření),
-4. uzavření karty tou samou bránou jako UI (`DesktopV3State.save_node` → `closure_gate`), jen když
-   `close`, plná autonomie (nebo člověk) a karta je uzavíratelná; jinak `missing` a `next`.
+4. deterministické uzavření karty serverem (`opora_card_auto_close`: `save_node` → `closure_gate`,
+   `by: "opora"`), když `close`, žádná červená kontrola a karta je uzavíratelná; jinak `missing` a `next`.
+   Plná autonomie k tomu potřeba není; co zůstane otevřené, uzavře smyčka vazeb PR po splnění definice hotovo.
 
 Vypršelé převzetí se přijme, když epocha stojí a kartu nikdo jiný nepřevzal (`leaseRenewed`; cesta to
 zapíše do záznamu činnosti jako `lease_renewed_on_deliver`). Opakované odevzdání po odevzdaném výsledku
 přeskočí krok 1 a pokračuje sloučením, kontrolami a uzavřením (oprava červené kontroly).
 """
-import copy
 import time
-from datetime import UTC, datetime
 
 from backend.canvas import opora_card_done as card_done
 from backend.canvas import opora_execution_deliver_body as body_rules
@@ -125,22 +124,10 @@ def done_state(service, project, workspace, node, closed=False):
             closed=closed, external=gates is None, local_checks=local))
 
 
-def close(service, project, workspace, node, note, actor):
-    """Uzavření stejnou cestou jako UI: zápis `done.confirmed` přes `save_node` (brána `closure_gate`)."""
-    from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
-
-    store = getattr(service, "desktop_v3_state", None) or DesktopV3State(service)
-    stored = store.read(project, workspace)
-    state = copy.deepcopy(stored["state"]["nodes"].get(node)) or {"phase": "discover", "criteria": [], "steps": []}
-    at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
-    state["done"] = {"confirmed": True, "by": "human" if actor == "human" else "agent", "at": at, "note": note[:2000]}
-    store.save_node({"project": project, "workspace": workspace, "expectedRevision": stored["revision"],
-                     "nodeId": node, "node": state}, actor=actor)
-
-
 def next_step(record, missing, red, closed, autonomy):
+    """`autonomy` zůstává v podpisu kvůli volajícím; uzavření dělá server, ne člověk ani agent."""
     node, identifier = record["nodeId"], record["executionId"]
-    if closed:
+    if closed or missing == ["human_close"]:  # uzavíratelnou kartu uzavře server sám
         return {"verb": "pick", "targetId": None, "command": "opora_hub.py pick --verb claim"}
     if red:
         return {"verb": "deliver", "targetId": identifier, "command":
@@ -153,8 +140,6 @@ def next_step(record, missing, red, closed, autonomy):
     if first in ("gate_ready", "merged", "plan_written_back"):
         return {"verb": "merge", "targetId": identifier, "command":
                 f'opora_hub.py deliver --execution {identifier} --summary "…" --commit <sha> --check "npm test=green"'}
-    if not autonomy:
-        return {"verb": "close_card", "targetId": node, "command": None}  # člověk v UI
     return {"verb": "deliver", "targetId": identifier, "command": f'opora_hub.py deliver --execution {identifier} --summary "…"'}
 
 
@@ -192,10 +177,11 @@ def deliver(service, identifier, payload, token, actor):
     autonomy = actor == "human" or service.project_hub.agent_autonomy(project)["full"]
     state = done_state(service, project, workspace, node)
     closed = False
-    if state is not None and body["close"] and autonomy and not red and card_done.closable(state):
-        close(service, project, workspace, node, body["summary"], actor)
-        closed = True
-        state = done_state(service, project, workspace, node, closed=True)
+    if state is not None and body["close"] and not red and card_done.closable(state):
+        from backend.canvas.opora_card_auto_close import close_card
+        closed = close_card(service, project, workspace, node, body["summary"])
+        if closed:
+            state = done_state(service, project, workspace, node, closed=True)
     missing = state["missing"] if state is not None else ["steps"]
     return {"executionId": identifier, "nodeId": node,
             "delivered": {"receiptId": receipt["receiptId"], "steps": [

@@ -1,5 +1,5 @@
 """The single definition of done and the plan-steps migration (dry run by default)."""
-from backend.canvas.opora_card_done import card_done_state, closable, facts, link_for
+from backend.canvas.opora_card_done import card_done_state, closable, facts, link_for, merged_gate
 from backend.canvas.opora_changesets import OporaChangesets
 from backend.canvas.opora_plan_steps_migration import draft_steps, migrate
 from backend.canvas.test_opora_changesets import SCOPE, baseline, legacy_save, service
@@ -34,6 +34,31 @@ def test_gate_ready_by_mode():
     assert card_done_state(facts(card, link, None, external=True)) == {
         "done": False, "missing": ["human_close"], "gate": "external"}
     assert card_done_state(facts(card, link, None))["missing"] == ["gate_ready", "human_close"]
+
+
+def test_merged_pr_gate_ignores_only_the_pre_merge_freshness_of_its_head():
+    """Pre-merge reasons are moot once merged: base freshness (observed for open PRs alone) and human approvals with
+    their GitHub evidence (Ample #35-#40). Review not done, self-checks and findings keep holding."""
+    stale = {"status": "pending", "reasons": ["stale_against_main"]}
+    unobserved = {"status": "pending", "reasons": ["base_freshness_unobserved"]}
+    approvals = {"status": "pending", "reasons": ["human_approvals_missing", "github_evidence_missing",
+                                                   "base_freshness_unobserved"]}
+    assert merged_gate(stale, True)["status"] == "ready" and merged_gate(unobserved, True)["status"] == "ready"
+    assert merged_gate(stale, False) == stale  # an open PR behind main is not ready
+    assert merged_gate(approvals, True)["status"] == "ready"
+    assert merged_gate(approvals, False) == approvals  # before the merge the approvals config holds
+    unreviewed = {"status": "pending", "reasons": ["review_not_enqueued", "human_approvals_missing",
+                                                    "self_checks_missing", "base_freshness_unobserved"]}
+    assert merged_gate(unreviewed, True) == unreviewed  # Ample #22
+    assert merged_gate({"status": "blocked", "reasons": ["stale_against_main"]}, True)["status"] == "blocked"
+    assert merged_gate(None, True) is None
+    link = {"cardId": "a", "state": "merged", "executionId": "1", "planWrittenBack": True}
+    card = {"steps": {"total": 1, "done": 1}, "acceptanceEvidence": True}
+    assert card_done_state(facts(card, link, {"reviewGate": stale}))["missing"] == ["human_close"]
+    assert card_done_state(facts(card, link, {"reviewGate": approvals}))["missing"] == ["human_close"]
+    assert card_done_state(facts(card, link, {"reviewGate": unreviewed}))["missing"] == ["gate_ready", "human_close"]
+    assert card_done_state(facts(card, {**link, "state": "open", "planWrittenBack": False}, {"reviewGate": stale}))["missing"] == [
+        "gate_ready", "merged", "plan_written_back", "human_close"]
 
 
 def test_gates_by_execution_none_when_review_jobs_disabled(service, monkeypatch):

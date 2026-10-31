@@ -73,7 +73,7 @@ v nejvzdálenější dosažené etapě; platí první pravidlo:
 | Podmínka | `stage` / `health` / `reason` |
 |---|---|
 | karta potvrzena (`done.confirmed`) | `plan_writeback` / `ok` / `card_closed` |
-| PR sloučeno a čeká na uzavření člověkem | `merge` / `waiting` / `awaiting_human_close` |
+| PR sloučeno a karta ještě není uzavřená (definice hotovo nesplněná; splněnou uzavře server sám) | `merge` / `waiting` / `awaiting_human_close` (název kódu zůstává) |
 | PR sloučeno se zápisem / bez zápisu do plánu | `plan_writeback` / `ok` / `plan_written_back`, jinak `waiting` / `merged_without_plan_writeback` |
 | otevřené PR s bránou review | `review` se zdravím brány (`blocked` → `blocking`, `pending` → `waiting`, `ready` → `ok`) a důvodem pravidla, které bránu drží (stejné pořadí jako etapa `review`), jinak `review_gate_ready` |
 | otevřené PR bez brány | `pull_request` / `waiting` / `pull_requests_open` |
@@ -187,7 +187,7 @@ uvnitř slovesa podle `targetId`; test hlídá, že tabulka a `VERB_ORDER` souhl
 | `review.self_checks` | `POST /api/oporahub/review-jobs/self-checks` | `ready`, když brána hlásí `self_checks_missing`; `targetId` = `executionId`, `preconditions` `{executionId, headSha, required}` |
 | `pr.update_branch` | `PUT github:/repos/{owner}/{repo}/pulls/{n}/update-branch` (provede údržba PR v agent-office rebasem) | `ready`, když brána hlásí `stale_against_main`; `targetId` = `executionId`, `preconditions` `{repository, number, expectedHeadSha, baseRef, baseSha}` |
 | `link_pull_request` | `POST /api/oporahub/executions/{id}/pull-request` | `ready` s modulem vazby, jinak `blocked/not_implemented` |
-| `close_card` | `POST /api/desktop-v3/state` (`done.confirmed` karty) | jen když vazba hlásí `awaitingHumanClose` a karta ještě není potvrzená; `blocked/human_only`, když [definici hotovo](oporahub-plan-steps.md#jediná-definice-hotovo) chybí jen lidské uzavření, jinak `blocked/done_state_incomplete` bez rozhodnutí; `preconditions` = `{executionId, mergeSha, missing, gate}` (`gate` = `review` / `external` / `local`; vazbu dává i `local-merge`, [lokální sloučení](lokalni-slouceni.md)) |
+| `close_card` | `POST /api/desktop-v3/state` (`done.confirmed` karty) | jen když vazba hlásí `awaitingHumanClose` a karta ještě není potvrzená; `blocked/server_closes`, když [definici hotovo](oporahub-plan-steps.md#jediná-definice-hotovo) chybí jen uzavření (server kartu uzavře sám, žádné rozhodnutí pro člověka), jinak `blocked/done_state_incomplete` bez rozhodnutí; `preconditions` = `{executionId, mergeSha, missing, gate}` (`gate` = `review` / `external` / `local`; vazbu dává i `local-merge`, [lokální sloučení](lokalni-slouceni.md)) |
 | `verification.investigate` | `GET /api/oporahub/verifications/{id}` | `ready`; nejnovější CI check daného druhu (`formal/tlc`, `formal/lean`, `formal/conformance`, `formal-trusted/*`) běhu skončil `counterexample`, `failed` nebo `inconclusive` (viz [ověřování](oporahub-verification.md#automatické-ověřování-v-ci-etapa-3b)) |
 | `verification.fix` | `POST /api/oporahub/verifications/{id}/fix-proposal` (`{project, workspace}`) | `ready` u `counterexample` a u `failed`, které není jen `runner_error`; idempotentně založí návrh karty „Opravit formální ověření“, přijímá člověk |
 | `review.promote_to_check` | `POST /api/oporahub/review-recurring/promote` | `ready`, `attention: true`; třída nálezu se opakuje v ≥ N PR projektu a ještě není povýšená na kontrolu (viz [lidé v review](oporahub-review-identity.md)) |

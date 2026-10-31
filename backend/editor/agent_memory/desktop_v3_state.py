@@ -30,7 +30,8 @@ RULE_KINDS = ("must", "must_not")
 RULE_SCOPES = ("project", "path", "node")
 ACTORS = ("human", "agent")
 # Uzavření karty navíc zná „autonomy“: potvrdil agent v sektoru, kterému člověk svěřil autonomii.
-DONE_ACTORS = ("human", "agent", "autonomy")
+# `opora` = deterministic server close once the definition of done is met (opora_card_auto_close).
+DONE_ACTORS = ("human", "agent", "autonomy", "opora")
 PRIORITIES = ("low", "normal", "high")
 STATUSES = ("open", "doing", "done")
 
@@ -277,8 +278,8 @@ def _validate_done(node, node_id):
     _text(done["note"], MAX_TEXT, "poznámka k uzavření", allow_empty=True)
     # `agent` + potvrzeno = agent s plnou autonomií projektu (docs/plna-autonomie-agenta.md); kdo smí
     # potvrzení zapsat, hlídá brána zápisu stavu, ne tvar.
-    if by == "autonomy" and not confirmed:
-        _fail("„autonomy“ označuje jen potvrzené uzavření ve svěřené autonomii.")
+    if by in ("autonomy", "opora") and not confirmed:
+        _fail(f"„{by}“ označuje jen potvrzené uzavření.")
 
 
 def _validate_autonomy(state):
@@ -715,6 +716,8 @@ class DesktopV3State:
                             raise ValueError(journeys_refusal(blocking))
                     if done["by"] == "autonomy" and done != previous_done and node_id not in autonomy_close:
                         raise ValueError("Uzavření ve svěřené autonomii zapisuje jen výstup agenta (agent-output).")
+                    if done["by"] == "opora" and done != previous_done and execution_actor != "opora":
+                        raise ValueError("Uzavření „opora“ zapisuje jen server po splnění definice hotovo.")
                 # Hromadný zápis stavu nesmí obejít zámek, který hlídá adresné API bloků.
                 for node_id, previous in current["state"]["nodes"].items():
                     node = state["nodes"].get(node_id)
@@ -752,7 +755,7 @@ class DesktopV3State:
             with self.canvas.lock_for(project):
                 return {**self.current(project, workspace), "readOnly": False, **changed}
 
-    def save_node(self, payload, *, actor="system"):
+    def save_node(self, payload, *, actor="system", execution_actor=None):
         """Štíhlý zápis jedné karty (`docs/navrhy/2026-10-14-vykon-platna.md`, oprava 8).
 
         Tělo nese jen `nodes[nodeId]` (nebo `null` = stav karty odebrat) a odpověď jen revizi a
@@ -783,7 +786,7 @@ class DesktopV3State:
                 nodes[node_id] = node
             saved = self.save({"project": project, "workspace": workspace, "expectedRevision": stored["revision"],
                                "state": {**stored["state"], "nodes": nodes}},
-                              actor=actor, base=stored["state"], slim=True)
+                              actor=actor, base=stored["state"], slim=True, execution_actor=execution_actor)
         return {**saved, "nodeId": node_id, "node": node}
 
     def set_autonomy(self, payload):

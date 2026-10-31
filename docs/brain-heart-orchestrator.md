@@ -30,7 +30,7 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
 - `decide(...)`: po větvi „čtení nebo brána“ přidat „cesta v `LANE` → `ALLOW`“. Pruh je seznam předpon v `wall.py`,
   porovnání po celých segmentech (`/api/oporahub/executions` ani `/api/oporahub/executionsX` neprojde omylem).
 - Neplatný token (`INVALID`) se v pruhu ignoruje stejně jako bez hlavičky; pruh nepotřebuje token.
-- Uzavření karty se nemění: sloučení dál nastaví `awaitingHumanClose`, kartu uzavírá člověk.
+- Uzavření karty: sloučení nastaví `awaitingHumanClose` a server kartu uzavře sám po splnění definice hotovo (docs/oporahub-plan-steps.md).
 - `docs/brain-gate.md` §3 dostane řádek pruhu.
 
 ## 3. O2 – Srdce staví karty (`heart/opora_heart.py`, prompt)
@@ -54,7 +54,7 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
   projektu se zapnutou bránou dostane ve zdi `Verdict(heart=True)` a middleware mu dá oprávnění `human` (plná
   autonomie, záznam `by: {kind: agent, name: heart}`), takže routy nebylo třeba měnit. Výstup `plan` má
   `accepted: true|false` a `acceptSteps`; při `false` `code` a `hint` (např. `plan_not_accepted`). `--no-accept`
-  nechá přijetí člověku. Uzavření karty (`awaitingHumanClose`) zůstává člověku.
+  nechá přijetí člověku. Uzavření karty (`awaitingHumanClose`) dělá server deterministicky.
 - **O2c – další plán nad přijatým grafem.** Fáze 2 je vždy další plán. Dávka plánu (`/api/canvas-plan`) nad už
   přijatým grafem by změnila jen pracovní graf: agent-state pro to nemá krok přijetí (návrh grafu záměrně nic
   z pracovního grafu nepřebírá) a claim všech karet by se zablokoval („Working graph differs from the accepted

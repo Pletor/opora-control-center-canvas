@@ -240,9 +240,10 @@ Odpověď nese i `enrollmentMessage`, česky popsanou příčinu chyby (nebo `nu
 pozorování vazby. Mergnuté PR zapíše jednou událost `execution.merged`
 (`mergeSha`, `prNumber`, klíč běh + merge SHA), vazbu označí `merged`, ještě
 běžící běh ukončí stavem `released` (uvolní rezervaci) a nastaví
-`awaitingHumanClose: true`. Potvrzení `done.confirmed` karty totiž podle
-[kontraktu karty](karta-pro-agenty.md) zapisuje jen člověk s doloženými důkazy;
-značka zmizí, jakmile člověk kartu uzavře. Zavření bez merge zapíše
+`awaitingHumanClose: true` (název zůstává). Kartu pak uzavře server sám, jakmile je
+[definice hotovo](oporahub-plan-steps.md#jediná-definice-hotovo) splněná (`done.confirmed`,
+`by: "opora"`, krok smyčky `opora_card_auto_close`); ruční uzavření v UI zůstává možností.
+Značka zmizí, jakmile je karta uzavřená. Zavření bez merge zapíše
 `execution.pr_closed` a `attention: pr-closed-unmerged`; znovuotevření značku
 zruší a další zavření je nová událost. Opakované čtení, restart ani souběh
 nevytvoří druhou událost.

@@ -120,9 +120,11 @@ def test_agent_with_full_autonomy_closes_a_local_card_alone(tmp_path):
         assert dod["gate"] == "local" and dod["gate_ready"] and dod["merged"] and dod["plan_written_back"], dod
         assert dod["missing"] == ["human_close"], dod
         close = next(item for item in state(client, scope)["actions"] if item["verb"] == "close_card")
-        # S plnou autonomií je akce pro agenta `ready` (docs/plna-autonomie-agenta.md).
+        # Uzavření je deterministické: kartu uzavře server sám (docs/oporahub-plan-steps.md), nikdo na ni nečeká.
         assert close["targetId"] == card and close["preconditions"]["gate"] == "local", close
-        assert close["preconditions"]["missing"] == [] and close["status"] == "ready" and close["autonomy"] == "full", close
+        assert close["preconditions"]["missing"] == [] and close["blockReason"] == "server_closes", close
+        assert not [item for item in state(client, scope)["decisions"] if item["kind"] == "close_card"]
+        # Ruční uzavření zůstává možností.
 
         closed = close_card(client, scope, card)
         assert closed.status_code == 200, closed.text

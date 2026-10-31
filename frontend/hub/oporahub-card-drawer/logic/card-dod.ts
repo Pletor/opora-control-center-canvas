@@ -1,7 +1,7 @@
 import type { CardEntry } from "./card-header";
 
 // Jediná definice hotovo (kontrakt §3) jako sedm dílků v hlavičce: kroky · akceptace karty · brána ·
-// sloučeno · plán zapsán · cesta ověřena · uzavřel člověk. Zdrojem je backendové `cards[].dod` (opora_card_done,
+// sloučeno · plán zapsán · cesta ověřena · uzavřeno (server sám, po splnění ostatních). Zdrojem je backendové `cards[].dod` (opora_card_done,
 // boolean na požadavek + druh brány; u nesplněné brány cesty i `blockingJourneys`, docs/brana-cesty.md §5). Výpočet na klientovi (`computeDod`) je jen náhrada pro starší server bez `dod`;
 // z něj se u backendového stavu bere jen odstín „rozpracováno“ u nesplněných dílků.
 export const DOD_KEYS = ["steps", "card_acceptance", "gate_ready", "merged", "plan_written_back", "journeys", "human_close"] as const;
@@ -15,7 +15,7 @@ export type DodView = { source: "backend" | "computed"; done: boolean; segments:
 
 const LABEL: Record<DodKey, string> = {
   steps: "Kroky", card_acceptance: "Akceptace karty", gate_ready: "Brána", merged: "Sloučeno",
-  plan_written_back: "Plán zapsán", journeys: "Cesta ověřena", human_close: "Uzavřel člověk",
+  plan_written_back: "Plán zapsán", journeys: "Cesta ověřena", human_close: "Uzavřeno",
 };
 
 export type DodFacts = {

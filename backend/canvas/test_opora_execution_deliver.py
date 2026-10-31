@@ -18,7 +18,9 @@ def test_next_step_follows_the_first_missing_requirement():
     assert next_step(RECORD, ["steps", "human_close"], [], False, True)["command"] == "opora_hub.py start --node n1"
     assert next_step(RECORD, ["journeys", "human_close"], [], False, True)["verb"] == "journey_run"
     assert next_step(RECORD, ["merged", "human_close"], [], False, True)["verb"] == "merge"
-    assert next_step(RECORD, ["human_close"], [], False, False) == {"verb": "close_card", "targetId": "n1", "command": None}
+    # Jen uzavření chybí: kartu uzavře server sám (opora_card_auto_close), nikdo na ni nečeká.
+    assert next_step(RECORD, ["human_close"], [], False, False)["verb"] == "pick"
+    assert next_step(RECORD, ["human_close"], [], False, True)["verb"] == "pick"
 
 
 def test_expired_lease_taken_over_by_another_actor_is_409(tmp_path):

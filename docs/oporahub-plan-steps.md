@@ -116,20 +116,35 @@ Totéž vynucuje endpoint `POST /api/oporahub/executions/claim`: odmítne `409` 
 Hotovo = všechny kroky `done` (alespoň jeden) + přijetí karty doložené během nad aktuálním přijatým
 zadáním (`card_acceptance`) + brána review `ready` (`gate_ready`) + PR `merged` + plán zapsán zpět
 (`plan_written_back`) + každá cesta zákazníka, na které karta leží, ověřená prošlým čerstvým dokladem
-(`journeys`, `docs/brana-cesty.md` §5) + lidské `close_card` (`human_close`). `missing` vypisuje chybějící části
+(`journeys`, `docs/brana-cesty.md` §5) + uzavření karty (`human_close`, název požadavku zůstává). `missing` vypisuje chybějící části
 v tomto pořadí. Agent-state ji vydává u každé karty jako `cards[].dod`: boolean pod jménem každého
 požadavku (`steps`, `card_acceptance`, `gate_ready`, `merged`, `plan_written_back`, `journeys`, `human_close`),
 druh brány `gate` (`review` / `external` / `local`), `done`, `missing` a při nesplněné bráně cesty `blockingJourneys`. Detail karty kreslí dílky z něj.
 
-- Akce `close_card` v agent-state je `blocked/human_only` jen když chybí pouze `human_close`; jinak
-  `blocked/done_state_incomplete` s `preconditions.missing` a bez rozhodnutí pro člověka.
-- Lidské potvrzení `done.confirmed` karty s přijatými kroky projde jen při splnění všeho kromě
+- **Uzavření karty je deterministické** (rozhodnutí člověka 2026-10-31): jakmile jsou splněné všechny ostatní
+  požadavky definice hotovo (`steps`, `card_acceptance`, `gate_ready`, `merged`, `plan_written_back`, `journeys`),
+  server kartu uzavře sám (`done.confirmed`, `by: "opora"`) při zápisu plánu zpět / přepočtu stavu karty.
+  Člověk nic nepotvrzuje; ruční uzavření v UI zůstává jako možnost, ne podmínka. Přepočet dělá smyčka vazeb PR
+  (`opora_execution_pr_manager`, krok `opora_card_auto_close`) u každé sloučené vazby se značkou
+  `awaitingHumanClose` a odevzdání `deliver`; zápis jde interní cestou stavu (`save_node` → `closure_gate`, bez
+  HTTP), je idempotentní a v záznamu činnosti nese `agent: "opora"` s `nodeIds` karty. Bez modelu, bez agenta.
+  `human_close` tak nikdy nezůstane jediným chybějícím požadavkem déle než do dalšího kroku smyčky.
+- Akce `close_card` v agent-state je `blocked/server_closes`, když chybí jen `human_close` (server ji uzavře sám,
+  žádné rozhodnutí pro člověka); jinak `blocked/done_state_incomplete` s `preconditions.missing`.
+- Ruční potvrzení `done.confirmed` karty s přijatými kroky projde jen při splnění všeho kromě
   `human_close`; starší brána uzavření (doložené testy, `checks_passed`, hotová pipeline, scénář)
   pro takovou kartu neplatí. Karty bez kroků se dál uzavírají po staru a stará data zůstávají čitelná.
 - `gate_ready` má dva režimy a výstup je nese v poli `gate`: se zapnutými úlohami review
   (`OPORA_REVIEW_JOBS`) je to `"review"` a platí jen brána OporaHubu `ready` (čte se pro všechny
   vazby PR, i sloučené); s vypnutými úlohami review je to `"external"` a branou je ochrana větve
   na GitHubu, takže `gate_ready` = PR je sloučený. Akce `close_card` nese `preconditions.gate`.
+- U **sloučené** vazby v režimu `review` se nepočítá svěžest hlavy vůči main z fronty merge
+  (`base_freshness_unobserved`, `stale_against_main`): pozorování základu běží jen nad otevřenými PR, po sloučení
+  zamrzne a stárne, a main po sloučení vždy obsahuje commit sloučení. Brána sloučené vazby, kterou drží jen tyto dva
+  důvody, je pro `gate_ready` `ready`. Totéž platí pro `human_approvals_missing` a `github_evidence_missing`
+  (rozhodnutí 2026-10-31: u sloučeného PR je předslučovací podmínka schválení bezpředmětná; konfigurace schválení
+  před sloučením platí dál). Ostatní důvody (otevřené nálezy, nedoběhlé review `review_not_enqueued`, vlastní
+  kontroly `self_checks_missing`) platí dál i po sloučení.
 - Třetí režim `"local"` má projekt bez vazby na GitHub ([lokální sloučení](lokalni-slouceni.md)): `merged`
   a `plan_written_back` vznikají z `POST /api/oporahub/executions/{executionId}/local-merge` a `gate_ready` =
   sloučeno + poslední běh kontrol karty na sloučeném commitu je zelený (karta bez kontrol: jen sloučeno).

@@ -33,7 +33,7 @@ Zeď pustí agentovi i bez tokenu brány jen **pruh práce na kartě** (`LANE` v
 - Kartu bereš a odevzdáváš jako dnes: `opora_hub.py start --node N` → práce dělníků → `opora_hub.py deliver …`.
 - **Nepoužívej** `/api/canvas-plan`, `canvas-layout`, návrhy (`graph-proposals`, `changesets`, `content-changes`)
   ani zápisy karet a pravidel (`desktop-v3/node`, `state`, `rule*`, …): dostaneš 403 `gate_required`.
-- Uzavření se nemění: po sloučení má karta `awaitingHumanClose`, uzavírá ji člověk.
+- Uzavření dělá server: po sloučení má karta `awaitingHumanClose` a server ji uzavře sám, jakmile je definice hotovo splněná.
 
 ## Mluvit se srdcem
 

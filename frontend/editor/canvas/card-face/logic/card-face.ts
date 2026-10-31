@@ -34,7 +34,7 @@ export type CardFace = {
 
 const MAX_SEGMENTS = 12;
 const GATE_TONE: Record<string, [FaceTone, string]> = { ready: ["ok", "✓"], pending: ["warn", "◷"], blocked: ["bad", "✕"] };
-const HUMAN_REASONS = new Set(["awaiting_human_close", "human_review_required"]);
+const HUMAN_REASONS = new Set(["human_review_required"]);
 const gateTone = (status: string): [FaceTone, string] => GATE_TONE[status] ?? ["warn", "◷"];
 
 function segments(total: number, done: number, running: boolean): CardFace["steps"]["segments"] {
@@ -87,6 +87,8 @@ export function cardFace({ nodeId, card, sector, layer, decisions, nameOf, lates
   if (closed) return face("done", "ok", "✓", "hotovo", card.reason === "card_closed"
     ? { stage: "uzavřeno", reason: "sloučeno a zapsáno" } : { stage: "zapsáno", reason: "sloučeno, čeká na uzavření" });
   if (decision || HUMAN_REASONS.has(card.reason)) return face("decision", "hum", "◷", "čeká na tebe", { holder: { who: "human", name: "ty" } });
+  // Sloučená karta nečeká na člověka: splněnou definici hotovo uzavře server sám (docs/oporahub-plan-steps.md).
+  if (card.reason === "awaiting_human_close") return face("review", "warn", "◷", "čeká na hotovo");
   if (lease) {
     const late = card.health === "blocking";
     return face("working", late ? "bad" : "ok", late ? "✕" : "✓", "běží",

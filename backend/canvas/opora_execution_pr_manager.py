@@ -2,16 +2,19 @@
 
 Each tick (bounded batch of projects): apply merge/close write-back from reconciliation
 observations, retry pending auto-enrollments and, at a configurable interval, discover
-PRs by trailers. Network never holds Canvas or SQLite locks; GitHub rate limits impose a
+PRs by trailers, and close every merged card whose definition of done is met (opora_card_auto_close,
+deterministic, no model). Network never holds Canvas or SQLite locks; GitHub rate limits impose a
 global cooldown. Configuration (environment):
   OPORA_EXECUTION_PR_WORKER=0             disables the loop entirely
-  OPORA_EXECUTION_PR_DISCOVERY_SECONDS    discovery interval per project (default 300, 0 = off)"""
+  OPORA_EXECUTION_PR_DISCOVERY_SECONDS    discovery interval per project (default 300, 0 = off)
+  OPORA_CARD_AUTO_CLOSE_SECONDS           card close re-evaluation interval per project (default 30, 0 = every tick)"""
 import logging
 import os
 import threading
 import time
 from contextlib import contextmanager
 
+from backend.canvas.opora_card_auto_close import sweep as close_cards
 from backend.canvas.opora_execution_pr_closure import close_loop
 from backend.canvas.opora_execution_pr_discovery import discover
 from backend.canvas.opora_execution_pr_enrollment import AUTH, HEALABLE
@@ -28,6 +31,13 @@ class Stopped(RuntimeError):
     """The loop is shutting down; no further database access."""
 
 
+def auto_close_interval():
+    try:
+        return max(0, int(os.environ.get("OPORA_CARD_AUTO_CLOSE_SECONDS", "30")))
+    except ValueError:
+        return 30
+
+
 def discovery_interval():
     try:
         return max(0, int(os.environ.get("OPORA_EXECUTION_PR_DISCOVERY_SECONDS", "300")))
@@ -41,6 +51,7 @@ class ExecutionPullRequestManager:
         self.links = links or ExecutionPullRequestLinks(service, clock=clock)
         self.stop, self.gate, self.thread = threading.Event(), threading.RLock(), None
         self.cursor, self.cooldown_until, self.discovered_at, self.healed = 0, 0, {}, set()
+        self.closed_at = {}
         self.links.guard = self._guard
 
     @contextmanager
@@ -113,6 +124,15 @@ class ExecutionPullRequestManager:
                 self.links.enroll(project, workspace, row["execution_id"])
                 self._cooldown()
 
+    def _close_cards(self, project):
+        """Deterministic card close after merge and plan write-back; the first tick after a restart runs it."""
+        now = self.clock()
+        if project in self.closed_at and now - self.closed_at[project] < auto_close_interval():
+            return
+        self.closed_at[project] = now
+        with self._guard():
+            close_cards(self.service, project)
+
     def _discover(self, project):
         interval, now = discovery_interval(), self.clock()
         if not interval or now < self.cooldown_until or now - self.discovered_at.get(project, -interval) < interval:
@@ -140,6 +160,7 @@ class ExecutionPullRequestManager:
                 return
             try:
                 self._close(project)
+                self._close_cards(project)
                 self._heal(project)
                 self._enroll(project)
                 self._discover(project)

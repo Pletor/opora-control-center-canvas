@@ -17,6 +17,13 @@ describe("tvář karty", () => {
     expect(face().pr).toBeNull();
   });
 
+  it("sloučená neuzavřená karta nečeká na člověka: uzavře ji server po splnění definice hotovo", () => {
+    const view = face({ stage: "merge", health: "waiting", reason: "awaiting_human_close" });
+    expect(view.state).not.toBe("decision");
+    expect(view.holder).toBeNull();
+    expect(view.chip.word).toBe("čeká na hotovo");
+  });
+
   it("blokovaná předchůdcem: čárkovaná, jeden řádek a patička s předchůdci", () => {
     const view = face({ blockedBy: ["b", "c"], steps: { total: 6, done: 0, current: null } });
     expect(view.state).toBe("blocked");
