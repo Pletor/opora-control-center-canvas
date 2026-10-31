@@ -586,6 +586,30 @@ def test_proposal_accept_uses_the_agent_state_action_and_needs_autonomy(server, 
         opora_heart.main(["proposal"])
 
 
+def conflict_action(conflict_id, status="ready"):
+    return {"verb": "proposal.resolve_conflict", "method": "POST", "targetId": conflict_id, "status": status,
+            "path": f"/api/oporahub/auto-rebase/conflicts/{conflict_id}/resolve",
+            "preconditions": {"expectedAcceptedHead": "r1", "proposalId": "p_ours"}}
+
+
+def test_conflict_keep_accepted_posts_keep_and_needs_autonomy(server, capsys):
+    Handler.states = [{"autonomy": {"full": True}, "actions": [conflict_action("c1")]}]
+    code, out = run(capsys, "conflict", "--resolve", "c1", "--keep-accepted")
+    assert code == 0 and json.loads(out)["conflictId"] == "c1"
+    last = Handler.calls[-1]
+    assert (last["method"], last["path"]) == ("POST", "/api/oporahub/auto-rebase/conflicts/c1/resolve")
+    assert last["body"] == {"project": "p1", "workspace": "main", "keep": "accepted"}
+    code, out = run(capsys, "conflict", "--resolve", "c_x", "--keep-accepted")
+    assert code == 1 and json.loads(out)["code"] == "conflict_not_offered"
+    Handler.states = [{"autonomy": {"full": False}, "actions": [conflict_action("c1")]}]
+    Handler.calls.clear()
+    code, out = run(capsys, "conflict", "--resolve", "c1", "--keep-accepted")
+    assert code == 1 and json.loads(out)["hint"] == "Rozhodne člověk v UI."
+    assert all(call["method"] == "GET" for call in Handler.calls)
+    with pytest.raises(SystemExit):
+        opora_heart.main(["conflict", "--resolve", "c1"])
+
+
 def test_member_none_clears_membership(server, capsys):
     Handler.manifest, Handler.graph = "m1", MEMBER_GRAPH
     result = json.loads(run(capsys, "member", "--area", "none", "--nodes", "n_card,s_core")[1])

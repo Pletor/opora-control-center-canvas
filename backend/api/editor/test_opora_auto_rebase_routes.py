@@ -38,3 +38,18 @@ def test_conflict_resolution_history_and_blame_over_http(service):
         assert client.post("/api/oporahub/sparse-context/backfill", json={**PARAMS, "dryRun": False},
                            headers=AGENT).status_code == 403
         assert client.get("/api/oporahub/sparse-context/enrollment", params=PARAMS).status_code == 200
+
+
+def test_keep_accepted_over_http(service):
+    root = baseline(service)
+    propose(service, "a", goal="Ours")
+    accept(service, propose(service, "a", goal="Theirs"), root["id"])
+    with TestClient(create_app(service.root), base_url="http://127.0.0.1:8740") as client:
+        client.post("/api/oporahub/auto-rebase/run", json=PARAMS, headers=AGENT)
+        conflict = client.get("/api/oporahub/auto-rebase/conflicts", params={**PARAMS, "status": "open"}).json()["items"][0]
+        path = f"/api/oporahub/auto-rebase/conflicts/{conflict['id']}/resolve"
+        both = client.post(path, json={**PARAMS, "keep": "accepted", "resolutionProposalId": "0" * 40}, headers=AGENT)
+        assert both.status_code == 409
+        kept = client.post(path, json={**PARAMS, "keep": "accepted"}, headers=AGENT)
+        assert kept.status_code == 200, kept.text
+        assert kept.json()["status"] == "resolved" and kept.json()["resolutionProposalId"] is None

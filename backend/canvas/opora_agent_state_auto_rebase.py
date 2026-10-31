@@ -1,7 +1,8 @@
 """Optional seam to server-side auto-rebase (docs/oporahub-auto-rebase.md, "Stav pro agenty").
 
 With auto-rebase enabled, the `proposal` stage counts only stale proposals the loop has not
-settled (redundant ones and those whose conflict was resolved are settled), reports open
+settled (redundant ones and those whose conflict was resolved are settled), drops the `rebase`
+action of settled ones (they are done), reports open
 conflicts as `waiting/auto_rebase_conflicts` with a `proposal.resolve_conflict` action and the
 `auto_rebase` gap disappears. Disabled (`OPORA_AUTO_REBASE=0`) returns None: previous rules stay.
 Read-only: plain SELECTs, no transaction."""
@@ -39,6 +40,13 @@ def actions(project, workspace, rebasing):
              "preconditions": {"project": project, "workspace": workspace, "expectedAcceptedHead": item["acceptedHead"],
                                "proposalKind": item["proposalKind"], "proposalId": item["proposalId"]},
              "status": "ready"} for item in sorted(rebasing["open"], key=lambda value: value["id"])]
+
+
+def without_settled(actions, rebasing):
+    """A settled stale proposal is done: no `rebase` action. Disabled auto-rebase keeps every action."""
+    if rebasing is None:
+        return actions
+    return [item for item in actions if item["verb"] != "rebase" or item["targetId"] not in rebasing["settled"]]
 
 
 def gaps(values, rebasing):

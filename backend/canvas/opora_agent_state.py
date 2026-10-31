@@ -211,7 +211,8 @@ class AgentState:
                                           reviewing, gates, local, needs_graph)
         actions, decisions = formal.merge(actions, decisions, attention, project, workspace)
         # One priority list (rules.VERB_ORDER) over core, gate, formal, recurring and auto-rebase actions.
-        actions = rules.ordered([*actions, *promotions, *rebasing_state.actions(project, workspace, rebasing)])
+        actions = rules.ordered([*rebasing_state.without_settled(actions, rebasing), *promotions,
+                                 *rebasing_state.actions(project, workspace, rebasing)])
         actions = dag_state.retag(actions, dag)
         heads = {"acceptedHead": accepted, "acceptedRevision": accepted, "graphDigest": context["graphDigest"],
                  "workingDiffers": context["workingDiffers"], "contextVersion": context["specificationsVersion"],

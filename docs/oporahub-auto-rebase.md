@@ -67,13 +67,18 @@ pod zámkem svého projektu a vlastní transakcí.
 Konflikt má stav `open`, `resolved` nebo `obsolete`. Zastará, když se hlava posune znovu
 (smyčka návrh posoudí proti nové hlavě), když byl návrh přijat nebo ručně převeden.
 Vyřešení je **běžný nový návrh** nad aktuální hlavou (člověk nebo agent; jazykový model
-je volitelný, nikdy nutný). Jeho ID se ke konfliktu připojí:
+je volitelný, nikdy nutný). Jeho ID se ke konfliktu připojí. Když pole už rozhodla přijatá
+hlava (vyhrává `theirs`), není co navrhnout: `keep: "accepted"` konflikt uzavře jako `resolved`
+bez návrhu řešení (`resolutionProposalId` zůstane `null`), přijatá hlava se nemění a návrh se
+počítá jako vyřízený. Konflikt musí být `open` a jeho `acceptedHead` rovný aktuální hlavě,
+jinak 409. Tělo nese právě jedno z `resolutionProposalId` / `keep` (obojí nebo nic = 409).
+Volá člověk nebo agent, stejně jako řešení návrhem:
 
 | API | Význam |
 |---|---|
 | `GET /api/oporahub/auto-rebase/conflicts?project&workspace[&status]` | seznam konfliktů s `base/ours/theirs` |
 | `GET /api/oporahub/auto-rebase/conflicts/{id}?project&workspace` | jeden konflikt |
-| `POST /api/oporahub/auto-rebase/conflicts/{id}/resolve` | `{project, workspace, resolutionProposalId}`; návrh musí být jiný a mít za rodiče aktuální hlavu |
+| `POST /api/oporahub/auto-rebase/conflicts/{id}/resolve` | `{project, workspace, resolutionProposalId}`; návrh musí být jiný a mít za rodiče aktuální hlavu. Nebo `{project, workspace, keep: "accepted"}`: platí přijatá hlava, bez návrhu |
 | `POST /api/oporahub/auto-rebase/run` | `{project, workspace}`; jeden omezený průchod hned (člověk nebo agent) |
 
 ## Odvozená data: historie a blame karty
@@ -124,6 +129,11 @@ S auto-rebase zapnutým (`opora_agent_state_auto_rebase.py`) etapa `proposal`:
    (`POST …/auto-rebase/conflicts/{id}/resolve`, `ready`, `preconditions` s hlavou a návrhem);
 2. zastaralé návrhy po auto-rebase (bez redundantních a bez vyřešených konfliktů) → `waiting/stale_proposals`;
 3. jinak `ok`.
+
+Vyřízený zastaralý návrh (`settled`: redundantní, nebo s vyřešeným konfliktem včetně `keep: "accepted"`)
+nedostane akci `rebase`, je hotový. S `OPORA_AUTO_REBASE=0` zůstává `rebase` u každého zastaralého návrhu.
+Srdce vidí otevřené konflikty v sekci snímku `KONFLIKTY NÁVRHŮ` a uzavře je příkazem
+`conflict --resolve ID --keep-accepted` (jen při `autonomy.full`, jako `proposal --accept`).
 
 Mezera `auto_rebase` zmizí. Dokument zůstává jen ke čtení.
 

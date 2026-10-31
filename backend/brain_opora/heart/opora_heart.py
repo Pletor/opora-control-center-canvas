@@ -20,6 +20,7 @@
     python opora_heart.py member --area AREA|none --nodes ID,ID… [--dry-run] [--workspace W]
     python opora_heart.py order --nodes ID=101,ID=102|none,… [--dry-run] [--workspace W]
     python opora_heart.py proposal --accept ID
+    python opora_heart.py conflict --resolve CONFLICT_ID --keep-accepted
     python opora_heart.py steps --node ID --file F [--dry-run]
     python opora_heart.py rule --text T
     python opora_heart.py done --summary S
@@ -52,7 +53,9 @@ hlásí `truncated` a `cut` (vynechané uzly).
 `member` navrhne členství existujících karet a sektorů v oblasti (`--area none` ho zruší) návrhem grafu
 s `updateNodes` jen pole `memberOf`; při `autonomy.full` (agent-state) ho srdce hned samo přijme (`accepted: true`),
 jinak čeká na přijetí člověkem v UI. `proposal --accept ID` přijme návrh grafu akcí `accept` z agent-state
-(úklid; bez autonomie `Rozhodne člověk v UI`). `order` stejně navrhne pořadí karet a sektorů podle záměru (pole `order`,
+(úklid; bez autonomie `Rozhodne člověk v UI`). `conflict --resolve ID --keep-accepted` uzavře otevřený konflikt
+auto-rebase (sekce KONFLIKTY NÁVRHŮ) bez nového návrhu, platí přijatá hlava (`keep: "accepted"`,
+docs/oporahub-auto-rebase.md); jen při `autonomy.full` a jen konflikt, který agent-state nabízí. `order` stejně navrhne pořadí karet a sektorů podle záměru (pole `order`,
 fáze × 100 + pozice, `ID=none` ho odebere; docs/navrhy/2026-10-31-poradi-karty.md): láme remízu `topoIndex`,
 nikdy neblokuje jako vazba `next`; stránky a sektory sdílené architektury řadí přímo v `/api/project-architecture`
 (jen `order`, s revizí) a převezme je do plánu prostoru návrhem s `adoptArchitectureContext` (§4). Zamítnutí
@@ -356,6 +359,25 @@ def accept_proposal(proposal_id, base=None):
             failure.payload["hint"] = "Rozhodne člověk v UI."
         raise
     return {"proposalId": proposal_id, "accepted": True}
+
+
+RESOLVE_CONFLICT = "proposal.resolve_conflict"
+
+
+def keep_accepted(conflict_id):
+    """Uzavře otevřený konflikt auto-rebase `conflict_id` s `keep: "accepted"` (pole už rozhodla přijatá hlava)
+    akcí `proposal.resolve_conflict` z agent-state. Jako `accept_proposal`: bez `autonomy.full` rozhodne člověk."""
+    state = call("GET", "/api/oporahub/agent-state", query=scope())
+    if not (state.get("autonomy") or {}).get("full"):
+        raise Failure({"error": "Konflikt uzavírá člověk, projekt nemá plnou autonomii.", "code": "human_only",
+                       "status": 403, "hint": "Rozhodne člověk v UI."})
+    action = next((item for item in state.get("actions", [])
+                   if item.get("verb") == RESOLVE_CONFLICT and item.get("targetId") == conflict_id), None)
+    if action is None or action.get("status") != "ready":
+        raise Failure({"error": f"Agent-state nenabízí konflikt {conflict_id}.", "code": "conflict_not_offered",
+                       "hint": "Konflikt je už vyřešený nebo zastaral; vezmi ID ze sekce KONFLIKTY NÁVRHŮ snímku."})
+    result = call("POST", action["path"], {**scope(), "keep": "accepted"})
+    return {"conflictId": conflict_id, "resolved": (result or {}).get("status") == "resolved", "kept": "accepted"}
 
 
 def submit_plan(args, retried=False):
@@ -1060,6 +1082,8 @@ def run(args):
         return submit_order(args)
     if args.command == "proposal":
         return accept_proposal(args.accept)
+    if args.command == "conflict":
+        return keep_accepted(args.resolve)
     if args.command == "steps":
         return submit_steps(args)
     if args.command == "task":
@@ -1150,6 +1174,9 @@ def parser():
     order.add_argument("--workspace")
     proposal = commands.add_parser("proposal")  # přijetí návrhu grafu z agent-state, jen při plné autonomii
     proposal.add_argument("--accept", required=True, metavar="ID")
+    conflict = commands.add_parser("conflict")  # konflikt auto-rebase: platí přijatá hlava, jen při plné autonomii
+    conflict.add_argument("--resolve", required=True, metavar="CONFLICT_ID")
+    conflict.add_argument("--keep-accepted", required=True, action="store_true")
     steps = commands.add_parser("steps")  # kroky existující karty návrhem zadání (krátký výslech karty)
     steps.add_argument("--node", required=True)
     steps.add_argument("--file", required=True, help='JSON {"steps": […], "goal"?, "acceptance"?}')
