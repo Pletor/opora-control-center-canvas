@@ -530,11 +530,20 @@ def _space_lines(facts):
 
 
 def render(facts, limit=LIMIT):
-    """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
+    """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí.
+    Stálé části jsou napřed (cache), ořez od konce by ale vzal frontu a lístky: dlouhý snímek proto
+    nejdřív vynechá dílnu a výzkum (jdou dohledat nástrojem) a teprve pak se ořízne."""
+    text = _render(facts, extras=True)
+    if len(text) > limit:
+        text = _render(facts, extras=False)
+    return text if len(text) <= limit else text[: limit - len(CUT)] + CUT
+
+
+def _render(facts, extras):
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
              f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts),
              *([delivery.line(facts["delivery"])] if facts.get("delivery") else []), "PLÁN:", *_plan(facts),
-             *_workshop_lines(facts), *_research_lines(facts), *_message_lines(facts),
+             *(_workshop_lines(facts) + _research_lines(facts) if extras else []), *_message_lines(facts),
              "FRONTA ÚKOLŮ: " + _queue(facts)[0], *_queue(facts)[1:], *_sprint_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
@@ -543,8 +552,7 @@ def render(facts, limit=LIMIT):
     lines += [f"- {scope} {sha[:12]} {status}" for scope, sha, status in facts["checks"][:CHECKS]] or ["- žádné"]
     lines += _git_lines(facts) + (_space_lines(facts) if facts.get("spaces") is not None else [])
     lines += _journal_lines(facts)
-    text = "\n".join(lines)
-    return text if len(text) <= limit else text[: limit - len(CUT)] + CUT
+    return "\n".join(lines)
 
 
 def _rules(facts):

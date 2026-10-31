@@ -58,6 +58,14 @@ def test_render_is_cut_at_the_hard_limit():
     assert len(snapshot.render({**FACTS, "tasks": many})) <= snapshot.LIMIT
 
 
+def test_long_snapshot_drops_workshop_and_research_before_the_queue():
+    full = snapshot.render(FACTS)
+    assert "DÍLNA:" in full and "VÝZKUM:" in full
+    short = snapshot.render(FACTS, limit=len(full) - 1)
+    assert "DÍLNA:" not in short and "VÝZKUM:" not in short and "FRONTA ÚKOLŮ:" in short
+    assert not short.endswith(snapshot.CUT)
+
+
 def test_collect_reads_queue_tickets_and_unknown_project(service):
     task_queue.create(service, {"project": "draft", "workspace": "draft", "title": "Stránka", "body": {"do": "x"}})
     session = gate.authenticate(service, gate.open_session(
