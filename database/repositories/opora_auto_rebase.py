@@ -37,6 +37,13 @@ class AutoRebaseStore:
                                " AND workspace_id=? AND outcome='redundant'", self.scope).fetchall()
         return {row[0] for row in rows}
 
+    def kept_accepted(self):
+        """Proposals whose conflict was closed with keep=accepted (resolved, no resolution proposal)."""
+        rows = self.db.execute("SELECT DISTINCT proposal_id FROM opora_auto_rebase_conflicts WHERE project_id=?"
+                               " AND workspace_id=? AND status='resolved' AND resolution_id IS NULL",
+                               self.scope).fetchall()
+        return {row[0] for row in rows}
+
     def open_conflict(self, kind, proposal_id, head, items, at):
         body = {"proposalKind": kind, "proposalId": proposal_id, "acceptedHead": head, "items": items}
         identifier = content_id({"scope": list(self.scope), **body})

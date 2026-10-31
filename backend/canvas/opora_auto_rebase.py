@@ -75,8 +75,9 @@ class AutoRebase:
                 return summary
             self._obsolete(db, project, workspace, head)
             store = AutoRebaseStore(db, project, workspace)
+            settled = store.kept_accepted()
             todo = [(kind, ident) for _, kind, ident in stale(db, project, workspace, head)
-                    if store.outcome(kind, ident, head) is None]
+                    if ident not in settled and store.outcome(kind, ident, head) is None]
             summary["remaining"] = max(0, len(todo) - limit)
             for kind, ident in todo[:limit]:
                 outcome, result, reason = self._one(db, project, workspace, head, kind, ident)
