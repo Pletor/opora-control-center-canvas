@@ -3,7 +3,8 @@
 - `POST /api/brain/heart/messages {project, workspace, text}`: člověk, nebo relé záměru (docs/brain-heart-orchestrator.md
   §8): platný token pracovníka brány téhož projektu, zpráva pak nese `via` = jméno relace. Uloží se do
   `brain/messages.jsonl` (snímek ji ukáže v `ZPRÁVY ČLOVĚKA`, §3a), pak jde jako vstup do supervisoru a budí hned.
-- `GET /api/brain/heart/status?project=`: relace, posledních 5 dávek, spánek a nejbližší povolený čas.
+- `GET /api/brain/heart/status?project=`: relace, posledních 5 dávek, spánek, nejbližší povolený čas a `current`
+  (běžící dávka `{startedAt, inputs}`, jinak `null`).
 - `GET /api/brain/heart/escalations?project&workspace`: jen člověk; otevřené otázky srdce pro člověka, od nejnovější
   (docs/brain-heart-channel.md §2). Odpověď jde přes `POST /api/gate/tickets/{id}/answer` a srdce budí.
 - `GET /api/brain/heart/snapshot?project&workspace`: deterministický snímek (čtení je volné).

@@ -19,5 +19,11 @@ describe("cena dávky", () => {
     ]);
     expect(rows.map((r) => r.summary)).toEqual(["Bez shrnutí", "Limit předplatného", "Naplánoval 3 úkoly."]);
     expect(rows.map((r) => r.cost)).toEqual(["0,01 USD", "—", "0,05 USD"]);
+    expect(rows.map((r) => r.range)).toEqual([null, null, null]);  // bez trvání se kroky nerozbalí
+  });
+
+  it("dávka s trváním nese rozsah kroků", () => {
+    const [row] = batchRows([{ at: "2026-10-31T10:00:00Z", status: "ok", costUsd: 0.02, summary: "Hotovo.", durationMs: 4000 }]);
+    expect(row.range).toEqual({ since: "2026-10-31T10:00:00Z", until: "2026-10-31T10:00:05.000Z" });
   });
 });

@@ -10,9 +10,10 @@ def create_activity_log_router(activity_log):
 
     @router.get("/activity-log")
     def read_activity_log(project: str = "", workspace: str = "", actor: str = "", nodeId: str = "",
-                          limit: int = DEFAULT_LIMIT, before: int | None = None):
-        """Nejnovější první; `actor` = human | agent, bez něj obojí."""
+                          limit: int = DEFAULT_LIMIT, before: int | None = None, agent: str = "",
+                          since: str = "", until: str = ""):
+        """Nejnovější první; `actor` = human | agent, bez něj obojí; `agent` = jméno agenta, `since` / `until` = ISO čas."""
         return activity_log.list(project=project, workspace=workspace, actor=actor, node_id=nodeId,
-                                 limit=limit, before=before)
+                                 limit=limit, before=before, agent=agent, since=since, until=until)
 
     return router

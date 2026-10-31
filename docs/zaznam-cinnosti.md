@@ -44,7 +44,8 @@ zápisu do záznamu nikdy neshodí samotný požadavek.
 
 ## Čtení
 
-`GET /api/activity-log?project=&workspace=&actor=human|agent&nodeId=&limit=&before=` vrátí
+`GET /api/activity-log?project=&workspace=&actor=human|agent&nodeId=&agent=&since=&until=&limit=&before=` vrátí
 `{entries: [...], nextBefore}`, nejnovější první, `limit` 1–500 (výchozí 100), `before` = `id`
-pro další stránku. Bez `actor` vrací obojí. Každý záznam nese `autonomy: "full" | null`. V UI: panel „Záznam činnosti“ se záložkami
+pro další stránku. Bez `actor` vrací obojí. `agent` = přesné jméno agenta (`heart`), `since` / `until` = čas
+ISO 8601 (i se `Z`), rozsah včetně krajů; kanál srdce tak čte kroky jedné dávky. Každý záznam nese `autonomy: "full" | null`. V UI: panel „Záznam činnosti“ se záložkami
 **Já** a **Agenti**.

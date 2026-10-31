@@ -1,4 +1,5 @@
 import { api } from "@/shared/types/logic/types";
+import type { ActivityEntry } from "@/editor/canvas/activity-log/logic/activity-log";
 
 /** Síťová volání kanálu Srdce (docs/brain-heart-channel.md §2). Všechny routy existují v backendu. */
 
@@ -18,8 +19,17 @@ export type QueueTask = {
   body: { do: string; doneWhen?: string[] };
 };
 
+/** Vstup, který dávku probudil (tvar `inputs` deníku dávek; `type` určuje ostatní pole). */
+export type HeartInput = { type: string; text?: string; kind?: string; pr?: number | string | null; [key: string]: unknown };
+
+/** Běžící dávka (`current` stavu srdce); bez dávky `null`. */
+export type HeartCurrent = { startedAt: string; inputs: HeartInput[] };
+
 export type HeartBatch = {
+  /** Začátek dávky (ISO UTC). */
   at: string;
+  durationMs?: number;
+  inputs?: HeartInput[];
   status: string;
   costUsd: number | null;
   summary: string | null;
@@ -35,6 +45,7 @@ export type HeartStatus = {
   sleepingUntil: string | null;
   nextAllowedAt: string | null;
   error: string | null;
+  current?: HeartCurrent | null;
 };
 
 const scope = (project: string, workspace: string) =>
@@ -60,6 +71,9 @@ export const fetchQueue = (project: string, workspace: string) =>
 
 export const fetchHeartStatus = (project: string) =>
   api<HeartStatus>(`/api/brain/heart/status?project=${encodeURIComponent(project)}`);
+
+/** Zápisy srdce v záznamu činnosti za rozsah (`query` z `heartStepsQuery`), nejnovější první. */
+export const fetchHeartSteps = (query: string) => api<{ entries: ActivityEntry[] }>(query).then((r) => r.entries);
 
 /** Připravený text pro srdce z jiné části aplikace (Kancelář, živý panel domény) a prostor, kterého se týká. */
 export type HeartRequest = { workspace: string; text: string };

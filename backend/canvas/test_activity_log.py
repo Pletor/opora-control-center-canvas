@@ -73,3 +73,25 @@ def test_paging_and_node_filter(tmp_path):
     assert len(second["entries"]) == 1 and second["nextBefore"] is None
     assert [e["nodeIds"] for e in only_a] == [["a"], ["a"]]
     assert bad.status_code == 409
+
+
+def test_agent_and_time_range_filter_heart_steps_of_one_batch(tmp_path):
+    app = create_app(tmp_path / "data")
+    with TestClient(app, base_url=ORIGIN) as client:
+        db = app.state.service.db
+        rows = [("2026-10-31T09:59:59.500000+00:00", "heart"), ("2026-10-31T10:00:00+00:00", "heart"),
+                ("2026-10-31T10:00:30.250000+00:00", "Claude Code (terminal)"),
+                ("2026-10-31T10:01:00.100000+00:00", "heart"), ("2026-10-31T10:02:01+00:00", "heart")]
+        for at, agent in rows:
+            db.execute("INSERT INTO activity_log(at,actor,agent,method,path,project_id,workspace_id,node_ids,"
+                       "status,summary) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                       (at, "agent", agent, "POST", "/api/brain/tasks", "draft", "draft", "[]", 201, ""))
+        db.commit()
+        since = client.get("/api/activity-log", params={**SCOPE, "agent": "heart",
+                                                         "since": "2026-10-31T10:00:00Z"}).json()["entries"]
+        batch = client.get("/api/activity-log", params={**SCOPE, "agent": "heart", "since": "2026-10-31T10:00:00Z",
+                                                         "until": "2026-10-31T11:01:30+01:00"}).json()["entries"]
+        bad = client.get("/api/activity-log", params={"since": "včera"})
+    assert [e["at"][11:19] for e in since] == ["10:02:01", "10:01:00", "10:00:00"]
+    assert [e["at"][11:19] for e in batch] == ["10:01:00", "10:00:00"]
+    assert bad.status_code == 409
