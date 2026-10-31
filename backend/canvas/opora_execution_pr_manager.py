@@ -7,6 +7,7 @@ deterministic, no model). Network never holds Canvas or SQLite locks; GitHub rat
 global cooldown. Configuration (environment):
   OPORA_EXECUTION_PR_WORKER=0             disables the loop entirely
   OPORA_EXECUTION_PR_DISCOVERY_SECONDS    discovery interval per project (default 300, 0 = off)
+  OPORA_REVIEW_SYNC_SECONDS               server-side review job enqueue interval per project (default 30, 0 = every tick)
   OPORA_CARD_AUTO_CLOSE_SECONDS           card close re-evaluation interval per project (default 30, 0 = every tick)"""
 import logging
 import os
@@ -20,6 +21,7 @@ from backend.canvas.opora_execution_pr_discovery import discover
 from backend.canvas.opora_execution_pr_enrollment import AUTH, HEALABLE
 from backend.canvas.opora_execution_pull_requests import ExecutionPullRequestLinks
 from backend.canvas.opora_formal_check_poll import poll as poll_formal_checks
+from backend.canvas.opora_review_sync_poll import poll as sync_review_jobs
 from backend.integrations.github_merge_transport import GitHubMergeError
 from database.repositories.opora_execution_pull_requests import ExecutionPullRequests
 
@@ -165,6 +167,7 @@ class ExecutionPullRequestManager:
                 self._enroll(project)
                 self._discover(project)
                 poll_formal_checks(self, project)
+                sync_review_jobs(self, project)
             except Stopped:
                 return
             except (ValueError, GitHubMergeError):
