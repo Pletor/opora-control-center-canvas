@@ -30,9 +30,15 @@ Modules (H1b):
   process status), read after the queue lock is released. `report` is the `report` handler: every check goes to
   `check_runs` (`CheckRuns.record`, scope `nodeId` or the task id, sha lowercased); all green = `done`, red = back
   to `ready` with `attempts + 1`, the second red = `failed`. Event `gate.task {taskId, status}` on create, assign,
-  done, failed and cancel.
+  done, failed and cancel. Sprints (`docs/navrhy/2026-10-31-sprinty-a-uspornost.md` §2): `for_worker` adds
+  `checkpoint` (`is_checkpoint`: no open task of the same sprint after it in queue order) and `sprint`
+  (`sprint_summary`: `{id, goal, milestone, done, total}`, `null` without a sprint), from the tasks of the sprint
+  (`HeartTaskStore.in_sprints`). A non-checkpoint task may report `deferred` checks (not written to `check_runs`);
+  a checkpoint with `deferred` is 422 `checkpoint_needs_checks`.
 - `task_payloads.py`: body checks of tasks and reports (`invalid_payload`, `invalid_sha`, `checks_required`); a task
-  body is filled to the fixed shape `{why, do, files, doneWhen, dontTouch, context, commit}`.
+  body is filled to the fixed shape `{why, do, files, doneWhen, dontTouch, context, commit}`; an optional
+  `sprint {id, goal?, milestone[]?}` stays only on the task that carries it; a check status is `green`, `red` or
+  `deferred`.
 - Worker client: `.claude/skills/opora-control-center/scripts/opora_gate.py` (reference `references/gate.md`).
 
 Modules (H1c, contract `docs/brain-control-api.md`):

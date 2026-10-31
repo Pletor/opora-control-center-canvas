@@ -118,6 +118,10 @@ H1b in detail (the task queue):
   Opus at about 55 % of the cost). The launcher (agent-office) starts the worker session with it. Tasks stored before
   the field existed read as `sonnet`.
   `title` and `do` are required.
+  Optional `sprint: {id, goal?, milestone[]?}` (`docs/navrhy/2026-10-31-sprinty-a-uspornost.md` §2): `id` a short
+  text (≤ 40 chars), `goal` one sentence, `milestone` the verifiable points of the sprint milestone; `goal` and
+  `milestone` on one task of the sprint are enough. It lives inside the JSON body (no table change); a task without it
+  keeps its body unchanged.
 - **Writing tasks.** Only a human, or later the heart, writes tasks:
   - `POST /api/brain/tasks {project, workspace, nodeId?, title, body}` → `201 task`;
   - `GET /api/brain/tasks?project&workspace&status?` lists tasks, reading is free;
@@ -125,11 +129,17 @@ H1b in detail (the task queue):
 - **`next`** (gate kind, deterministic). Body `{}`.
   - If the session already holds an `assigned` task, it gets the same task again (idempotent).
   - Otherwise it gets the oldest `ready` task, which becomes `assigned` to the session.
+  - The task carries `checkpoint` and `sprint`. `checkpoint: true` when no open (`ready`/`assigned`) task of the same
+    sprint follows it in queue order (`task_order`, `seq`); derived on read, nothing is stored, so a later task of the
+    sprint moves the checkpoint. A task without a sprint is its own sprint and always a checkpoint. `sprint` is
+    `{id, goal, milestone, done, total}` (goal and milestone from the first task of the sprint that has them, counts
+    over its non-cancelled tasks), `null` without a sprint. `state.myTask` has the same shape.
   - With an empty queue it gets `{task: null, plan}`. `plan` lists the open cards with `{id, name, stage}` from the
     existing agent state, at most 20.
   - A worker session whose token has expired loses its `assigned` task, which goes back to `ready` the next time
     anyone calls `next`.
-- **`report`** (gate kind, deterministic). Body `{taskId, sha, summary, checks: [{name, status: "green" | "red", output?}]}`.
+- **`report`** (gate kind, deterministic). Body `{taskId, sha, summary, checks: [{name, status: "green" | "red" |
+  "deferred", output?}]}`. `deferred` means "the sprint checkpoint will verify it".
   - The task must be `assigned` to this session.
   - `sha` must be 7–40 hex characters.
   - All checks green (a `done` report): the sha must exist as a commit in the workspace source repo
@@ -139,7 +149,12 @@ H1b in detail (the task queue):
     git cannot run, the sha is accepted as before. A report with a red check skips this (the work may not be
     committed).
   - `checks` must not be empty.
-  - Every check is written to `check_runs` (`CheckRuns.record`, scope `node_id`, otherwise the task id).
+  - A `deferred` check on a checkpoint task (including a task without a sprint) is 422 `checkpoint_needs_checks`:
+    the checkpoint reports real checks. A task that is not a checkpoint may report only `deferred` checks (the sha is
+    checked as for an all-green report) and becomes `done`; mixed with green/red checks, the deferred ones are
+    ignored by the rules below.
+  - Every green or red check is written to `check_runs` (`CheckRuns.record`, scope `node_id`, otherwise the task id);
+    `deferred` checks are kept only in the stored report.
   - All checks green: the task becomes `done`.
   - Any check red: `attempts += 1`, and the task goes back to `ready`. On the second red it becomes `failed`.
   - The answer is `{task: {id, status, attempts}}`.
@@ -157,7 +172,7 @@ H1b in detail (the task queue):
 - **Client** `.claude/skills/opora-control-center/scripts/opora_gate.py`, stdlib only:
   - commands: `session`, `next`, `ask`, `report`, `release`, `inbox`;
   - the token is kept in `<cwd>/.opora/gate.json`;
-  - `report --check "npm test=green"` can be repeated.
+  - `report --check "npm test=green"` can be repeated; `--check "npm test=deferred"` outside the sprint checkpoint.
 
 H1a2 in detail:
 - **Switch.** `settings.brain = {gate: bool, since?, by?}` lives in `project.json` next to `agentAutonomy`. Reading and

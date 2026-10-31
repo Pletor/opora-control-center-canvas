@@ -10,6 +10,11 @@ kanál doručení práce cards/gate před sekcí PLÁN, řádek DORUČENÍ, §3e
 `snapshot` k nim přidá posledních 10 commitů zdroje (sekce GIT, §4) a u git projektu pracovní prostory (sekce
 PROSTORY, §9 O7: doména, větev, karty volné/běží/hotové), `render` z nich bez dalšího čtení
 složí text. Stejná fakta = stejný text; nic tu nezávisí na čase ani náhodě.
+Sprinty fronty (sekce SPRINTY, docs/navrhy/2026-10-31-sprinty-a-uspornost.md §2): nejvýš `SPRINTS` posledních
+s cílem, počtem hotových úkolů a stavem kontrolního bodu.
+Pořadí sekcí (§3 téhož návrhu): stálé napřed (PROJEKT, ZÁMĚR, PRAVIDLA, ROZHODNUTÍ, DORUČENÍ, PLÁN, DÍLNA), pak
+VÝZKUM a ZPRÁVY ČLOVĚKA, proměnlivé na konec (FRONTA, SPRINTY, LÍSTKY, VSTUPY, POŽADAVKY, MILNÍKY, KONTROLY, GIT,
+PROSTORY, DENÍK); stálý začátek tak drží cache i v nové relaci.
 Každá část má vlastní strop počtu řádků a celý text se nakonec ořízne na `LIMIT` znaků.
 `view` složí ze stejných faktů kompaktní JSON pro druh brány `state` (docs/brain-control-api.md §2).
 """
@@ -20,7 +25,7 @@ import sqlite3
 from backend.brain_opora.determinism import brain_files, delivery, git_log, intake, milestones
 from database.repositories.intake_requirements import IntakeRequirements
 from backend.brain_opora.determinism.gate_payloads import GateError
-from backend.brain_opora.determinism.task_queue import for_worker, open_cards
+from backend.brain_opora.determinism.task_queue import for_worker, open_cards, sprint_of, sprint_summary
 from backend.canvas import card_gauge
 from backend.canvas import opora_agent_state_dag as dag_state
 from backend.canvas.architecture_graph import split
@@ -39,6 +44,7 @@ LIMIT = 12_000  # zhruba 4k tokenů
 PAGES = 20
 AREAS, SECTORS = 10, 20  # oblasti a sektory v sekci PLÁN (jejich ID bere `member` a `milestone`)
 TASKS = 10
+SPRINTS = 6  # nejvýš posledních sprintů v sekci SPRINTY
 TICKETS = 10
 CHECKS = 10
 TEXT = 160
@@ -279,6 +285,7 @@ def collect(service, project, workspace):
     with service.reading(project):
         db = service.db_for(project)
         tasks = HeartTaskStore(db, project).list(workspace)
+        sprint_tasks = HeartTaskStore(db, project).in_sprints(workspace)
         tickets = GateTicketStore(db, project).queued(workspace, TICKETS)
         checks = db.execute("SELECT scope_id, sha, status FROM check_runs WHERE project_id=? AND workspace_id=?"
                             " ORDER BY recorded_at DESC, scope_id LIMIT ?", (project, workspace, CHECKS)).fetchall()
@@ -290,7 +297,7 @@ def collect(service, project, workspace):
         channel = delivery.channel(db, project)
     runs = _runs(service, project, workspace, [card["id"] for card in cards])  # jen otevřené karty
     return {"delivery": channel, "runs": runs, "intake": entries, "milestones": reached, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
-            "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
+            "tasks": tasks, "sprintTasks": sprint_tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
 
@@ -386,17 +393,20 @@ def _section(head, rows):
     return [head, *(rows or ["- žádné"])]
 
 
-def _memory_lines(facts):
+def _message_lines(facts):
     messages = [f"- {entry.get('at') or '—'} {_short(entry.get('text'), MESSAGE_TEXT)}"
                 + (f" (přes {_short(entry['via'], 80)})" if isinstance(entry.get("via"), str) and entry["via"] else "")
                 for entry in (facts.get("messages") or [])[-MESSAGES:]]
+    return _section("ZPRÁVY ČLOVĚKA:", messages)
+
+
+def _memory_lines(facts):
     rules = [f"- {_short(rule.get('text'), 300)}" + ("" if _approved(rule) else " (návrh)")
              for rule in _project_rules(facts)[:RULES]]
     decisions = [f"- {'[připnuto] ' if item.get('pinned') is True else ''}{_short(item.get('text'), 300)}"
                  + (f" · karta {item['nodeId']}" if item.get("nodeId") else "")
                  + (f" · {item['path']}" if item.get("path") else "") for item in _decisions(facts)[:DECISIONS]]
-    return (_section("ZPRÁVY ČLOVĚKA:", messages) + _section("PRAVIDLA:", rules)
-            + _section("ROZHODNUTÍ:", decisions))
+    return _section("PRAVIDLA:", rules) + _section("ROZHODNUTÍ:", decisions)
 
 
 def _journal_lines(facts):
@@ -456,6 +466,41 @@ def _requirement_lines(facts):
     return ["POŽADAVKY:", *rows] if rows else []
 
 
+def _checkpoint_state(task):
+    """Stav kontrolního bodu sprintu: zelený (hotový), červený (důvod z červených kontrol posledního hlášení), čeká."""
+    if task is None:
+        return "čeká"
+    if task["status"] == "done":
+        return "zelený"
+    report = task.get("report") if isinstance(task.get("report"), dict) else {}
+    checks = report.get("checks") if isinstance(report.get("checks"), list) else []
+    red = [check for check in checks if isinstance(check, dict) and check.get("status") == "red"]
+    if not red:
+        return "čeká"
+    reason = "; ".join(str(check.get("name") or "?") + (f": {check['output']}" if check.get("output") else "")
+                       for check in red)
+    return f"červený ({_short(reason, 120)})"
+
+
+def _sprint_lines(facts):
+    """SPRINTY: nejvýš `SPRINTS` posledních sprintů (podle nejnovějšího úkolu) – id, cíl, hotovo d/t a stav kontrolního
+    bodu (poslední nezrušený úkol sprintu ve frontě). Fronta bez sprintů = bez sekce, ať snímek zůstane stejný."""
+    tasks = facts.get("sprintTasks") or []
+    newest = {}
+    for task in tasks:
+        sprint = sprint_of(task)
+        if sprint:
+            newest[sprint["id"]] = max(newest.get(sprint["id"], 0), task["seq"])
+    rows = []
+    for sprint_id in sorted(newest, key=lambda key: (newest[key], key), reverse=True)[:SPRINTS]:
+        summary = sprint_summary(sprint_id, tasks)
+        live = sorted((task for task in tasks if (sprint_of(task) or {}).get("id") == sprint_id
+                       and task["status"] != "cancelled"), key=lambda task: (task.get("order") or 0, task["seq"]))
+        rows.append(f"- {_short(sprint_id, 40)} – {_short(summary['goal'], 120) or '—'} – hotovo {summary['done']}/"
+                    f"{summary['total']} – kontrolní bod: {_checkpoint_state(live[-1] if live else None)}")
+    return ["SPRINTY:", *rows] if rows else []
+
+
 def _git_lines(facts):
     rows, size = [], 0
     for line in (facts.get("git") or [])[:GIT_COMMITS]:
@@ -485,20 +530,29 @@ def _space_lines(facts):
 
 
 def render(facts, limit=LIMIT):
-    """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
+    """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí.
+    Stálé části jsou napřed (cache), ořez od konce by ale vzal frontu a lístky: dlouhý snímek proto
+    nejdřív vynechá dílnu a výzkum (jdou dohledat nástrojem) a teprve pak se ořízne."""
+    text = _render(facts, extras=True)
+    if len(text) > limit:
+        text = _render(facts, extras=False)
+    return text if len(text) <= limit else text[: limit - len(CUT)] + CUT
+
+
+def _render(facts, extras):
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
              f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts),
              *([delivery.line(facts["delivery"])] if facts.get("delivery") else []), "PLÁN:", *_plan(facts),
-             "FRONTA ÚKOLŮ: " + _queue(facts)[0], *_queue(facts)[1:], "LÍSTKY ČEKAJÍCÍ:"]
+             *(_workshop_lines(facts) + _research_lines(facts) if extras else []), *_message_lines(facts),
+             "FRONTA ÚKOLŮ: " + _queue(facts)[0], *_queue(facts)[1:], *_sprint_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
     lines += _intake_lines(facts) + _requirement_lines(facts) + _milestone_lines(facts)
     lines.append("POSLEDNÍ KONTROLY:")
     lines += [f"- {scope} {sha[:12]} {status}" for scope, sha, status in facts["checks"][:CHECKS]] or ["- žádné"]
     lines += _git_lines(facts) + (_space_lines(facts) if facts.get("spaces") is not None else [])
-    lines += _journal_lines(facts) + _workshop_lines(facts) + _research_lines(facts)
-    text = "\n".join(lines)
-    return text if len(text) <= limit else text[: limit - len(CUT)] + CUT
+    lines += _journal_lines(facts)
+    return "\n".join(lines)
 
 
 def _rules(facts):
@@ -527,7 +581,7 @@ def view(facts, session_id=None):
     return {"project": {"id": facts["project"], "name": facts["name"], "workspace": facts["workspace"]},
             "intent": _intent(facts), "rules": _rules(facts), "plan": plan,
             "queue": {status: sum(task["status"] == status for task in facts["tasks"]) for status in QUEUE},
-            "myTask": for_worker(held) if held else None}
+            "myTask": for_worker(held, facts.get("sprintTasks") or ()) if held else None}
 
 
 def state(service, project, workspace, session_id=None):

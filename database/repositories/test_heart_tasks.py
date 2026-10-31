@@ -109,3 +109,14 @@ def test_order_column_is_added_to_a_table_from_h1b():
     ensure_order_column(connection)
     assert connection.execute("SELECT task_order FROM heart_tasks").fetchone()[0] == 0
     connection.close()
+
+
+def test_in_sprints_lists_tasks_of_sprints_in_queue_order(store):
+    store.insert("ht_1", "main", None, "Bez sprintu", {"do": "a"}, "human", AT)
+    store.insert("ht_2", "main", None, "S1 druhý", {"do": "b", "sprint": {"id": "S1"}}, "heart", AT, order=2)
+    store.insert("ht_3", "main", None, "S1 první", {"do": "c", "sprint": {"id": "S1", "goal": "g"}}, "heart", AT, order=1)
+    store.insert("ht_4", "main", None, "S2", {"do": "d", "sprint": {"id": "S2"}}, "heart", AT)
+    store.insert("ht_5", "w2", None, "Jinde", {"do": "e", "sprint": {"id": "S1"}}, "heart", AT)
+    assert [t["taskId"] for t in store.in_sprints("main")] == ["ht_4", "ht_3", "ht_2"]
+    assert [t["taskId"] for t in store.in_sprints("main", "S1")] == ["ht_3", "ht_2"]
+    assert store.in_sprints("main", "S9") == [] and HeartTaskStore(store.db, "p2").in_sprints("main") == []

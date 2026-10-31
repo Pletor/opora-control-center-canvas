@@ -3,6 +3,7 @@
     python opora_heart.py snapshot
     python opora_heart.py task --title T --do D [--why W] [--file F]… [--done-when C]… [--dont-touch P[@kdo]]…
                                [--rule R]… [--intent I] [--node N] [--order N] [--commit C] [--model M] [--workspace W]
+                               [--sprint ID [--sprint-goal TEXT] [--milestone TEXT]…]
     python opora_heart.py plan --file F [--dry-run] [--no-accept] [--workspace W]
     python opora_heart.py plan --example
     python opora_heart.py workspace --domain NODE [--reuse]
@@ -178,6 +179,13 @@ def task_payload(args):
     payload = {**scope(), "title": args.title, "body": {**body, "context": context}}
     if args.model:
         payload["body"]["model"] = args.model
+    if args.sprint:  # docs/navrhy/2026-10-31-sprinty-a-uspornost.md §2: cíl a milník stačí u jednoho úkolu sprintu
+        sprint = {"id": args.sprint}
+        if args.sprint_goal:
+            sprint["goal"] = args.sprint_goal
+        if args.milestone:
+            sprint["milestone"] = args.milestone
+        payload["body"]["sprint"] = sprint
     if args.node:
         payload["nodeId"] = args.node
     if args.order is not None:
@@ -995,6 +1003,9 @@ def parser():
         task.add_argument(flag)
     task.add_argument("--order", type=int)
     task.add_argument("--model", choices=("sonnet", "opus", "haiku", "fable"))
+    task.add_argument("--sprint")
+    task.add_argument("--sprint-goal")
+    task.add_argument("--milestone", action="append", default=[])
     task.add_argument("--workspace")
     plan = commands.add_parser("plan")
     plan.add_argument("--file")

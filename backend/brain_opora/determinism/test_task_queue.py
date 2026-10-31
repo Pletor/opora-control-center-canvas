@@ -193,3 +193,106 @@ def test_sha_is_accepted_without_a_git_source(service, tmp_path, monkeypatch):
     session = worker(service)
     task_queue.next_task(service, session, {})
     assert report(service, session, task["taskId"], GREEN)["task"]["status"] == "done"
+
+
+DEFERRED = [{"name": "npm test", "status": "deferred"}]
+
+
+def sprint_task(service, title, sprint, order=0):
+    payload = {"project": "draft", "workspace": "draft", "title": title, "order": order,
+               "body": {"do": title, "sprint": sprint}}
+    return task_queue.create(service, payload, created_by="heart")
+
+
+def test_task_body_keeps_a_valid_sprint_and_refuses_bad_shapes():
+    body = task_body({"do": "x", "sprint": {"id": " S1 ", "goal": "Základ.", "milestone": ["npm test projde"]}})
+    assert body["sprint"] == {"id": "S1", "goal": "Základ.", "milestone": ["npm test projde"]}
+    assert "sprint" not in task_body({"do": "x"})  # úkol bez sprintu má tělo jako dřív
+    for sprint in ({}, {"id": ""}, {"id": "x" * 41}, {"id": "S1", "goal": 1}, {"id": "S1", "milestone": "a"},
+                   {"id": "S1", "who": "?"}, "S1"):
+        with pytest.raises(GateError) as caught:
+            task_body({"do": "x", "sprint": sprint})
+        assert caught.value.code == "invalid_payload" and "sprint" in caught.value.hint
+
+
+def test_next_marks_the_checkpoint_and_counts_the_sprint(service):
+    first = sprint_task(service, "Základ", {"id": "S1", "goal": "Web stojí.", "milestone": ["npm run build projde"]})
+    last = sprint_task(service, "Patička", {"id": "S1"})
+    loose = create(service, "Bez sprintu")
+    session = worker(service)
+    got = task_queue.next_task(service, session, {})["task"]
+    assert got["id"] == first["taskId"] and got["checkpoint"] is False
+    assert got["sprint"] == {"id": "S1", "goal": "Web stojí.", "milestone": ["npm run build projde"], "done": 0,
+                             "total": 2}
+    assert report(service, session, first["taskId"], DEFERRED)["task"]["status"] == "done"
+    got = task_queue.next_task(service, session, {})["task"]
+    assert got["id"] == last["taskId"] and got["checkpoint"] is True and got["sprint"]["done"] == 1
+    assert report(service, session, last["taskId"], GREEN)["task"]["status"] == "done"
+    got = task_queue.next_task(service, session, {})["task"]
+    assert got["id"] == loose["taskId"] and got["checkpoint"] is True and got["sprint"] is None
+    # odložené kontroly se do check_runs nepíšou
+    runs = service.db_for("draft").execute("SELECT scope_id, status FROM check_runs ORDER BY recorded_at").fetchall()
+    assert [tuple(row) for row in runs] == [(last["taskId"], "green")]
+
+
+def test_a_later_task_of_the_sprint_moves_the_checkpoint(service):
+    held = sprint_task(service, "Jediný", {"id": "S1"})
+    session = worker(service)
+    assert task_queue.next_task(service, session, {})["task"]["checkpoint"] is True
+    later = sprint_task(service, "Doplněný", {"id": "S1"})
+    other = sprint_task(service, "Jiný sprint", {"id": "S2"})
+    got = task_queue.next_task(service, session, {})["task"]
+    assert got["id"] == held["taskId"] and got["checkpoint"] is False and got["sprint"]["total"] == 2
+    task_queue.cancel(service, "draft", later["taskId"], by="heart")
+    assert task_queue.next_task(service, session, {})["task"]["checkpoint"] is True
+    assert other["body"]["sprint"] == {"id": "S2"}
+
+
+def test_checkpoint_cannot_defer_checks_and_red_goes_back_to_ready(service):
+    sprint_task(service, "Úkol", {"id": "S1"})
+    loose = create(service, "Bez sprintu")
+    session = worker(service)
+    task = task_queue.next_task(service, session, {})["task"]
+    for checks in (DEFERRED, GREEN + DEFERRED):
+        with pytest.raises(GateError) as caught:
+            report(service, session, task["id"], checks)
+        assert caught.value.status == 422 and caught.value.code == "checkpoint_needs_checks" and caught.value.hint
+    assert service.db_for("draft").execute("SELECT COUNT(*) FROM check_runs").fetchone()[0] == 0
+    assert report(service, session, task["id"], RED)["task"] == {"id": task["id"], "status": "ready", "attempts": 1}
+    assert report(service, session, task_queue.next_task(service, session, {})["task"]["id"], GREEN)["task"]["status"] == "done"
+    assert task_queue.next_task(service, session, {})["task"]["id"] == loose["taskId"]
+    with pytest.raises(GateError) as caught:  # úkol bez sprintu je kontrolním bodem vždy
+        report(service, session, loose["taskId"], DEFERRED)
+    assert caught.value.code == "checkpoint_needs_checks"
+
+
+def test_non_checkpoint_mixes_deferred_with_real_checks(service):
+    first = sprint_task(service, "A", {"id": "S1"}, order=1)
+    sprint_task(service, "B", {"id": "S1"}, order=2)
+    session = worker(service)
+    assert task_queue.next_task(service, session, {})["task"]["id"] == first["taskId"]
+    assert report(service, session, first["taskId"], RED + DEFERRED)["task"]["status"] == "ready"
+    assert task_queue.next_task(service, session, {})["task"]["id"] == first["taskId"]
+    assert report(service, session, first["taskId"], GREEN + DEFERRED)["task"]["status"] == "done"
+    outcome = task_queue.list_tasks(service, "draft", "draft", "done")["tasks"][0]["report"]
+    assert outcome["checks"] == GREEN + DEFERRED  # hlášení drží i odložené kontroly
+
+
+def test_deferred_only_report_checks_the_sha_like_a_green_one(service, tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    (repo / "a.txt").write_text("a", encoding="utf-8")
+    git(repo, "add", "a.txt")
+    git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "a")
+    monkeypatch.setattr(task_queue, "source_root", lambda *args: repo)
+    first = sprint_task(service, "A", {"id": "S1"})
+    sprint_task(service, "B", {"id": "S1"})
+    session = worker(service)
+    task_queue.next_task(service, session, {})
+    body = {"taskId": first["taskId"], "summary": "s", "checks": DEFERRED}
+    with pytest.raises(GateError) as caught:
+        task_queue.report(service, session, {**body, "sha": "0000000"})
+    assert caught.value.code == "sha_unknown"
+    head = git(repo, "rev-parse", "HEAD")
+    assert task_queue.report(service, session, {**body, "sha": head[:9]})["task"]["status"] == "done"
