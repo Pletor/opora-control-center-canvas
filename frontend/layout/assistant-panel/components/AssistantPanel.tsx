@@ -10,12 +10,15 @@ import PanelNotice from "./PanelNotice";
 /** Kde panel právě je: projekt a pracovní prostor z App. */
 export type PanelScope = { projectId: string; workspace: string };
 
+/** Karta plátna pro jména v krocích srdce. */
+export type PanelNode = { id: string; name: string };
+
 /**
  * Rodič panelu Asistent: kanál člověka do srdce (docs/brain-heart-channel.md). Drží velikost
  * (uloženou jednou pro aplikaci), stav brány projektu a zkratku Esc; obsah je `HeartChannel`, který
- * dostane jen projekt, prostor a stav brány. Zavřený panel nic nevykreslí.
+ * dostane jen projekt, prostor, stav brány a karty plátna (jména). Zavřený panel nic nevykreslí.
  */
-export default function AssistantPanel({ open, scope, onClose }: { open: boolean; scope: PanelScope; onClose: () => void }) {
+export default function AssistantPanel({ open, scope, nodes, onClose }: { open: boolean; scope: PanelScope; nodes?: PanelNode[]; onClose: () => void }) {
   const [size, setSizeState] = useState<PanelSize>(() => readPrefs().size);
   const lastExpanded = useRef<PanelSize>(size === "full" ? "full" : "side");
   const root = useRef<HTMLElement>(null);
@@ -43,7 +46,7 @@ export default function AssistantPanel({ open, scope, onClose }: { open: boolean
   }
 
   const content = scope.projectId
-    ? <HeartChannel active={open} projectId={scope.projectId} workspace={scope.workspace} gateOn={gate.gateOn} gateFailure={gate.gateFailure} onEnableGate={gate.turnGateOn} />
+    ? <HeartChannel active={open} projectId={scope.projectId} workspace={scope.workspace} gateOn={gate.gateOn} gateFailure={gate.gateFailure} onEnableGate={gate.turnGateOn} nodes={nodes} />
     : <PanelNotice />;
 
   return (

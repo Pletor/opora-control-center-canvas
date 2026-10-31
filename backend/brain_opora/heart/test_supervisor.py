@@ -368,3 +368,21 @@ def test_card_triggers_run_on_first_read_after_events_at_most_once_a_minute_and_
     heart._cards("draft", set(), clock.now + supervisor.CARD_GAP + 1)  # bez události nic
     heart._cards("draft", set(), clock.now + supervisor.CARD_GAP + supervisor.CARD_POLL)
     assert calls == [None, {"w1"}, None]
+
+
+def test_status_shows_the_running_batch_with_its_inputs_and_clears_it_after(setup):
+    _, heart, _, _, _ = setup
+    seen = []
+
+    def watching(line, *, cwd, env, stdin_text, timeout):
+        seen.append(heart.status("draft")["current"])
+        return Outcome(0, json.dumps(OK), "")
+
+    heart.runner = watching
+    assert heart.status("draft")["current"] is None
+    heart.message("draft", "draft", "Přidej stránku kontaktů.")
+    assert heart.run_once() == ["draft"]
+    assert seen[0]["startedAt"] == "1970-01-12T13:46:40Z"
+    assert [(item["type"], item["text"]) for item in seen[0]["inputs"]] == [("message", "Přidej stránku kontaktů.")]
+    assert seen[0]["startedAt"] == heart.status("draft")["batches"][-1]["at"]  # stejný čas jako deník dávek
+    assert heart.status("draft")["current"] is None

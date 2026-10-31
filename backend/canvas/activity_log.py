@@ -8,6 +8,7 @@ Tabulka `activity_log` leží v registry.sqlite (schéma database/schema/project
 
 import json
 import re
+from datetime import UTC, datetime
 
 from backend.canvas.canvas_service import now
 
@@ -126,16 +127,24 @@ class ActivityLog:
                 "DELETE FROM activity_log WHERE id <= (SELECT MAX(id) FROM activity_log) - ?", (MAX_ROWS,))
             self.service.db.commit()
 
-    def list(self, *, project="", workspace="", actor="", node_id="", limit=DEFAULT_LIMIT, before=None):
+    def list(self, *, project="", workspace="", actor="", node_id="", limit=DEFAULT_LIMIT, before=None, agent="",
+             since="", until=""):
+        """Nejnovější první. `agent` = přesné jméno agenta (`heart`); `since` / `until` = časy ISO 8601 (i se `Z`),
+        rozsah `since <= at <= until` (kroky jedné dávky srdce, docs/navrhy/2026-10-31-viditelnost-srdce-a-karet.md)."""
         if actor and actor not in ACTORS:
             raise ValueError("actor musí být human, agent nebo unknown.")
         if type(limit) is not int or not 1 <= limit <= MAX_LIMIT:
             raise ValueError(f"limit musí být 1–{MAX_LIMIT}.")
         where, args = [], []
-        for column, value in (("project_id", project), ("workspace_id", workspace), ("actor", actor)):
+        columns = (("project_id", project), ("workspace_id", workspace), ("actor", actor), ("agent", agent))
+        for column, value in columns:
             if value:
                 where.append(f"{column}=?")
                 args.append(value)
+        for bound, value in ((">=", since), ("<=", until)):
+            if value:
+                where.append(f"at{bound}?")
+                args.append(_moment(value))
         if node_id:
             # `%` a `_` v ID jsou doslovné znaky, ne zástupné (upgrade-opora #41).
             escaped = node_id.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -149,6 +158,15 @@ class ActivityLog:
             rows = self.service.db.execute(sql + " ORDER BY id DESC LIMIT ?", (*args, limit + 1)).fetchall()
         entries = [_entry(row) for row in rows[:limit]]
         return {"entries": entries, "nextBefore": entries[-1]["id"] if len(rows) > limit else None}
+
+
+def _moment(value):
+    """Čas ISO 8601 v tvaru sloupce `at` (`datetime.isoformat()` v UTC), aby šel porovnat jako řetězec."""
+    try:
+        moment = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        raise ValueError("since / until musí být čas ISO 8601.") from None
+    return (moment if moment.tzinfo else moment.replace(tzinfo=UTC)).astimezone(UTC).isoformat()
 
 
 def _entry(row):

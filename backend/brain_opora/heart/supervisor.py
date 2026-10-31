@@ -86,6 +86,7 @@ class HeartSupervisor:
         self.pending, self.running, self.starts, self.cursors, self.tokens, self.errors = {}, set(), {}, {}, {}, {}
         self.sleeping_until, self.generation, self.polled_at = 0.0, None, float("-inf")
         self.card_at, self.card_dirty = {}, {}  # spouštěče karet: poslední vyhodnocení a prostory k vyhodnocení
+        self.current = {}  # běžící dávka projektu: {startedAt, inputs}, jen v paměti (kanál srdce „právě teď“)
 
     def start(self):
         if not enabled() or self.thread or self.stop.is_set():
@@ -395,6 +396,8 @@ class HeartSupervisor:
                 # do stropu se počítá až dávka, která opravdu běží (prázdná po `resolve` ne; sonda r1: 7. lístek čekal 53 min)
                 with self.lock:
                     self.starts.setdefault(project, deque()).append(self.clock())
+            with self.lock:
+                self.current[project] = {"startedAt": _iso_utc(self.clock()), "inputs": inputs}
             spec = batch.BatchSpec(brain=self.brain(project), claude=claude, base_url=self.base_url,
                                    token=self._token(project, workspace), project=project, workspace=workspace,
                                    snapshot=snapshot.snapshot(self.service, project, workspace), inputs=inputs,
@@ -411,22 +414,31 @@ class HeartSupervisor:
         finally:
             with self.lock:
                 self.running.discard(project)
+                self.current.pop(project, None)
             self.wakeup.set()
 
     def status(self, project, now=None):
-        """`GET /api/brain/heart/status`: relace, posledních 5 dávek, spánek, nejbližší povolený čas a `activeWorkspace`
-        (prostor posledního plánu, který srdce přijalo; docs/brain-heart-orchestrator.md §9)."""
+        """`GET /api/brain/heart/status`: relace, posledních 5 dávek, spánek, nejbližší povolený čas, `activeWorkspace`
+        (prostor posledního plánu, který srdce přijalo; docs/brain-heart-orchestrator.md §9) a `current` (běžící dávka
+        `{startedAt, inputs}`, jinak None; docs/navrhy/2026-10-31-viditelnost-srdce-a-karet.md §A)."""
         now = self.clock() if now is None else now
         brain = self.brain(project)
         with self.lock:
             pending = len(self.pending.get(project, []))
             running, allowed = project in self.running, self.next_allowed(project, now)
+            current = self.current.get(project) if running else None
         return {"project": project, "enabled": enabled() and self.thread is not None, "running": running,
                 "pending": pending, "session": session.load(brain), "batches": batch.read_journal(brain, 5),
                 "sleeping": self.sleeping_until > now, "sleepingUntil": _iso(self.sleeping_until),
                 "nextAllowedAt": _iso(allowed), "error": self.errors.get(project),
-                "gitError": self.git_errors.get(project), "activeWorkspace": brain_files.active_workspace(brain)}
+                "gitError": self.git_errors.get(project), "activeWorkspace": brain_files.active_workspace(brain),
+                "current": current}
 
 
 def _iso(moment):
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(moment)) if moment else None
+
+
+def _iso_utc(moment):
+    """Začátek dávky ve stejném tvaru jako `at` v deníku dávek (i pro čas 0 ve zkouškách)."""
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(moment))

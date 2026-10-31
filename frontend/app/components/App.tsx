@@ -1708,7 +1708,7 @@ export default function App() {
           </section>
         </div>
       )}
-      <AssistantPanel open={assistantOpen} scope={{ projectId: project, workspace }} onClose={() => setAssistantOpen(false)} />
+      <AssistantPanel open={assistantOpen} scope={{ projectId: project, workspace }} nodes={graph.nodes} onClose={() => setAssistantOpen(false)} />
     </div></SaveScopeProvider>
   );
 }

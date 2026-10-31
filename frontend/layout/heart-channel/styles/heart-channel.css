@@ -196,11 +196,16 @@
   list-style: none;
 }
 .heart-channel__batch {
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-1);
+}
+.heart-channel__batch-head {
   display: flex;
   gap: var(--sp-3);
   padding: 4px 0;
-  border-bottom: 1px solid var(--line);
-  font-size: var(--fs-1);
+}
+.heart-channel__batch-head--open {
+  cursor: pointer;
 }
 .heart-channel__batch-summary {
   flex: 1;
@@ -292,4 +297,62 @@
   border: 0;
   background: transparent;
   color: inherit;
+}
+
+/* Srdce právě teď: když pracuje, pod stavem stojí jedna věta, od kdy a co ho probudilo, a pod ní
+   jeho kroky jako krátký deník, nejnovější nahoře, aby člověk nemusel věřit naslepo. Deník je odsazený
+   tenkou akcentovou linkou, takže patří k běžící dávce a ne k historii pod ním. Stejný deník se otevře
+   i pod skončenou dávkou. Čas je tichý v pevné šířce, aby kroky lícovaly; jméno karty je tlumené za
+   větou a selhání má červený štítek, protože právě to člověk hledá první. */
+.heart-channel__live {
+  margin: 0 0 var(--sp-3);
+  padding-left: var(--sp-3);
+  border-left: 2px solid var(--accent);
+}
+.heart-channel__live-line {
+  margin: 0 0 var(--sp-1);
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+.heart-channel__steps {
+  margin: 0 0 var(--sp-2);
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-1);
+}
+.heart-channel__step {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: 2px 0;
+}
+.heart-channel__step-time {
+  flex: none;
+  min-width: 5ch;
+  color: var(--ink-muted);
+  font-family: var(--mono);
+}
+.heart-channel__step-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-2);
+}
+.heart-channel__step-cards {
+  color: var(--ink-muted);
+}
+.heart-channel__step-failed {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: var(--surface);
+  font-weight: 600;
+}
+.heart-channel__step--failed .heart-channel__step-text {
+  color: var(--danger);
+}
+.heart-channel__steps-empty {
+  margin: 0 0 var(--sp-2);
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
 }

@@ -1,4 +1,5 @@
-// Vazba kanálu Srdce na React a síť: eskalace, fronta úkolů a stav srdce jednoho pracovního prostoru.
+// Vazba kanálu Srdce na React a síť: eskalace, fronta úkolů, stav srdce jednoho pracovního prostoru
+// a při běžící dávce její zápisy v záznamu činnosti (`liveSteps`, od `current.startedAt`).
 // Načítá se sdíleným pollerem každé 4 s, jen když je kanál vidět (ve skryté záložce poller stojí).
 // Odpověď na eskalaci a zpráva srdci po úspěchu hned požádají o nové načtení. Volá ho jen HeartChannel.
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -7,12 +8,15 @@ import {
   answerEscalation,
   fetchEscalations,
   fetchHeartStatus,
+  fetchHeartSteps,
   fetchQueue,
   sendHeartMessage,
   type Escalation,
   type HeartStatus,
   type QueueTask,
 } from "./heart-api";
+import { heartStepsQuery } from "./heart-live";
+import type { ActivityEntry } from "@/editor/canvas/activity-log/logic/activity-log";
 
 const POLL_MS = 4000;
 
@@ -22,6 +26,8 @@ export type HeartChannelData = {
   escalations: Escalation[];
   tasks: QueueTask[];
   status: HeartStatus | null;
+  /** Zápisy srdce běžící dávky, nejnovější první; bez dávky prázdné. */
+  liveSteps: ActivityEntry[];
   loaded: boolean;
   failure: string;
   setFailure: (text: string) => void;
@@ -33,6 +39,7 @@ export function useHeartChannel(active: boolean, project: string, workspace: str
   const [escalations, setEscalations] = useState<Escalation[]>([]);
   const [tasks, setTasks] = useState<QueueTask[]>([]);
   const [status, setStatus] = useState<HeartStatus | null>(null);
+  const [liveSteps, setLiveSteps] = useState<ActivityEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [failure, setFailure] = useState("");
   const scopeKey = `${project}\n${workspace}`;
@@ -42,6 +49,7 @@ export function useHeartChannel(active: boolean, project: string, workspace: str
     setEscalations([]);
     setTasks([]);
     setStatus(null);
+    setLiveSteps([]);
     setLoaded(false);
   }, [scopeKey]);
 
@@ -49,11 +57,14 @@ export function useHeartChannel(active: boolean, project: string, workspace: str
   const poll = usePolling(() => {
     const asked = scopeKey;
     return Promise.all([fetchEscalations(project, workspace), fetchQueue(project, workspace), fetchHeartStatus(project)])
-      .then(([nextEscalations, nextTasks, nextStatus]) => {
+      .then(async ([nextEscalations, nextTasks, nextStatus]) => {
+        const since = nextStatus.current?.startedAt;
+        const nextSteps = since ? await fetchHeartSteps(heartStepsQuery(project, { since })) : [];
         if (scopeRef.current !== asked) return;
         setEscalations(nextEscalations);
         setTasks(nextTasks);
         setStatus(nextStatus);
+        setLiveSteps(nextSteps);
         setLoaded(true);
       })
       .catch((error) => { if (scopeRef.current === asked) setFailure(messageOf(error)); });
@@ -82,5 +93,5 @@ export function useHeartChannel(active: boolean, project: string, workspace: str
     }
   }, [project, workspace, poll]);
 
-  return { escalations, tasks, status, loaded, failure, setFailure, answer, send };
+  return { escalations, tasks, status, liveSteps, loaded, failure, setFailure, answer, send };
 }

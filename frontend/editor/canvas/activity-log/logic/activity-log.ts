@@ -35,6 +35,20 @@ const ACTION_LABELS: Record<string, string> = {
   "/api/canvas-plan": "Dávka plánu",
   "/api/canvas-versions/restore": "Obnova verze",
   "/api/canvas-versions": "Uložit vše",
+  "/api/desktop-v3/decision": "Rozhodnutí",
+  "/api/desktop-v3/rule": "Pravidlo",
+  "/api/brain/tasks": "Úkol do fronty",
+  "/api/brain/heart/ask": "Otázka pro vás",
+  "/api/brain/heart/escalate": "Otázka pro vás",
+  "/api/brain/heart/brief": "Spis požadavku",
+  "/api/brain/heart/intake": "Třídění vstupu",
+  "/api/brain/heart/milestone": "Návrh milníku",
+  "/api/intake/milestone": "Rozhodnutí o milníku",
+  "/api/gate/tickets": "Lístek brány",
+  "/api/project-architecture": "Architektura projektu",
+  "/api/oporahub/graph-proposals": "Návrh grafu",
+  "/api/oporahub/changesets": "Návrh změny zadání",
+  "/api/workspaces": "Nový prostor",
 };
 const PREFIXES = Object.keys(ACTION_LABELS).sort((a, b) => b.length - a.length);
 

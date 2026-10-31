@@ -25,7 +25,9 @@ The Srdce view is one column, in this order from the top:
    shows the title, the status and who holds the task. The row expands to the task's `do` and `doneWhen`. It is read
    only.
 3. **Heart:** the state in one line (sleeping, working, waiting until …, error) and the last 5 batches as summaries
-   with their cost.
+   with their cost. While a batch runs (`status.current`), a line "Pracuje od HH:MM · probudilo: …" and the heart's
+   writes since the batch start (activity log, `agent=heart`) follow, newest first; a finished batch expands to its
+   own writes (docs/navrhy/2026-10-31-viditelnost-srdce-a-karet.md §A).
 4. **Composer:** a message to the heart, either an intent, a change or a question. It is sent with
    `POST /api/brain/heart/messages`. While the heart works the composer stays enabled, and a new message waits for
    the next batch.
