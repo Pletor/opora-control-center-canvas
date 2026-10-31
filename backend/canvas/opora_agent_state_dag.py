@@ -2,8 +2,9 @@
 
 A card is unblocked when every `next` predecessor is merged + written back (OporaHub chain) or,
 for older data, confirmed done (`done.confirmed`). A blocked card's claim action is blocked with
-`blocked_by_predecessor`. Each `cards[]` entry gains `kind`, `layer`, `blockedBy`, `topoIndex`,
-`nextActionId` and `gate`. Pure over facts the caller collected under the project locks.
+`blocked_by_predecessor`. Each `cards[]` entry gains `kind`, `layer`, `order` (intended order or null),
+`blockedBy`, `topoIndex` (ties broken by `order`), `nextActionId` and `gate`. Pure over facts the caller
+collected under the project locks.
 """
 from backend.canvas import card_dag
 from backend.canvas import opora_agent_state_rules as rules
@@ -23,7 +24,8 @@ def facts(canvas, project, workspace, linked):
     satisfied = {key for key, value in stored.items() if value.get("done", {}).get("confirmed")}
     satisfied |= {item["cardId"] for item in linked or []
                   if item.get("cardId") and item["state"] == "merged" and item.get("planWrittenBack") is True}
-    order = card_dag.topo_order(nodes, pairs)
+    intended = {key: node["order"] for key, node in nodes.items() if "order" in node}
+    order = card_dag.topo_order(nodes, pairs, intended)
     return {"nodes": nodes, "blockedBy": card_dag.blocked_by(nodes, pairs, satisfied),
             "topoIndex": {key: index for index, key in enumerate(order)}}
 
@@ -55,6 +57,7 @@ def enrich(cards, dag, actions, reviewing):
         own = gates.get(key, {})
         gate = own.get(entry["executionId"]) or (own[min(own)] if own else None)
         result.append({**entry, "kind": effective_type(node), "layer": card_layer(node),
-                       "blockedBy": dag["blockedBy"].get(key, []), "topoIndex": dag["topoIndex"].get(key),
+                       "order": node.get("order"), "blockedBy": dag["blockedBy"].get(key, []),
+                       "topoIndex": dag["topoIndex"].get(key),
                        "nextActionId": action, "gate": gate_summary(gate)})
     return result

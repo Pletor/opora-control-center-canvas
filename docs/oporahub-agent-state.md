@@ -34,7 +34,7 @@ a router `backend/api/editor/opora_agent_state_routes.py`.
 | `decisions[]` | Nejvýše 3 rozhodnutí člověka `{id, kind, targetId, title, actionId}` |
 | `actions[]` | `{id, verb, method, path, targetId, preconditions, status, blockReason?, budget?, command?}`; `command` jen u `ready` akce: hotový řádek `opora_hub.py start --node N` (claim) nebo `opora_hub.py act --action-id ID`, `null` u akce, kterou klient sám neprovádí |
 | `gaps[]` | Známé nenapojené schopnosti `{id, stage, reason}` |
-| `cards[]` | Etapa karty `{nodeId, stage, health, reason, executionId, kind, layer, blockedBy, topoIndex, nextActionId, gate, lease, lastEventAt, pr?}`, nejvýše 100 na stránku, seřazené podle [důležitosti](#strop-a-stránkování-karet) a uvnitř podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)); `lastEventAt` je čas (`at`, ISO) nejnovější události karty v prostoru, `null` bez události |
+| `cards[]` | Etapa karty `{nodeId, stage, health, reason, executionId, kind, layer, order, blockedBy, topoIndex, nextActionId, gate, lease, lastEventAt, pr?}`, nejvýše 100 na stránku, seřazené podle [důležitosti](#strop-a-stránkování-karet) a uvnitř podle `nodeId` (viz [Etapa karty](#etapa-karty-cards) a [Graf karet](#graf-karet-dag)); `lastEventAt` je čas (`at`, ISO) nejnovější události karty v prostoru, `null` bez události |
 | `truncated` | `cards[]` neobsahuje všechny karty prostoru (další stránka existuje nebo `cardsOffset > 0`); `actions`, `decisions`, `stages` a `heads` jsou přesto vždy úplné |
 | `cardsTotal` | Počet všech karet (uzel, sektor) prostoru |
 | `cardsNextOffset` | Hodnota `cardsOffset` pro další stránku `cards[]`, `null` na poslední stránce |
@@ -138,7 +138,8 @@ Pole karty v `cards[]` (`backend/canvas/opora_agent_state_dag.py`):
 | `kind` | Typ workflow z předpony názvu (`research`, `prototype`, `grilling`, `task`, `gate`), jinak `null` |
 | `layer` | Uložená vrstva `card.layer` (`frontend` / `backend` / `database` / `library`), jinak `null` |
 | `blockedBy` | Seřazení předchůdci po `next`, kteří ještě nejsou hotoví: hotový = vazba PR `merged` s `planWrittenBack: true`, u starých dat `done.confirmed` |
-| `topoIndex` | Pořadí v topologickém řazení všech karet prostoru (Kahn, remízy podle id) |
+| `order` | Uložené pořadí karty podle záměru (`order` uzlu, celé číslo 1–9999, doporučeně fáze × 100 + pozice), jinak `null`. Není závislost: nic neblokuje |
+| `topoIndex` | Pořadí v topologickém řazení všech karet prostoru (Kahn, remízy podle `order`, karta bez něj jako 10000, pak podle id; vazby `next` mají přednost) |
 | `nextActionId` | `id` první akce (v pořadí `actions[]`), jejíž `targetId` je karta nebo běh její etapy; jinak `null` |
 | `gate` | `{status, rule}` brány review otevřeného PR karty (`rule` = kód pravidla podle priority etapy `review`, jinak první důvod brány), bez brány `null` |
 | `lease` | `{holder, expiresAt, epoch}` posledního běhu karty ve stavu `running` s termínem (pronájem nebo pevný konec rozpočtu) v budoucnosti; jinak `null`. `holder` = vlastník claimu, `expiresAt` ISO UTC (`backend/canvas/opora_agent_state_lease.py`) |

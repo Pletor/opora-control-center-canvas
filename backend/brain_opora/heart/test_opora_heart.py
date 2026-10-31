@@ -1,5 +1,6 @@
 """Nástroj srdce proti falešnému serveru: hlavičky, tvar úkolu, odpověď, zrušení, eskalace, paměť (`decide`, `rule`),
-`done`, chyby, dílna (`ctx`, `run`), dávka plánu s přijetím (`plan`) a návrh členství v oblasti (`member`)."""
+`done`, chyby, dílna (`ctx`, `run`), dávka plánu s přijetím (`plan`) a návrh členství v oblasti (`member`)
+a pořadí podle záměru (`order`)."""
 import json
 import os
 import subprocess
@@ -604,6 +605,66 @@ def test_member_dry_run_and_nothing_to_change_send_nothing(server, capsys):
 def test_member_validates_area_and_nodes_before_sending(server, capsys, argv, code):
     Handler.manifest, Handler.graph = "m1", MEMBER_GRAPH
     exit_code, out = run(capsys, "member", *argv)
+    assert exit_code == 1 and json.loads(out)["code"] == code
+    assert not [call for call in Handler.calls if call["method"] == "POST"]
+
+
+ORDER_GRAPH = {"nodes": [{"id": "a_pay", "kind": "area", "name": "Platby"},
+                         {"id": "s_core", "kind": "sector", "name": "Jádro", "order": 100},
+                         {"id": "n_card", "kind": "node", "name": "Karta", "order": 205},
+                         {"id": "n_done", "kind": "node", "name": "Už tam", "order": 102},
+                         {"id": "x_text", "kind": "text", "name": "Poznámka"}]}
+
+
+def test_order_sends_only_order_updates_and_leaves_acceptance_to_the_human(server, capsys):
+    Handler.manifest, Handler.graph = "m1", ORDER_GRAPH
+    code, out = run(capsys, "order", "--nodes", "n_card=101, s_core=none,n_done=102")
+    result = json.loads(out)
+    assert code == 0 and result["accepted"] is False and result["proposalId"] == "gp2"
+    assert result["changes"] == [{"id": "n_card", "from": 205, "to": 101}, {"id": "s_core", "from": 100, "to": None}]
+    assert result["unchanged"] == ["n_done"] and "člověk" in result["hint"]
+    posts = [call for call in Handler.calls if call["method"] == "POST"]
+    assert [call["path"] for call in posts] == ["/api/oporahub/graph-proposals"]  # žádné /accept
+    body = posts[0]["body"]
+    assert (body["parentRevision"], body["expectedGraphDigest"]) == ("r1", "gd")
+    assert body["plan"] == {"updateNodes": [{"id": "n_card", "fields": {"order": 101}},
+                                            {"id": "s_core", "fields": {"order": None}}]}
+
+
+def test_order_with_full_autonomy_accepts_only_its_own_proposal(server, capsys):
+    Handler.manifest, Handler.graph = "m1", ORDER_GRAPH
+    Handler.states = [{"autonomy": {"full": True}, "actions": [accept_action("gp_old"), accept_action("gp2")]}]
+    result = json.loads(run(capsys, "order", "--nodes", "n_card=101")[1])
+    assert result["accepted"] is True and result["proposalId"] == "gp2"
+    assert [call["path"] for call in Handler.calls if call["method"] == "POST"] == [
+        "/api/oporahub/graph-proposals", "/api/oporahub/graph-proposals/gp2/accept"]
+
+
+def test_order_dry_run_and_nothing_to_change_send_nothing(server, capsys):
+    Handler.manifest, Handler.graph = "m1", ORDER_GRAPH
+    result = json.loads(run(capsys, "order", "--nodes", "n_card=101", "--dry-run")[1])
+    assert result["dryRun"] is True and result["changes"] == [{"id": "n_card", "from": 205, "to": 101}]
+    assert "proposalId" not in result
+    result = json.loads(run(capsys, "order", "--nodes", "n_done=102")[1])
+    assert result["changes"] == [] and "proposalId" not in result
+    assert not [call for call in Handler.calls if call["method"] == "POST"]
+
+
+@pytest.mark.parametrize(("nodes", "code"), [
+    ("n_card=101,n_missing=102", "order_unknown_node"),
+    ("x_text=101", "order_kind"),
+    ("a_pay=101", "order_kind"),
+    ("n_card=0", "order_value"),
+    ("n_card=10000", "order_value"),
+    ("n_card=1.5", "order_value"),
+    ("n_card=-1", "order_value"),
+    ("n_card", "order_value"),
+    ("=101", "order_value"),
+    (" , ", "order_nodes"),
+])
+def test_order_validates_nodes_and_values_before_sending(server, capsys, nodes, code):
+    Handler.manifest, Handler.graph = "m1", ORDER_GRAPH
+    exit_code, out = run(capsys, "order", "--nodes", nodes)
     assert exit_code == 1 and json.loads(out)["code"] == code
     assert not [call for call in Handler.calls if call["method"] == "POST"]
 

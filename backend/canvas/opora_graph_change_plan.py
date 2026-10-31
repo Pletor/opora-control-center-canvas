@@ -2,38 +2,39 @@
 
 from copy import deepcopy
 
-from backend.canvas.graph import EDGE_CARRIES, valid_id
+from backend.canvas.graph import EDGE_CARRIES, NODE_ORDER_MAX, NODE_ORDER_MIN, valid_id
 from backend.canvas.opora_graph_build import validate_plan
 from backend.canvas.payload_errors import NextStep
 
-FIELDS = {"name", "purpose", "parentId", "sourceRef", "x", "y", "size", "memberOf"}
+FIELDS = {"name", "purpose", "parentId", "sourceRef", "x", "y", "size", "memberOf", "order"}
 EDIT_KEYS = {"updateNodes", "removeNodes", "updateEdges", "removeEdges"}
 EDGE_UPDATE_KEYS = {"id", "source", "target", "port"}
-# Úprava existujícího uzlu od srdce (docs/brain-heart-orchestrator.md §3): jen členství v oblasti (`member`).
+# Úprava existujícího uzlu od srdce (docs/brain-heart-orchestrator.md §3): jen členství v oblasti (`member`)
+# a pořadí podle záměru (`order`, docs/navrhy/2026-10-31-poradi-karty.md).
 # Přírůstky (`plan`) a odebrání (`unlink`, `prune`) jdou dál; ostatní pole uzlu a úpravy vazeb navrhuje člověk.
-HEART_NODE_FIELDS = {"memberOf"}
+HEART_NODE_FIELDS = {"memberOf", "order"}
 
 
 class HeartEditRefused(NextStep):
-    """Návrh grafu srdce mění víc než členství existujícího uzlu: HTTP 422 s `code` a `hint`."""
+    """Návrh grafu srdce mění víc než členství a pořadí existujícího uzlu: HTTP 422 s `code` a `hint`."""
 
     status = 422
 
 
 def heart_scope(plan):
-    """Hranice návrhu grafu od srdce: `updateNodes` jen s polem `memberOf`, žádné `updateEdges`.
+    """Hranice návrhu grafu od srdce: `updateNodes` jen s poli `memberOf` a `order`, žádné `updateEdges`.
     Tvar plánu dál ověřuje `normalize`; tady jde jen o to, co srdce smí měnit."""
     if not isinstance(plan, dict):
         return
-    hint = ("Srdce mění u existujícího uzlu jen členství v oblasti (memberOf, opora_heart.py member); jiné úpravy "
-            "uzlů a vazeb navrhuje člověk v UI.")
+    hint = ("Srdce mění u existujícího uzlu jen členství v oblasti (memberOf, opora_heart.py member) a pořadí "
+            "podle záměru (order, opora_heart.py order); jiné úpravy uzlů a vazeb navrhuje člověk v UI.")
     if plan.get("updateEdges"):
         raise HeartEditRefused("Srdce nesmí upravovat vazby (updateEdges).", code="heart_edit_scope", hint=hint)
     for item in plan.get("updateNodes") or []:
         fields = item.get("fields") if isinstance(item, dict) else None
         extra = sorted(set(fields) - HEART_NODE_FIELDS) if isinstance(fields, dict) else ["fields"]
         if extra:
-            raise HeartEditRefused(f"Srdce u existujícího uzlu mění jen memberOf, ne {', '.join(extra)}.",
+            raise HeartEditRefused(f"Srdce u existujícího uzlu mění jen memberOf a order, ne {', '.join(extra)}.",
                                    code="heart_edit_scope", hint=hint)
 
 
@@ -67,6 +68,10 @@ def normalize(plan):
                     raise ValueError("Parent references must be existing node identities.")
                 if "memberOf" in fields and fields["memberOf"] is not None and not valid_id(fields["memberOf"]):
                     raise ValueError("Membership references must be existing area identities or null.")
+                if "order" in fields and fields["order"] is not None and (
+                    type(fields["order"]) is not int or not NODE_ORDER_MIN <= fields["order"] <= NODE_ORDER_MAX
+                ):
+                    raise ValueError("Node order must be an integer 1–9999 or null.")
             elif item["port"] != "next" or not all(valid_id(item[field]) for field in ("source", "target")):
                 raise ValueError("Only plain next edge updates with existing references are supported.")
             elif "carries" in item and item["carries"] is not None and item["carries"] not in EDGE_CARRIES:
@@ -98,7 +103,7 @@ def apply(graph, plan):
             for key, value in fields.items():
                 if kind == "edges" and key == "port" and target.get("port", "next") == value:
                     continue
-                if key in ("sourceRef", "size", "memberOf", "carries") and value is None:
+                if key in ("sourceRef", "size", "memberOf", "order", "carries") and value is None:
                     target.pop(key, None)
                 else:
                     target[key] = deepcopy(value)

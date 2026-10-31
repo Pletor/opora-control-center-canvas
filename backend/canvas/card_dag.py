@@ -69,25 +69,32 @@ def check_save(before, after):
         raise CardCycleError(cycle)
 
 
-def topo_order(card_ids, pairs):
-    """Kahn's order with id tie-break; cards on a legacy cycle follow in id order."""
+def topo_order(card_ids, pairs, order=None):
+    """Kahn's order; a tie (cards ready in the same step) breaks by `order[card]` (intended order, 10000 when
+    absent), then by id. Edges keep precedence. Without `order` it is the plain id tie-break; cards on a
+    legacy cycle follow in the same key order."""
+    order = order or {}
+
+    def key(card):
+        return (order.get(card, 10000), card)
+
     cards = set(card_ids)
     pairs = [(s, t) for s, t in pairs if s in cards and t in cards]
     incoming = {card: 0 for card in cards}
     for _, target in pairs:
         incoming[target] += 1
     successors = _successors(pairs)
-    ready, order = sorted(card for card, count in incoming.items() if count == 0), []
+    ready, result = sorted((card for card, count in incoming.items() if count == 0), key=key), []
     while ready:
         current = ready.pop(0)
-        order.append(current)
+        result.append(current)
         for target in successors.get(current, []):
             incoming[target] -= 1
             if incoming[target] == 0:
                 ready.append(target)
-        ready.sort()
-    placed = set(order)
-    return order + sorted(cards - placed)
+        ready.sort(key=key)
+    placed = set(result)
+    return result + sorted(cards - placed, key=key)
 
 
 def blocked_by(card_ids, pairs, satisfied):

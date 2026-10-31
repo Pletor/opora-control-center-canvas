@@ -53,21 +53,21 @@ CARD_KEYS = set(CARD_VALUES) | {"due", "tech", "states", "section", "fetch", "fi
 # `memberOf` je nepovinné výslovné logické členství uzlu nebo sektoru v oblasti (H01, kontrakt
 # `docs/kontrakt-identity.md`): id oblasti se stejným rodičem. Oblast tím nezačne být rodičem a
 # geometrické `areaId` (`areas.area_of`) zůstává jen nápovědou plátna, ne členstvím.
-NODE_KEY_SETS = tuple(
-    keys | offsets | color | card | site | design | gate | checks | facts | realization | scenario | member
-    for keys in (NODE_KEYS, NODE_KEYS_WITH_SOURCE, NODE_KEYS_WITH_SIZE)
-    for offsets in (set(), {"blockOffsets"})
-    for color in (set(), {"color"})
-    for card in (set(), {"card"})
-    for site in (set(), {"site"})
-    for design in (set(), {"design"})
-    for gate in (set(), {"gateNodeId"})
-    for checks in (set(), {"checks"}, {"goal_mode"}, {"checks", "goal_mode"})
-    for facts in (set(), {"factRefs"})
-    for realization in (set(), {"realization"})
-    for scenario in (set(), {"scenario"})
-    for member in (set(), {"memberOf"})
-)
+# `order` je nepovinné pořadí uzlu nebo sektoru podle záměru (1–9999, doporučeně fáze × 100 + pozice,
+# `docs/navrhy/2026-10-31-poradi-karty.md`): jen láme remízu v pořadí karet, nikdy neblokuje jako vazba.
+NODE_ORDER_MIN, NODE_ORDER_MAX = 1, 9999
+# Uzel má právě jeden základ klíčů a k němu libovolnou podmnožinu nepovinných klíčů.
+NODE_BASE_KEY_SETS = (NODE_KEYS, NODE_KEYS_WITH_SOURCE, NODE_KEYS_WITH_SIZE)
+NODE_OPTIONAL_KEYS = {"blockOffsets", "color", "card", "site", "design", "gateNodeId", "checks", "goal_mode",
+                      "factRefs", "realization", "scenario", "memberOf", "order"}
+
+
+def valid_node_keys(keys):
+    """Klíče uzlu = jeden základ (`NODE_BASE_KEY_SETS`) a libovolná podmnožina `NODE_OPTIONAL_KEYS`."""
+    keys = set(keys)
+    return any(base <= keys and keys - base <= NODE_OPTIONAL_KEYS for base in NODE_BASE_KEY_SETS)
+
+
 EDGE_KEYS = {"id", "source", "target"}
 # Port karty, ze kterého vazba vede; chybějící port u starších vazeb znamená `next`.
 # `block` je tlačítko bloku: vazba pak povinně nese blok a port, ze kterého se táhne.
@@ -199,7 +199,7 @@ def validate_graph(value):
     ids = set()
     sources = {}
     for n in nodes:
-        if not isinstance(n, dict) or set(n) not in NODE_KEY_SETS:
+        if not isinstance(n, dict) or not valid_node_keys(n):
             raise ValueError("Neplatný uzel.")
         if not valid_id(n["id"]) or n["id"] in ids or n["kind"] not in ("node", "sector", "comment", "area"):
             raise ValueError("Neplatná identita nebo typ uzlu.")
@@ -256,6 +256,12 @@ def validate_graph(value):
             validate_card(n["card"])
         if "memberOf" in n and (n["kind"] not in ("node", "sector") or not valid_id(n["memberOf"])):
             raise ValueError("Členství v oblasti má jen uzel nebo sektor.")
+        if "order" in n and (
+            n["kind"] not in ("node", "sector")
+            or type(n["order"]) is not int
+            or not NODE_ORDER_MIN <= n["order"] <= NODE_ORDER_MAX
+        ):
+            raise ValueError("Pořadí podle záměru má jen uzel nebo sektor a je celé číslo 1–9999.")
         if (
             not isinstance(n["name"], str)
             or (n["kind"] != "area" and not n["name"].strip())

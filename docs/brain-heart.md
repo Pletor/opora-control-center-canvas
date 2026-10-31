@@ -339,6 +339,7 @@ An unreadable table counts as zero. The prompt part „Plán“ follows this lin
 | `escalate --text T` | records a question for the human: an `ask` ticket created by the heart, visible in the velín |
 | `done --summary S` | ends the batch; the summary goes to `batches.jsonl` |
 | `decide --text T [--node N] [--pin] [--workspace W]` | adds a decision to the workspace memory (`POST /api/desktop-v3/decision`) |
+| `order --nodes ID=101,ID=none,… [--dry-run] [--workspace W]` | orders existing cards and sectors by intent (node field `order` 1–9999, phase × 100 + position; `none` removes it) with a graph proposal `{updateNodes}` changing only `order`, accepted by the heart itself under `autonomy.full` like `member`. It only breaks ties in `topoIndex` and never blocks; a dependency stays a `next` edge (`docs/navrhy/2026-10-31-poradi-karty.md`) |
 | `rule --text T` | proposes an application rule (scope `project`, `by: agent`; the human approves) |
 | `ctx <name>` | loads large context into `brain/dilna/data/<name>.json` (§3b) |
 | `ctx plan-of --project P [--workspace W] [--full] [--node N]` | another project's plan: by default one line per node `id · path · name · stage` into `brain/dilna/data/plan-of-<P>.txt`; `--full` writes the full JSON (name, purpose, parent, sector, spec goal/acceptance/steps, `next`) into `plan-of-<P>.json` (needed by `rlm.load`), `--node N` the subtree, ≤ 300 kB; default workspace `main` (git) or `draft`; `GET /api/brain/heart/context?…&name=plan-of&of=P[&ofWorkspace=W]` (§9 O7) |

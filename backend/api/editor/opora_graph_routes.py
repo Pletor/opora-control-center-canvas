@@ -31,7 +31,7 @@ def create_opora_graph_router(service):
     @router.post("")
     def create(payload: dict, request: Request):
         if heart_project(request):
-            heart_scope(payload.get("plan"))  # srdce mění u existujícího uzlu jen memberOf (422 heart_edit_scope)
+            heart_scope(payload.get("plan"))  # srdce mění u existujícího uzlu jen memberOf a order (422 heart_edit_scope)
         return proposals.create(payload, author(request))
 
     @router.get("/{identifier}")

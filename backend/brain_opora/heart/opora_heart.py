@@ -18,6 +18,7 @@
     python opora_heart.py decide --text T [--node N] [--pin] [--workspace W]
     python opora_heart.py prune --node ID [--node ID]… [--dry-run] [--no-accept] [--workspace W]
     python opora_heart.py member --area AREA|none --nodes ID,ID… [--dry-run] [--workspace W]
+    python opora_heart.py order --nodes ID=101,ID=102|none,… [--dry-run] [--workspace W]
     python opora_heart.py proposal --accept ID
     python opora_heart.py steps --node ID --file F [--dry-run]
     python opora_heart.py rule --text T
@@ -51,7 +52,9 @@ hlásí `truncated` a `cut` (vynechané uzly).
 `member` navrhne členství existujících karet a sektorů v oblasti (`--area none` ho zruší) návrhem grafu
 s `updateNodes` jen pole `memberOf`; při `autonomy.full` (agent-state) ho srdce hned samo přijme (`accepted: true`),
 jinak čeká na přijetí člověkem v UI. `proposal --accept ID` přijme návrh grafu akcí `accept` z agent-state
-(úklid; bez autonomie `Rozhodne člověk v UI`). Zamítnutí návrhu server nemá: nahrazený novější návrh zmizí z nabídky sám.
+(úklid; bez autonomie `Rozhodne člověk v UI`). `order` stejně navrhne pořadí karet a sektorů podle záměru (pole `order`,
+fáze × 100 + pozice, `ID=none` ho odebere; docs/navrhy/2026-10-31-poradi-karty.md): láme remízu `topoIndex`,
+nikdy neblokuje jako vazba `next`. Zamítnutí návrhu server nemá: nahrazený novější návrh zmizí z nabídky sám.
 `steps` doplní existující kartě 2–8 kroků s `kind` a `files` (soubor `{steps, goal?, acceptance?}`) návrhem změny
 zadání (`/api/oporahub/changesets`, docs/oporahub-plan-steps.md); při `autonomy.full` ho přijme jako `member`.
 `brief` uloží syntézu výslechu požadavku (JSON v souboru `@cesta` nebo přímo) a vrátí `status` a co do jasna chybí
@@ -571,15 +574,21 @@ def submit_prune(args):
 MEMBER_KINDS = ("node", "sector")  # kdo smí nést memberOf (graph.validate_graph, H01)
 
 
+def known_nodes():
+    """Kontext návrhů grafu a uzly pracovního i přijatého grafu podle id (pracovní graf má přednost)."""
+    context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
+    graphs = [call("GET", "/api/view", query=scope())["graph"], context.get("acceptedGraph") or {"nodes": []}]
+    known = {}
+    for graph in reversed(graphs):  # pracovní graf má přednost (dnešní memberOf a order)
+        known.update({node["id"]: node for node in graph["nodes"]})
+    return context, known
+
+
 def submit_member(args):
     """`member`: návrh grafu `{updateNodes}` měnící u existujících karet a sektorů jen `memberOf` (oblast, nebo zrušení
     s `--area none`). Uzly hledá v pracovním i přijatém grafu jako `prune`. Návrh srdce nepřijímá: člověk ho přijme
     v UI stejnou cestou jako jiné návrhy grafu. Sektor stačí zařadit, jeho karty členství zdědí (docs/plan-lens.md)."""
-    context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
-    graphs = [call("GET", "/api/view", query=scope())["graph"], context.get("acceptedGraph") or {"nodes": []}]
-    known = {}
-    for graph in reversed(graphs):  # pracovní graf má přednost (dnešní memberOf)
-        known.update({node["id"]: node for node in graph["nodes"]})
+    context, known = known_nodes()
     area = None if args.area == "none" else args.area
     if area is not None and (known.get(area) or {}).get("kind") != "area":
         raise Failure({"error": f"{area} není oblast (kind area) tohoto prostoru.", "code": "member_area",
@@ -616,6 +625,66 @@ def submit_member(args):
             return {**out, "accepted": False, "code": failure.payload.get("code"), "error": failure.payload.get("error"),
                     "hint": "Přijetí návrhu členství selhalo; přijme ho člověk v UI."}
     return {**out, "accepted": False, "hint": "Návrh členství čeká na přijetí člověkem v UI (změny grafu)."}
+
+
+ORDER_MIN, ORDER_MAX = 1, 9999  # kopie graph.NODE_ORDER_*, nástroj je jen stdlib
+
+
+def order_pairs(text):
+    """`ID=101,ID2=none` → `{id: číslo nebo None}` v pořadí zápisu (pozdější zápis téhož ID vyhrává)."""
+    pairs = {}
+    for item in (part.strip() for part in text.split(",")):
+        if not item:
+            continue
+        node, sep, value = (piece.strip() for piece in item.partition("="))
+        if not sep or not node:
+            raise Failure({"error": f"Neplatný zápis {item!r}.", "code": "order_value",
+                           "hint": "--nodes ID=101,ID=102 (fáze × 100 + pozice), ID=none pořadí odebere."})
+        if value == "none":
+            pairs[node] = None
+            continue
+        if not (value.isascii() and value.isdigit()) or not ORDER_MIN <= int(value) <= ORDER_MAX:
+            raise Failure({"error": f"Pořadí {value!r} u {node} není celé číslo {ORDER_MIN}–{ORDER_MAX}.",
+                           "code": "order_value", "hint": "Zapiš fáze × 100 + pozice (101, 102, 201 …) nebo none."})
+        pairs[node] = int(value)
+    return pairs
+
+
+def submit_order(args):
+    """`order`: návrh grafu `{updateNodes}` měnící u existujících karet a sektorů jen `order` (pořadí podle záměru,
+    `ID=none` ho odebere). Tvar, chyby a přijetí jako `member`: pořadí jen láme remízu `topoIndex`, nic neblokuje
+    (docs/navrhy/2026-10-31-poradi-karty.md)."""
+    pairs = order_pairs(args.nodes)
+    if not pairs:
+        raise Failure({"error": "Chybí --nodes.", "code": "order_nodes", "hint": "--nodes id1=101,id2=102 (celá ID uzlů)."})
+    context, known = known_nodes()
+    unknown = [node for node in pairs if node not in known]
+    if unknown:
+        raise Failure({"error": f"Uzel {', '.join(unknown)} v prostoru není.", "code": "order_unknown_node",
+                       "hint": "Vezmi celá ID karet a sektorů z /api/view nebo snapshotu tohoto prostoru."})
+    wrong = [node for node in pairs if known[node].get("kind") not in MEMBER_KINDS]
+    if wrong:
+        raise Failure({"error": f"Pořadí má jen karta nebo sektor, ne {', '.join(wrong)}.",
+                       "code": "order_kind", "hint": "Řaď uzly kind node nebo sector."})
+    changes = [{"id": node, "from": known[node].get("order"), "to": value} for node, value in pairs.items()
+               if known[node].get("order") != value]
+    out = {"ok": True, "dryRun": bool(args.dry_run), "changes": changes,
+           "unchanged": [node for node in pairs if node not in {item["id"] for item in changes}], "path": "graph-proposal"}
+    if args.dry_run or not changes:
+        return out
+    plan = {"updateNodes": [{"id": item["id"], "fields": {"order": item["to"]}} for item in changes]}
+    proposal = call("POST", GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
+                                              "expectedGraphDigest": context["graphDigest"],
+                                              "subject": f"Srdce přeřadilo {len(changes)} uzlů podle záměru", "plan": plan})
+    out = {**out, "proposalId": proposal["id"]}
+    state = call("GET", "/api/oporahub/agent-state", query=scope())
+    if (state.get("autonomy") or {}).get("full"):  # plná autonomie: srdce přijme jen svůj vlastní návrh
+        try:
+            return {**out, **accept_proposal(proposal["id"])}
+        except Failure as failure:
+            return {**out, "accepted": False, "code": failure.payload.get("code"), "error": failure.payload.get("error"),
+                    "hint": "Přijetí návrhu pořadí selhalo; přijme ho člověk v UI."}
+    return {**out, "accepted": False, "hint": "Návrh pořadí čeká na přijetí člověkem v UI (změny grafu)."}
 
 
 # Realizační karta (prompt.md část Plán, docs/navrhy/2026-10-30-metriky-a-spoustece.md): 2–8 kroků s `kind` a `files`.
@@ -910,7 +979,7 @@ def run(args):
         return read_skill(args.name)
     project = env("OPORA_PROJECT")
     # `--workspace` jen u plan, task a decide; u ctx je to prostor cizího plánu (plan-of), ne přepis prostoru srdce
-    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "prune", "member", "research", "duel") else None
+    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "prune", "member", "order", "research", "duel") else None
     if args.command in ("research", "duel") and not _override["workspace"] and os.environ.get("OPORA_WORKSPACE") == "main":
         _override["workspace"] = active_workspace()  # schránka v main neexistuje (read-only): výzkum jde do prostoru posledního plánu
     if args.command == "ctx":
@@ -932,6 +1001,8 @@ def run(args):
         return submit_prune(args)
     if args.command == "member":
         return submit_member(args)
+    if args.command == "order":
+        return submit_order(args)
     if args.command == "proposal":
         return accept_proposal(args.accept)
     if args.command == "steps":
@@ -1018,6 +1089,10 @@ def parser():
     member.add_argument("--nodes", required=True, help="id1,id2,… karet a sektorů")
     member.add_argument("--dry-run", action="store_true")
     member.add_argument("--workspace")
+    order = commands.add_parser("order")  # pořadí existujících uzlů podle záměru, ne vazba next
+    order.add_argument("--nodes", required=True, help="id1=101,id2=102,… (fáze × 100 + pozice), id=none odebere")
+    order.add_argument("--dry-run", action="store_true")
+    order.add_argument("--workspace")
     proposal = commands.add_parser("proposal")  # přijetí návrhu grafu z agent-state, jen při plné autonomii
     proposal.add_argument("--accept", required=True, metavar="ID")
     steps = commands.add_parser("steps")  # kroky existující karty návrhem zadání (krátký výslech karty)
