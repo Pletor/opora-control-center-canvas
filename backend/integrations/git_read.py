@@ -90,6 +90,11 @@ def _trailers(block):
     return found
 
 
+def changed_paths(root, sha):
+    """Cesty změněné commitem (`git show --name-only`); prázdné pole i u neznámé revize."""
+    return _changed_paths(root, sha)
+
+
 def _changed_paths(root, sha):
     listing = _read(root, "show", "--name-only", "--format=", str(sha))
     if not listing:

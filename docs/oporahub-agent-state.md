@@ -121,6 +121,10 @@ Zbytek agent dočte parametrem `cardsOffset=<cardsNextOffset>` (celé číslo `>
 stejný snímek akcí, jen další okno `cards[]`. Každá stránka má vlastní ETag (tělo se liší), takže
 `If-None-Match` platí per stránka. Mezi stránkami se může stav změnit; rozhoduje vždy `actions[]`.
 
+Stopu práce jedné karty (běhy dělníků s kroky a důkazy, poslední změny, zprávy na vazbách, příznaky
+„potřebuje úsudek“) agent-state nenese; čte se zvlášť přes `GET /api/oporahub/card-trail`, viz
+[stopa-prace-karty.md](stopa-prace-karty.md).
+
 ## Graf karet (DAG)
 
 Vazby `next` (port chybí nebo je `next`) mezi kartami (uzel, sektor) tvoří orientovaný acyklický

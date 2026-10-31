@@ -64,6 +64,12 @@ class HeartTaskStore:
         rows = self.db.execute(query + " ORDER BY seq LIMIT ?", (*args, limit)).fetchall()
         return [public(row) for row in rows]
 
+    def for_node(self, workspace, node, limit=10):
+        """Nejnovějších `limit` úkolů jedné karty, nejnovější první (stopa práce karty)."""
+        rows = self.db.execute(SELECT + " WHERE project_id=? AND workspace_id=? AND node_id=? ORDER BY seq DESC LIMIT ?",
+                               (self.project, workspace, node, limit)).fetchall()
+        return [public(row) for row in rows]
+
     def held_by(self, session_id):
         """Úkol, který relace právě drží (`assigned`), nebo None."""
         return public(self.db.execute(SELECT + " WHERE project_id=? AND session_id=? AND status='assigned'"
