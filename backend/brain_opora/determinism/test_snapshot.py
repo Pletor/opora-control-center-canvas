@@ -348,6 +348,30 @@ def test_plan_puts_cards_with_work_before_the_cap():
     assert plan[1].startswith("- Blokovaná · blk · ready · blokovaná") and plan[2].startswith("- Architektura 0 · c0")
 
 
+def test_milestones_section_lists_active_milestones_with_full_id_and_criteria():
+    active = {"id": "ms_262a0cc0", "title": "Obrazovka 501", "areaId": "a_import", "done": False,
+              "criteria": [{"id": "c1", "text": "Formulář", "done": True, "cards": [{"id": "n_form", "done": True}]},
+                           {"id": "c2", "text": "Export", "done": False,
+                            "cards": [{"id": "n_exp", "done": False}, {"id": "n_csv", "done": False}]}]}
+    text = snapshot.render({**FACTS, "work": {}, "active_milestones": [active]})
+    assert ("MILNÍKY:\n- milník ms_262a0cc0 „Obrazovka 501“ aktivní · oblast a_import · kritéria 1/2: "
+            "c1 hotovo (n_form); c2 čeká (n_exp, n_csv)") in text
+    assert "MILNÍKY:" not in snapshot.render({**FACTS, "work": {}})
+
+
+def test_collect_reads_active_milestones_of_the_workspace(service):
+    from database.repositories.intake_milestones import IntakeMilestones
+    db = service.db_for("draft")
+    with db:
+        IntakeMilestones(db).insert({"id": "ms_1", "workspaceId": "draft", "areaId": "a1", "title": "Hledání",
+                                     "criteria": [{"id": "c1", "text": "Pole", "cards": ["n1"]}],
+                                     "status": "proposed", "createdAt": "t0"})
+        IntakeMilestones(db).activate("ms_1")
+    facts = snapshot.collect(service, "draft", "draft")
+    assert [item["id"] for item in facts["active_milestones"]] == ["ms_1"]
+    assert "- milník ms_1 „Hledání“ aktivní · oblast a1 · kritéria 0/1: c1 čeká (n1)" in snapshot.render(facts)
+
+
 def test_collect_lists_areas_and_sectors_of_the_canvas(service):
     view = service.view("draft", "draft")
     graph = {"nodes": [{"id": "ar", "parentId": None, "kind": "area", "name": "Oblast", "purpose": "", "x": 0, "y": 0,
