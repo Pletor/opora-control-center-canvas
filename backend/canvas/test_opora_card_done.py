@@ -37,21 +37,26 @@ def test_gate_ready_by_mode():
 
 
 def test_merged_pr_gate_ignores_only_the_pre_merge_freshness_of_its_head():
-    """Base freshness is observed for open PRs alone: after the merge it freezes, ages out and main contains the
-    merge commit. Ample #37 / #40 stood at `review` with only these reasons; other reasons keep holding."""
+    """Pre-merge reasons are moot once merged: base freshness (observed for open PRs alone) and human approvals with
+    their GitHub evidence (Ample #35-#40). Review not done, self-checks and findings keep holding."""
     stale = {"status": "pending", "reasons": ["stale_against_main"]}
     unobserved = {"status": "pending", "reasons": ["base_freshness_unobserved"]}
     approvals = {"status": "pending", "reasons": ["human_approvals_missing", "github_evidence_missing",
                                                    "base_freshness_unobserved"]}
     assert merged_gate(stale, True)["status"] == "ready" and merged_gate(unobserved, True)["status"] == "ready"
     assert merged_gate(stale, False) == stale  # an open PR behind main is not ready
-    assert merged_gate(approvals, True) == approvals
+    assert merged_gate(approvals, True)["status"] == "ready"
+    assert merged_gate(approvals, False) == approvals  # before the merge the approvals config holds
+    unreviewed = {"status": "pending", "reasons": ["review_not_enqueued", "human_approvals_missing",
+                                                    "self_checks_missing", "base_freshness_unobserved"]}
+    assert merged_gate(unreviewed, True) == unreviewed  # Ample #22
     assert merged_gate({"status": "blocked", "reasons": ["stale_against_main"]}, True)["status"] == "blocked"
     assert merged_gate(None, True) is None
     link = {"cardId": "a", "state": "merged", "executionId": "1", "planWrittenBack": True}
     card = {"steps": {"total": 1, "done": 1}, "acceptanceEvidence": True}
     assert card_done_state(facts(card, link, {"reviewGate": stale}))["missing"] == ["human_close"]
-    assert card_done_state(facts(card, link, {"reviewGate": approvals}))["missing"] == ["gate_ready", "human_close"]
+    assert card_done_state(facts(card, link, {"reviewGate": approvals}))["missing"] == ["human_close"]
+    assert card_done_state(facts(card, link, {"reviewGate": unreviewed}))["missing"] == ["gate_ready", "human_close"]
     assert card_done_state(facts(card, {**link, "state": "open", "planWrittenBack": False}, {"reviewGate": stale}))["missing"] == [
         "gate_ready", "merged", "plan_written_back", "human_close"]
 

@@ -141,8 +141,10 @@ druh brány `gate` (`review` / `external` / `local`), `done`, `missing` a při n
 - U **sloučené** vazby v režimu `review` se nepočítá svěžest hlavy vůči main z fronty merge
   (`base_freshness_unobserved`, `stale_against_main`): pozorování základu běží jen nad otevřenými PR, po sloučení
   zamrzne a stárne, a main po sloučení vždy obsahuje commit sloučení. Brána sloučené vazby, kterou drží jen tyto dva
-  důvody, je pro `gate_ready` `ready`. Ostatní důvody (chybějící schválení člověkem, otevřené nálezy, nedoběhlé
-  review, vlastní kontroly) platí dál i po sloučení.
+  důvody, je pro `gate_ready` `ready`. Totéž platí pro `human_approvals_missing` a `github_evidence_missing`
+  (rozhodnutí 2026-10-31: u sloučeného PR je předslučovací podmínka schválení bezpředmětná; konfigurace schválení
+  před sloučením platí dál). Ostatní důvody (otevřené nálezy, nedoběhlé review `review_not_enqueued`, vlastní
+  kontroly `self_checks_missing`) platí dál i po sloučení.
 - Třetí režim `"local"` má projekt bez vazby na GitHub ([lokální sloučení](lokalni-slouceni.md)): `merged`
   a `plan_written_back` vznikají z `POST /api/oporahub/executions/{executionId}/local-merge` a `gate_ready` =
   sloučeno + poslední běh kontrol karty na sloučeném commitu je zelený (karta bez kontrol: jen sloučeno).
