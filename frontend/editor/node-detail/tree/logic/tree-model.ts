@@ -1,6 +1,6 @@
-// Čistý model stromu obsahu uzlu: číslování bloků podle rodiče a pořadí, přesuny, větve, mutace stavu.
+// Čistý model stromu obsahu uzlu: číslování bloků podle rodiče a pořadí, přesuny, porty, uzavření karty.
 // Bez Reactu; testuje se samostatně. Komponenty stromu jen volají tyto funkce a bublají události.
-import type { Block, BlockPortDef, Branch, BranchKind, DesktopState, ImageRef, NodeDone, NodeWorkflowFull, Todo } from "@/shared/desktop-state/logic/types";
+import type { Block, BlockPortDef, Branch, DesktopState, NodeDone, NodeWorkflowFull } from "@/shared/desktop-state/logic/types";
 import { blockPorts, emptyBranch, MAX_BLOCK_PORT_LABEL, MAX_BLOCK_PORTS, nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
 
 export function newId(): string {
@@ -63,10 +63,6 @@ export function ordered(blocks: Block[]): { block: Block; depth: number }[] {
     .map((block) => ({ block, depth: block.number.split(".").length - 1 }));
 }
 
-export function childrenOf(blocks: Block[], parentId: string): Block[] {
-  return blocks.filter((b) => b.parentBlockId === parentId);
-}
-
 function withBlocks(state: DesktopState, nodeId: string, fn: (blocks: Block[], node: NodeWorkflowFull) => Block[]): DesktopState {
   const node = nodeWorkflowOf(state, nodeId);
   return { ...state, nodes: { ...state.nodes, [nodeId]: { ...node, blocks: renumber(fn(node.blocks, node)) } } };
@@ -108,30 +104,6 @@ export const removeBlock = (nodeId: string, blockId: string) => (state: DesktopS
       .map((b) => ({ ...b, state: { ...b.state, onMet: clean(b.state.onMet), onUnmet: clean(b.state.onUnmet) } }));
   });
 
-export const addTodo = (nodeId: string, blockId: string, text: string, assignee = "") =>
-  updateBlockWith(nodeId, blockId, (b) => ({ todos: b.todos.concat([{ id: newId(), text, done: false, assignee }]) }));
-
-export const toggleTodo = (nodeId: string, blockId: string, todoId: string) =>
-  updateBlockWith(nodeId, blockId, (b) => ({ todos: b.todos.map((t) => (t.id === todoId ? { ...t, done: !t.done } : t)) }));
-
-export const removeTodo = (nodeId: string, blockId: string, todoId: string) =>
-  updateBlockWith(nodeId, blockId, (b) => ({ todos: b.todos.filter((t) => t.id !== todoId) }));
-
-export const addTag = (nodeId: string, blockId: string, tag: string) =>
-  updateBlockWith(nodeId, blockId, (b) => ({ tags: b.tags.includes(tag) ? b.tags : b.tags.concat([tag]) }));
-
-export const removeTag = (nodeId: string, blockId: string, tag: string) =>
-  updateBlockWith(nodeId, blockId, (b) => ({ tags: b.tags.filter((t) => t !== tag) }));
-
-export const addImage = (nodeId: string, blockId: string, path: string, caption = "") =>
-  updateBlockWith(nodeId, blockId, (b) => ({ images: b.images.concat([{ id: newId(), path, caption }]) }));
-
-export const removeImage = (nodeId: string, blockId: string, imageId: string) =>
-  updateBlockWith(nodeId, blockId, (b) => ({ images: b.images.filter((i) => i.id !== imageId) }));
-
-export const setBranch = (nodeId: string, blockId: string, via: "onMet" | "onUnmet", branch: Branch) =>
-  updateBlockWith(nodeId, blockId, (b) => ({ state: { ...b.state, [via]: branch } }));
-
 /** Popisek portu: oříznutý na 80 znaků; prázdný dostane pořadové „Port N“, aby tlačítko nikdy nebylo bezejmenné. */
 function portLabel(label: string, index: number): string {
   const value = label.trim().slice(0, MAX_BLOCK_PORT_LABEL);
@@ -155,13 +127,6 @@ export const renameBlockPort = (nodeId: string, blockId: string, portId: string,
 export const removeBlockPort = (nodeId: string, blockId: string, portId: string) =>
   updateBlockWith(nodeId, blockId, (b) => ({ ports: blockPorts(b).filter((p) => p.id !== portId) }));
 
-export const setPortSpawn = (nodeId: string, blockId: string, portId: string, action: BlockPortDef["onMet"]) =>
-  updateBlockWith(nodeId, blockId, b => ({ ports: blockPorts(b).map(p => {
-    if (p.id !== portId) return p;
-    const { onMet: _previous, ...base } = p;
-    return action ? { ...base, onMet: action } : base;
-  }) }));
-
 export const decideBlockPort = (nodeId: string, blockId: string, portId: string, status: "chosen" | "rejected" | "", reason: string) =>
   updateBlockWith(nodeId, blockId, (b) => ({ ports: blockPorts(b).map(p => {
     if (p.id !== portId || (status && !reason.trim())) return p;
@@ -183,21 +148,4 @@ function updateBlockWith(nodeId: string, blockId: string, fn: (b: Block) => Part
   return (state: DesktopState) => withBlocks(state, nodeId, (blocks) => blocks.map((b) => (b.id === blockId ? { ...b, ...fn(b) } : b)));
 }
 
-export type BranchTarget = { kind: Exclude<BranchKind, "none">; id: string; label: string };
-
-/** Nabídka cílů větve: jiné bloky uzlu, uzly grafu, akce uzlu. Blok sám sobě cílem není. */
-export function branchTargets(node: NodeWorkflowFull, blockId: string, graphNodes: { id: string; name: string }[]): BranchTarget[] {
-  return [
-    ...ordered(node.blocks).filter(({ block }) => block.id !== blockId).map(({ block }) => ({ kind: "block" as const, id: block.id, label: `${block.number} ${block.title}` })),
-    ...graphNodes.map((n) => ({ kind: "node" as const, id: n.id, label: n.name })),
-    ...node.actions.map((a) => ({ kind: "action" as const, id: a.id, label: a.label })),
-  ];
-}
-
-export function branchLabel(branch: Branch, targets: BranchTarget[]): string {
-  if (branch.kind === "none") return "nic dalšího";
-  const target = targets.find((t) => t.kind === branch.kind && t.id === branch.targetId);
-  return target ? `${branch.kind === "block" ? "blok" : branch.kind === "node" ? "uzel" : "akce"}: ${target.label}` : `${branch.kind}: ${branch.targetId}`;
-}
-
-export type { Block, BlockPortDef, Todo, ImageRef, Branch, NodeDone };
+export type { Block, BlockPortDef, Branch, NodeDone };

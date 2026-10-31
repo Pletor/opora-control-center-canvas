@@ -64,7 +64,6 @@ function useCardHandlers(actions: CardActions, id: string) {
       renamePort: (blockId, portId, label) => block({ type: "rename-port", blockId, portId, label }),
       removePort: (blockId, portId) => block({ type: "remove-port", blockId, portId }),
       decidePort: (blockId, portId, status, reason) => block({ type: "decide-port", blockId, portId, status, reason }),
-      configureSpawn: (blockId, portId, action) => block({ type: "configure-spawn", blockId, portId, action }),
     };
     return {
       blocks,

@@ -22,6 +22,10 @@
 }
 .node-library--open { transform: translateX(0); visibility: visible; transition: transform 0.22s ease; }
 
+/* Boční menu bloku nese stopu práce karty (kroky, relace, commity, soubory); 360 px, aby se cesta souboru
+   a řádek kroku vešly na jeden řádek a sloupec četl jako inspektor, ne jako úzký seznam. */
+.node-library--wide { width: 360px; }
+
 /* Hlava: jméno karty, ke které panel patří, a křížek, kdyby uživatel chtěl panel zavřít bez změny výběru. */
 .node-library__head {
   display: flex;

@@ -1,7 +1,7 @@
 // Porty bloku: pod řádkem bloku stojí řada tlačítek jako v chat-builderu. Každé nese popisek a na pravé
 // hraně karty kuličku — zdrojový úchyt React Flow s id `block:<blockId>:<portId>`, ze kterého se táhne
 // vazba na jinou kartu. Dílek nic neukládá; přidání, přejmenování i odebrání bublá nahoru do rodiče.
-// Úroveň detailu (oprava 4 v docs/navrhy/2026-10-14-vykon-platna.md): editory rozhodnutí a navazující karty,
+// Úroveň detailu (oprava 4 v docs/navrhy/2026-10-14-vykon-platna.md): editor rozhodnutí,
 // odebrání a „+ port“ má jen vybraná karta (`full`); nevybraná (`row`) kreslí popisek a kuličku, oddálená
 // (`far`) jen popisek a kuličku bez tlačítka. Kulička (`Handle`) zůstává ve všech úrovních, jinak by se
 // vazby z portu neměly kam připojit. Editor, který je po zrušení výběru rozepsaný (`data-dirty`) nebo má
@@ -15,13 +15,11 @@ import PortHandle from "@/shared/flow-ports/components/PortHandle";
 import { blockHandleId } from "@/shared/types/logic/types";
 import { MAX_BLOCK_PORTS, type BlockPortDef } from "@/shared/desktop-state/logic/types";
 import PortDecisionEditor from "./PortDecisionEditor";
-import PortSpawnEditor from "./PortSpawnEditor";
 import { useAddedPulse } from "../logic/use-added-pulse";
 import { portEditorsShown } from "../logic/card-lod";
 import { clearDraft, draftKey, readDraft, writeDraft } from "../logic/block-drafts";
 
 export type CardPortHandlers = {
-  configureSpawn?: (blockId: string, portId: string, action: BlockPortDef["onMet"]) => void;
   decidePort?: (blockId: string, portId: string, status: "chosen" | "rejected" | "", reason: string) => void;
   addPort: (blockId: string) => void;
   renamePort: (blockId: string, portId: string, label: string) => void;
@@ -125,8 +123,6 @@ export default function CardBlockPorts({
               )}
               {portEditorsShown(detail, held.has(port.id)) && handlers.decidePort && <PortDecisionEditor key={"decision:" + port.id} port={port} blockId={blockId} disabled={disabled}
                 onSave={(status, reason) => handlers.decidePort?.(blockId, port.id, status, reason)} />}
-              {portEditorsShown(detail, held.has(port.id)) && handlers.configureSpawn && <PortSpawnEditor key={"spawn:" + port.id} port={port} blockId={blockId} disabled={disabled}
-                onSave={action => handlers.configureSpawn?.(blockId, port.id, action)} />}
               <PortHandle
                 kind="block"
                 name={port.label}

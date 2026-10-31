@@ -3,14 +3,12 @@
 // předá jeden stabilní objekt akcí a karta volá `actions.cardBlock(id, event)`. Akce jen bublají nahoru
 // (do Boardu a odtud do App); nic neukládají a nic nečtou ze stavu karty.
 import { createContext, useContext } from "react";
-import type { BlockPortDef } from "@/shared/desktop-state/logic/types";
 import type { Rule } from "@/shared/desktop-state/logic/types";
 import type { RuleReviewDecision } from "@/shared/desktop-state/logic/agent-rule";
 import type { BlockPort } from "@/editor/canvas/node-card/components/CardPorts";
 
 /** Změna bloku nebo portu v kartě; tvar sdílí Board (`CardBlockEvent`) i App. */
 export type CardBlockEvent =
-  | { type: "configure-spawn"; blockId: string; portId: string; action: BlockPortDef["onMet"] }
   | { type: "add" }
   | { type: "move"; blockId: string; delta: -1 | 1 }
   | { type: "remove"; blockId: string }

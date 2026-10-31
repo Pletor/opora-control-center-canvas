@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addBlock, addBlockPort, addTag, addTodo, branchLabel, branchTargets, moveBlock, ordered, removeBlock,
-  removeBlockPort, renameBlockPort, renumber, setBranch, setDone, toggleTodo,
+  addBlock, addBlockPort, moveBlock, ordered, removeBlock, removeBlockPort, renameBlockPort, renumber, setDone, updateBlock,
 } from "./tree-model";
 import { blockPorts, emptyDesktopState, MAX_BLOCK_PORTS, nodeWorkflowOf } from "@/shared/desktop-state/logic/types";
 
@@ -32,24 +31,12 @@ describe("tree-model", () => {
   it("odebrání bloku vezme podstrom a vyprázdní větve, které na něj mířily", () => {
     let state = tree();
     const [root, child, , other] = ordered(nodeWorkflowOf(state, "n").blocks).map((x) => x.block);
-    state = setBranch("n", other.id, "onMet", { kind: "block", targetId: child.id, note: "" })(state);
+    // Větve už UI nenastavuje, ale uložená data je nesou; odebrání je musí pořád uklidit.
+    state = updateBlock("n", other.id, { state: { ...other.state, onMet: { kind: "block", targetId: child.id, note: "" } } })(state);
     state = removeBlock("n", root.id)(state);
     const blocks = nodeWorkflowOf(state, "n").blocks;
     expect(blocks.map((b) => b.number)).toEqual(["1"]);
     expect(blocks[0].state.onMet).toEqual({ kind: "none", targetId: "", note: "" });
-  });
-
-  it("TODO a štítky mají ID a nedublují se", () => {
-    let state = tree();
-    const root = ordered(nodeWorkflowOf(state, "n").blocks)[0].block;
-    state = addTodo("n", root.id, "Napsat test", "builder")(state);
-    const todo = nodeWorkflowOf(state, "n").blocks.find((b) => b.id === root.id)!.todos[0];
-    expect(todo.id).toBeTruthy();
-    state = toggleTodo("n", root.id, todo.id)(state);
-    expect(nodeWorkflowOf(state, "n").blocks.find((b) => b.id === root.id)!.todos[0].done).toBe(true);
-    state = addTag("n", root.id, "auth")(state);
-    state = addTag("n", root.id, "auth")(state);
-    expect(nodeWorkflowOf(state, "n").blocks.find((b) => b.id === root.id)!.tags).toEqual(["auth"]);
   });
 
   it("osiřelý blok se přichytí ke kořeni místo zmizení", () => {
@@ -91,16 +78,5 @@ describe("tree-model", () => {
     expect(done.confirmed).toBe(false);
     expect(done.note).toBe("Hotovo, testy prošly.");
     expect(nodeWorkflowOf(emptyDesktopState(), "n").done).toEqual({ confirmed: false, at: "", by: "human", note: "" });
-  });
-
-  it("nabídka cílů větve vynechá blok sám a popíše cíl", () => {
-    const state = tree();
-    const node = nodeWorkflowOf(state, "n");
-    const root = ordered(node.blocks)[0].block;
-    const targets = branchTargets(node, root.id, [{ id: "menu", name: "Menu" }]);
-    expect(targets.some((t) => t.id === root.id)).toBe(false);
-    expect(targets.find((t) => t.kind === "node")).toEqual({ kind: "node", id: "menu", label: "Menu" });
-    expect(branchLabel({ kind: "node", targetId: "menu", note: "" }, targets)).toBe("uzel: Menu");
-    expect(branchLabel({ kind: "none", targetId: "", note: "" }, targets)).toBe("nic dalšího");
   });
 });

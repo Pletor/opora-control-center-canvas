@@ -97,6 +97,19 @@ První řez (jen čtení, příznaky zatím bez napojení na srdce): `GET /api/o
 Krok 2 (zvlášť, se souhlasem): úklid backendu a skillu, úprava `docs/karta-pro-agenty.md`, případné smazání
 starých polí bloků z dat (372 bloků v lokálním Ample, 12 v Tajemství) – mazání dat jen se souhlasem člověka.
 
+## Rozhodnutí člověka (2026-10-31)
+
+- Stopa práce patří do **bočního menu** (dnešní menu bloku ze screenshotu se jím nahradí), ne na kartu: karta
+  by byla dlouhá. **Karta** dál ukazuje jen rychlý přehled a jak úkoly tečou a navazují na sebe.
+- Návrh: Claude Design „OPORA – panel bloku (stopa práce)“
+  (https://claude.ai/design/p/884dc622-ec51-4071-b048-be45157cffa9?file=Panel+bloku.dc.html), varianta 1a
+  s relacemi a logem sloučenými do jedné osy (nic se neukazuje dvakrát).
+- Úsudek: jen „Odpovědět srdci“ a odkazy do Review / Běhu (panel jen čte). Zlatá = otázka na člověka,
+  červená = zaseklá kontrola (`red_twice`).
+- Osa: 10 položek, rozbalená jen poslední relace; nastavení jednou pro aplikaci.
+- Držení jako „zbývá 18 min“; „teď: nástroj · soubor“ jen u vybrané karty.
+- Data: `GET /api/oporahub/card-trail` (#232, `docs/stopa-prace-karty.md`).
+
 ## Návrh UX/UI
 
 Po schválení logiky navrhne vzhled panelu Claude Design (wireframe a varianty), teprve pak implementace
