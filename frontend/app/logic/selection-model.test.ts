@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clearSelection, emptySelection, panelsFor, selectBlock, selectEdge, selectNode } from "./selection-model";
+import { clearSelection, emptySelection, panelsFor, selectBlock, selectCardTrail, selectEdge, selectNode } from "./selection-model";
 
 describe("selection-model", () => {
   it("selectNode vybere jen uzel", () => {
@@ -22,6 +22,15 @@ describe("selection-model", () => {
   describe("panelsFor ve struktuře", () => {
     it("vybraný blok otevře knihovnu bloku bez inspektoru", () => {
       expect(panelsFor(selectBlock("n1", "b1"), "structure", false)).toEqual({ drawer: "block", inspector: null });
+    });
+    it("karta s otevřenou stopou práce otevře zásuvku v režimu karty bez inspektoru", () => {
+      expect(selectCardTrail("n1")).toEqual({ node: "n1", block: null, edge: null, trail: true });
+      expect(panelsFor(selectCardTrail("n1"), "structure", false, "node")).toEqual({ drawer: "card", inspector: null });
+      expect(panelsFor(selectCardTrail("s1"), "structure", false, "sector")).toEqual({ drawer: "card", inspector: null });
+    });
+    it("stopa práce mimo strukturu ani u komentáře se neotevře", () => {
+      expect(panelsFor(selectCardTrail("n1"), "map", false)).toEqual({ drawer: null, inspector: null });
+      expect(panelsFor(selectCardTrail("c1"), "structure", false, "comment")).toEqual({ drawer: null, inspector: "comment" });
     });
     it("vybraný uzel otevře pouze pravý inspektor a žádný levý panel", () => {
       expect(panelsFor(selectNode("n1"), "structure", false)).toEqual({ drawer: null, inspector: "node" });

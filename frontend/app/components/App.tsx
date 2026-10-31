@@ -77,7 +77,7 @@ import { domainForNode, worktreeDomainChoice } from "@/project/architecture-edit
 import CreateDialog from "@/editor/canvas/create-dialog/components/CreateDialog";
 import type { CreateResult } from "@/editor/canvas/create-dialog/logic/create-form";
 import { useWorkspaceSelection } from "@/shared/selection/logic/workspace-selection";
-import { clearSelection, emptySelection, panelsFor, selectBlock, selectEdge, selectNode, type Panels, type Selection } from "@/app/logic/selection-model";
+import { clearSelection, emptySelection, panelsFor, selectBlock, selectCardTrail, selectEdge, selectNode, type Panels, type Selection } from "@/app/logic/selection-model";
 import "@/layout/shell/styles/desktop-workspaces.css";
 
 import ScopeContext from "@/shared/contexts/components/ScopeContext";
@@ -1163,16 +1163,17 @@ export default function App() {
 
           </div>}
           <div className="canvas-surface">
-            {environment === "editor" && mode === "structure" && panels.drawer === "block" && !artifactMapOpen && view && node && selectedWorkflow && selectedBlockData && (
-                <BlockPanelDrawer title={`Blok ${selectedBlockData.number} · ${selectedBlockData.title}`}
-                  onClose={() => setSelection(selectNode(node.id))}>
+            {/* Boční menu = stopa práce karty: z vybraného bloku, nebo výslovně z karty (karty srdce bloky nemají). */}
+            {environment === "editor" && mode === "structure" && (panels.drawer === "card" || (panels.drawer === "block" && selectedBlockData)) && !artifactMapOpen && view && node && selectedWorkflow && (
+                <BlockPanelDrawer>
                       <BlockDrawerContent
                         project={project}
                         workspace={workspace}
                         node={node}
                         workflow={selectedWorkflow}
-                        blockId={selectedBlockData.id}
+                        blockId={selectedBlockData?.id ?? null}
                         edges={graph.edges}
+                        nodes={graph.nodes}
                         onSelectNode={() => setSelection(selectNode(node.id))}
                         onAskHeart={answerHeart}
                       />
@@ -1264,6 +1265,7 @@ export default function App() {
                   selectedEdge={selectedEdge}
                   onSelect={openNode}
                   onCardHistory={(id) => { openNode(id); setActivityRequest((before) => ({ nodeId: id, seq: (before?.seq ?? 0) + 1 })); }}
+                  onCardTrail={(id) => { openNode(id); setSelection(selectCardTrail(id)); }}
                   onSelectBlock={(nodeId, blockId) => setSelection(selectBlock(nodeId, blockId))}
                   onClear={() => { setSelection(clearSelection()); setMultiSelected([]); }}
                   onSelectEdge={(id) => setSelection(selectEdge(id))}

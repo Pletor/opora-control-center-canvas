@@ -49,17 +49,62 @@ export function stepMark(status: string, current = false): { glyph: string; tone
 
 export type TimelineItem =
   | { kind: "run"; key: string; at: string; run: TrailRun; expanded: boolean }
-  | { kind: "event"; key: string; at: string; event: TrailRecent };
+  /** `count` > 1 = sbalená řada stejných událostí za sebou; `from` je čas nejstarší, `parts` co se v ní dělo. */
+  | { kind: "event"; key: string; at: string; event: TrailRecent; count: number; from: string; parts: string[] };
 export type TimelineGroup = { day: string; label: string; items: TimelineItem[] };
 
 const moment = (at: string) => { const value = Date.parse(at); return Number.isNaN(value) ? 0 : value; };
+
+/** Druhy, které patří k jednomu ději (kolo review se skládá z převzetí, odevzdání a čísla kola). */
+const FAMILY: Record<string, string> = { "pr.review": "review", "review.round": "review" };
+const family = (kind: string) => FAMILY[kind] ?? kind;
+
+/** Společný začátek popisků po slovech („Review pletor/ample#40 (kolo 1)“); prázdný, když se liší hned první slovo. */
+export function commonPrefix(labels: string[]): string {
+  const words = labels.map((label) => label.trim().split(/\s+/));
+  const first = words[0] ?? [];
+  let size = 0;
+  while (size < first.length && words.every((item) => item[size] === first[size])) size++;
+  return first.slice(0, size).join(" ");
+}
+
+type EventBundle = { event: TrailRecent; count: number; from: string; parts: string[] };
+/**
+ * Opakované události stejného děje za sebou (např. osm řádků „Review … převzata / uvolněna / odevzdána“) sbalí
+ * do jedné řádky: společný začátek popisku, počet a co se v ní dělo (od nejstaršího). Řada se sbalí jen když
+ * popisky převažujícího druhu sdílejí začátek; „s1 hotovo“ a „s2 hotovo“ zůstanou samostatné kroky.
+ */
+export function bundleEvents(events: TrailRecent[]): EventBundle[] {
+  const runs: TrailRecent[][] = [];
+  for (const event of events) {
+    const last = runs[runs.length - 1];
+    if (last && family(last[0].kind) === family(event.kind)) last.push(event);
+    else runs.push([event]);
+  }
+  return runs.flatMap((group): EventBundle[] => {
+    const single = (event: TrailRecent): EventBundle => ({ event, count: 1, from: event.at, parts: [] });
+    if (group.length < 2) return group.map(single);
+    const counts = new Map<string, number>();
+    for (const event of group) counts.set(event.kind, (counts.get(event.kind) ?? 0) + 1);
+    const main = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+    const own = group.filter((event) => event.kind === main);
+    const prefix = commonPrefix(own.map((event) => event.label || event.kind));
+    if (!prefix) return group.map(single);
+    const parts: string[] = [];
+    for (const event of [...own].reverse()) {
+      const rest = (event.label || event.kind).trim().slice(prefix.length).trim();
+      if (rest && !parts.includes(rest)) parts.push(rest);
+    }
+    return [{ event: { ...own[0], label: prefix }, count: group.length, from: group[group.length - 1].at, parts }];
+  });
+}
 
 /** Relace a změny karty v jedné ose, nejnovější první, nejvýš `settings.limit`; nejnovější relace je v ose vždy a jen ona je rozbalená. */
 export function timeline(trail: CardTrail, settings: TrailSettings = TRAIL_SETTINGS): TimelineItem[] {
   const runs: TimelineItem[] = trail.runs.map((run, index) => ({ kind: "run", key: `run:${run.executionId ?? run.taskId ?? index}`,
     at: run.createdAt, run, expanded: false }));
-  const events: TimelineItem[] = trail.recent.filter((event) => !HIDDEN_KINDS.has(event.kind))
-    .map((event, index) => ({ kind: "event", key: `event:${index}:${event.at}`, at: event.at, event }));
+  const events: TimelineItem[] = bundleEvents(trail.recent.filter((event) => !HIDDEN_KINDS.has(event.kind)))
+    .map((bundle, index) => ({ kind: "event", key: `event:${index}:${bundle.event.at}`, at: bundle.event.at, ...bundle }));
   const sorted = runs.concat(events).sort((a, b) => moment(b.at) - moment(a.at));
   const limit = Math.max(0, settings.limit);
   const items = sorted.slice(0, limit);
@@ -83,6 +128,19 @@ export function groupByDay(items: TimelineItem[], now: Date = new Date()): Timel
 }
 
 export const clock = timeLabel;
+
+/** Kdy relace běžela: „10:42–12:58“ u skončené relace s koncem držení, jinak jen začátek. */
+export function runWhen(run: TrailRun): string {
+  const start = run.createdAt ? clock(run.createdAt) : "";
+  if (!run.until || runState(run.state).tone === "live" || !start) return start;
+  const end = clock(run.until);
+  return end && end !== start ? `${start}–${end}` : start;
+}
+
+/** České tvary počtu: 1 krok, 2 kroky, 5 kroků. */
+export function plural(count: number, one: string, few: string, many: string): string {
+  return `${count} ${count === 1 ? one : count >= 2 && count <= 4 ? few : many}`;
+}
 
 /** Řádka „teď: nástroj · soubor“: nejnovější `tool.use` z běžící relace, jen když kartu někdo právě drží. */
 export function nowLine(trail: CardTrail): { text: string; at: string } | null {

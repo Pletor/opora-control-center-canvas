@@ -26,6 +26,7 @@ function Judgment({ item, view, onAnswer, onOpen }: {
       </div>
       {view.reason && <p className="block-panel__judge-text">{view.reason}</p>}
       {view.outside.length > 0 && <div className="block-panel__files">{view.outside.map((file) => <code key={file} className="block-panel__file">{file}</code>)}</div>}
+      {view.heart && <div className="block-panel__judge-head block-panel__judge-head--heart"><SourceMark source="heart" /><span>{view.heart}</span></div>}
       {open && <textarea className="block-panel__reply" aria-label="Odpověď srdci" rows={3} value={draft} disabled={busy}
         placeholder="Co má srdce vědět nebo udělat" onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />}

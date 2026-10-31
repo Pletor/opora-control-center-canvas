@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CardEntry } from "@/hub/oporahub-card-drawer/logic/card-header";
 import { emptyBlock } from "@/editor/node-detail/tree/logic/tree-model";
 import { parseCardTrail } from "./card-trail";
-import { checkNote, heartReply, judgmentView, portViews, remaining, workView } from "./panel-work";
+import { checkNote, heartReply, judgmentView, ofCount, portViews, remaining, workView } from "./panel-work";
 
 const card = {
   nodeId: "n", stage: "work", health: "ok", reason: "runs_active", executionId: "e2", kind: "task", layer: null, blockedBy: [],
@@ -44,11 +44,31 @@ describe("panel-work", () => {
     expect(workView(null, null).chip.word).toBe("čeká");
   });
 
-  it("poznámka kroku: krátká kontrola jménem, dlouhé jen počty", () => {
-    expect(checkNote([{ name: "npm test", status: "red" }])).toBe("npm test ✗");
-    expect(checkNote([{ name: "uv run pytest backend/rag -q: 736 passed", status: "unknown" }, { name: "ruff", status: "green" }, { name: "x", status: "unknown" }]))
-      .toBe("kontroly: 1 ✓ · 2 ?");
-    expect(checkNote([])).toBe("");
+  it("poznámka kroku: červená a zelená jménem, bez známého výsledku krátký commit, jinak nic", () => {
+    expect(checkNote([{ name: "npm test", status: "green" }, { name: "npm test -- metrics", status: "red" }])).toBe("npm test -- metrics ✗");
+    expect(checkNote([{ name: "uv run pytest backend/rag -q: 736 passed", status: "unknown" }, { name: "ruff", status: "green" }])).toBe("ruff ✓");
+    expect(checkNote([{ name: "uv run pytest backend/rag -q: 736 passed", status: "green" }])).toBe("uv run pytest backend/r… ✓");
+    expect(checkNote([{ name: "a", status: "green" }, { name: "b", status: "green" }])).toBe("2 ✓");
+    expect(checkNote([{ name: "uv run pytest", status: "unknown" }], ["8aa15acf77a98b02"])).toBe("8aa15ac");
+    expect(checkNote([{ name: "uv run pytest", status: "unknown" }])).toBe("");
+  });
+
+  it("věta vedle čipu: krok X z Y, hotovo, zaseklý krok, na co karta čeká; počet commitů a uvolnění", () => {
+    expect(workView(card, trail).line).toBe("běh · krok 2 ze 3");
+    expect([ofCount(3), ofCount(5), ofCount(7), ofCount(12)]).toEqual(["ze 3", "z 5", "ze 7", "z 12"]);
+    const stuck = parseCardTrail({ nodeId: "n", runs: [{ createdAt: "x", state: "reported", steps: [{ stepId: "s2", status: "pending" }] }],
+      judgment: [{ code: "red_twice", stepId: "s2" }] });
+    const bad = workView(card, stuck);
+    expect([bad.line, bad.steps[1].tone, bad.steps[1].note]).toEqual(["s2 · 2× červená", "bad", "2× červená"]);
+    const done = parseCardTrail({ nodeId: "n", runs: [{ createdAt: "x", state: "reported", steps: [
+      { stepId: "s1", status: "done", commits: ["a1", "b2"] }, { stepId: "s2", status: "done", commits: ["b2"] }] }],
+      recent: [{ at: "2026-10-31T12:58:00Z", who: "office", kind: "lease.released" }] });
+    const finished = workView(null, done);
+    expect([finished.chip.word, finished.line, finished.commits, finished.released, finished.untouched])
+      .toEqual(["hotovo", "2/2 kroků", "2 commity", "2026-10-31T12:58:00Z", false]);
+    const waiting = workView({ ...card, steps: null } as unknown as CardEntry, null, { waitingFor: ["3·02 Zápis metrik"] });
+    expect([waiting.chip.word, waiting.line, waiting.untouched, waiting.commits]).toEqual(["čeká", "na kartu 3·02 Zápis metrik", true, ""]);
+    expect(workView(card, trail).untouched).toBe(false);
   });
 
   it("zbývající čas držení", () => {
@@ -61,7 +81,7 @@ describe("panel-work", () => {
 
   it("úsudek: červená jen u red_twice, jinak zlatá otázka; odkaz do Review nebo Běhu", () => {
     const red = judgmentView(judgment("red_twice"), 0);
-    expect([red.tone, red.label, red.link.tab]).toEqual(["bad", "2× červená", "run"]);
+    expect([red.tone, red.label, red.link.tab, red.link.text, red.heart]).toEqual(["bad", "2× červená", "run", "Výstup kontroly →", ""]);
     const files = judgmentView(judgment("files_mismatch"), 1);
     expect([files.tone, files.label, files.link.tab, files.outside]).toEqual(["gold", "jiné soubory", "review", ["a"]]);
     expect(judgmentView(judgment("neznámý", null), 2)).toMatchObject({ label: "neznámý", tone: "gold", where: "" });

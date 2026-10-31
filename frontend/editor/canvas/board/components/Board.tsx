@@ -111,9 +111,12 @@ export default function Board({
   digest,
   overlay,
   onCardHistory,
+  onCardTrail,
 }: {
   /** Klik na poslední změnu karty: rodič otevře záznam činnosti s filtrem této karty. */
   onCardHistory?: (id: string) => void;
+  /** Klik na postup na tváři karty: rodič otevře boční menu se stopou práce karty. */
+  onCardTrail?: (id: string) => void;
   /** Vrstva nad kartami uvnitř React Flow (odznaky etap OporaHubu); skládá ji App. */
   overlay?: import("react").ReactNode;
   sourceStatuses?: Record<string, import("@/editor/canvas/node-card/logic/use-source-status").SourceStatus>;
@@ -212,7 +215,7 @@ export default function Board({
   const movedCards = useAddedPulse(graph.nodes.map(movedKey));
   const movedSet = useMemo(() => new Set(movedCards), [movedCards]);
   const work = useWorkOverview(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workKey);
-  const actions = useBoardActions({ disabled, nameOf: (id) => index.byId.get(id)?.name, onSelect, onCardHistory, onTagFilter, onEditing, onRename,
+  const actions = useBoardActions({ disabled, nameOf: (id) => index.byId.get(id)?.name, onSelect, onCardHistory, onCardTrail, onTagFilter, onEditing, onRename,
     onCommentText, onAreaResize, onTogglePort, onCardBlock, onConfirmProposal, onRealizeSource,
     onRuleWrite, onRuleReview, sourceContext });
   // Schopnosti rodiče jako booleany: nové inline callbacky v App vrstvu nepřestaví, jejich přítomnost ano.

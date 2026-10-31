@@ -73,6 +73,7 @@ function useCardHandlers(actions: CardActions, id: string) {
       realize: (commit: string, prUrl: string) => actions.realize(id, commit, prUrl),
       release: () => actions.releaseLease(id),
       history: () => actions.history(id),
+      trail: () => actions.trail(id),
     };
   }, [actions, id]);
 }
@@ -101,7 +102,7 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
       data-testid={"node-card-" + id}
       data-detail={detail}
     >
-      {far ? <CardGlyph face={data.face!} name={view.name} /> : data.face ? <CardFace face={data.face} title={title} onHistory={on.history} /> : title}
+      {far ? <CardGlyph face={data.face!} name={view.name} /> : data.face ? <CardFace face={data.face} title={title} onHistory={on.history} onTrail={on.trail} /> : title}
       {!far && <CardComponent tech={view.tech} states={view.states} section={view.section} />}
       <CardBlocks id={id} rows={view.rows} disabled={blocks.disabled} handlers={on.blocks} selectedBlockId={selectedBlockId} selected={selected}
         detail={selected ? detail : "far"} />
