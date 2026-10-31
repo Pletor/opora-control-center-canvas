@@ -48,7 +48,50 @@ bloky nezná. Živý Ample (od 2026-10-30): 0 zápisů `agent-output`, 0 bloků 
 4. **Log změn:** posledních ~10 událostí karty („kdo · kdy · co“), odkaz „Celá historie“ do detailu karty.
 5. **Port:** popisek, cílová karta a poslední zpráva na vazbě (co předal a kdo).
 
-Krok 1 (UI): mrtvé sekce pryč z panelu, nové sekce 2–5; uložená data beze změny.
+## Kdo panel plní: spouštěč → deterministická smyčka → LLM jen na zbytek
+
+Člověk (2026-10-31): karta má šetřit čas a vysvětlování. Co se s úkolem děje, kdo na něm pracuje, co se
+stalo a udělalo, doplňují procesy samy. Proces spustí spouštěč, proběhne deterministická smyčka a LLM doplní
+jen to, co determinismus nedokáže posoudit nebo udělat.
+
+**Spouštěče (už existují, nic nového se nevymýšlí):** claim, heartbeat, `step`, `deliver` a release exekuce;
+commit s trailerem `Opora-Node: N`; PR otevřen / sloučen / zapsán zpět; úkol brány změní stav; výsledek review;
+zápis záznamu činnosti s `nodeIds` (#228); událost `tool.use` z hooku relace dělníka.
+
+**Deterministická smyčka (bez modelu, `backend/brain_opora/determinism/` + existující záznamy):** z událostí
+skládá **stopu práce karty** a nic si nevymýšlí. Stopa je projekce při čtení, ne nové úložiště; schéma beze změny.
+
+| co karta ukáže | odkud to determinismus vezme |
+|---|---|
+| kdo teď pracuje, od kdy, do kdy drží | lease exekuce (`owner`, `createdAt`, `expiresAt`) |
+| relace dělníků (kdo, kdy, jak skončila) | `executions?nodeId`, stav exekuce |
+| kroky ✓ / … / ✗ a co jsou zač | `spec.steps` + `stepResults[].status` |
+| důkaz kroku: commity, kontroly zelená/červená, soubory | `stepResults[].evidence` (`commits`, `checks`), `git show --stat` commitu s `Opora-Node` |
+| PR a jeho stav, sloučení, zápis zpět | `cards[].pr`, události `pr.*` |
+| co dělník právě dělá (nástroj, soubor) | události `tool.use` z hooku relace (posledních pár, bez obsahu) |
+| poslední změna karty, kdo, kdy, co | `latest-by-node` (#228) |
+| zpráva na portu (co předal dál) | `state.edges[edgeId]` |
+| co chybí k hotovu | `dod.missing` z agent-state |
+
+**Hooky a skripty dělníka** jsou jen spouštěče, žádný úsudek: hook relace (Claude Code `PostToolUse` /
+`Stop`) a klient brány pošlou událost s `nodeId`, `executionId`, `stepId`. Commit hook zkontroluje trailer
+`Opora-Node`. Co dnes dělník musí popisovat ručně (které soubory, které testy prošly, který commit), doplní
+smyčka z gitu a výsledků kontrol sama.
+
+**LLM jen tam, kde determinismus nestačí** (srdce, probuzené spouštěčem jen když smyčka nastaví příznak
+„potřebuje úsudek“):
+
+- dvakrát červená kontrola nebo zaseknutý krok → krátké vysvětlení příčiny a návrh dalšího kroku;
+- doručení bez důkazu pro podmínku hotovo, kterou nejde ověřit kontrolou → posouzení, jestli je splněná;
+- konec relace dělníka → jedna věta „co se udělalo“ lidsky (když ji dělník v `summary` nedal);
+- rozpor mezi úkolem a výsledkem (jiné soubory, než úkol čekal) → otázka pro člověka.
+
+V panelu je u každé položky vidět původ: ⚙ odvozeno deterministicky, ✦ doplnil model (a který). Člověk tak ví,
+čemu věřit bez kontroly a co je úsudek.
+
+Krok 1 (UI): mrtvé sekce pryč z panelu, nové sekce 2–5 nad stopou práce; uložená data beze změny.
+Krok 1b (backend): projekce stopy práce karty (`GET` jedna karta, čistá funkce nad existujícími záznamy
+s testem) a příznak „potřebuje úsudek“ jako spouštěč srdce; hook relace dělníka posílá `tool.use` s `nodeId`.
 Krok 2 (zvlášť, se souhlasem): úklid backendu a skillu, úprava `docs/karta-pro-agenty.md`, případné smazání
 starých polí bloků z dat (372 bloků v lokálním Ample, 12 v Tajemství) – mazání dat jen se souhlasem člověka.
 
