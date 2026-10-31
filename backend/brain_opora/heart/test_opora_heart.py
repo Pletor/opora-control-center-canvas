@@ -20,9 +20,11 @@ class Handler(BaseHTTPRequestHandler):
     stale = 0  # kolikrát ještě `/api/canvas-plan` odmítne zastaralý digest
     rejected = None  # (status, tělo), kterým `/api/canvas-plan` dávku odmítne
     states: ClassVar = []  # odpovědi `GET /api/oporahub/agent-state` po řadě (poslední se opakuje)
-    refuse = ""  # cesta, kterou server odmítne 403 (přijetí bez oprávnění)
+    refuse = ""  # cesta, na kterou server odmítne POST 403 (přijetí bez oprávnění)
     manifest = None  # graphManifestId kontextu návrhů grafu (None = graf ještě není přijatý)
     graph: ClassVar = {"nodes": []}  # pracovní graf z `GET /api/view`
+    architecture: ClassVar = {"graph": {"nodes": [], "edges": []}, "revision": 0, "digest": "a0"}  # architektura projektu
+    differs = False  # architectureContext.differs kontextu návrhů (prostor má starší architekturu, než je uložená)
 
     def log_message(self, *args):
         return
@@ -48,12 +50,19 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/api/oporahub/agent-state":
             index = sum(call["path"] == url.path for call in Handler.calls) - 1
             return self._reply(200, Handler.states[min(index, len(Handler.states) - 1)] if Handler.states else {})
-        if url.path == Handler.refuse:
+        if url.path == Handler.refuse and method == "POST":
             return self._reply(403, {"error": "Graph additions require human acceptance in the UI.",
                                      "humanRequired": True})
         if url.path == "/api/oporahub/graph-proposals/context":
             return self._reply(200, {"acceptedHead": "r1" if Handler.manifest else None, "graphDigest": "gd",
-                                     "graphManifestId": Handler.manifest})
+                                     "graphManifestId": Handler.manifest,
+                                     "architectureContext": {"differs": Handler.differs and any(
+                                         call["path"] == "/api/project-architecture" and call["method"] == "POST"
+                                         for call in Handler.calls)}})
+        if url.path == "/api/project-architecture":
+            if method == "GET":
+                return self._reply(200, Handler.architecture)
+            return self._reply(200, {"graph": body["graph"], "revision": body["expectedRevision"] + 1, "digest": "a1"})
         if url.path == "/api/oporahub/graph-proposals" and method == "POST":
             return self._reply(200, {"id": "gp2", "refs": {ref["ref"]: "n_" + ref["ref"] for ref in body["plan"].get("nodes", [])},
                                      "accepted": False})
@@ -99,6 +108,7 @@ def server(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     Handler.calls, Handler.stale, Handler.rejected, Handler.states, Handler.refuse = [], 0, None, [], ""
     Handler.manifest, Handler.graph = None, {"nodes": []}
+    Handler.architecture, Handler.differs = {"graph": {"nodes": [], "edges": []}, "revision": 0, "digest": "a0"}, False
     yield base
     httpd.shutdown()
 
@@ -667,6 +677,78 @@ def test_order_validates_nodes_and_values_before_sending(server, capsys, nodes, 
     exit_code, out = run(capsys, "order", "--nodes", nodes)
     assert exit_code == 1 and json.loads(out)["code"] == code
     assert not [call for call in Handler.calls if call["method"] == "POST"]
+
+
+PAGES = {"graph": {"nodes": [{"id": "s_app", "kind": "sector", "name": "App", "site": {"kind": "application"}},
+                             {"id": "n_home", "kind": "node", "name": "Domů", "parentId": "s_app",
+                              "site": {"kind": "page", "path": "/"}, "order": 105},
+                             {"id": "n_faq", "kind": "node", "name": "FAQ", "parentId": "s_app",
+                              "site": {"kind": "page", "path": "/faq"}}],
+                   "edges": [{"id": "e1", "source": "n_home", "target": "n_faq", "port": "next"}]},
+         "revision": 7, "digest": "a7"}
+
+
+def order_with_pages(differs=True):
+    Handler.manifest, Handler.graph, Handler.differs = "m1", ORDER_GRAPH, differs
+    Handler.architecture = json.loads(json.dumps(PAGES))
+
+
+def test_order_splits_pages_into_the_architecture_and_cards_into_the_proposal(server, capsys):
+    order_with_pages()
+    result = json.loads(run(capsys, "order", "--nodes", "n_home=101,n_faq=102,n_card=201")[1])
+    assert result["architecture"] == {"revision": 8, "changes": [{"id": "n_home", "from": 105, "to": 101},
+                                                                 {"id": "n_faq", "from": None, "to": 102}]}
+    assert result["changes"] == [{"id": "n_card", "from": 205, "to": 201}]
+    assert result["proposalId"] == "gp2" and result["accepted"] is False and result["adoptArchitecture"] is True
+    posts = [call for call in Handler.calls if call["method"] == "POST"]
+    assert [call["path"] for call in posts] == ["/api/project-architecture", "/api/oporahub/graph-proposals"]
+    saved = posts[0]["body"]
+    assert (saved["project"], saved["workspace"], saved["expectedRevision"]) == ("p1", "main", 7)
+    before, after = PAGES["graph"], saved["graph"]
+    assert after["edges"] == before["edges"] and [node["id"] for node in after["nodes"]] == ["s_app", "n_home", "n_faq"]
+    assert [node.get("order") for node in after["nodes"]] == [None, 101, 102]
+    assert [{k: v for k, v in node.items() if k != "order"} for node in after["nodes"]] == [
+        {k: v for k, v in node.items() if k != "order"} for node in before["nodes"]]  # jinak beze změny
+    assert posts[1]["body"]["plan"] == {"adoptArchitectureContext": True,
+                                        "updateNodes": [{"id": "n_card", "fields": {"order": 201}}]}
+
+
+def test_order_of_pages_only_adopts_the_architecture_and_accepts_under_full_autonomy(server, capsys):
+    order_with_pages()
+    Handler.states = [{"autonomy": {"full": True}, "actions": [accept_action("gp2")]}]
+    result = json.loads(run(capsys, "order", "--nodes", "n_home=none")[1])
+    assert result["architecture"]["changes"] == [{"id": "n_home", "from": 105, "to": None}]
+    assert result["accepted"] is True and result["changes"] == []
+    posts = [call for call in Handler.calls if call["method"] == "POST"]
+    assert [call["path"] for call in posts] == ["/api/project-architecture", "/api/oporahub/graph-proposals",
+                                                "/api/oporahub/graph-proposals/gp2/accept"]
+    assert "order" not in posts[0]["body"]["graph"]["nodes"][1]
+    assert posts[1]["body"]["plan"] == {"adoptArchitectureContext": True}
+
+
+def test_order_of_pages_without_an_accepted_plan_needs_no_proposal(server, capsys):
+    order_with_pages(differs=False)
+    Handler.manifest = None
+    result = json.loads(run(capsys, "order", "--nodes", "n_faq=102")[1])
+    assert result["path"] == "project-architecture" and result["accepted"] is True and result["proposalId"] is None
+    assert [call["path"] for call in Handler.calls if call["method"] == "POST"] == ["/api/project-architecture"]
+
+
+def test_order_of_pages_dry_run_and_server_refusal(server, capsys):
+    order_with_pages()
+    result = json.loads(run(capsys, "order", "--nodes", "n_home=101,n_card=201", "--dry-run")[1])
+    assert result["dryRun"] is True and result["architecture"]["revision"] == 7 and "proposalId" not in result
+    assert not [call for call in Handler.calls if call["method"] == "POST"]
+    Handler.refuse = "/api/project-architecture"
+    code, out = run(capsys, "order", "--nodes", "n_home=101")
+    assert code == 1 and json.loads(out)["status"] == 403
+    assert [call["path"] for call in Handler.calls if call["method"] == "POST"] == ["/api/project-architecture"]
+
+
+def test_ordered_architecture_changes_only_order():
+    graph = PAGES["graph"]
+    after = opora_heart.ordered_architecture(graph, [{"id": "n_faq", "to": 102}, {"id": "n_home", "to": None}])
+    assert [node.get("order") for node in after["nodes"]] == [None, None, 102] and graph["nodes"][1]["order"] == 105
 
 
 def steps_file(tmp_path, data):

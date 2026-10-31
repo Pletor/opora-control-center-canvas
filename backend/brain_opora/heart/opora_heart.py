@@ -54,7 +54,9 @@ s `updateNodes` jen pole `memberOf`; při `autonomy.full` (agent-state) ho srdce
 jinak čeká na přijetí člověkem v UI. `proposal --accept ID` přijme návrh grafu akcí `accept` z agent-state
 (úklid; bez autonomie `Rozhodne člověk v UI`). `order` stejně navrhne pořadí karet a sektorů podle záměru (pole `order`,
 fáze × 100 + pozice, `ID=none` ho odebere; docs/navrhy/2026-10-31-poradi-karty.md): láme remízu `topoIndex`,
-nikdy neblokuje jako vazba `next`. Zamítnutí návrhu server nemá: nahrazený novější návrh zmizí z nabídky sám.
+nikdy neblokuje jako vazba `next`; stránky a sektory sdílené architektury řadí přímo v `/api/project-architecture`
+(jen `order`, s revizí) a převezme je do plánu prostoru návrhem s `adoptArchitectureContext` (§4). Zamítnutí
+návrhu server nemá: nahrazený novější návrh zmizí z nabídky sám.
 `steps` doplní existující kartě 2–8 kroků s `kind` a `files` (soubor `{steps, goal?, acceptance?}`) návrhem změny
 zadání (`/api/oporahub/changesets`, docs/oporahub-plan-steps.md); při `autonomy.full` ho přijme jako `member`.
 `brief` uloží syntézu výslechu požadavku (JSON v souboru `@cesta` nebo přímo) a vrátí `status` a co do jasna chybí
@@ -650,32 +652,85 @@ def order_pairs(text):
     return pairs
 
 
+ARCHITECTURE = "/api/project-architecture"
+
+
+def order_changes(nodes, pairs):
+    return [{"id": node, "from": nodes[node].get("order"), "to": value} for node, value in pairs.items()
+            if nodes[node].get("order") != value]
+
+
+def ordered_architecture(graph, changes):
+    """Kopie grafu architektury, v níž se u daných uzlů změní jen `order` (`None` pole odebere). Před uložením ověří,
+    že se jinak nic neliší (uzly, jejich pořadí, ostatní pole i vazby), stejně jako server."""
+    values = {item["id"]: item["to"] for item in changes}
+    nodes = []
+    for node in graph["nodes"]:
+        node = dict(node)
+        if node["id"] in values:
+            node.pop("order", None)
+            if values[node["id"]] is not None:
+                node["order"] = values[node["id"]]
+        nodes.append(node)
+    result = {**graph, "nodes": nodes}
+
+    def rest(item):
+        return {key: value for key, value in item.items() if key != "order"}
+    if (list(map(rest, graph["nodes"])) != list(map(rest, nodes)) or result["edges"] != graph["edges"]
+            or set(result) != set(graph)):
+        raise Failure({"error": "Úprava architektury by změnila víc než pořadí.", "code": "order_architecture_diff",
+                       "hint": "Nic se neuložilo; načti architekturu znovu."})
+    return result
+
+
 def submit_order(args):
-    """`order`: návrh grafu `{updateNodes}` měnící u existujících karet a sektorů jen `order` (pořadí podle záměru,
-    `ID=none` ho odebere). Tvar, chyby a přijetí jako `member`: pořadí jen láme remízu `topoIndex`, nic neblokuje
-    (docs/navrhy/2026-10-31-poradi-karty.md)."""
+    """`order`: pořadí podle záměru (`ID=none` ho odebere), nic neblokuje (docs/navrhy/2026-10-31-poradi-karty.md).
+    Karty a sektory obsahu prostoru: návrh grafu `{updateNodes}` jen s `order`. Stránky a sektory sdílené architektury
+    (§4): `POST /api/project-architecture` s očekávanou revizí, v níž se mění jen `order`, a hned návrh grafu
+    s `adoptArchitectureContext` (převzetí do plánu prostoru), je-li prostor přijatý se starší architekturou. Návrh
+    srdce přijme samo jen při `autonomy.full`, jinak čeká na člověka v UI."""
     pairs = order_pairs(args.nodes)
     if not pairs:
         raise Failure({"error": "Chybí --nodes.", "code": "order_nodes", "hint": "--nodes id1=101,id2=102 (celá ID uzlů)."})
     context, known = known_nodes()
-    unknown = [node for node in pairs if node not in known]
+    stored = call("GET", ARCHITECTURE, query={"project": scope()["project"]})
+    shared = {node["id"]: node for node in stored["graph"]["nodes"]}
+    unknown = [node for node in pairs if node not in known and node not in shared]
     if unknown:
         raise Failure({"error": f"Uzel {', '.join(unknown)} v prostoru není.", "code": "order_unknown_node",
                        "hint": "Vezmi celá ID karet a sektorů z /api/view nebo snapshotu tohoto prostoru."})
-    wrong = [node for node in pairs if known[node].get("kind") not in MEMBER_KINDS]
+    wrong = [node for node in pairs if (shared.get(node) or known[node]).get("kind") not in MEMBER_KINDS]
     if wrong:
         raise Failure({"error": f"Pořadí má jen karta nebo sektor, ne {', '.join(wrong)}.",
                        "code": "order_kind", "hint": "Řaď uzly kind node nebo sector."})
-    changes = [{"id": node, "from": known[node].get("order"), "to": value} for node, value in pairs.items()
-               if known[node].get("order") != value]
+    pages = {node: value for node, value in pairs.items() if node in shared}
+    changes = order_changes(known, {node: value for node, value in pairs.items() if node not in shared})
+    page_changes = order_changes(shared, pages)
+    changed = {item["id"] for item in [*changes, *page_changes]}
     out = {"ok": True, "dryRun": bool(args.dry_run), "changes": changes,
-           "unchanged": [node for node in pairs if node not in {item["id"] for item in changes}], "path": "graph-proposal"}
-    if args.dry_run or not changes:
+           "unchanged": [node for node in pairs if node not in changed], "path": "graph-proposal"}
+    if pages:
+        out["architecture"] = {"revision": stored["revision"], "changes": page_changes}
+    if args.dry_run or not changed:
         return out
-    plan = {"updateNodes": [{"id": item["id"], "fields": {"order": item["to"]}} for item in changes]}
+    plan = {}
+    if page_changes:
+        saved = call("POST", ARCHITECTURE, {**scope(), "expectedRevision": stored["revision"],
+                                            "graph": ordered_architecture(stored["graph"], page_changes)})
+        out["architecture"]["revision"] = saved["revision"]
+        context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())  # pracovní graf má novou architekturu
+        if stale_architecture(context):
+            plan["adoptArchitectureContext"] = out["adoptArchitecture"] = True
+        if not changes and not plan:
+            # Prostor bez přijatého plánu (nebo main) skládá architekturu sám: pořadí platí hned, návrh netřeba.
+            return {**out, "path": "project-architecture", "proposalId": None, "accepted": True}
+    if changes:
+        plan["updateNodes"] = [{"id": item["id"], "fields": {"order": item["to"]}} for item in changes]
+    subject = (f"Srdce přeřadilo {len(changes)} uzlů podle záměru" if changes else
+               f"Srdce převzalo pořadí {len(page_changes)} stránek z architektury")
     proposal = call("POST", GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
                                               "expectedGraphDigest": context["graphDigest"],
-                                              "subject": f"Srdce přeřadilo {len(changes)} uzlů podle záměru", "plan": plan})
+                                              "subject": subject, "plan": plan})
     out = {**out, "proposalId": proposal["id"]}
     state = call("GET", "/api/oporahub/agent-state", query=scope())
     if (state.get("autonomy") or {}).get("full"):  # plná autonomie: srdce přijme jen svůj vlastní návrh
