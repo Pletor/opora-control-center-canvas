@@ -11,22 +11,14 @@ whose accepted spec has plan steps (cards without steps keep the legacy path rea
 docs/oporahub-plan-steps.md.
 """
 REQUIREMENTS = ("steps", "card_acceptance", "gate_ready", "merged", "plan_written_back", "journeys", "human_close")
-# Pre-merge reasons of the review gate: moot once the PR is merged (the merge already happened). The merge-queue
-# freshness of the head against main (opora_review_merge_queue) is observed for open PRs alone, so after the merge
-# it freezes and ages out; human approvals and their GitHub evidence are a merge precondition (decision 2026-10-31,
-# "bez člověka"). The approvals config still holds before the merge; every other reason keeps holding after it.
-PRE_MERGE_ONLY = frozenset({"base_freshness_unobserved", "stale_against_main", "human_approvals_missing",
-                            "github_evidence_missing"})
-
-
 def merged_gate(gate, merged):
-    """The review gate of a PR as the definition of done reads it: a merged PR's `pending` gate held only by
-    `PRE_MERGE_ONLY` reasons counts as `ready`; every other reason (findings, review not done, self-checks)
-    still holds after the merge."""
+    """The review gate of a PR as the definition of done reads it: once the PR is merged, a `pending` gate
+    (freshness, approvals, a review still running or never enqueued, self-checks) counts as `ready`, because the
+    merge already decided (decision 2026-10-31, "zavři to a jdi dál"); a `blocked` gate (an open important finding,
+    failed checks) keeps holding after the merge."""
     if not merged or not gate or gate.get("status") != "pending":
         return gate
-    reasons = set(gate.get("reasons") or [])
-    return {**gate, "status": "ready"} if reasons and reasons <= PRE_MERGE_ONLY else gate
+    return {**gate, "status": "ready"}
 
 
 def card_done_state(card):
