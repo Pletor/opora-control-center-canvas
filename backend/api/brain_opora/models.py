@@ -188,6 +188,18 @@ class EscalateOut(BaseModel):
     status: str
 
 
+class WithdrawIn(BaseModel):
+    project: str
+    workspace: str
+    reason: str
+
+
+class WithdrawOut(BaseModel):
+    ticketId: str
+    status: str
+    reason: str
+
+
 class IntakeVerdictIn(BaseModel):
     """Srdce potvrdí nebo opraví stanovisko vstupu brány (docs/navrhy/2026-10-30-vstupni-brana.md §4)."""
     project: str

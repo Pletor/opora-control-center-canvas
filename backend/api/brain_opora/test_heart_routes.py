@@ -370,3 +370,35 @@ def test_heart_token_checks_and_spends_the_research_cap_of_a_requirement(tmp_pat
         assert refused.json()["hint"] == "strop rešerše vyčerpán, rozhodni z toho, co máš"
         assert code(client.post("/api/brain/heart/brief/research", headers=heart, json={**body, "workspace": "main"})
                     ) == "gate_scope"
+
+
+def test_heart_withdraws_a_stale_escalation_and_it_leaves_the_human_inbox(tmp_path):
+    """docs/brain-heart-channel.md §6: jen token srdce, jen otevřená eskalace srdce; srdce se tím nebudí."""
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        gate_on(client)
+        service = client.app.state.service
+        _, token = tokens.issue_heart(service, "draft", "draft")
+        kept = gate.escalate(service, tokens.verify(service, token), "Jakou barvu?")
+        stale = gate.escalate(service, tokens.verify(service, token), "Jaké ID karty?")
+        url = f"/api/brain/heart/escalations/{stale['ticketId']}/withdraw"
+        body = {**SCOPE, "reason": "ID jsem našlo v plánu."}
+        worker = {**AGENT, tokens.HEADER: client.post("/api/gate/sessions", headers=AGENT, json=SESSION).json()["token"]}
+        # Člověk bez tokenu srdce, pracovník ani agent otázku srdce nestáhnou.
+        assert code(client.post(url, headers=HEADERS, json=body)) == "gate_token_invalid"
+        ui = dict(client.cookies)
+        client.cookies.clear()
+        assert code(client.post(url, headers=worker, json=body)) == "gate_required"
+        heart = {**HEADERS, tokens.HEADER: token}
+        assert code(client.post(url, headers=heart, json={**SCOPE, "text": "x"})) == "invalid_payload"
+        withdrawn = client.post(url, headers=heart, json=body)
+        assert withdrawn.status_code == 200, withdrawn.text
+        assert withdrawn.json() == {"ticketId": stale["ticketId"], "status": "answered", "reason": "ID jsem našlo v plánu."}
+        again = client.post(url, headers=heart, json=body)
+        assert again.status_code == 409 and code(again) == "ticket_answered"
+        unknown = client.post("/api/brain/heart/escalations/gt_nikde/withdraw", headers=heart, json=body)
+        assert unknown.status_code == 404 and code(unknown) == "ticket_not_found"
+        assert client.app.state.heart.pending.get("draft", []) == []
+        client.cookies.update(ui)
+        listed = client.get("/api/brain/heart/escalations", headers=HEADERS, params=SCOPE).json()["escalations"]
+        assert [item["ticketId"] for item in listed] == [kept["ticketId"]]

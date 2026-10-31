@@ -14,6 +14,9 @@
   zadání podstromu uzlu (docs/brain-heart-orchestrator.md §9 O7).
 - `POST /api/brain/heart/escalate {project, workspace, text}`: jen token srdce; lístek `ask` pro člověka
   (`gate.escalate`, stejná funkce jako druh brány `escalate`).
+- `POST /api/brain/heart/escalations/{ticketId}/withdraw {project, workspace, reason}`: jen token srdce; stáhne
+  otevřenou eskalaci srdce svého prostoru, kterou fakta už zodpověděla (`gate.withdraw`,
+  docs/brain-heart-channel.md §6); z „Čeká na vás“ zmizí. 404 neznámý, 403 cizí lístek, 409 už ne otevřený.
 - `POST /api/brain/heart/intake {project, workspace, entry, verdict, reason?, requirement?, title?, openCondition?}`:
   jen token srdce; potvrdí nebo opraví stanovisko vstupu vstupní brány svého prostoru (vrstva `heart`,
   `intake.confirm`, docs/navrhy/2026-10-30-vstupni-brana.md) a případně vstup naváže na požadavek
@@ -54,6 +57,7 @@ from backend.canvas.graph import valid_id
 
 TEXT_LIMIT = 8000
 INTAKE_KEYS = {"project", "workspace", "entry", "verdict", "reason", "requirement", "title", "openCondition"}
+WITHDRAW_KEYS = {"project", "workspace", "reason"}
 MILESTONE_KEYS = {"project", "workspace", "area", "title", "criteria"}
 BRIEF_KEYS = {"project", "workspace", "requirement", "synthesis"}
 ASK_KEYS = {"project", "workspace", "requirement", "question", "recommended", "why"}
@@ -188,6 +192,20 @@ def create_heart_router(service, supervisor):
         except GateError as error:
             return _refused(error)
         return {"ticketId": ticket["ticketId"], "kind": ticket["kind"], "status": ticket["status"]}
+
+    @router.post("/escalations/{ticket_id}/withdraw", openapi_extra=models.body(models.WithdrawIn),
+                 responses=models.answers(200, models.WithdrawOut, 401, 403, 404, 409, 422))
+    async def withdraw(ticket_id: str, request: Request):
+        try:
+            payload = parse_body(await request.body())
+            if not isinstance(payload, dict) or set(payload) != WITHDRAW_KEYS:
+                raise invalid("Tělo je přesně {project, workspace, reason}.",
+                              'python opora_heart.py escalate --withdraw gt_… --reason "Oprava je sloučená."')
+            session = await _heart_session(service, request, payload)
+            ticket = await run_in_threadpool(gate.withdraw, service, session, ticket_id, payload["reason"])
+        except GateError as error:
+            return _refused(error)
+        return {"ticketId": ticket["ticketId"], "status": ticket["status"], "reason": ticket["answer"]["reason"]}
 
     @router.post("/intake", openapi_extra=models.body(models.IntakeVerdictIn),
                  responses=models.answers(200, models.IntakeVerdictOut, 401, 403, 404, 422))

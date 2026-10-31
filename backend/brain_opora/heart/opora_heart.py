@@ -9,6 +9,7 @@
     python opora_heart.py answer --ticket ID --text T
     python opora_heart.py cancel --task ID
     python opora_heart.py escalate --text T
+    python opora_heart.py escalate --withdraw TICKET_ID --reason R   (stáhne zastaralou otázku)
     python opora_heart.py intake --entry ie_… --verdict V [--reason R] [--requirement rq_…|new [--title T]
                                  [--open-condition ms_…]]
     python opora_heart.py milestone --area A --title T --criterion "text::nodeId,nodeId" [--criterion …]
@@ -1096,6 +1097,11 @@ def run(args):
     if args.command == "cancel":
         task = call("POST", f"/api/brain/tasks/{quote(args.task, safe='')}/cancel", {}, {"project": project})
         return {key: task[key] for key in ("taskId", "status")}
+    if args.command == "escalate" and args.withdraw:
+        if not args.reason:
+            raise SystemExit("escalate --withdraw potřebuje --reason (jedna věta, proč otázka padla).")
+        return call("POST", f"/api/brain/heart/escalations/{quote(args.withdraw, safe='')}/withdraw",
+                    {**scope(), "reason": args.reason})
     if args.command == "escalate":
         return call("POST", "/api/brain/heart/escalate", {**scope(), "text": args.text})
     if args.command == "intake":
@@ -1189,7 +1195,11 @@ def parser():
     answer.add_argument("--ticket", required=True)
     answer.add_argument("--text", required=True)
     commands.add_parser("cancel").add_argument("--task", required=True)
-    commands.add_parser("escalate").add_argument("--text", required=True)
+    escalation = commands.add_parser("escalate")  # otázka pro člověka, nebo stažení zastaralé (§6 kanálu)
+    asked = escalation.add_mutually_exclusive_group(required=True)
+    asked.add_argument("--text")
+    asked.add_argument("--withdraw", metavar="TICKET_ID")
+    escalation.add_argument("--reason")
     verdict = commands.add_parser("intake")  # stanovisko vstupu brány (docs/navrhy/2026-10-30-vstupni-brana.md §3)
     verdict.add_argument("--entry", required=True)
     verdict.add_argument("--verdict", required=True, choices=VERDICTS)
