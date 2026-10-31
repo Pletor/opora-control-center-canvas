@@ -6,7 +6,7 @@ docs/navrhy/2026-10-30-metriky-a-spoustece.md §5).
   posledních 50 vstupů a počty `pending` / `duplicates`. Jen čtení; vstupy zapisuje server sám (zpráva srdce,
   lístek brány, fragment Schránky).
 - `POST /api/intake/milestone {project, workspace, milestoneId, action: activate|reject}`: jen člověk v UI, nebo agent
-  (srdce) v projektu s plnou autonomií (`require_authority`, docs/plna-autonomie-agenta.md §2); rozhodne o návrhu milníku srdce. Aktivace nahradí aktivní milník oblasti (`superseded`).
+  (srdce) v projektu s plnou autonomií (`require_authority`, docs/plna-autonomie-agenta.md §2); rozhodne o návrhu milníku srdce. Zamítnout jde i aktivní milník (oblast pak žádný nemá). Aktivace nahradí aktivní milník oblasti (`superseded`).
 - `POST /api/intake/brief/answer {project, workspace, requirement, question, answer | accept: true}`: odpověď na
   otázku výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §7, řez 3); `accept` vezme doporučení srdce. Jen člověk,
   nebo agent při plné autonomii. Srdce se probudí jednou na odpověď (`brief.human_wakes`).

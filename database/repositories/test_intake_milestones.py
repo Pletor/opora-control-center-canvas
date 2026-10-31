@@ -34,13 +34,14 @@ def test_activation_supersedes_the_active_milestone_of_the_area_and_keeps_histor
     assert len(milestones.list()) == 3
 
 
-def test_reject_changes_only_a_proposal():
+def test_reject_changes_a_proposal_or_an_active_milestone():
     milestones = IntakeMilestones(store())
     milestones.insert(milestone("ms_1"))
     milestones.insert(milestone("ms_2", at="t2"))
     milestones.activate("ms_2")
     assert milestones.reject("ms_1") and milestones.get("ms_1")["status"] == "superseded"
-    assert not milestones.reject("ms_2") and milestones.get("ms_2")["status"] == "active"
+    assert milestones.reject("ms_2") and milestones.get("ms_2")["status"] == "superseded"
+    assert milestones.active("w", "a1") is None and not milestones.reject("ms_2")
 
 
 def test_trigger_fires_once_per_key():

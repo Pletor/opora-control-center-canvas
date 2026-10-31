@@ -12,7 +12,7 @@
     python opora_heart.py intake --entry ie_… --verdict V [--reason R] [--requirement rq_…|new [--title T]
                                  [--open-condition ms_…]]
     python opora_heart.py milestone --area A --title T --criterion "text::nodeId,nodeId" [--criterion …]
-    python opora_heart.py milestone-decide --activate MS_ID | --reject MS_ID
+    python opora_heart.py milestone-decide --activate MS_ID | --reject MS_ID   (reject i aktivního)
     python opora_heart.py brief --requirement rq_… --synthesis @soubor.json
     python opora_heart.py ask --requirement rq_… --question Q --recommended R --why W
     python opora_heart.py decide --text T [--node N] [--pin] [--workspace W]
