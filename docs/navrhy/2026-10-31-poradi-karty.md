@@ -37,6 +37,24 @@ přijme jen svůj vlastní návrh, jinak čeká na člověka v UI. `heart_scope`
 {"memberOf", "order"}`; `updateEdges` dál zakázané. `prompt.md` dostane jednu řádku: pořadí podle záměru
 = `order`, nikdy vazba.
 
+## 4. Pořadí stránek sdílené architektury (řez 2, schváleno 2026-10-31)
+
+Živě na Ample (řez 1, #225): obrazovky jsou uzly **architektury projektu** (uzly se `site` a jejich předkové,
+`architecture_graph.split`). Návrh grafu je měnit nesmí („Shared architecture … cannot be edited“), proto srdce
+nastavilo pořadí jen 4 kartám. Pořadí obrazovek platí pro celý projekt, takže patří do architektury.
+
+- `opora_heart.py order` rozdělí `--nodes` na uzly architektury a obsah prostoru (podle `architectureContext`
+  kontextu návrhů / `split`). Obsah jde dál návrhem grafu (§3).
+- Uzly architektury: srdce načte `GET /api/project-architecture?project=`, u daných uzlů změní **jen** `order`
+  (`none` odebere) a uloží `POST /api/project-architecture` s očekávanou revizí (souběžná změna → chyba, nic
+  nepřepíše). Jiná pole, uzly a vazby architektury se nemění; nástroj to ověří porovnáním před uložením.
+  Server zápis srdce do architektury pustí jen při `autonomy.full` téhož projektu a jen se změnou pole `order`
+  (jinak 403 / 422 s `code`); člověk zapisuje beze změny.
+- Hned potom srdce založí návrh grafu s `adoptArchitectureContext: true` (převzetí architektury do plánu) a při
+  `autonomy.full` ho přijme samo; bez plné autonomie čeká na člověka. Do přijetí blokuje rozdíl grafů jen nový
+  claim, běžící běhy ne (heartbeat hlídá jen výřez karty).
+- Výstup příkazu: `architecture: {revision, changes}`, `proposalId`, `accepted` u obou částí.
+
 ## Testy (vedle modulů)
 
 - `test_card_dag.py`: bez `order` stejné pořadí jako dřív; s `order` remíza podle něj; vazba má přednost.

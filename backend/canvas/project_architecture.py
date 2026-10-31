@@ -14,6 +14,7 @@ import json
 from datetime import UTC, datetime
 
 from backend.canvas.architecture_graph import EMPTY_REMOVED, compose, ids, split
+from backend.canvas.architecture_order import require_order_only
 from backend.canvas.graph import EMPTY, digest, encode, payload_project, valid_id, validate_graph
 
 # Rezervovaný prostor pro zadání a text uzlů architektury (platí z mainu i z každého worktree).
@@ -121,8 +122,10 @@ class ProjectArchitecture:
             raise ValueError("Revize architektury neexistuje.")
         return json.loads(row[0])
 
-    def save(self, payload, actor="system"):
-        """Přímý zápis architektury (`POST /api/project-architecture`) s revizí jako podmínkou."""
+    def save(self, payload, actor="system", order_only=False):
+        """Přímý zápis architektury (`POST /api/project-architecture`) s revizí jako podmínkou.
+
+        `order_only` (zápis srdce, `architecture_order`): proti uložené revizi se smí změnit jen pole `order`."""
         if not isinstance(payload, dict) or not SAVE_KEYS <= set(payload) <= SAVE_KEYS | {"actor"}:
             raise ValueError("Neplatný formát zápisu architektury (project, workspace, expectedRevision, graph).")
         pid = payload_project(payload)
@@ -131,7 +134,7 @@ class ProjectArchitecture:
             raise ValueError("Neplatný pracovní prostor.")
         if type(expected) is not int or expected < 0:
             raise ValueError("Neplatná očekávaná revize architektury.")
-        return self._replace(pid, wid, payload["graph"], expected, actor, wid)
+        return self._replace(pid, wid, payload["graph"], expected, actor, wid, order_only=order_only)
 
     def restore(self, payload, actor="system"):
         """Návrat architektury k revizi (`POST /api/project-architecture/restore`) jako nová revize."""
@@ -150,7 +153,7 @@ class ProjectArchitecture:
             graph = self.graph_at(pid, revision)
             return self._replace(pid, wid, graph, current["revision"], actor, wid or f"restore:{revision}")
 
-    def _replace(self, pid, wid, graph, expected, actor, label):
+    def _replace(self, pid, wid, graph, expected, actor, label, order_only=False):
         canvas = self.canvas
         validate_graph(graph)
         _arch, content = split(graph)
@@ -160,6 +163,8 @@ class ProjectArchitecture:
             current = self.read(pid)
             if current["revision"] != expected:
                 raise ValueError(CONFLICT)
+            if order_only:
+                require_order_only(current["graph"], graph)
             if actor not in ("human", "system"):
                 from backend.canvas.activity_log import HumanRequired
                 from backend.canvas.protected_fields import protected_changes
