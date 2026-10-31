@@ -104,3 +104,13 @@ def test_state_is_a_compact_view_with_the_held_task(service):
     assert conforms(after["answer"], SCHEMAS["state"][1]) == []
     # Lístky zodpovězené branou do schránky nejdou.
     assert gate.inbox(service, session, 0)["tickets"] == []
+
+
+def test_next_with_a_sprint_matches_the_schema(service):
+    task_queue.create(service, {"project": "draft", "workspace": "draft", "title": "Základ",
+                                "body": {"do": "x", "sprint": {"id": "S1", "goal": "Web stojí.",
+                                                               "milestone": ["npm test projde"]}}})
+    session = gate.authenticate(service, gate.open_session(service, WORKER)["token"])
+    answer = kinds.run(service, session, {"kind": "next"})["answer"]
+    assert answer["task"]["sprint"]["total"] == 1 and answer["task"]["checkpoint"] is True
+    assert conforms(answer, SCHEMAS["next"][1]) == []

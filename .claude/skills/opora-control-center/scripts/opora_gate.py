@@ -4,6 +4,7 @@
     opora_gate.py next
     opora_gate.py ask "Smím upravit X?"
     opora_gate.py report --task T --sha S --summary "…" --check "npm test=green" --check "pytest=red"
+    opora_gate.py report --task T --sha S --summary "…" --check "npm test=deferred"   # mimo kontrolní bod sprintu
     opora_gate.py release --task T --reason "Úkol potřebuje soubor z dontTouch."
     opora_gate.py inbox [--wait 20]
     opora_gate.py tell "Záměr člověka doslova"   # relé záměru srdci (docs/brain-heart-orchestrator.md §8)
@@ -92,11 +93,13 @@ def save_state(cwd, state):
 
 
 def parse_check(text):
-    """`"npm test=green"` → `{name, status}`; název smí obsahovat `=`, rozhoduje poslední."""
+    """`"npm test=green"` → `{name, status}`; název smí obsahovat `=`, rozhoduje poslední. `deferred` = kontrolu ověří
+    kontrolní bod sprintu (úkol s `checkpoint: false` v odpovědi next)."""
     name, sep, status = text.rpartition("=")
-    if not sep or not name.strip() or status not in ("green", "red"):
+    if not sep or not name.strip() or status not in ("green", "red", "deferred"):
         raise GateFailure(EXIT_CLIENT, {"ok": False, "error": f"Neplatná kontrola: {text}",
-                                        "hint": 'Tvar je --check "název=green" nebo --check "název=red".'})
+                                        "hint": 'Tvar je --check "název=green", "název=red", nebo mimo kontrolní bod'
+                                                ' sprintu "název=deferred".'})
     return {"name": name.strip(), "status": status}
 
 
@@ -157,7 +160,7 @@ def parser():
     report.add_argument("--task", required=True)
     report.add_argument("--sha", required=True)
     report.add_argument("--summary", required=True)
-    report.add_argument("--check", action="append", help='"název=green|red", lze opakovat')
+    report.add_argument("--check", action="append", help='"název=green|red|deferred", lze opakovat')
     release = sub.add_parser("release", help="vrátí držený úkol do fronty s krátkým důvodem")
     release.add_argument("--task", required=True)
     release.add_argument("--reason", required=True)

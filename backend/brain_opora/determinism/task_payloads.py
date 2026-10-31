@@ -2,6 +2,8 @@
 
 Úkol má pevný tvar, který pracovník dostane vždy celý: chybějící volitelná pole se doplní prázdnou hodnotou.
 Každé odmítnutí je `GateError` s `code` a `hint`.
+Volitelný sprint (docs/navrhy/2026-10-31-sprinty-a-uspornost.md §2) žije v těle: `sprint = {id, goal?, milestone[]?}`;
+úkol bez sprintu tělo nemění. Kontrola smí mít stav `deferred` (ověří ji kontrolní bod sprintu, `task_queue.report`).
 """
 import json
 import re
@@ -10,12 +12,13 @@ from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas.graph import valid_id
 
 STATUSES = ("ready", "assigned", "done", "failed", "cancelled")
-CHECK_STATUSES = ("green", "red")
+CHECK_STATUSES = ("green", "red", "deferred")
 SHA = re.compile(r"[0-9a-fA-F]{7,40}")
 TITLE_LIMIT = 200
 TEXT_LIMIT = 4000
 MAX_CHECKS = 50
 MAX_ORDER = 1_000_000
+SPRINT_ID_LIMIT = 40
 # model pracovníka: výchozí Sonnet (eval m6: stejná kvalita jako Opus za ~55 % ceny), Opus jen na žádost srdce
 MODELS = ("sonnet", "opus", "haiku", "fable")
 DEFAULT_MODEL = "sonnet"
@@ -23,9 +26,12 @@ TASK_EXAMPLE = {"project": "draft", "workspace": "draft", "title": "Přidat test
                 "body": {"do": "Doplňte test pro modul X.", "doneWhen": ["npm test je zelený"]}}
 REPORT_EXAMPLE = {"taskId": "ht_…", "sha": "abc1234", "summary": "Hotovo.",
                   "checks": [{"name": "npm test", "status": "green"}]}
+SPRINT_EXAMPLE = {"id": "S1", "goal": "Základ webu stojí.", "milestone": ["npm run build projde"]}
 TASK_HINT = ("Tělo je " + json.dumps(TASK_EXAMPLE, ensure_ascii=False)
-             + "; nodeId a order (celé číslo, nižší jde dřív) jsou volitelné.")
-REPORT_HINT = "Tělo hlášení je " + json.dumps(REPORT_EXAMPLE, ensure_ascii=False) + "."
+             + "; nodeId a order (celé číslo, nižší jde dřív) jsou volitelné; body.sprint je volitelně "
+             + json.dumps(SPRINT_EXAMPLE, ensure_ascii=False) + " (goal a milestone stačí u jednoho úkolu sprintu).")
+REPORT_HINT = ("Tělo hlášení je " + json.dumps(REPORT_EXAMPLE, ensure_ascii=False)
+               + "; mimo kontrolní bod sprintu smí kontroly mít stav deferred.")
 REASON_LIMIT = 400
 RELEASE_HINT = ('Tělo vrácení je {"taskId": "ht_…", "reason": "Úkol potřebuje soubor mimo files."}; '
                 f"reason je krátký text do {REASON_LIMIT} znaků.")
@@ -54,17 +60,30 @@ def _context(value):
             and _text(value.get("pattern", "")))
 
 
+def _sprint(value):
+    """`{id, goal?, milestone[]?}`: id krátký neprázdný text, goal text, milestone seznam textů."""
+    return (isinstance(value, dict) and "id" in value and set(value) <= {"id", "goal", "milestone"}
+            and _text(value["id"], SPRINT_ID_LIMIT, True) and _text(value.get("goal", ""))
+            and _texts(value.get("milestone", [])))
+
+
 def task_body(body):
-    """`{why, do, files[], doneWhen[], dontTouch[{path, heldBy}], context{…}, commit, model}` s doplněnými poli."""
-    fields = {"why", "do", "files", "doneWhen", "dontTouch", "context", "commit", "model"}
+    """`{why, do, files[], doneWhen[], dontTouch[{path, heldBy}], context{…}, commit, model, sprint?}` s doplněnými
+    poli; `sprint` zůstane jen u úkolu, který ho nese (bez doplnění, ať úkol bez sprintu má tělo jako dřív)."""
+    fields = {"why", "do", "files", "doneWhen", "dontTouch", "context", "commit", "model", "sprint"}
     if not isinstance(body, dict) or not set(body) <= fields or not _text(body.get("do"), required=True):
-        raise invalid("Tělo úkolu je objekt s povinným do a poli why, files, doneWhen, dontTouch, context, commit, model.",
-                      TASK_HINT)
+        raise invalid("Tělo úkolu je objekt s povinným do a poli why, files, doneWhen, dontTouch, context, commit, model,"
+                      " sprint.", TASK_HINT)
+    if "sprint" in body and not _sprint(body["sprint"]):
+        raise invalid(f"sprint je {{id, goal?, milestone[]?}}: id neprázdný text do {SPRINT_ID_LIMIT} znaků, goal text,"
+                      " milestone seznam textů.", TASK_HINT)
     full = {"why": "", "files": [], "doneWhen": [], "dontTouch": [], "context": {}, "commit": "", "model": DEFAULT_MODEL, **body}
     if not (_text(full["why"]) and _texts(full["files"]) and _texts(full["doneWhen"]) and _held(full["dontTouch"])
             and _context(full["context"]) and _text(full["commit"], 400) and full["model"] in MODELS):
         raise invalid("Pole úkolu mají špatný tvar: texty, seznamy textů, dontTouch = [{path, heldBy}], model = "
                       + " | ".join(MODELS) + ".", TASK_HINT)
+    if "sprint" in full:  # stejný sprint = stejné id; okrajové mezery by sprint rozdělily
+        full["sprint"] = {**full["sprint"], "id": full["sprint"]["id"].strip()}
     # eval m3/m6: soubor ve files i v dontTouch zastavil pracovníka lístkem; rozpor odmítne už zápis úkolu
     clash = sorted(set(full["files"]) & {item["path"] for item in full["dontTouch"]})
     if clash:
@@ -133,7 +152,8 @@ def report_payload(body):
         raise GateError(422, "checks_required", "Hlášení bez kontrol nejde přijmout.",
                         'Spusťte kontroly a pošlete checks: [{"name": "npm test", "status": "green"}].')
     if len(checks) > MAX_CHECKS or not all(_check(item) for item in checks):
-        raise invalid(f"Každá kontrola je {{name, status: green | red, output?}}, nejvýš {MAX_CHECKS}.", REPORT_HINT)
+        raise invalid(f"Každá kontrola je {{name, status: green | red | deferred, output?}}, nejvýš {MAX_CHECKS}.",
+                      REPORT_HINT)
     return body["taskId"], body["sha"].lower(), body["summary"], checks
 
 

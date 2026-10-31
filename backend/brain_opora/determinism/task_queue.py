@@ -6,6 +6,9 @@ Kontroly se jen zapisují do `check_runs` u nahlášeného sha; aplikace sama ni
 Úkol relace s prošlým nebo zneplatněným tokenem se vrátí do `ready` při nejbližším `next` kohokoli; pracovník ho
 může vrátit sám (`release` s důvodem). Zelené hlášení musí nést sha, které ve zdrojovém repu prostoru existuje.
 Změny stavu (vznik, přidělení, done, failed, zrušení, vrácení) vydají událost `gate.task`.
+Sprinty (docs/navrhy/2026-10-31-sprinty-a-uspornost.md §2): úkol s `body.sprint` je kontrolním bodem, když za ním
+ve frontě už žádný otevřený úkol téhož sprintu není (odvozeno při čtení, nic se neukládá); úkol bez sprintu je
+kontrolním bodem vždy. Mimo kontrolní bod smí pracovník hlásit kontroly `deferred` (pak `done`), kontrolní bod ne.
 """
 import sqlite3
 import subprocess
@@ -24,7 +27,7 @@ from backend.canvas.check_runs import CheckRuns
 from backend.canvas.opora_events import emit_event
 from backend.canvas.opora_process_sync import ProcessSync
 from backend.project.workspace.workspace_sources import WorkspaceSources
-from database.repositories.heart_tasks import HeartTaskStore
+from database.repositories.heart_tasks import OPEN, HeartTaskStore
 
 PLAN_LIMIT = 20
 MAX_ATTEMPTS = 2
@@ -110,10 +113,50 @@ def cancel(service, project, task_id, now=None, by="human"):
     return task
 
 
-def for_worker(task):
-    """Úkol v pevném tvaru, jak ho dostane pracovník (`next`, `state.myTask`)."""
-    return {key: task[value] for key, value in (("id", "taskId"), ("title", "title"), ("nodeId", "nodeId"),
-                                                ("status", "status"), ("attempts", "attempts"), ("body", "body"))}
+def sprint_of(task):
+    """`body.sprint` úkolu (`{id, goal?, milestone[]?}`), nebo None u úkolu bez sprintu."""
+    sprint = task["body"].get("sprint") if isinstance(task.get("body"), dict) else None
+    return sprint if isinstance(sprint, dict) and sprint.get("id") else None
+
+
+def _queued(task):
+    return task.get("order") or 0, task["seq"]
+
+
+def is_checkpoint(task, mates):
+    """True, když za úkolem ve frontě (`order`, `seq`) není žádný otevřený (`ready`/`assigned`) úkol téhož sprintu.
+    `mates` jsou úkoly prostoru (stačí téhož sprintu); úkol bez sprintu je kontrolním bodem vždy."""
+    sprint = sprint_of(task)
+    if sprint is None:
+        return True
+    return not any(other["taskId"] != task["taskId"] and other["status"] in OPEN and _queued(other) > _queued(task)
+                   and (sprint_of(other) or {}).get("id") == sprint["id"] for other in mates)
+
+
+def sprint_summary(sprint_id, mates):
+    """`{id, goal, milestone, done, total}` sprintu z úkolů prostoru: goal a milestone z prvního úkolu (v pořadí
+    fronty), který je nese; počty přes úkoly sprintu kromě zrušených."""
+    own = sorted((task for task in mates if (sprint_of(task) or {}).get("id") == sprint_id), key=_queued)
+    goal = next((sprint_of(task)["goal"] for task in own if (sprint_of(task).get("goal") or "").strip()), "")
+    milestone = next((list(sprint_of(task)["milestone"]) for task in own if sprint_of(task).get("milestone")), [])
+    live = [task for task in own if task["status"] != "cancelled"]
+    return {"id": sprint_id, "goal": goal, "milestone": milestone,
+            "done": sum(task["status"] == "done" for task in live), "total": len(live)}
+
+
+def for_worker(task, mates=()):
+    """Úkol v pevném tvaru, jak ho dostane pracovník (`next`, `state.myTask`): k polím úkolu `checkpoint` a `sprint`
+    (`{id, goal, milestone, done, total}`, u úkolu bez sprintu null) odvozené z `mates`, úkolů téhož sprintu."""
+    sprint = sprint_of(task)
+    return {**{key: task[value] for key, value in (("id", "taskId"), ("title", "title"), ("nodeId", "nodeId"),
+                                                   ("status", "status"), ("attempts", "attempts"), ("body", "body"))},
+            "checkpoint": is_checkpoint(task, mates), "sprint": sprint_summary(sprint["id"], mates) if sprint else None}
+
+
+def worker_task(store, task):
+    """`for_worker` s úkoly sprintu načtenými ze skladu (jen u úkolu se sprintem)."""
+    sprint = sprint_of(task)
+    return for_worker(task, store.in_sprints(task["workspaceId"], sprint["id"]) if sprint else ())
 
 
 def open_cards(service, project, workspace):
@@ -145,8 +188,9 @@ def next_task(service, session, body, now=None):
                 if ready is not None and store.assign(ready["taskId"], session["id"], at):
                     task = store.get(ready["taskId"])
                     _emit(db, project, task, _agent(session))
-    if task is not None:
-        return {"task": for_worker(task)}
+            shown = worker_task(store, task) if task is not None else None
+    if shown is not None:
+        return {"task": shown}
     # Přehled karet bere vlastní zámky (graf, pak projekt), proto až po uvolnění zámku fronty.
     return {"task": None, "plan": open_cards(service, project, workspace)}
 
@@ -202,20 +246,35 @@ def _check_sha(service, session, task_id, sha):
                         "Commitni práci a nahlas sha z `git rev-parse HEAD`.")
 
 
+def _refuse_deferred_at_checkpoint(store, task):
+    """Kontrolní bod sprintu (i úkol bez sprintu) musí hlásit skutečné kontroly: `deferred` → 422."""
+    sprint = sprint_of(task)
+    if is_checkpoint(task, store.in_sprints(task["workspaceId"], sprint["id"]) if sprint else ()):
+        raise GateError(422, "checkpoint_needs_checks", "Úkol je kontrolním bodem sprintu; kontroly nejde odložit.",
+                        'Spusťte kontroly milníku sprintu a pošlete je jako green nebo red, ne deferred.')
+
+
 def report(service, session, body, now=None):
-    """Obsluha `report`: kontroly do `check_runs` u sha a výsledek úkolu → `{task: {id, status, attempts}}`."""
+    """Obsluha `report`: kontroly do `check_runs` u sha a výsledek úkolu → `{task: {id, status, attempts}}`.
+
+    Kontroly `deferred` se nezapisují a o výsledku nerozhodují; smí je nést jen úkol, který není kontrolním bodem.
+    Hlášení jen z odložených kontrol je `done` a sha se ověří jako u zeleného."""
     task_id, sha, summary, checks = report_payload(body)
     project = session["project_id"]
-    if all(check["status"] == "green" for check in checks):
+    deferred = any(check["status"] == "deferred" for check in checks)
+    checks_run = [check for check in checks if check["status"] != "deferred"]
+    if all(check["status"] == "green" for check in checks_run):
         _check_sha(service, session, task_id, sha)
     with service.lock_for(project):
         db = service.db_for(project)
         task = _held(HeartTaskStore(db, project), task_id, session, REPORT_HELD)
+        if deferred:
+            _refuse_deferred_at_checkpoint(HeartTaskStore(db, project), task)
         runs = CheckRuns(service)
         scope = (project, task["workspaceId"], task["nodeId"] or task_id)
-        for check in checks:  # každý zápis má vlastní transakci (append-only check_runs)
+        for check in checks_run:  # každý zápis má vlastní transakci (append-only check_runs)
             runs.record(scope, {"status": check["status"], "sha": sha, "detail": _detail(check)})
-        red = any(check["status"] == "red" for check in checks)
+        red = any(check["status"] == "red" for check in checks_run)
         attempts = task["attempts"] + (1 if red else 0)
         status = ("failed" if attempts >= MAX_ATTEMPTS else "ready") if red else "done"
         outcome = {"sha": sha, "summary": summary, "checks": checks}

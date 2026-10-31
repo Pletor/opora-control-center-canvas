@@ -124,3 +124,10 @@ def test_server_down_is_a_client_error(tmp_path, capsys, monkeypatch):
     monkeypatch.setenv("OPORA_BASE_URL", "http://127.0.0.1:9")
     code, out = run(tmp_path, capsys, "session", "--project", "draft", "--workspace", "draft", "--name", "dev")
     assert code == opora_gate.EXIT_CLIENT and out["hint"]
+
+
+def test_check_accepts_deferred_outside_the_checkpoint_and_refuses_other_states():
+    assert opora_gate.parse_check("npm run build=deferred") == {"name": "npm run build", "status": "deferred"}
+    with pytest.raises(opora_gate.GateFailure) as caught:
+        opora_gate.parse_check("npm test=skipped")
+    assert caught.value.exit_code == opora_gate.EXIT_CLIENT and "deferred" in caught.value.payload["hint"]

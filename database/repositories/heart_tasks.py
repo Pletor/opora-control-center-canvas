@@ -64,6 +64,15 @@ class HeartTaskStore:
         rows = self.db.execute(query + " ORDER BY seq LIMIT ?", (*args, limit)).fetchall()
         return [public(row) for row in rows]
 
+    def in_sprints(self, workspace, sprint_id=None):
+        """Úkoly prostoru se sprintem v těle (`body.sprint.id`, docs/navrhy/2026-10-31-sprinty-a-uspornost.md §2),
+        volitelně jen jednoho sprintu, v pořadí fronty (`task_order`, `seq`); všechny stavy, bez stropu."""
+        query, args = (SELECT + " WHERE project_id=? AND workspace_id=? AND json_extract(body,'$.sprint.id') IS NOT NULL",
+                       [self.project, workspace])
+        if sprint_id is not None:
+            query, args = query + " AND json_extract(body,'$.sprint.id')=?", [*args, sprint_id]
+        return [public(row) for row in self.db.execute(query + " ORDER BY task_order, seq", args).fetchall()]
+
     def held_by(self, session_id):
         """Úkol, který relace právě drží (`assigned`), nebo None."""
         return public(self.db.execute(SELECT + " WHERE project_id=? AND session_id=? AND status='assigned'"
