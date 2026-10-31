@@ -103,6 +103,39 @@ def escalations(service, project, workspace, limit=INBOX_LIMIT):
             for ticket in tickets]
 
 
+REASON_LIMIT = 500
+
+
+def withdraw(service, session, ticket_id, reason, now=None):
+    """Srdce stáhne svou otevřenou eskalaci, kterou fakta už zodpověděla (docs/brain-heart-channel.md §6).
+
+    Lístek se uzavře jako odpověď srdce (`answered`, `answer.withdrawn`), `escalations()` ho už nevypíše; srdce se
+    tím nebudí (událost nese `status: answered`). Neznámý 404, cizí lístek 403 `gate_scope`, ne otevřený 409."""
+    if not isinstance(reason, str) or not reason.strip() or len(reason) > REASON_LIMIT or "\0" in reason:
+        raise GateError(422, "invalid_payload", f"reason je neprázdný text do {REASON_LIMIT} znaků.",
+                        'python opora_heart.py escalate --withdraw gt_… --reason "Oprava je sloučená."')
+    reason = reason.strip()
+    project, workspace = session["project_id"], session["workspace_id"]
+    with service.lock_for(project):
+        db = service.db_for(project)
+        with db:
+            store = GateTicketStore(db, project)
+            ticket = store.get(ticket_id)
+            if ticket is None:
+                raise GateError(404, "ticket_not_found", "Lístek v projektu neexistuje.",
+                                "ID otevřených otázek je ve snímku v sekci OTÁZKY U ČLOVĚKA.")
+            if store.heart_escalation_workspace(ticket_id) != workspace:
+                raise GateError(403, "gate_scope", "Stáhnout jde jen otázku srdce pro člověka v tomto prostoru.",
+                                "ID otevřených otázek je ve snímku v sekci OTÁZKY U ČLOVĚKA.")
+            value = {"text": "Staženo srdcem: " + reason, "withdrawn": True, "reason": reason}
+            if not store.answer(ticket_id, value, "heart", tokens.stamp(now)):
+                raise GateError(409, "ticket_answered", "Otázka už není otevřená.",
+                                "Otevřené otázky jsou ve snímku v sekci OTÁZKY U ČLOVĚKA.")
+            ticket = store.get(ticket_id)
+            _emit(db, project, workspace, ticket, _actor(session))
+    return ticket
+
+
 def heart_escalation_workspace(service, project, ticket_id):
     """Pracovní prostor lístku, když jde o eskalaci srdce pro člověka; jinak None (lístek pracovníka)."""
     with service.reading(project):

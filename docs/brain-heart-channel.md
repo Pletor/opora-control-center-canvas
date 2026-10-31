@@ -105,3 +105,25 @@ deleted together with its tests, styles and docs. The work is split into two PRs
   - the Jev and RLM sections of `docs/asistent.md` (§13.2, §13.3) move to `backend/brain_opora/decision/README.md`;
   - `docs/asistent.md` is deleted and every link to it is fixed;
   - the `CLAUDE.md` line about H2b is updated.
+
+## 6. Stažení zastaralé otázky
+
+An escalation can become moot before the human answers it: the heart found the ID itself, a fix landed, the milestone
+closed. Such a question must not stay in **Waiting for you**, because the human cannot tell which questions still
+matter (2026-10-31: 3 of 5 open escalations were obsolete).
+
+- `POST /api/brain/heart/escalations/{ticketId}/withdraw {project, workspace, reason}`: heart token of that project
+  and workspace only. It withdraws an open escalation of the heart (`ask` with `for: "human"` from a heart session) in
+  that workspace.
+  - The ticket is closed the same way as an answer: `status = answered`, `answeredBy = heart` and
+    `answer = {text: "Staženo srdcem: <reason>", withdrawn: true, reason}`. No schema change. `escalations()` no longer
+    lists it, so it disappears from the inbox at the next poll. Nothing changes in the frontend.
+  - Withdrawing does not wake the heart, and the event `gate.ticket` carries `status: answered`.
+  - Refusals: 404 `ticket_not_found` for an unknown ticket. 403 `gate_scope` for a ticket that is not a heart
+    escalation of this workspace (a worker ticket, for example). 409 `ticket_answered` when the ticket is no longer
+    open. A caller without the heart token gets 401 or 403. `reason` is a non-empty text of at most 500 characters.
+- The heart snapshot has a section `OTÁZKY U ČLOVĚKA` (only when any escalation is open). It shows at most 5 lines,
+  newest first, each as `- <full ticketId> · <createdAt> · <text cut to ~120 chars>`, and then `… a další (n)`.
+- Heart tool: `python opora_heart.py escalate --withdraw TICKET_ID --reason R`. The prompt tells the heart to check
+  `OTÁZKY U ČLOVĚKA` in every batch. It withdraws a question that the facts already answer, with a one-sentence
+  reason, and never asks the same question again.

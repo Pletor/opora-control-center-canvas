@@ -127,3 +127,34 @@ def test_worker_change_and_ask_record_intake_entries_but_sync_kinds_and_heart_es
                                             ("gate_change", changed["ticketId"], "Rozdělit kartu.", "pending"),
                                             ("gate_change", again["ticketId"], "rozdělit kartu", "duplicate")]
     assert again["status"] == "queued"  # duplicita lístek nezastaví, srdce se budí dál
+
+
+def test_heart_withdraws_its_own_open_escalation_with_a_reason(service):
+    """docs/brain-heart-channel.md §6: stažená otázka zmizí z escalations(), důvod je v odpovědi lístku."""
+    _, token = gate.tokens.issue_heart(service, "draft", "draft")
+    heart = gate.authenticate(service, token, roles=("heart",))
+    kept, stale = gate.escalate(service, heart, "Barva?"), gate.escalate(service, heart, "Jaké ID?")
+    ticket = gate.withdraw(service, heart, stale["ticketId"], "  ID jsem našlo v plánu. ")
+    assert (ticket["status"], ticket["answeredBy"]) == ("answered", "heart")
+    assert ticket["answer"] == {"text": "Staženo srdcem: ID jsem našlo v plánu.", "withdrawn": True,
+                                "reason": "ID jsem našlo v plánu."}
+    assert [item["ticketId"] for item in gate.escalations(service, "draft", "draft")] == [kept["ticketId"]]
+    assert events(service)[-1] == ("agent", {"ticketId": stale["ticketId"], "kind": "ask", "status": "answered"})
+
+
+def test_withdraw_refuses_unknown_foreign_closed_and_empty_reason(service):
+    _, token = gate.tokens.issue_heart(service, "draft", "draft")
+    heart = gate.authenticate(service, token, roles=("heart",))
+    worker_ticket = kinds.run(service, worker_session(service), {"kind": "ask", "body": {"question": "?"}})
+    answered = gate.escalate(service, heart, "Barva?")
+    gate.answer(service, "draft", answered["ticketId"], {"answer": {"text": "Modrá"}})
+    open_one = gate.escalate(service, heart, "Font?")
+    for ticket_id, reason, status, code in (("gt_nikde", "x", 404, "ticket_not_found"),
+                                            (worker_ticket["ticketId"], "x", 403, "gate_scope"),
+                                            (answered["ticketId"], "x", 409, "ticket_answered"),
+                                            (open_one["ticketId"], " ", 422, "invalid_payload")):
+        with pytest.raises(GateError) as caught:
+            gate.withdraw(service, heart, ticket_id, reason)
+        assert (caught.value.status, caught.value.code) == (status, code), ticket_id
+    assert gate.get_ticket(service, "draft", worker_ticket["ticketId"])["status"] == "queued"
+    assert gate.get_ticket(service, "draft", answered["ticketId"])["answer"] == {"text": "Modrá"}

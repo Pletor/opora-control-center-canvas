@@ -168,6 +168,12 @@ def test_snapshot_answer_escalate_and_done(server, capsys, tmp_path):
     assert answer["query"] == {"project": ["p1"]} and answer["body"] == {"answer": {"text": "Ano."}}
     assert json.loads(run(capsys, "escalate", "--text", "Rozhodni barvu.")[1])["kind"] == "ask"
     assert Handler.calls[-1]["body"] == {"project": "p1", "workspace": "main", "text": "Rozhodni barvu."}
+    assert run(capsys, "escalate", "--withdraw", "gt_9", "--reason", "Oprava je sloučená.")[0] == 0
+    assert (Handler.calls[-1]["path"], Handler.calls[-1]["body"]) == ("/api/brain/heart/escalations/gt_9/withdraw", {
+        "project": "p1", "workspace": "main", "reason": "Oprava je sloučená."})
+    for argv in (["escalate", "--withdraw", "gt_9"], ["escalate", "--text", "x", "--withdraw", "gt_9"]):
+        with pytest.raises(SystemExit):
+            opora_heart.main(argv)
     assert run(capsys, "intake", "--entry", "ie_1", "--verdict", "later_extension", "--reason", "po milníku")[0] == 0
     assert (Handler.calls[-1]["path"], Handler.calls[-1]["body"]) == ("/api/brain/heart/intake", {
         "project": "p1", "workspace": "main", "entry": "ie_1", "verdict": "later_extension", "reason": "po milníku"})

@@ -415,3 +415,29 @@ def test_collect_reads_open_auto_rebase_conflicts(service):
     assert facts["conflictsTotal"] == 1 and facts["conflicts"][0]["subject"] == "Edit a"
     assert facts["conflicts"][0]["items"][0]["key"] == "spec:a:goal"
     assert "KONFLIKTY NÁVRHŮ:" in snapshot.render(facts)
+
+
+def test_open_heart_escalations_section_newest_first_capped_and_absent_without_any():
+    """OTÁZKY U ČLOVĚKA (docs/brain-heart-channel.md §6): plné ID · čas · zkrácený text, nejvýš 5 řádků."""
+    assert "OTÁZKY U ČLOVĚKA" not in snapshot.render(FACTS)
+    asked = [{"ticketId": f"gt_{i}", "createdAt": f"2026-10-31T10:0{i}:00Z", "body": {"text": f"otázka {i}"}}
+             for i in range(7, 0, -1)]
+    asked[0]["body"]["text"] = "x" * 300
+    text = snapshot.render({**FACTS, "escalations": asked})
+    rows = _block(text, "OTÁZKY U ČLOVĚKA:")
+    assert len(rows) == snapshot.ESCALATIONS and rows[1] == "- gt_6 · 2026-10-31T10:06:00Z · otázka 6"
+    assert rows[0] == "- gt_7 · 2026-10-31T10:07:00Z · " + "x" * (snapshot.ESCALATION_TEXT - 1) + "…"
+    assert "\n… a další (2)\n" in text
+    assert text.index("ROZHODNUTÍ:") < text.index("OTÁZKY U ČLOVĚKA:") < text.index("PLÁN:")
+    assert "a další" not in snapshot.render({**FACTS, "escalations": asked[:5]})
+
+
+def test_collect_lists_open_heart_escalations_and_drops_withdrawn_ones(service):
+    _, token = gate.tokens.issue_heart(service, "draft", "draft")
+    heart = gate.authenticate(service, token, roles=("heart",))
+    first, second = gate.escalate(service, heart, "Barva?"), gate.escalate(service, heart, "Jaké ID?")
+    rows = _block(snapshot.snapshot(service, "draft", "draft"), "OTÁZKY U ČLOVĚKA:")
+    assert [row.split(" · ")[0] for row in rows] == [f"- {second['ticketId']}", f"- {first['ticketId']}"]
+    gate.withdraw(service, heart, second["ticketId"], "ID je v plánu.")
+    rows = _block(snapshot.snapshot(service, "draft", "draft"), "OTÁZKY U ČLOVĚKA:")
+    assert [row.split(" · ")[0] for row in rows] == [f"- {first['ticketId']}"]

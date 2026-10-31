@@ -2,7 +2,7 @@
 
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky,
 oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu),
-fronta úkolů, čekající lístky, poslední vstupy vstupní brány (sekce VSTUPY), aktivní milníky s kritérii (hotovo/celkem a karty) a splněné
+fronta úkolů, čekající lístky, otevřené eskalace srdce pro člověka (sekce OTÁZKY U ČLOVĚKA), poslední vstupy vstupní brány (sekce VSTUPY), aktivní milníky s kritérii (hotovo/celkem a karty) a splněné
 milníky s odloženými požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY),
 otevřené konflikty auto-rebase (sekce KONFLIKTY NÁVRHŮ, docs/oporahub-auto-rebase.md), poslední kontroly, deník dávek;
 okolí srdce §3a; skripty dílny §3b; výzkumy a duely srdce ze schránky zadání §3c; stav práce karet z executions
@@ -51,6 +51,9 @@ QUEUE = ("ready", "assigned", "done", "failed")
 RULES = 20
 MESSAGES = 5
 MESSAGE_TEXT = 400
+ESCALATIONS = 5  # nejvýš řádků sekce OTÁZKY U ČLOVĚKA (otevřené eskalace srdce)
+ESCALATION_TEXT = 120
+ESCALATIONS_READ = 100  # kolik otevřených eskalací se čte kvůli počtu „… a další (n)“
 DECISIONS = 10
 JOURNAL = 5
 SCRIPTS = 15
@@ -305,6 +308,7 @@ def collect(service, project, workspace):
         db = service.db_for(project)
         tasks = HeartTaskStore(db, project).list(workspace)
         tickets = GateTicketStore(db, project).queued(workspace, TICKETS)
+        escalations = GateTicketStore(db, project).escalations(workspace, ESCALATIONS_READ)
         checks = db.execute("SELECT scope_id, sha, status FROM check_runs WHERE project_id=? AND workspace_id=?"
                             " ORDER BY recorded_at DESC, scope_id LIMIT ?", (project, workspace, CHECKS)).fetchall()
         work = _work(db, project, workspace)
@@ -318,7 +322,7 @@ def collect(service, project, workspace):
         conflicts, conflicts_total = _conflicts(db, project, workspace)
     runs = _runs(service, project, workspace, [card["id"] for card in cards])  # jen otevřené karty
     return {"delivery": channel, "conflicts": conflicts, "conflictsTotal": conflicts_total, "runs": runs, "intake": entries, "milestones": reached, "active_milestones": active, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
-            "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
+            "tasks": tasks, "tickets": tickets, "escalations": escalations, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
 
@@ -436,6 +440,18 @@ def _memory_lines(facts):
                  + (f" · {item['path']}" if item.get("path") else "") for item in _decisions(facts)[:DECISIONS]]
     return (_section("ZPRÁVY ČLOVĚKA:", messages) + _section("PRAVIDLA:", rules)
             + _section("ROZHODNUTÍ:", decisions))
+
+
+def _escalation_lines(facts):
+    """Sekce OTÁZKY U ČLOVĚKA (docs/brain-heart-channel.md §6): otevřené eskalace srdce od nejnovější, s plným ID,
+    ať je srdce může stáhnout (`escalate --withdraw`) a neptá se znovu. Bez otevřených sekce chybí."""
+    escalations = facts.get("escalations") or []
+    if not escalations:
+        return []
+    rows = [f"- {item['ticketId']} · {item['createdAt']} · {_short(item['body'].get('text'), ESCALATION_TEXT)}"
+            for item in escalations[:ESCALATIONS]]
+    more = len(escalations) - ESCALATIONS
+    return ["OTÁZKY U ČLOVĚKA:", *rows, *([f"… a další ({more})"] if more > 0 else [])]
 
 
 def _journal_lines(facts):
@@ -558,7 +574,7 @@ def _space_lines(facts):
 def render(facts, limit=LIMIT):
     """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
-             f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts),
+             f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts), *_escalation_lines(facts),
              *([delivery.line(facts["delivery"])] if facts.get("delivery") else []), "PLÁN:", *_plan(facts),
              "FRONTA ÚKOLŮ: " + _queue(facts)[0], *_queue(facts)[1:], "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
