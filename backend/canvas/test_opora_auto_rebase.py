@@ -128,3 +128,38 @@ def test_auto_rebase_never_accepts(service, started):
     AutoRebase(service).run("draft", "draft")
     assert OporaChangesets(service).context("draft", "draft")["acceptedHead"] == head
     assert HUMAN["kind"] == "human"
+
+
+def open_conflict(service, started):
+    first = propose(service, "a", goal="Ours")
+    sibling = propose(service, "a", goal="Theirs")
+    head = accept(service, sibling, started["id"])["id"]
+    rebase = AutoRebase(service)
+    rebase.run("draft", "draft")
+    return rebase, rebase.conflicts("draft", "draft", "open")["items"][0], head, first
+
+
+def test_keep_accepted_resolves_without_proposal_and_leaves_head(service, started):
+    rebase, conflict, head, first = open_conflict(service, started)
+    resolved = rebase.resolve(conflict["id"], {**SCOPE, "keep": "accepted"}, AGENT)
+    assert resolved["status"] == "resolved" and resolved["resolutionProposalId"] is None
+    assert OporaChangesets(service).context("draft", "draft")["acceptedHead"] == head
+    assert service.node_spec("draft", "draft", "a")["fields"]["goal"] == "Theirs"
+    with pytest.raises(ValueError, match="open conflict"):
+        rebase.resolve(conflict["id"], {**SCOPE, "keep": "accepted"}, AGENT)
+    assert first["id"] in {item["proposalId"] for item in rebase.conflicts("draft", "draft", "resolved")["items"]}
+
+
+def test_keep_accepted_rejects_conflict_from_older_head(service, started):
+    rebase, conflict, head, _ = open_conflict(service, started)
+    accept(service, propose(service, "b", goal="Later"), head)
+    with pytest.raises(ValueError, match="older accepted head"):
+        rebase.resolve(conflict["id"], {**SCOPE, "keep": "accepted"}, AGENT)
+    assert rebase.conflict("draft", "draft", conflict["id"])["status"] == "open"
+
+
+@pytest.mark.parametrize("fields", [{}, {"keep": "accepted", "resolutionProposalId": "0" * 40}, {"keep": "ours"}])
+def test_resolve_needs_exactly_one_way(service, started, fields):
+    rebase, conflict, _, _ = open_conflict(service, started)
+    with pytest.raises(ValueError):
+        rebase.resolve(conflict["id"], {**SCOPE, **fields}, AGENT)

@@ -3,7 +3,8 @@
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky,
 oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu),
 fronta úkolů, čekající lístky, poslední vstupy vstupní brány (sekce VSTUPY), aktivní milníky s kritérii (hotovo/celkem a karty) a splněné
-milníky s odloženými požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY), poslední kontroly, deník dávek;
+milníky s odloženými požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY),
+otevřené konflikty auto-rebase (sekce KONFLIKTY NÁVRHŮ, docs/oporahub-auto-rebase.md), poslední kontroly, deník dávek;
 okolí srdce §3a; skripty dílny §3b; výzkumy a duely srdce ze schránky zadání §3c; stav práce karet z executions
 a vazeb PR, docs/brain-heart-orchestrator.md §3, včetně blokace nehotovým předchůdcem z grafu karet agent-state;
 kanál doručení práce cards/gate před sekcí PLÁN, řádek DORUČENÍ, §3e),
@@ -23,6 +24,7 @@ from database.repositories.intake_requirements import IntakeRequirements
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_queue import for_worker, open_cards
 from backend.canvas import card_gauge
+from backend.canvas.opora_auto_rebase import SOURCES as PROPOSAL_SOURCES
 from backend.canvas import opora_agent_state_dag as dag_state
 from backend.canvas.architecture_graph import split
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
@@ -33,6 +35,7 @@ from backend.editor.brief_vault.brief_vault_tree import live_ids
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
+from database.repositories.opora_auto_rebase import AutoRebaseStore
 from database.repositories.opora_execution_pull_requests import ExecutionPullRequests, list_execution_pull_requests
 from database.repositories.opora_executions import Executions
 
@@ -56,6 +59,9 @@ INTAKE_TEXT = 100  # znaků věty v sekci VSTUPY
 MILESTONES = 5  # nejvýš splněných milníků v sekci MILNÍKY
 ACTIVE_MILESTONES = AREAS  # nejvýš rozpracovaných aktivních milníků v sekci MILNÍKY
 REQUIREMENTS = 8  # nejvýš otevřených a odložených požadavků v sekci POŽADAVKY
+CONFLICTS = 5  # nejvýš řádků sekce KONFLIKTY NÁVRHŮ (konflikt = řádek)
+CONFLICT_ITEMS = 2  # nejvýš polí vypsaných u konfliktu, zbytek jako „+n“
+CONFLICT_VALUE = 40  # znaků hodnoty pole v konfliktu
 GIT_COMMITS, GIT_CHARS = 10, 1200
 SPACES_CHARS = 800  # sekce PROSTORY git projektu
 FREE = "volná"  # karta bez běhu, nebo s během uvolněným či odebraným
@@ -270,6 +276,23 @@ def _spaces(service, project):
     return spaces
 
 
+def _conflicts(db, project, workspace):
+    """Otevřené konflikty auto-rebase: prvních `CONFLICTS` jako `{id, subject, items}` (nejstarší první) a jejich
+    celkový počet; nečitelné = žádné."""
+    try:
+        found = AutoRebaseStore(db, project, workspace).conflicts("open", limit=1000)
+        out = []
+        for item in found[:CONFLICTS]:
+            table = PROPOSAL_SOURCES.get(item.get("proposalKind"), (None,))[0]
+            row = table and db.execute(f"SELECT json_extract(content,'$.subject') FROM {table} WHERE project_id=?"
+                                       " AND workspace_id=? AND id=?", (project, workspace, item["proposalId"])).fetchone()
+            out.append({"id": item["id"], "subject": (row[0] if row else None) or item["proposalId"],
+                        "items": item.get("items") or []})
+        return out, len(found)
+    except UNREADABLE:
+        return [], 0
+
+
 def collect(service, project, workspace):
     """Fakta snímku jednoho pracovního prostoru. Neexistující projekt je 404 `project_not_found`."""
     if not service.project_exists(project):
@@ -292,8 +315,9 @@ def collect(service, project, workspace):
                                     IntakeMilestones(db).list(workspace, ("active",))) if not item["done"]]
         wanted = IntakeRequirements(db).list(workspace, ("open", "deferred"))[-REQUIREMENTS:]
         channel = delivery.channel(db, project)
+        conflicts, conflicts_total = _conflicts(db, project, workspace)
     runs = _runs(service, project, workspace, [card["id"] for card in cards])  # jen otevřené karty
-    return {"delivery": channel, "runs": runs, "intake": entries, "milestones": reached, "active_milestones": active, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
+    return {"delivery": channel, "conflicts": conflicts, "conflictsTotal": conflicts_total, "runs": runs, "intake": entries, "milestones": reached, "active_milestones": active, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
             "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
@@ -481,6 +505,28 @@ def _requirement_lines(facts):
     return ["POŽADAVKY:", *rows] if rows else []
 
 
+def _value(value):
+    return _short(value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, sort_keys=True),
+                  CONFLICT_VALUE)
+
+
+def _conflict_lines(facts):
+    """KONFLIKTY NÁVRHŮ: otevřené konflikty auto-rebase s plným ID (bere ho `conflict --resolve`), zkrácený předmět
+    návrhu a pole `klíč: náš → hodnota | přijato hodnota`. Nejvýš `CONFLICTS` řádků; žádné = bez sekce."""
+    found = (facts.get("conflicts") or [])[:CONFLICTS]
+    total = max(facts.get("conflictsTotal") or 0, len(found))
+    rows = []
+    for item in found:
+        fields = [f"{field.get('key')}: náš → {_value(field.get('ours'))} | přijato {_value(field.get('theirs'))}"
+                  for field in item["items"][:CONFLICT_ITEMS]]
+        rest = len(item["items"]) - CONFLICT_ITEMS
+        rows.append(f"- {item['id']} · {_short(item['subject'], 60)} · " + "; ".join(fields)
+                    + (f"; +{rest}" if rest > 0 else ""))
+    if total > CONFLICTS:
+        rows[-1] = f"- … a další ({total - CONFLICTS + 1})"
+    return ["KONFLIKTY NÁVRHŮ:", *rows] if rows else []
+
+
 def _git_lines(facts):
     rows, size = [], 0
     for line in (facts.get("git") or [])[:GIT_COMMITS]:
@@ -517,7 +563,7 @@ def render(facts, limit=LIMIT):
              "FRONTA ÚKOLŮ: " + _queue(facts)[0], *_queue(facts)[1:], "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
-    lines += _intake_lines(facts) + _requirement_lines(facts) + _milestone_lines(facts)
+    lines += _intake_lines(facts) + _requirement_lines(facts) + _milestone_lines(facts) + _conflict_lines(facts)
     lines.append("POSLEDNÍ KONTROLY:")
     lines += [f"- {scope} {sha[:12]} {status}" for scope, sha, status in facts["checks"][:CHECKS]] or ["- žádné"]
     lines += _git_lines(facts) + (_space_lines(facts) if facts.get("spaces") is not None else [])

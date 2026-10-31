@@ -179,8 +179,8 @@ uvnitř slovesa podle `targetId`; test hlídá, že tabulka a `VERB_ORDER` souhl
 | `propose_graph` | `POST /api/oporahub/graph-proposals` | `ready`, když karty mají zadání, ale přijatá revize nemá graf plánu (žádná, nebo jen `accept_baseline`) a čeká žádný návrh grafu; běh v2 bez grafu plánu nepřevezme (`409 graph_acceptance_required`). `preconditions` = celé tělo bez `project`/`workspace`: `{parentRevision, expectedGraphDigest, subject, plan: {nodes: [], edges: []}}`; prázdný plán převezme pracovní graf i zadání karet |
 | `accept` | `…/{id}/accept` podle druhu návrhu | vždy `blocked/human_only`; `preconditions` = celé tělo bez `project`/`workspace` včetně převzetí základu (`adoptBaseGraphDigest`, `adoptBaseContentDigest`, `reviewed…Id`) |
 | `accept_baseline` | `POST /api/oporahub/baselines` | vždy `blocked/human_only`; `preconditions` nesou i výchozí `subject` |
-| `rebase` | `…/{id}/rebase` zastaralého návrhu | `ready` (výslovný převod; automatický běží na serveru) |
-| `proposal.resolve_conflict` | `POST /api/oporahub/auto-rebase/conflicts/{id}/resolve` | `ready` u otevřeného konfliktu auto-rebase; řešením je běžný nový návrh nad aktuální hlavou |
+| `rebase` | `…/{id}/rebase` zastaralého návrhu | `ready` (výslovný převod; automatický běží na serveru). Se zapnutým auto-rebase chybí u návrhu, který smyčka vyřídila (redundantní nebo s vyřešeným konfliktem) |
+| `proposal.resolve_conflict` | `POST /api/oporahub/auto-rebase/conflicts/{id}/resolve` | `ready` u otevřeného konfliktu auto-rebase; řešením je běžný nový návrh nad aktuální hlavou, nebo `{keep: "accepted"}`, když pole už rozhodla přijatá hlava |
 | `claim` | `POST /api/oporahub/executions/claim` | `ready`, nebo `blocked/budget_exhausted`, `budget_policy_required` či `blocked_by_predecessor` (nedokončený předchůdce v grafu karet; ID akce se mění se sadou blokujících karet); `budget` nese zbývající pokusy a opravy |
 | `review` | `GET /api/oporahub/executions/{id}/results` | `blocked/human_only` (AI review chybí) |
 | `review.claim` | `POST /api/oporahub/review-jobs/claim` | `ready` u úlohy review s volným slotem (jen se zapnutým automatickým review); `preconditions` `{role, headSha}` |

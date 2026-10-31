@@ -129,25 +129,36 @@ class AutoRebase:
             return self.store(project, workspace).conflict(conflict_id)
 
     def resolve(self, conflict_id, payload, by):
-        """Link an open conflict to a normal new proposal on the current head (human or agent)."""
+        """Close an open conflict (human or agent): link a normal new proposal on the current head
+        (`resolutionProposalId`), or `keep: "accepted"` when the accepted head already decided the fields
+        (no resolution proposal, the head stays untouched)."""
         by = _author(by, allow_agent=True)
-        if not isinstance(payload, dict) or set(payload) != {"project", "workspace", "resolutionProposalId"}:
-            raise ValueError("Invalid conflict resolution fields.")
+        fields = set(payload) if isinstance(payload, dict) else set()
+        if fields not in ({"project", "workspace", "resolutionProposalId"}, {"project", "workspace", "keep"}):
+            raise ValueError("Invalid conflict resolution fields: exactly one of resolutionProposalId or keep.")
         project, workspace = scope(payload)
         identifier(conflict_id)
-        resolution = payload["resolutionProposalId"]
-        identifier(resolution)
+        keep = "keep" in fields
+        if keep and payload["keep"] != "accepted":
+            raise ValueError("keep must be \"accepted\".")
+        resolution = None if keep else payload["resolutionProposalId"]
+        if not keep:
+            identifier(resolution)
         with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
             db = self.canvas.db_for(project)
             store = AutoRebaseStore(db, project, workspace)
             conflict = store.conflict(conflict_id)
             head = ChangesetRepository(db, project, workspace).head()
-            rows, _, _ = proposals(db, project, workspace)
-            parents = {ident: parent for _, ident, parent, _ in rows}
             if conflict["status"] != "open":
                 raise ValueError("Only an open conflict can be resolved.")
-            if resolution == conflict["proposalId"] or parents.get(resolution, "missing") != head:
-                raise ValueError("Resolution must be a different proposal created on the current accepted head.")
+            if keep:
+                if conflict["acceptedHead"] != head:
+                    raise ValueError("Conflict was recorded against an older accepted head.")
+            else:
+                rows, _, _ = proposals(db, project, workspace)
+                parents = {ident: parent for _, ident, parent, _ in rows}
+                if resolution == conflict["proposalId"] or parents.get(resolution, "missing") != head:
+                    raise ValueError("Resolution must be a different proposal created on the current accepted head.")
             with db:
                 db.execute("BEGIN IMMEDIATE")
                 store.transition(conflict_id, "resolved", resolution, stamp())

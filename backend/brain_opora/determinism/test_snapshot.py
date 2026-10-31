@@ -382,3 +382,36 @@ def test_collect_lists_areas_and_sectors_of_the_canvas(service):
     facts = snapshot.collect(service, "draft", "draft")
     assert facts["areas"] == [{"id": "ar", "name": "Oblast"}]
     assert facts["sectors"] == [{"id": "se", "name": "Sektor", "memberOf": "ar"}]
+
+
+CONFLICT = {"id": "c" * 40, "subject": "Upravit cíl karty a", "items": [
+    {"key": "spec:a:goal", "base": "Start", "ours": "Náš cíl", "theirs": "Přijatý cíl"}]}
+
+
+def test_render_lists_open_proposal_conflicts_only_when_present():
+    text = snapshot.render({**FACTS, "conflicts": [CONFLICT], "conflictsTotal": 1})
+    assert ("KONFLIKTY NÁVRHŮ:\n- " + "c" * 40 + " · Upravit cíl karty a · spec:a:goal: náš → Náš cíl"
+            " | přijato Přijatý cíl") in text
+    assert "KONFLIKTY NÁVRHŮ" not in snapshot.render(FACTS)
+    many = snapshot.render({**FACTS, "conflicts": [CONFLICT] * 5, "conflictsTotal": 9})
+    assert _block(many, "KONFLIKTY NÁVRHŮ:")[-1] == "- … a další (5)" and len(_block(many, "KONFLIKTY NÁVRHŮ:")) == 5
+
+
+def test_collect_reads_open_auto_rebase_conflicts(service):
+    from backend.canvas.opora_auto_rebase import AutoRebase
+    from backend.canvas.test_opora_auto_rebase import propose
+    from backend.canvas.test_opora_changesets import accept, baseline
+    from backend.canvas.test_project_architecture import domain, page
+
+    current = service.view("draft", "draft")
+    service.save_graph("draft", "draft", {"nodes": [node("a"), node("b"), domain(), page()], "edges": []},
+                       current["digest"])
+    root = baseline(service)
+    propose(service, "a", goal="Ours")
+    accept(service, propose(service, "a", goal="Theirs"), root["id"])
+    assert snapshot.collect(service, "draft", "draft")["conflicts"] == []
+    AutoRebase(service).run("draft", "draft")
+    facts = snapshot.collect(service, "draft", "draft")
+    assert facts["conflictsTotal"] == 1 and facts["conflicts"][0]["subject"] == "Edit a"
+    assert facts["conflicts"][0]["items"][0]["key"] == "spec:a:goal"
+    assert "KONFLIKTY NÁVRHŮ:" in snapshot.render(facts)
