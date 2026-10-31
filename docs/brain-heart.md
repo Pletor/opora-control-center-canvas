@@ -372,22 +372,6 @@ Errors print `code` and `hint`, and the exit code is not zero.
   the first task of sprint 1 right after clarity and plans the rest while the worker works; a sprint is usually 1–4
   tasks; `npm run build` / `npm test` belong to the milestone of the sprint, not to every task.
 
-### 5a. Procedures of the heart (`heart/skills/*.md`, Czech)
-
-Long procedures live outside the system prompt and are read on demand with `opora_heart.py skill NAME`
-(`docs/navrhy/2026-10-31-sprinty-a-uspornost.md` §4). `command.write_config` copies every `skills/*.md` into
-`brain/skills/`; a new file needs no registration. `prompt.md` holds one line per procedure saying when to load it.
-
-| Procedure | Load when | Content |
-|---|---|---|
-| `vyslech` | the batch carries `VÝSLECH` | understand, research, synthesis shape, questions to the human |
-| `sprinty` | planning queue tasks (after `clear`, a new intent, a red checkpoint) | sprints of 1–4 tasks with a milestone (`npm run build projde`, `npm test projde`, customer journey); the first task of sprint 1 right away; tiny things merged; a red checkpoint gets a fix task in the same sprint |
-| `zruseni` | a change cancels or renames an earlier thing | grep every pattern (incl. related form fields, payload keys, FAQ/menu/footer texts, CSS classes) in `src/` and tests, one task with all files in `--file`, a `--done-when` "hledání … v src/ nic nenajde" per pattern, tests of the cancelled thing removed or rewritten |
-| `chybi-podklad` | an input relies on an API, data or file missing in the repo (`needs_info`) | verify in the repo, plan the smallest honest variant now (real call with loading/error/empty state, or visibly temporary data) with a test of the error/empty path, `escalate` the gap in the same batch, block nothing else |
-
-The gate worker has its own skill, `.claude/skills/opora-gate-worker/SKILL.md` (loop, `deferred` checks outside the
-checkpoint, targeted reading).
-
 ## 6. The heart's prompt (`heart/prompt.md`, Czech)
 
 The prompt has these parts:
