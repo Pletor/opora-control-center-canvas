@@ -12,7 +12,7 @@ import { closeCardAfterMerge, confirmProposal } from "@/editor/canvas/node-card/
 import { addAction, buildBlockNodes, closeOpen, materialPreviewUrl, toggleOpen, type BlockApi, type BlockPort, type OpenBlocks } from "@/editor/workflow/blocks/logic/block-model";
 import PipelinePicker from "@/editor/workflow/pipeline-picker/components/PipelinePicker";
 import { openIdeas } from "@/editor/node-detail/ideas/logic/ideas-model";
-import { addBlock, addBlockPort, moveBlock, removeBlock, removeBlockPort, renameBlockPort, decideBlockPort, setPortSpawn, updateBlock } from "@/editor/node-detail/tree/logic/tree-model";
+import { addBlock, addBlockPort, moveBlock, removeBlock, removeBlockPort, renameBlockPort, decideBlockPort, updateBlock } from "@/editor/node-detail/tree/logic/tree-model";
 import { edgeFromConnection, sameEdge, type BoardConnection } from "@/editor/canvas/board/logic/board-model";
 import { emptyHistory, record, recordRemoval, redo, sameGraph, undo, type GraphHistory } from "@/editor/canvas/history/logic/graph-history";
 import HistoryButtons from "@/editor/canvas/history/components/HistoryButtons";
@@ -34,7 +34,7 @@ const ARRANGE_SPACING: ArrangeOptions = { gapX: 160, gapY: 72, areaGap: 160 };
 import { clampAreaResize } from "@/editor/canvas/board/logic/solid-bodies";
 import EdgeReportPanel from "@/editor/canvas/edge-report/components/EdgeReportPanel";
 import { edgeReportView, edgeRoute, reportOf, setEdgeReport } from "@/editor/canvas/edge-report/logic/edge-report-model";
-import BlockEditorDrawer from "@/editor/block-editor/components/BlockEditorDrawer";
+import BlockPanelDrawer from "@/editor/block-panel/components/BlockPanelDrawer";
 import StructurePanel from "@/layout/structure-panel/components/StructurePanel";
 import { useStructurePanel } from "@/layout/structure-panel/logic/use-structure-panel";
 import { useCanvasIndex } from "@/layout/structure-panel/logic/use-canvas-index";
@@ -793,6 +793,13 @@ export default function App() {
     if (!project) return;
     sendHeartMessage(project, request.workspace, request.text).catch((e) => setError("Zprávu srdci se nepodařilo poslat: " + (e instanceof Error ? e.message : String(e))));
   }
+  /** Odpověď člověka srdci z bočního menu bloku (úsudek karty); otevře panel, kde je odpověď srdce vidět. */
+  function answerHeart(text: string): Promise<boolean> {
+    if (!project) return Promise.resolve(false);
+    return sendHeartMessage(project, workspace, text)
+      .then(() => { setAssistantOpen(true); return true; })
+      .catch((e) => { setError("Zprávu srdci se nepodařilo poslat: " + (e instanceof Error ? e.message : String(e))); return false; });
+  }
   /** Přepnutí pracovního prostoru: TopBar i „Pracovat v tomto worktree“ v živém panelu domény. */
   function selectWorkspace(id: string) {
     setWorkspace(id);
@@ -1157,22 +1164,19 @@ export default function App() {
           </div>}
           <div className="canvas-surface">
             {environment === "editor" && mode === "structure" && panels.drawer === "block" && !artifactMapOpen && view && node && selectedWorkflow && selectedBlockData && (
-                <BlockEditorDrawer title={`Blok ${selectedBlockData.number} · ${selectedBlockData.title}`}
+                <BlockPanelDrawer title={`Blok ${selectedBlockData.number} · ${selectedBlockData.title}`}
                   onClose={() => setSelection(selectNode(node.id))}>
                       <BlockDrawerContent
-                        desktop={desktop}
                         project={project}
                         workspace={workspace}
                         node={node}
                         workflow={selectedWorkflow}
                         blockId={selectedBlockData.id}
-                        linkTargets={linkTargets}
-                        disabled={libraryReadOnly}
-                        onSelectBlock={(id) => setSelection(selectBlock(node.id, id))}
+                        edges={graph.edges}
                         onSelectNode={() => setSelection(selectNode(node.id))}
-                        onPickTag={(tag) => setTagFilter((current) => (current === tag ? "" : tag))}
+                        onAskHeart={answerHeart}
                       />
-                </BlockEditorDrawer>
+                </BlockPanelDrawer>
             )}
             {view ? (
               mode === "text" ? (
@@ -1338,7 +1342,6 @@ export default function App() {
                     else if (event.type === "rename-port") void desktop.mutate(renameBlockPort(nodeId, event.blockId, event.portId, event.label));
                     else if (event.type === "remove-port") void desktop.mutate(removeBlockPort(nodeId, event.blockId, event.portId));
                     else if (event.type === "decide-port") void desktop.mutate(decideBlockPort(nodeId, event.blockId, event.portId, event.status, event.reason));
-                    else if (event.type === "configure-spawn") void desktop.mutate(setPortSpawn(nodeId, event.blockId, event.portId, event.action));
                     else void desktop.mutate(updateBlock(nodeId, event.blockId, { title: event.title }));
                   }}
                 />

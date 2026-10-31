@@ -97,13 +97,13 @@ Pravidla umístění nového souboru:
 
 Každý viditelný celek (karta, blok, panel, záložka) je **složka feature** s vlastním `README.md` a podsložkami `components/`, `logic/`, `styles/`. Uvnitř platí:
 
-1. **Jeden rodič, malé dílky.** Rodičovská komponenta (`NodeCard`, `CanvasBlock`, `BlockEditor`) importuje dílky a skládá je. Dílek (`CardHead`, `BlockTodos`, `BlockState`…) zobrazuje jednu část a nic neví o plátně, API ani o ostatních dílcích. Žádný soubor nemá být delší než zhruba 200 řádků; když roste, vzniká další dílek.
-2. **Data tečou dolů, události nahoru.** Dílek dostává hotová data v props a každou změnu hlásí callbackem (`onToggle`, `onAddTodo`, `onBranch`). Kdo ukládá, rozhoduje rodič: on drží `useDesktopState`, zámek zápisu a revizi. Dílek nikdy nevolá `mutate` ani `fetch`.
+1. **Jeden rodič, malé dílky.** Rodičovská komponenta (`NodeCard`, `CanvasBlock`, `BlockPanel`) importuje dílky a skládá je. Dílek (`CardHead`, `WorkSection`, `TrailSection`…) zobrazuje jednu část a nic neví o plátně, API ani o ostatních dílcích. Žádný soubor nemá být delší než zhruba 200 řádků; když roste, vzniká další dílek.
+2. **Data tečou dolů, události nahoru.** Dílek dostává hotová data v props a každou změnu hlásí callbackem (`onToggle`, `onOpenCard`, `onAnswerHeart`). Kdo ukládá, rozhoduje rodič: on drží `useDesktopState`, zámek zápisu a revizi. Dílek nikdy nevolá `mutate` ani `fetch`.
 3. **Logika bez Reactu do `logic/`.** Odvození dat a mutace stavu jsou čisté funkce (`card-model.ts`, `block-model.ts`, `tree-model.ts`) s testem `<name>.test.ts` hned vedle. Komponenta je jen mapování props → JSX.
 4. **Styl na dílek, BEM, příběhově popsaný.** Jeden `styles/<feature>.css` na složku. Třídy podle BEM: blok = feature (`node-card`), prvek = `blok__prvek` (`node-card__title`, `node-card__port`), varianta = `blok__prvek--stav` (`node-card__port--open`, `node-card--sector`). Blok se stylizuje jen svými třídami: žádné selektory na `strong`/`p`/`li` uvnitř bloku, žádné vnoření přes tři úrovně, žádný `!important`. Tokeny barev a rytmu jen z `design-tokens/`. Každý blok v souboru začíná komentářem, který vypráví, co uživatel vidí a proč (například „Karta je 360 široká, aby se dalo číst zadání bloků; porty jsou kuličky na pravé hraně, protože z nich se táhne vazba“), ne co selektor technicky dělá. Kdo čte jen CSS, musí z komentářů pochopit celý dílek.
 5. **Změna jednoho dílku nerozbije celek.** Když se mění jen akce, pravidla, stav nebo další krok, sahá se jen do jejich složky; rodič se mění jen tehdy, když přibývá nový dílek nebo nová událost.
 
-Příklady: `frontend/editor/canvas/node-card/` (karta), `frontend/editor/workflow/blocks/` (bloky Akce / Pravidla), `frontend/editor/workflow/pipeline-picker/`, `frontend/editor/node-detail/tree/` (strom obsahu), `frontend/editor/canvas/tag-filter/`.
+Příklady: `frontend/editor/canvas/node-card/` (karta), `frontend/editor/workflow/blocks/` (bloky Akce / Pravidla), `frontend/editor/workflow/pipeline-picker/`, `frontend/editor/block-panel/` (boční menu bloku), `frontend/editor/canvas/tag-filter/`.
 
 ## Jedno rozhraní pro všechny projekty
 

@@ -1,0 +1,162 @@
+/* BOČNÍ MENU BLOKU (blok `block-panel`)
+   Příběh: člověk klikne na blok karty a z levé hrany plátna vyjede sloupec 360 px, který odpoví „co se s tímhle
+   úkolem děje“: kdo na něm pracuje a do kdy, které kroky jsou hotové a čím je to doložené, co čeká na jeho úsudek
+   a kam práce teče dál. Sekce jdou pod sebou, oddělené tenkou linkou, v rytmu 14 px, aby se daly přelétnout
+   shora dolů jako inspektor. Panel jen čte; nic se tu nepíše kromě odpovědi srdci. Barva nikdy nenese význam
+   sama: vždy u ní stojí značka (✓ … ✗ ○) nebo slovo. */
+.block-panel { display: flex; flex-direction: column; margin: -8px -13px -13px; font-size: 14px; line-height: 1.45; color: var(--ink); }
+.block-panel__grow { flex: 1; }
+.block-panel__muted { color: var(--ink-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.block-panel__empty { margin: 0; font-size: 13px; color: var(--ink-muted); text-wrap: pretty; }
+.block-panel__error { margin: 8px 16px 0; font-size: 12px; color: var(--danger); }
+
+/* Hlavička: číslo bloku a pořadí karty podle záměru („3·02“) v neproporcionálním písmu, aby se čísla četla
+   jako sloupec. Pod tím název a popis bloku jen ke čtení: píšou se přímo na kartě v plátně, ne tady. Úplně
+   dole jedna tichá šedá řádka poslední změny karty; jméno nese barvu aktéra (srdce zlaté, člověk akcent). */
+.block-panel__head { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 12px; border-bottom: 1px solid var(--line); }
+.block-panel__toprow { display: flex; align-items: center; gap: 8px; }
+.block-panel__kind { font: 600 11px/1 var(--mono); color: var(--ink-2); background: var(--surface-2); border-radius: 4px; padding: 3px 6px; }
+.block-panel__order { font: 600 11px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-muted); border: 1px solid var(--line-strong); border-radius: 4px; padding: 2px 5px; }
+.block-panel__id { margin-left: auto; font: 11px var(--mono); color: var(--ink-muted); }
+.block-panel__title { margin: 0; font: 600 16px/1.3 var(--font); color: var(--ink); text-wrap: pretty; overflow-wrap: anywhere; }
+.block-panel__card { margin: 0; font-size: 12px; color: var(--ink-muted); }
+.block-panel__desc { margin: 0; font-size: 13px; color: var(--ink-2); white-space: pre-wrap; text-wrap: pretty; max-height: 9.5em; overflow: auto; }
+.block-panel__change { font-size: 12px; color: var(--ink-muted); }
+.block-panel__change-who { font-weight: 600; color: var(--cat-agents); }
+.block-panel__change-who--heart { color: color-mix(in srgb, var(--gold) 70%, var(--ink-muted)); }
+.block-panel__change-who--human { color: var(--accent); }
+.block-panel__change-who--opora { color: var(--ink-2); }
+
+/* Sekce a jejich nadpisy: drobné verzálky v neproporcionálním písmu, vpravo tichý údaj (počet, původ),
+   aby nadpis neřval víc než obsah. Odkaz do detailu karty je tichý text s šipkou, ne tlačítko. */
+.block-panel__sec { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.block-panel__sec:last-child { border-bottom: 0; }
+.block-panel__h { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 11px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.block-panel__h-meta { margin-left: auto; font: 500 11px var(--font); letter-spacing: 0; text-transform: none; }
+.block-panel__count { padding: 1px 6px; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); font: 600 11px var(--font); letter-spacing: 0; }
+.block-panel__link { align-self: flex-start; padding: 0; min-height: 0; border: 0; background: none; cursor: pointer; font: 600 12px var(--font); color: var(--accent); }
+.block-panel__link:hover, .block-panel__link:focus-visible { text-decoration: underline; }
+
+/* Značka původu: malý čtvereček ⚙ (odvozeno, šedý), kolečko A (dělník, akcent), ✦ (srdce, zlaté) a kolečko H
+   (člověk). Stojí u každé položky, aby člověk věděl, čemu věřit bez kontroly a co je tvrzení nebo úsudek. */
+.block-panel__src { flex: none; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; font: 600 10px/1 var(--font); font-style: normal; }
+.block-panel__src--det { color: var(--ink-muted); background: var(--surface-2); }
+.block-panel__src--heart { color: var(--gold); background: var(--gold-soft); }
+.block-panel__src--agent { color: var(--accent-ink); background: var(--accent); border-radius: 50%; }
+.block-panel__src--human { color: var(--surface); background: var(--gold); border-radius: 50%; }
+
+/* Práce na kartě: jeden čip stavu (běží akcentem, hotovo zeleně, zaseklé červeně, čeká čárkovaně) a etapa.
+   Pod ním segmenty kroků jako na kartě v plátně, takže oko pozná stejný postup na obou místech. */
+.block-panel__status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.block-panel__chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; border: 1px solid; border-radius: 4px; font-size: 12px; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+.block-panel__chip--run { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+.block-panel__chip--ok { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-line); }
+.block-panel__chip--bad { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
+.block-panel__chip--gap { color: var(--ink-muted); background: transparent; border-color: var(--line-strong); border-style: dashed; font-weight: 500; }
+.block-panel__segs { display: flex; gap: 3px; }
+.block-panel__seg { flex: 1; height: 6px; border-radius: 2px; background: var(--line); }
+.block-panel__seg--done { background: var(--ok); }
+.block-panel__seg--cur { background: var(--accent); }
+.block-panel__seg--bad { background: var(--danger); }
+
+/* „teď: nástroj · soubor“: pulzující tečka říká, že dělník právě pracuje; při omezeném pohybu svítí napevno. */
+.block-panel__live { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--accent); }
+.block-panel__live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: block-panel-pulse 1.6s ease-in-out infinite; }
+@keyframes block-panel-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .block-panel__live-dot { animation: none; } }
+
+/* Kroky: značka, id a název v mřížce, vpravo tichá poznámka (kontrola nebo „další krok“). Rozpracovaný krok
+   má podklad akcentu, zaseklý červený, aby se dal najít bez čtení. */
+.block-panel__steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.block-panel__step { display: grid; grid-template-columns: 18px 26px minmax(0, 1fr) auto; align-items: baseline; gap: 6px; padding: 3px 0; font-size: 13px; }
+.block-panel__step-mark { font-weight: 700; text-align: center; }
+.block-panel__step-id { font: 600 11px var(--mono); color: var(--ink-muted); }
+.block-panel__step-title { min-width: 0; overflow-wrap: anywhere; }
+.block-panel__step-note { font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
+.block-panel__step--done .block-panel__step-mark { color: var(--ok); }
+.block-panel__step--done .block-panel__step-title { color: var(--ink-2); }
+.block-panel__step--todo .block-panel__step-mark, .block-panel__step--todo .block-panel__step-title { color: var(--ink-muted); }
+.block-panel__step--cur { margin: 0 -6px; padding: 3px 6px; border-radius: 5px; background: var(--accent-soft); }
+.block-panel__step--cur .block-panel__step-mark { color: var(--accent); }
+.block-panel__step--bad { margin: 0 -6px; padding: 3px 6px; border-radius: 5px; background: var(--danger-soft); }
+.block-panel__step--bad .block-panel__step-mark { color: var(--danger); }
+
+/* Fakta karty jako dvojice popisek · hodnota s původem vpravo: kdo drží (A/H/✦ v kolečku) a kolik zbývá,
+   další krok, PR v barvách GitHubu a čárkované čipy toho, co chybí k hotovu. */
+.block-panel__kv { display: grid; grid-template-columns: 84px minmax(0, 1fr) 16px; gap: 6px 8px; align-items: center; margin: 0; font-size: 13px; }
+.block-panel__kv > dt { color: var(--ink-muted); font-size: 12px; }
+.block-panel__kv > dd { margin: 0; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.block-panel__missing { gap: 6px; }
+.block-panel__who { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; color: var(--accent); }
+.block-panel__who > i { width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; font: 700 10px/1 var(--font); font-style: normal; background: var(--accent); color: var(--accent-ink); }
+.block-panel__who--heart, .block-panel__who--human { color: var(--gold); }
+.block-panel__who--heart > i, .block-panel__who--human > i { background: var(--gold); color: var(--surface); }
+
+/* Potřebuje úsudek: rámeček, který se nedá přehlédnout. Zlatý = otázka na člověka (jako eskalace v kanálu
+   srdce), červený = kontrola zčervenala dvakrát. Uvnitř důvod od smyčky, soubory mimo úkol a dvě cesty dál:
+   odpovědět srdci, nebo otevřít Review / Běh v detailu karty. */
+.block-panel__judge { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--gold-line); border-radius: 10px; background: var(--gold-soft); }
+.block-panel__judge--bad { border-color: var(--danger-line); background: color-mix(in srgb, var(--danger-soft) 70%, var(--surface)); }
+.block-panel__judge-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-muted); }
+.block-panel__judge-code { font: 600 11px var(--mono); color: var(--gold); }
+.block-panel__judge--bad .block-panel__judge-code { color: var(--danger); }
+.block-panel__judge-text { margin: 0; font-size: 13px; text-wrap: pretty; }
+.block-panel__judge-actions { display: flex; align-items: center; gap: 10px; }
+.block-panel__reply { box-sizing: border-box; width: 100%; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--field); color: var(--ink); font: 13px/1.4 var(--font); resize: vertical; }
+.block-panel__btn { display: inline-flex; align-items: center; gap: 6px; min-height: 0; padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface-2); color: var(--ink); font: 600 12px var(--font); cursor: pointer; }
+.block-panel__btn--gold { border-color: var(--gold-line); color: var(--gold); background: transparent; }
+.block-panel__btn:disabled { opacity: 0.55; cursor: default; }
+
+/* Stopa práce: svislá linka s tečkami, relace i změny karty v jednom proudu, nadpis dne (Dnes, Včera) nad
+   každou skupinou, čas vpravo. Tečka říká stav: plná akcentová běží, zelená doručeno, červená selhalo nebo
+   vypršelo, zlatá srdce. Relace se rozbalí klikem na řádek; nejnovější je rozbalená sama. */
+.block-panel__tl { position: relative; list-style: none; margin: 0; padding: 0; }
+.block-panel__tl::before { content: ""; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 2px; background: var(--line); }
+.block-panel__tl-day { margin: 2px 0 6px 22px; font: 600 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.block-panel__tl-item { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 0 0 10px 22px; }
+.block-panel__tl-dot { position: absolute; left: 0; top: 5px; width: 12px; height: 12px; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--surface); }
+.block-panel__tl-dot--live { border-color: var(--accent); background: var(--accent); }
+.block-panel__tl-dot--ok { border-color: var(--ok); }
+.block-panel__tl-dot--bad { border-color: var(--danger); }
+.block-panel__tl-dot--gold { border-color: var(--gold); }
+.block-panel__tl-row { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 13px; color: var(--ink-2); }
+.block-panel__tl-toggle { width: 100%; min-height: 0; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; font: inherit; }
+.block-panel__tl-toggle:hover .block-panel__name { text-decoration: underline; }
+.block-panel__tl-text { min-width: 0; overflow-wrap: anywhere; }
+.block-panel__tl-time { margin-left: auto; padding-left: 6px; font: 12px var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-muted); white-space: nowrap; }
+.block-panel__chev { color: var(--ink-muted); font-size: 11px; }
+.block-panel__name { font-weight: 600; color: var(--cat-agents); white-space: nowrap; }
+.block-panel__name--heart { color: var(--gold); }
+.block-panel__name--human { color: var(--accent); }
+.block-panel__name--opora { color: var(--ink); }
+
+/* Rozbalená relace: shrnutí dělníka v uvozovkách (jeho tvrzení) a kroky s důkazem pod sebou, každý s barevnou
+   linkou vlevo podle výsledku. Kontrola je tečka + jméno, commit modrý kód, soubory tichý neproporcionální text. */
+.block-panel__run-body { display: flex; flex-direction: column; gap: 10px; padding: 8px 10px; border: 1px solid var(--accent-line); border-radius: 8px; background: var(--surface-2); }
+.block-panel__run-sum { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: 13px; color: var(--ink-2); }
+.block-panel__ev { display: flex; flex-direction: column; gap: 5px; padding-left: 10px; border-left: 2px solid var(--line); }
+.block-panel__ev--done { border-left-color: var(--ok-line); }
+.block-panel__ev--cur { border-left-color: var(--accent-line); }
+.block-panel__ev--bad { border-left-color: var(--danger-line); }
+.block-panel__ev-title { display: flex; align-items: baseline; gap: 6px; font-size: 13px; font-weight: 600; }
+.block-panel__ev-mark--done { color: var(--ok); }
+.block-panel__ev-mark--cur { color: var(--accent); }
+.block-panel__ev-mark--bad { color: var(--danger); }
+.block-panel__ev-mark--todo { color: var(--ink-muted); }
+.block-panel__ev-line, .block-panel__files { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12px; color: var(--ink-2); }
+.block-panel__ev-note { display: flex; gap: 6px; margin: 0; font-size: 12px; color: var(--ink-muted); }
+.block-panel__check { display: inline-flex; align-items: baseline; gap: 4px; font: 12px var(--mono); color: var(--ink-muted); overflow-wrap: anywhere; }
+.block-panel__check::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.block-panel__check--green { color: var(--ok); }
+.block-panel__check--red { color: var(--danger); }
+.block-panel__commit { padding: 1px 5px; border-radius: 4px; background: var(--code-bg); color: var(--info); font: 12px var(--mono); }
+.block-panel__file { font: 11.5px var(--mono); color: var(--ink-2); overflow-wrap: anywhere; }
+
+/* Port: rámeček „popisek → cílová karta“ a pod ním poslední zpráva na vazbě v tmavém poli jako citace,
+   s autorem a časem. Tak je vidět, co práce předala dál, bez otevírání cílové karty. */
+.block-panel__port { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.block-panel__port-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.block-panel__port-label { font: 600 11px var(--mono); color: var(--ink-muted); }
+.block-panel__port-target { font-weight: 600; overflow-wrap: anywhere; }
+.block-panel__port-msg { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--code-bg); font-size: 13px; color: var(--ink-2); text-wrap: pretty; }
+.block-panel__port-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-muted); }

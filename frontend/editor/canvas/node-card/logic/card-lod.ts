@@ -18,7 +18,7 @@ export const farZoomSelector = (store: { transform: readonly [number, number, nu
 export const cardDetail = (far: boolean, selected: boolean): CardDetail => (far && !selected ? "far" : "full");
 
 /**
- * Editory portu (rozhodnutí, navazující karta) jsou u vybrané karty. Po zrušení výběru zůstane namontovaný
+ * Editor portu (rozhodnutí) je u vybrané karty. Po zrušení výběru zůstane namontovaný
  * editor, který je rozepsaný nebo má fokus, dokud se neuloží nebo neopustí; jinak by rozepsané zmizelo.
  */
 export const portEditorsShown = (detail: "full" | "row" | "far", held: boolean): boolean => detail === "full" || held;
