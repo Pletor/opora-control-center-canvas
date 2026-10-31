@@ -312,24 +312,37 @@ class HeartSupervisor:
                 LOGGER.warning("Srdce: hlídač gitu projektu %s: %s", project, error)
                 self.git_errors[project] = f"{type(error).__name__}: {error}"[:500]
 
+    def _advance_one(self, project, workspace, main_sha):
+        """Posune jeden prostor za `main_sha`; nový HEAD zapíše do `heads`. Selhání jen do logu."""
+        try:
+            root = WorkspaceSources(self.service).root(project, workspace)
+            moved = workspace_fast_forward.fast_forward(root, main_sha) if root is not None else None
+            if moved:
+                self.heads[(project, workspace)] = moved
+        except Exception as error:  # noqa: BLE001 - jeden prostor nerozbije průchod ani dávku
+            LOGGER.warning("Srdce: posun prostoru %s/%s: %s", project, workspace, error)
+
     def _advance_workspaces(self, project, kind):
         """Po synchronizaci posune čisté prostory za `main` (docs/domeny-a-worktree.md, „Posun worktree za main“)."""
-        sources = WorkspaceSources(self.service)
         try:
-            main_sha = git_log.head(sources.root(project, HOME[kind]))
+            main_sha = git_log.head(WorkspaceSources(self.service).root(project, HOME[kind]))
         except Exception as error:  # noqa: BLE001 - bez HEAD mainu není kam posouvat
             LOGGER.warning("Srdce: HEAD mainu projektu %s: %s", project, error)
             return
         for workspace in self._watched(project, kind):
-            if workspace == HOME[kind]:
-                continue
-            try:
-                root = sources.root(project, workspace)
-                moved = workspace_fast_forward.fast_forward(root, main_sha) if root is not None else None
-                if moved:
-                    self.heads[(project, workspace)] = moved
-            except Exception as error:  # noqa: BLE001 - jeden prostor nerozbije průchod
-                LOGGER.warning("Srdce: posun prostoru %s/%s: %s", project, workspace, error)
+            if workspace != HOME[kind]:
+                self._advance_one(project, workspace, main_sha)
+
+    def _advance_before_batch(self, project, workspace):
+        """Před dávkou posune její prostor za lokální `main` (bez fetch), aby srdce nečetlo zastaralý worktree."""
+        try:
+            if workspace == HOME["git"] or self._kind(project) != "git":
+                return
+            main_sha = git_log.head(WorkspaceSources(self.service).root(project, HOME["git"]))
+        except Exception as error:  # noqa: BLE001 - dávka musí běžet i bez posunu
+            LOGGER.warning("Srdce: posun před dávkou %s/%s: %s", project, workspace, error)
+            return
+        self._advance_one(project, workspace, main_sha)
 
     def _targets(self, project, workspace, kind):
         """Kam vstup `commits` patří. `main` git projektu je jen ke čtení (karty tam nevzniknou): jeho posun dostanou
@@ -419,6 +432,7 @@ class HeartSupervisor:
                     self.starts.setdefault(project, deque()).append(self.clock())
             with self.lock:
                 self.current[project] = {"startedAt": _iso_utc(self.clock()), "inputs": inputs}
+            self._advance_before_batch(project, workspace)
             spec = batch.BatchSpec(brain=self.brain(project), claude=claude, base_url=self.base_url,
                                    token=self._token(project, workspace), project=project, workspace=workspace,
                                    snapshot=snapshot.snapshot(self.service, project, workspace), inputs=inputs,
