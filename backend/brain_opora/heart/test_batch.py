@@ -206,3 +206,44 @@ def test_parse_skips_stream_events_and_a_timeout_has_no_result():
     events = [json.dumps({"type": "system"}), json.dumps({"type": "assistant", "session_id": "s"})]
     assert batch.parse("\n".join(events)) is None
     assert batch.parse("\n".join([*events, json.dumps(RESULT)])) == RESULT
+
+
+def cumulative(total, haiku, opus=None):
+    models = {"claude-haiku-4-5": {"costUSD": haiku}}
+    if opus is not None:
+        models["claude-opus-4-5"] = {"costUSD": opus}
+    return Outcome(0, json.dumps({**RESULT, "total_cost_usd": total, "modelUsage": models}), "")
+
+
+def test_resumed_batch_journals_only_the_cost_increment(tmp_path):
+    first = batch.run(spec(tmp_path), FakeRunner(cumulative(0.05, 0.05)), clock(0.0, 1.0))
+    assert first["resumed"] is False and first["costUsd"] == first["sessionCostUsd"] == 0.05
+    assert first["costByModel"] == first["sessionCostByModel"] == {"claude-haiku-4-5": 0.05}
+    second = batch.run(spec(tmp_path), FakeRunner(cumulative(0.12, 0.08, 0.04)), clock(2.0, 3.0))
+    assert second["resumed"] is True and second["costUsd"] == 0.07
+    assert second["costByModel"] == {"claude-haiku-4-5": 0.03, "claude-opus-4-5": 0.04}
+    assert second["sessionCostUsd"] == 0.12
+    assert second["sessionCostByModel"] == {"claude-haiku-4-5": 0.08, "claude-opus-4-5": 0.04}
+    third = batch.run(spec(tmp_path), FakeRunner(cumulative(0.2, 0.1, 0.1)), clock(4.0, 5.0))
+    assert third["costUsd"] == 0.08 and third["costByModel"] == {"claude-haiku-4-5": 0.02, "claude-opus-4-5": 0.06}
+
+
+def test_resumed_batch_against_a_legacy_entry_without_session_fields(tmp_path):
+    brain = tmp_path / "brain"
+    brain.mkdir()
+    legacy = {"at": "2027-01-15T08:00:00Z", "sessionId": RESULT["session_id"], "costUsd": 0.05,
+              "costByModel": {"claude-haiku-4-5": 0.05}}
+    (brain / batch.JOURNAL).write_text(json.dumps(legacy) + "\n", encoding="utf-8")
+    session.record(brain, RESULT["session_id"], 1_000, hashlib.sha256(command.PROMPT_FILE.read_bytes()).hexdigest())
+    entry = batch.run(spec(tmp_path), FakeRunner(cumulative(0.09, 0.06, 0.03)), clock(0.0, 1.0))
+    assert entry["resumed"] is True and entry["costUsd"] == 0.04
+    assert entry["costByModel"] == {"claude-haiku-4-5": 0.01, "claude-opus-4-5": 0.03}
+    assert entry["sessionCostUsd"] == 0.09
+    assert batch.batch_cost(0.01, {"m": 0.01}, (0.05, {"m": 0.05})) == (0.0, {"m": 0.0})  # nikdy záporné
+
+
+def test_advisor_cap_sums_the_increments_of_resumed_batches(tmp_path):
+    day = 1_800_000_000.0
+    batch.run(spec(tmp_path), FakeRunner(cumulative(0.9, 0.2, 0.7)), clock(day, day + 1))
+    batch.run(spec(tmp_path), FakeRunner(cumulative(1.6, 0.3, 1.3)), clock(day + 2, day + 3))
+    assert round(batch.advisor_spent(tmp_path / "brain", day), 6) == 1.3  # součet přírůstků, ne 0,7 + 1,3
