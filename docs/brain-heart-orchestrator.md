@@ -85,8 +85,9 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
   (graf karet agent-state, `blocked_by_predecessor`) je `blokovaná – čeká na <jméno>: <jeho stav>`, např.
   `PR #12 otevřený`. Bez nové tabulky, čte existující executions a vazby PR.
 - **`unlink --from A --to B [--dry-run] [--no-accept] [--workspace W]`**: odebere vazbu `next` A → B jako návrh grafu `{removeEdges}` (`POST /api/oporahub/graph-proposals`, existující operace) a přijme ho tokenem srdce jako přírůstek; neznámá vazba = `code: unlink_unknown_edge`, `--dry-run` nic nezapíše.
-- Prompt „Plán“: práce pro orchestrátora = **karta na plátně** (`plan`), malá karta se `spec.steps` a ověřením;
-  `task` (fronta brány) jen pro dělníka, který pracuje přes bránu. Po sloučení karty srdce plán neopakuje, ale
+- Prompt „Plán“: řídí se řádkem `DORUČENÍ` snímku (`docs/brain-heart.md` §3e). `cards` = práce pro orchestrátora je
+  **karta na plátně** (`plan`), malá karta se `spec.steps` a ověřením; `gate` = orchestrátor není, práce je úkol
+  fronty brány (`task`), karta jen volitelná mapa, nikdy místo úkolu. Po sloučení karty srdce plán neopakuje, ale
   navazuje (další karta, oprava, výzkum).
 
 ## 4. O3 – Srdce vnímá git (`heart/inputs.py`, `heart/supervisor.py`, `determinism/snapshot.py`)

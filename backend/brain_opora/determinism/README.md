@@ -55,6 +55,8 @@ Modules (H2a, contract `docs/brain-heart.md`):
 - `snapshot.py` appends to each open card in `PLÁN` its run tag from `backend/canvas/card_gauge.py` (`[S · sonnet+opus]`;
   `[XL – nepředávat, rozděl]`; a card with ≤ 1 step and no files shows `[? – doplň kroky a soubory]`; a card effort more than one step off the recommendation shows `ODCHYLKA`), contract
   `docs/navrhy/2026-10-30-metriky-a-spoustece.md` §3. One read of the accepted context per snapshot; unreadable = no tags.
+- `delivery.py`: the delivery channel of the project, line `DORUČENÍ` right before `PLÁN` (`docs/brain-heart.md` §3e):
+  `cards` when any card execution exists in the project, otherwise `gate` (work as queue tasks). No model, no time.
 
 Modules (K1, contract `docs/brain-heart.md` §3a, the heart's surroundings):
 - `brain_files.py`: the project's `brain/` folder (`brain_dir`), durable human messages `brain/messages.jsonl`
