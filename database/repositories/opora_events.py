@@ -75,6 +75,13 @@ def page(db, project, workspace, since, limit, node=None):
     return [public(tuple(row)) for row in rows], bounds[0], bounds[1]
 
 
+def latest_for_node(db, project, workspace, node, limit):
+    """Nejnovějších `limit` událostí jedné karty v prostoru, nejnovější první (stopa práce karty)."""
+    rows = db.execute("SELECT " + ",".join(ALL) + " FROM opora_events WHERE project_id=? AND workspace_id=?"
+                      " AND node_id=? ORDER BY id DESC LIMIT ?", (project, workspace, node, limit)).fetchall()
+    return [public(tuple(row)) for row in rows]
+
+
 def head(db):
     """Highest event id in the outbox (0 when empty): the cursor of the snapshot read on `db`."""
     return db.execute("SELECT COALESCE(MAX(id), 0) FROM opora_events").fetchone()[0]

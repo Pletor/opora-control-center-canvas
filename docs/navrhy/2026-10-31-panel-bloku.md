@@ -92,6 +92,8 @@ V panelu je u každé položky vidět původ: ⚙ odvozeno deterministicky, ✦ 
 Krok 1 (UI): mrtvé sekce pryč z panelu, nové sekce 2–5 nad stopou práce; uložená data beze změny.
 Krok 1b (backend): projekce stopy práce karty (`GET` jedna karta, čistá funkce nad existujícími záznamy
 s testem) a příznak „potřebuje úsudek“ jako spouštěč srdce; hook relace dělníka posílá `tool.use` s `nodeId`.
+První řez (jen čtení, příznaky zatím bez napojení na srdce): `GET /api/oporahub/card-trail`,
+[docs/stopa-prace-karty.md](../stopa-prace-karty.md).
 Krok 2 (zvlášť, se souhlasem): úklid backendu a skillu, úprava `docs/karta-pro-agenty.md`, případné smazání
 starých polí bloků z dat (372 bloků v lokálním Ample, 12 v Tajemství) – mazání dat jen se souhlasem člověka.
 

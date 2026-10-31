@@ -22,6 +22,7 @@ from backend.api.editor.brief_vault_check_routes import create_brief_vault_check
 from backend.api.editor.brief_vault_routes import create_brief_vault_router
 from backend.api.editor.canvas_routes import create_canvas_router
 from backend.api.editor.canvas_version_routes import create_canvas_version_router
+from backend.api.editor.card_trail_routes import create_card_trail_router
 from backend.api.editor.claude_code_routes import create_claude_code_router
 from backend.api.editor.code_intelligence_routes import create_code_intelligence_router
 from backend.api.editor.desktop_v3_routes import create_desktop_v3_router
@@ -428,6 +429,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_agent_state_router(service))
     # Živý tok událostí OporaHubu (outbox, kurzor + SSE), jen čtení (docs/oporahub-events.md)
     app.include_router(create_opora_event_router(service))
+    app.include_router(create_card_trail_router(service))  # stopa práce karty, jen čtení (docs/stopa-prace-karty.md)
     app.include_router(create_process_event_router(service, memory_status=memory_service.status))
     app.include_router(create_harness_learning_router(service))
     app.include_router(create_execution_observer_router(service))
