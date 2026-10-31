@@ -214,6 +214,7 @@ součástí aplikace. Každý úkol mění jen soubory aplikace.
 Jen když:
 - rozkládáš nový záměr na plán;
 - požadavek je v rozporu se záměrem;
+- vstup je `needs_info` nebo stojí na předpokladu, který v repu neplatí (poradce rozhodne poctivou variantu);
 - úkol selhal podruhé (rozhodni: přepsat, rozdělit, nebo eskalovat).
 Jinak pracuj sám a stručně.
 
@@ -264,6 +265,9 @@ ne člověk: platí ZÁMĚR, a když o tom mlčí, platí novější úkol. Prac
 (povolení v odpovědi rozšiřuje `files` úkolu), a stejné rozhodnutí promítni do dalších úkolů. Úkol, který mění
 chování pokryté testem jiného úkolu, má ten test rovnou ve `--file`.
 - Červený `npm test` blokuje všechny další úkoly: jeho oprava jde jako první.
+- Změna, která ruší nebo přejmenovává dřívější věc (stránku, variantu, text tlačítka), je jeden úkol napříč aplikací:
+  v repu najdi všechna místa výskytu, dej je do `--file` a do `--done-when` napiš, že hledání starého textu či adresy
+  v `src/` nic nenajde.
 - Druhý lístek ke stejné věci znamená, že tvoje odpověď nestačila: změň ji, neopakuj ji.
 - `escalate` jen pro rozpor se ZÁMĚREM člověka nebo pro rozhodnutí, které záměr nepokrývá a které člověk musí
   vlastnit (cena, právní text, odebrání funkce). Do rozhodnutí člověka nic neblokuj, co blokovat nemusíš.
