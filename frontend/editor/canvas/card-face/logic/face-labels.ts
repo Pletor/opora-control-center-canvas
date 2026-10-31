@@ -12,7 +12,7 @@ const SHORT: Record<string, string> = {
   card_in_plan: "v plánu", cards_ready: "připraveno", runs_active: "lease", lease_past_deadline: "lease vypršel",
   stale_evidence: "výsledek ke staré revizi", human_review_required: "výsledek ke kontrole",
   pull_requests_open: "PR otevřeno", review_gate_ready: "brána splněna", review_gate_pending: "brána čeká",
-  review_gate_blocked: "brána blokuje", awaiting_human_close: "sloučeno · uzavřít",
+  review_gate_blocked: "brána blokuje", awaiting_human_close: "sloučeno · čeká na hotovo",
   plan_written_back: "zapsáno do plánu", merged_without_plan_writeback: "sloučeno bez zápisu",
   card_closed: "uzavřeno", budget_exhausted: "rozpočet vyčerpán", budget_policy_required: "chybí pravidla běhů",
   no_accepted_baseline: "bez přijatého základu", open_security_findings: "bezpečnostní nález",

@@ -2,7 +2,7 @@
 
 Prochází přesně příkazy ze SKILL.md (sekce „Recept: stavba stránky“) nad skutečným backendem (TestClient místo
 sítě, `test_opora_hub.bridge`): mapa a karty dávkou → `act` propose_graph → `act` accept → claim → kroky →
-výsledek → commit → `local-merge` → `check-run` → doklad cesty → `act` close_card. Žádný krok nesmí vrátit chybu
+výsledek → commit → `local-merge` → `check-run` → doklad cesty → uzavření serverem. Žádný krok nesmí vrátit chybu
 a agent nepotřebuje vlastního HTTP klienta. Člověk jen založí projekt a zapne autonomii.
 Druhá část hlídá nové chybové zprávy: neplatné tělo = 422 s polem, tvarem a příkladem (exit 6), krok „brzy“ = hint.
 """
@@ -64,7 +64,8 @@ def agent(tmp_path, monkeypatch):
                                json={"project": project, "full": True})
         assert switched.status_code == 200, switched.text
         monkeypatch.setattr(opora_write, "_open", bridge(client))
-        yield {"project": project, "workspace": "draft", "repo": repo, "tmp": tmp_path}
+        yield {"project": project, "workspace": "draft", "repo": repo, "tmp": tmp_path,
+               "service": client.app.state.service}
 
 
 def scope(agent):
@@ -177,12 +178,12 @@ def test_page_recipe_runs_end_to_end_without_a_single_error(agent, capsys):
                          "--json", json.dumps(evidence))
     assert code == 0, recorded
 
-    # 9. Uzavření karty: s plnou autonomií je close_card pro agenta ready.
+    # 9. Uzavření karty dělá server sám (docs/oporahub-plan-steps.md): agent ani člověk nic nepotvrzuje.
     state = hub(capsys, agent, "state", "--fresh", "--card", card)
     assert state["cards"][0]["dod"]["missing"] == ["human_close"], state["cards"][0]["dod"]
-    close = next(item for item in state["ready"] if item["verb"] == "close_card")
-    closed = hub(capsys, agent, "act", "--action-id", close["id"], "--note", "4/4 kroky, testy, cesta prošla.")
-    assert closed["result"]["done"]["confirmed"] is True
+    assert not [item for item in state["ready"] if item["verb"] == "close_card"]
+    from backend.canvas.opora_card_auto_close import sweep
+    assert sweep(agent["service"], project) == [card]  # krok smyčky vazeb PR (v testu vypnutá)
     final = hub(capsys, agent, "state", "--fresh", "--card", card)["cards"][0]["dod"]
     assert final["done"] is True and final["missing"] == [], final
     assert not (repo / ".opora-drafts").exists()  # pomocné soubory nejdou do repa

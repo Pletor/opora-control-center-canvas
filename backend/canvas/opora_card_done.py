@@ -3,13 +3,28 @@
 done = every accepted plan step reported `done` + card acceptance evidenced against the
 current accepted spec + review gate `ready` (in a project without GitHub: the local gate,
 docs/lokalni-slouceni.md) + PR (or local) merge + plan written back + every customer
-journey the card lies on verified by a passed, fresh run (docs/brana-cesty.md §5) + a human
-`close_card`. `card_done_state` is pure; `closure_gate` loads the facts for the human close
-precondition and replaces the legacy evidence/checks/pipeline closure gate for every card
+journey the card lies on verified by a passed, fresh run (docs/brana-cesty.md §5) + the card close
+(`human_close`, the name stays). The close is deterministic: once everything else is met the server closes
+the card itself (`opora_card_auto_close`, `by: "opora"`); a manual close in the UI stays possible, never
+required. `card_done_state` is pure; `closure_gate` loads the facts for the close precondition and replaces the legacy evidence/checks/pipeline closure gate for every card
 whose accepted spec has plan steps (cards without steps keep the legacy path readable).
 docs/oporahub-plan-steps.md.
 """
 REQUIREMENTS = ("steps", "card_acceptance", "gate_ready", "merged", "plan_written_back", "journeys", "human_close")
+# Merge-queue freshness of a PR head against main (opora_review_merge_queue): a pre-merge fact only. Bases are
+# observed for open PRs alone, so after the merge the observation freezes and ages out, and main then always
+# contains the merge commit; such a reason never means the merged change skipped the gate.
+PRE_MERGE_ONLY = frozenset({"base_freshness_unobserved", "stale_against_main"})
+
+
+def merged_gate(gate, merged):
+    """The review gate of a PR as the definition of done reads it: a merged PR's `pending` gate held only by
+    `PRE_MERGE_ONLY` reasons counts as `ready`; every other reason (human approvals, findings, review not done,
+    self-checks) still holds after the merge."""
+    if not merged or not gate or gate.get("status") != "pending":
+        return gate
+    reasons = set(gate.get("reasons") or [])
+    return {**gate, "status": "ready"} if reasons and reasons <= PRE_MERGE_ONLY else gate
 
 
 def card_done_state(card):
@@ -45,7 +60,7 @@ def card_done_state(card):
 
 
 def closable(state):
-    """The close_card precondition: everything except the human close itself is met."""
+    """The close precondition: everything except the close itself is met (the server then closes the card)."""
     return state["missing"] == ["human_close"]
 
 
@@ -60,9 +75,10 @@ def facts(card, link, gate, closed=False, external=False, local_checks=None):
     `external` = automated review jobs are disabled (gates_by_execution returned None); `local_checks`
     None = the project has GitHub, a bool = local mode with the card's checks result (`local_checks_passed`)."""
     mode = "local" if local_checks is not None else "external" if external else "review"
+    merged = bool(link) and link.get("state") == "merged"
     return {"steps": card.get("steps"), "acceptanceEvidence": card.get("acceptanceEvidence"),
             "journeys": card.get("journeys") or [],
-            "gate": (gate or {}).get("reviewGate"), "gateMode": mode, "merged": bool(link) and link.get("state") == "merged",
+            "gate": merged_gate((gate or {}).get("reviewGate"), merged), "gateMode": mode, "merged": merged,
             "planWrittenBack": bool(link) and link.get("planWrittenBack") is True, "closed": closed,
             "checksPassed": local_checks is not False}
 

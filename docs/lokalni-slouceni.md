@@ -21,7 +21,10 @@ práci v OPOŘE autonomně v každém projektu.
 - Po zapsání vazby proběhne **stejný zápis plánu zpět** jako po sloučeném PR (`planWrittenBack`), žádná druhá cesta.
 - `gate_ready` v režimu `local` = vazba `merged` a poslední kontroly karty na tomto commitu (pokud karta nějaké má:
   `checks` / check-run / ověření harnessu) prošly. Karta bez kontrol: `gate_ready` = `merged`.
-- `human_close` se řídí [plnou autonomií](plna-autonomie-agenta.md): bez ní uzavírá člověk, s ní agent.
+- Uzavření karty je deterministické: jakmile jsou splněné všechny ostatní požadavky definice hotovo (`steps`,
+  `card_acceptance`, `gate_ready`, `merged`, `plan_written_back`, `journeys`), server kartu uzavře sám
+  (`done.confirmed`, `by: "opora"`) při zápisu plánu zpět / přepočtu stavu karty. Člověk nic nepotvrzuje; ruční
+  uzavření v UI zůstává jako možnost, ne podmínka ([definice hotovo](oporahub-plan-steps.md#jediná-definice-hotovo)).
 - Idempotence: opakované ohlášení téhož commitu vrátí stejnou vazbu; jiný commit nahradí starší lokální vazbu.
 - Záznam činnosti: `local_merge` s původcem a commitem.
 

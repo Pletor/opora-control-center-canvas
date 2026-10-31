@@ -183,7 +183,7 @@ class ExecutionPullRequestLinks:
         return self._decorate(project_id, workspace_id, rows)
 
     def _decorate(self, project, workspace, rows):
-        """A human-confirmed card no longer awaits closing; the marker is derived, not rewritten."""
+        """A confirmed card (by a human or the server) no longer awaits closing; the marker is derived, not rewritten."""
         if not any(row["awaitingHumanClose"] for row in rows):
             return rows
         from backend.editor.agent_memory.desktop_v3_state import DesktopV3State

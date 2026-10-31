@@ -413,8 +413,9 @@ def first_ready(found):
 
 
 def close_card(base, project, workspace, card, note=None):
-    """`done.confirmed` karty přes `POST /api/desktop-v3/state` (s plnou autonomií agent, jinak člověk).
+    """Ruční `done.confirmed` karty přes `POST /api/desktop-v3/state` (s plnou autonomií agent, jinak člověk).
 
+    Jen možnost, ne podmínka: splněnou definici hotovo uzavře server sám (`by: "opora"`, opora_card_auto_close).
     Karta bez záznamu ve stavu dostane minimální uzel `{phase, criteria, steps}` jako v UI."""
     scope = {'project': project, 'workspace': workspace}
     _, current, _ = _call(base, 'GET', '/api/desktop-v3/state', params=scope)

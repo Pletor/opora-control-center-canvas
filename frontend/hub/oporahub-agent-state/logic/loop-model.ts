@@ -44,7 +44,7 @@ export const reasonText: Record<string, string> = {
   nothing_to_merge: "Nic ke sloučení.", writeback_not_reported: "Zápis do plánu se nehlásí.",
   merged_without_plan_writeback: "Sloučeno bez zápisu do plánu.", plan_written_back: "Plán aktualizován.",
   nothing_to_write_back: "Nic k zápisu.", auto_rebase_conflicts: "Auto-rebase našel konflikt stejného pole.",
-  card_closed: "Karta uzavřena člověkem.", awaiting_human_close: "PR sloučeno; kartu uzavírá člověk.",
+  card_closed: "Karta uzavřena.", awaiting_human_close: "PR sloučeno; kartu uzavře server po splnění definice hotovo.",
   card_in_plan: "Karta je v přijatém plánu.", budget_policy_required: "Karta potřebuje pravidla běhů.",
   ...REVIEW_GATE_REASONS,
 };

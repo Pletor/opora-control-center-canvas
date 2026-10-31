@@ -32,7 +32,7 @@ describe("panel-work", () => {
     expect(work.next).toBe("s2 · Zápis metrik");
     expect(work.pr).toEqual({ tone: "open", label: "PR #40 otevřené" });
     expect(work.holder).toEqual({ name: "agent:office", until: "2026-10-31T12:12:00Z" });
-    expect(work.missing).toEqual(["PR sloučen", "uzavření člověkem"]);
+    expect(work.missing).toEqual(["PR sloučen", "uzavření karty"]);
   });
 
   it("bez agent-state bere kroky z běhů; zaseklá kontrola má přednost před během", () => {

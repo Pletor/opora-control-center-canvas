@@ -321,7 +321,7 @@ class AgentState:
                                        item["id"], item["acceptedRevision"], {"acceptedRevision": item["acceptedRevision"]},
                                        "not_implemented" if links is None else None))
         for item in linked or []:
-            # Merge write-back never closes a card: done.confirmed stays a human action (oporahub-executions.md).
+            # A met definition of done is closed by the server itself (opora_card_auto_close); nobody is asked.
             if not item.get("awaitingHumanClose") or cards.get(item["cardId"], {}).get("doneConfirmed"):
                 continue
             # Precondition = the single definition of done minus the human close (opora_card_done).
@@ -335,11 +335,8 @@ class AgentState:
                              {"executionId": item["executionId"], "mergeSha": item.get("mergeSha"),
                               "missing": [name for name in done["missing"] if name != "human_close"],
                               "gate": done["gate"]},
-                             "human_only" if ready else "done_state_incomplete")
+                             "server_closes" if ready else "done_state_incomplete")
             actions.append(action)
-            name = cards.get(item["cardId"], {}).get("name") or item["cardId"]
-            if ready:
-                decide("close_card", item["cardId"], f"Uzavřít kartu po merge PR: {name}", action)
         for job in (reviewing or {}).get("claimable", []):
             actions.append(_action("review.claim", "POST", "/api/oporahub/review-jobs/claim", job["reviewJobId"],
                                    job["headSha"], {"role": job["role"], "headSha": job["headSha"]}))

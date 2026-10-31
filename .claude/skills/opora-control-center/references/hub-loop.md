@@ -42,7 +42,7 @@ nextActionId, gate: {status, rule}|null, steps, dod, lease}`.
 - `steps: {total, done, current, items: [{id, status, executionId}]}`: postup přes **všechny běhy** karty
   proti aktuálně přijatým krokům; krok hotový v dřívějším běhu zůstává hotový, `current` = první nehotový.
 - `dod`: jediná definice hotovo, booleany `steps`, `card_acceptance`, `gate_ready`, `merged`,
-  `plan_written_back`, `journeys`, `human_close` + `gate` (`review` / `external`), `done`, `missing`
+  `plan_written_back`, `journeys`, `human_close` (uzavření, dělá ho server sám) + `gate` (`review` / `external`), `done`, `missing`
   (+ `blockingJourneys`). Karta na cestě zákazníka se uzavře až po prošlém čerstvém ověření cesty: plán
   `GET /api/project-architecture/journey-plan`, doklad `POST /api/project-architecture/journey-runs`.
 - `lease: {holder, expiresAt, epoch}|null`: živý běh karty; cizí lease nepřebírej.
@@ -198,9 +198,10 @@ Sloučení ohlásíš sám a s plnou autonomií ([autonomie.md](autonomie.md)) k
    (`{project, workspace, scope, status, sha}`). `dod.gate_ready` = sloučeno
    + poslední běh karty je `green` na tomto commitu (karta bez kontrol: jen sloučeno).
 6. **Cesty:** karta na cestě zákazníka čeká na prošlé čerstvé ověření (`dod.journeys`, [journey-run.md](journey-run.md)).
-7. **`close_card`:** když `dod.missing == ["human_close"]` (akce `close_card` má `preconditions.gate: "local"`):
-   s `autonomy.full` je akce pro agenta `ready`: `opora_hub.py act --action-id ID` (nebo `close-card --card ID`)
-   zapíše `done.confirmed` (`by: "agent"`) přes `POST /api/desktop-v3/state`; bez autonomie napiš člověku.
+7. **Uzavření dělá server:** když `dod.missing == ["human_close"]`, server kartu uzavře sám (`done.confirmed`,
+   `by: "opora"`) při dalším kroku smyčky vazeb PR nebo hned v `deliver`; akce `close_card` je
+   `blocked/server_closes` a nikdo nic nepotvrzuje. Ruční `opora_hub.py close-card --card ID` zůstává jen jako
+   možnost (`by: "agent"`, s plnou autonomií), není to podmínka.
 
 `project` a `workspace` posílej vždy v těle: podle nich server pozná projekt a jeho autonomii a běh čte v něm.
 

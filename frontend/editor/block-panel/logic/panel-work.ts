@@ -29,7 +29,7 @@ export type WorkView = {
 
 const MISSING: Record<string, string> = {
   steps: "kroky", card_acceptance: "akceptace karty", gate_ready: "brána", merged: "PR sloučen",
-  plan_written_back: "plán zapsán", journeys: "cesta ověřena", human_close: "uzavření člověkem",
+  plan_written_back: "plán zapsán", journeys: "cesta ověřena", human_close: "uzavření karty",
 };
 
 const short = (name: string) => (name.length <= 24 ? name : name.slice(0, 23).trimEnd() + "…");

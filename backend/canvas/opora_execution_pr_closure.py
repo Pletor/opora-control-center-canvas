@@ -1,9 +1,10 @@
 """Merge write-back: reconciliation facts close the execution loop exactly once.
 
 Reads only the immutable reconciliation observations of each linked binding. Never
-touches spec fields (goal/non_goals/acceptance) or card closure; confirming a card as
-done stays a human action (or an agent's with full autonomy), so a merge sets the `awaitingHumanClose`
-marker instead. `write_back` is shared with the local merge (docs/lokalni-slouceni.md)."""
+touches spec fields (goal/non_goals/acceptance) or card closure; a merge sets the `awaitingHumanClose`
+marker (the name stays) and the server closes the card itself once the definition of done is met
+(opora_card_auto_close, run by the same PR loop). `write_back` is shared with the local merge
+(docs/lokalni-slouceni.md)."""
 from backend.canvas.opora_changesets import stamp
 from backend.canvas.opora_events import emit_event, refresh
 from backend.canvas.opora_executions import OporaExecutions
@@ -29,7 +30,7 @@ def _finish_execution(executions, execution_id):
 
 
 def merge_events(db, project, workspace, row, merge_sha, merged_at):
-    """Merge and its plan write-back are one act here; the human close decision opens with them.
+    """Merge and its plan write-back are one act here; the close decision opens with them (the server resolves it).
 
     A local merge (docs/lokalni-slouceni.md) has no PR number and says `source: "local"` in the data."""
     local = row["source"] == "local"

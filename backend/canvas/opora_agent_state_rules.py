@@ -12,7 +12,7 @@ ACCEPTANCE_WAIT_SECONDS = 24 * 3600  # Fresh proposal pending longer than this �
 DECISION_LIMIT = 3
 RISK = {"standard": "low", "elevated": "elevated", "critical": "critical"}
 DECISION_PRIORITY = {"accept_baseline": 0, "accept_critical": 1, "accept_elevated": 2,
-                     "accept_low": 3, "review_result": 4, "close_card": 5}
+                     "accept_low": 3, "review_result": 4}
 # One priority list for every action source (core rules, auto-rebase conflicts, review gates, formal
 # attention, recurring checks); the agent-state action table in docs/oporahub-agent-state.md follows this order.
 # Návrh grafu nad hlavou bez grafu plánu a jeho přijetí jdou před starší přijetí základu (jen zadání): běh v2

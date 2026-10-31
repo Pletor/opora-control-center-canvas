@@ -1,4 +1,4 @@
-"""`card.closed` when a human confirms a card done (docs/oporahub-events.md).
+"""`card.closed` when a card is confirmed done, by a human or the server close (docs/oporahub-events.md).
 
 Called from the Desktop v3 state write inside its transaction: a `done.confirmed` false → true
 transition emits `card.closed` (and resolves the `close_card` decision); a reopened card only

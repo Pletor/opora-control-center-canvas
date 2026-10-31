@@ -37,3 +37,15 @@ def test_unrelated_state_changes_remain_available(authority, service):
     after = copy.deepcopy(before)
     after["nodes"]["b"] = {"phase": "discover"}
     state_write(service.db_for("draft"), "draft", "draft", before, after, {"edges": []}, "agent")
+
+
+def test_server_close_changes_only_the_done_mark():
+    from backend.canvas.opora_execution_guard import SKELETON, closes_only
+    done = {"confirmed": True, "by": "opora", "at": "2026-10-31T12:00:00Z", "note": ""}
+    card = {"phase": "build", "criteria": [], "steps": [], "notes": "x"}
+    assert closes_only(card, {**card, "done": done})
+    assert closes_only(None, {**SKELETON, "done": done})
+    assert closes_only(card, card)
+    assert not closes_only(card, {**card, "notes": "y", "done": done})
+    assert not closes_only(card, {**card, "done": {**done, "confirmed": False}})
+    assert not closes_only({**card, "done": done}, None)
