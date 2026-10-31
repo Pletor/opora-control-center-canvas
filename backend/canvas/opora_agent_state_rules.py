@@ -88,6 +88,11 @@ def stale_evidence(item, accepted):
     return item.get("staleEvidence", item["acceptedRevision"] != accepted)
 
 
+def open_results(reported, cards):
+    """Výsledky karet, které nejsou uzavřené: uzavřená karta (`doneConfirmed`) se do etapy `evidence` nepočítá."""
+    return [item for item in reported if not cards.get(item["nodeId"], {}).get("doneConfirmed")]
+
+
 def evidence_stage(reported, accepted):
     if any(stale_evidence(item, accepted) for item in reported):
         return stage("evidence", len(reported), "waiting", "stale_evidence")

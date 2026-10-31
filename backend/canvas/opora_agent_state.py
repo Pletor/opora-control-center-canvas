@@ -223,7 +223,7 @@ class AgentState:
         working = [item for item in latest if not card_stages.dead_run(item, offered.get(item["nodeId"]), now)]
         stages = [rules.plan_stage(context), rebasing_state.proposal_stage(pending, rebasing),
                   rules.acceptance_stage(context, fresh, now), rules.claim_stage(claims),
-                  rules.work_stage(working, now), rules.evidence_stage(reported, accepted),
+                  rules.work_stage(working, now), rules.evidence_stage(rules.open_results(reported, cards), accepted),
                   rules.review_stage(to_review, reviewing), *rules.pull_stages(reported, linked)]
         gaps = [*rules.GAPS, *([rules.PULL_GAP] if linked is None else [])]
         gaps = [gap for gap in rebasing_state.gaps(gaps, rebasing) if reviewing is None or gap[0] != "ai_review"]
