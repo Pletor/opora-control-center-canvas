@@ -7,6 +7,7 @@ import { countdown } from "../logic/face-labels";
 import { useNow } from "../logic/use-now";
 import { openCardDrawer } from "@/hub/oporahub-card-drawer/open";
 import PrBadge from "@/shared/pr-badge/components/PrBadge";
+import FaceLastChange from "./FaceLastChange";
 import "../styles/card-face.css";
 
 function LeaseCountdown({ expiresAt }: { expiresAt: string }) {
@@ -39,14 +40,16 @@ const ohAttributes = (face: Face) => ({
   "data-oh-health": face.raw.health, "data-oh-reason": face.raw.reason, "data-oh-execution": face.raw.executionId ?? "",
   "data-oh-steps-total": face.steps.total, "data-oh-steps-done": face.steps.done,
   "data-oh-lease-holder": face.lease?.holder ?? "", "data-oh-lease-epoch": face.lease?.epoch ?? "",
+  "data-oh-order": face.order ?? "",
 });
 
-/** Celá tvář; `title` je název karty (s přejmenováním), který dodá rodič. */
-export default function CardFace({ face, title }: { face: Face; title: ReactNode }) {
+/** Celá tvář; `title` je název karty (s přejmenováním), který dodá rodič; klik na poslední změnu hlásí `onHistory`. */
+export default function CardFace({ face, title, onHistory }: { face: Face; title: ReactNode; onHistory?: () => void }) {
   return (
     <div className={"card-face card-face--" + face.state} {...ohAttributes(face)}>
       <div className="card-face__top">
         <span className="card-face__kind">{face.kindChip}</span>
+        {face.order && <span className="card-face__order" title="Pořadí podle záměru">{face.order}</span>}
         <span className="card-face__grow" />
         {face.holder && <span className={"card-face__who card-face__who--" + face.holder.who}>
           <i aria-hidden="true">{face.holder.who === "agent" ? "A" : "H"}</i>{face.holder.name}
@@ -57,6 +60,7 @@ export default function CardFace({ face, title }: { face: Face; title: ReactNode
         <span className={"card-face__chip card-face__chip--" + face.chip.tone}>{face.chip.glyph} {face.chip.word}</span>
         <span className="card-face__line">{face.stage} · {face.lease ? <LeaseCountdown expiresAt={face.lease.expiresAt} /> : face.reason}</span>
       </div>
+      <FaceLastChange change={face.change} onOpen={onHistory} />
       <PrBadge badge={face.pr} />
       <div className="card-face__progress" title={`Kroky plánu ${face.steps.count}`}>
         {!!face.steps.segments.length && <div className="card-face__segments" aria-hidden="true">

@@ -202,6 +202,8 @@ export default function App() {
   const [planAppliedRevision, setPlanAppliedRevision] = useState(0);
   const [parent, setParent] = useState<string | null>(initial.get("layer"));
   const initialNode = initial.get("node");
+  // Klik na poslední změnu na tváři karty: záznam činnosti se otevře s filtrem této karty.
+  const [activityRequest, setActivityRequest] = useState<{ nodeId: string; seq: number } | null>(null);
   const [selection, setSelection] = useState<Selection>(() => (initialNode ? selectNode(initialNode) : emptySelection()));
   // Odvozené zkratky: zbytek souboru je psaný proti trojici "vybraný uzel / blok / vazba".
   const selected = selection.node;
@@ -1073,7 +1075,7 @@ export default function App() {
     <SaveScopeProvider project={project} workspace={workspace}><div className="app desktop-v2 desktop-v3">
       <TopBar
         onHome={() => setScreen("home")}
-        trailing={<><AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} />}{versionsEnabled && <SaveVersionsTools key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
+        trailing={<><AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} request={activityRequest} />}{versionsEnabled && <SaveVersionsTools key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
         projectNavigation={environment === "project" ? <ProjectMapNavigation value={projectMapKind} onChange={(kind) => { if (!saveAllBusy) setProjectMapKind(kind); }}/> : null}
         projects={projects}
         draftProject={draftProject}
@@ -1257,6 +1259,7 @@ export default function App() {
                   disabled={!editable}
                   selectedEdge={selectedEdge}
                   onSelect={openNode}
+                  onCardHistory={(id) => { openNode(id); setActivityRequest((before) => ({ nodeId: id, seq: (before?.seq ?? 0) + 1 })); }}
                   onSelectBlock={(nodeId, blockId) => setSelection(selectBlock(nodeId, blockId))}
                   onClear={() => { setSelection(clearSelection()); setMultiSelected([]); }}
                   onSelectEdge={(id) => setSelection(selectEdge(id))}

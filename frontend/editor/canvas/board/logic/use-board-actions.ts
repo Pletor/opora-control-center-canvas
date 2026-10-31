@@ -14,6 +14,8 @@ export type BoardActionProps = {
   /** Uložené jméno uzlu; přejmenování stejným jménem se nehlásí. */
   nameOf: (id: string) => string | undefined;
   onSelect: (id: string) => void;
+  /** Klik na poslední změnu karty; App otevře záznam činnosti s filtrem karty. */
+  onCardHistory?: (id: string) => void;
   onTagFilter: (tag: string) => void;
   onEditing: (id: string | null) => void;
   onRename: (id: string, name: string) => void;
@@ -35,6 +37,7 @@ export function useBoardActions(props: BoardActionProps): CardActions {
   useLayoutEffect(() => { latest.current = props; });
   return useMemo<CardActions>(() => ({
     open: (id) => latest.current.onSelect(id),
+    history: (id) => latest.current.onCardHistory?.(id),
     tag: (tag) => latest.current.onTagFilter(tag),
     renameStart: (id) => { if (!latest.current.disabled) latest.current.onEditing(id); },
     renameCancel: () => latest.current.onEditing(null),
