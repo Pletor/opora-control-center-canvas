@@ -5,7 +5,8 @@ oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu),
 fronta úkolů, čekající lístky, poslední vstupy vstupní brány (sekce VSTUPY), splněné milníky s odloženými
 požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY), poslední kontroly, deník dávek;
 okolí srdce §3a; skripty dílny §3b; výzkumy a duely srdce ze schránky zadání §3c; stav práce karet z executions
-a vazeb PR, docs/brain-heart-orchestrator.md §3, včetně blokace nehotovým předchůdcem z grafu karet agent-state),
+a vazeb PR, docs/brain-heart-orchestrator.md §3, včetně blokace nehotovým předchůdcem z grafu karet agent-state;
+kanál doručení práce cards/gate před sekcí PLÁN, řádek DORUČENÍ, §3e),
 `snapshot` k nim přidá posledních 10 commitů zdroje (sekce GIT, §4) a u git projektu pracovní prostory (sekce
 PROSTORY, §9 O7: doména, větev, karty volné/běží/hotové), `render` z nich bez dalšího čtení
 složí text. Stejná fakta = stejný text; nic tu nezávisí na čase ani náhodě.
@@ -16,7 +17,7 @@ import json
 import re
 import sqlite3
 
-from backend.brain_opora.determinism import brain_files, git_log, intake, milestones
+from backend.brain_opora.determinism import brain_files, delivery, git_log, intake, milestones
 from database.repositories.intake_requirements import IntakeRequirements
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_queue import for_worker, open_cards
@@ -286,8 +287,9 @@ def collect(service, project, workspace):
         entries = intake.recent(db, workspace)
         reached = milestones.reached(db, project, workspace)
         wanted = IntakeRequirements(db).list(workspace, ("open", "deferred"))[-REQUIREMENTS:]
+        channel = delivery.channel(db, project)
     runs = _runs(service, project, workspace, [card["id"] for card in cards])  # jen otevřené karty
-    return {"runs": runs, "intake": entries, "milestones": reached, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
+    return {"delivery": channel, "runs": runs, "intake": entries, "milestones": reached, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
             "tasks": tasks, "tickets": tickets, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
@@ -485,7 +487,8 @@ def _space_lines(facts):
 def render(facts, limit=LIMIT):
     """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
-             f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts), "PLÁN:", *_plan(facts),
+             f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts),
+             *([delivery.line(facts["delivery"])] if facts.get("delivery") else []), "PLÁN:", *_plan(facts),
              "FRONTA ÚKOLŮ: " + _queue(facts)[0], *_queue(facts)[1:], "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]

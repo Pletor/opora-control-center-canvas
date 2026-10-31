@@ -75,6 +75,7 @@ ZÁMĚR: <application site goal / feel, if any>
 ZPRÁVY ČLOVĚKA: <at text> (last 5 of the workspace, ≤ 400 chars each)
 PRAVIDLA: <project rules: approved, then "(návrh)"> (≤ 20)
 ROZHODNUTÍ: <decisions: pinned, then newest> (≤ 10)
+DORUČENÍ: cards|gate – <which command carries work: plan or task> (§3e)
 PLÁN: <pages: name, path, stage> (≤ 20)
 FRONTA ÚKOLŮ: ready n · assigned n (by whom) · done n · failed n; last 10 titles with status
 LÍSTKY ČEKAJÍCÍ: <id kind text> (≤ 10)
@@ -303,6 +304,23 @@ The first runs also found two faults, fixed before the table: the distill chose 
 rule above), and sources like "URL (section 2)" failed the check (code cuts the URL out). For an app from zero
 (2 runs) V3 covered layers slightly better (0.7 vs 0.6, judge 5.5 vs 5.0) at 2.7× the cost, so a broad intent is
 split into several focused researches instead of a wider desk. V1s became `research`; the fan-out was deleted.
+
+## 3e. Delivery channel: who takes the work (`determinism/delivery.py`)
+
+The heart cannot tell from the plan alone whether anyone will pick up a card. So the snapshot carries one line,
+`DORUČENÍ`, right before `PLÁN`, computed without a model from the project database:
+
+- **`cards`**: the project has an orchestrator of cards. At least one card execution (a claim through
+  `/api/oporahub/executions`, table `opora_executions`) exists in any workspace of the project, ever. The heart gives
+  work as cards (`plan`).
+- **`gate`**: no card execution ever. Work is taken only by workers through the gate (`opora_gate.py next`), so the
+  heart gives every piece of work as a queue task (`task`, `--node` links it to a card). A card may stay as a map,
+  never instead of a task: a card without a task reaches nobody. A fresh project with nothing is `gate`. The count of
+  gate worker sessions (`gate_sessions`, role `worker`) is printed as support only and never changes the channel.
+
+There is no time window: the snapshot does not depend on time (§3), and an orchestrator that took nothing for a few
+days still exists. The channel is project-wide, so a new workspace of a project with agent-office stays `cards`.
+An unreadable table counts as zero. The prompt part „Plán“ follows this line (§6).
 
 ## 4. The heart's tool (`heart/opora_heart.py`, stdlib, one call = one intent)
 
