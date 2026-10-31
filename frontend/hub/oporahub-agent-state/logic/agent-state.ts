@@ -33,6 +33,8 @@ export type AgentCardStage = {
   guardFindings?: { count: number; severity: GuardSeverity };
   /** PR navázané na kartu (`number` null u lokálního sloučení); uzavřená karta pole nemá. Starší server ho neposílá. */
   pr?: { number: number | null; state: "open" | "merged" | "closed" } | null;
+  /** Pořadí podle záměru `FPP` (fáze · pozice, `302`); karta bez pořadí ho nemá. Starší server ho neposílá. */
+  order?: number | null;
 };
 export type AgentDecision = { id: string; kind: string; targetId: string | null; title: string; actionId: string };
 export type AgentGap = { id: string; stage: string; reason: string };
@@ -92,7 +94,8 @@ const cardExtras = (value: Record<string, unknown>) => optional(value.kind, text
   && optional(value.lease, item => object(item) && nullableText(item.holder) && text(item.expiresAt))
   && optional(value.guardFindings, item => object(item) && count(item.count) && GUARD_SEVERITIES.includes(item.severity as GuardSeverity))
   && optional(value.pr, item => object(item) && (item.number === null || count(item.number))
-    && (item.state === "open" || item.state === "merged" || item.state === "closed"));
+    && (item.state === "open" || item.state === "merged" || item.state === "closed"))
+  && optional(value.order, count);
 const cardStage = (value: unknown): value is AgentCardStage => object(value) && text(value.nodeId)
   && STAGE_IDS.includes(value.stage as StageId) && HEALTHS.includes(value.health as Health) && text(value.reason)
   && nullableText(value.executionId) && cardExtras(value);

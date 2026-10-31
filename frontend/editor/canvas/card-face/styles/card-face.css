@@ -36,6 +36,31 @@
 .card-face__chip--hum { color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); }
 .card-face__lease { font-variant-numeric: tabular-nums; }
 
+/* Stopa karty: co se kartě naposled stalo, aby člověk nemusel srdci jen věřit. V hlavičce vedle druhu stojí
+   tichý odznak pořadí podle záměru „3·02“ (fáze · pozice) v neproporcionálním písmu, aby se čísla karet
+   v jedné fázi četla pod sebou jako sloupec. Pod stavovým řádkem jedna šedá řádka „Srdce · 11:51 · pořadí“:
+   menší a tlumenější než stav, protože je to historie, ne výzva; jméno nese barvu svého aktéra (srdce zlaté,
+   člověk akcentem, dělník barvou agentů) a najetí ji podtrhne, protože klik otevře záznam činnosti karty.
+   Čerstvá změna (do 10 minut) karta jednou dvakrát blikne obrysem a zhasne; při omezeném pohybu nebliká nic. */
+.card-face__order {
+  font: 600 11px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-muted);
+  border: 1px solid var(--line-strong); border-radius: 4px; padding: 2px 5px;
+}
+.card-face__change {
+  align-self: stretch; min-width: 0; margin-top: -4px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: 400 12px/1.3 var(--font); color: var(--ink-muted); text-align: left;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-face__change:hover, .card-face__change:focus-visible { color: var(--ink-2); text-decoration: underline; }
+.card-face__change--heart { color: color-mix(in srgb, var(--gold) 70%, var(--ink-muted)); }
+.card-face__change--human { color: color-mix(in srgb, var(--accent) 70%, var(--ink-muted)); }
+.card-face__flash {
+  position: absolute; inset: -3px; border-radius: 13px; pointer-events: none;
+  border: 2px solid var(--accent); opacity: 0; animation: card-face-flash 1.2s ease-out 2;
+}
+@keyframes card-face-flash { 0% { opacity: 0; } 25% { opacity: 0.9; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .card-face__flash { animation: none; display: none; } }
+
 /* Postup kroků: segment = krok, zelený hotový, tyrkysový právě běží; pod ním „3/7 · s4 Název kroku“. */
 .card-face__progress { display: flex; flex-direction: column; gap: 5px; }
 .card-face__segments { display: flex; gap: 3px; }
