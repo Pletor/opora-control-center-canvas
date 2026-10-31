@@ -118,7 +118,7 @@ OpenViking je jen volitelné zrcadlo, zdrojem pravdy zůstává SQLite.
    Řez 3 – odchylky:
    - `POST /api/intake/milestone` smí jen člověk (§6 připouštěl i srdce). Srdce milník jen navrhne přes
      `POST /api/brain/heart/milestone`.
-   - Zamítnutý návrh dostane stav `superseded`. Vlastní stav `rejected` nevzniká, historie zůstává.
+   - Zamítnutý návrh (i zamítnutý aktivní milník) dostane stav `superseded`. Vlastní stav `rejected` nevzniká, historie zůstává.
    - Odložený požadavek bez `--open-condition` dostane podmínku z aktivního milníku oblasti vstupu. Bez něj vrátí
      server 422.
    - Spouštěč `milestone.done` nemá vlastní událost outboxu. Supervisor ho počítá po `card.closed` a při prvním

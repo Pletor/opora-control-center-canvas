@@ -60,7 +60,8 @@ class IntakeMilestones:
         return True, previous["id"] if previous else None
 
     def reject(self, milestone_id):
-        """Navržený milník → `superseded` (zamítnutý návrh zůstává v historii); True, když se změnil."""
-        cursor = self.db.execute("UPDATE intake_milestones SET status='superseded' WHERE id=? AND status='proposed'",
+        """Navržený nebo aktivní milník → `superseded` (zamítnutý zůstává v historii, oblast pak nemá aktivní milník);
+        True, když se změnil."""
+        cursor = self.db.execute("UPDATE intake_milestones SET status='superseded' WHERE id=? AND status IN ('proposed','active')",
                                  (milestone_id,))
         return cursor.rowcount == 1

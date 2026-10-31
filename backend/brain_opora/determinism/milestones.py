@@ -120,7 +120,8 @@ def propose(service, session, area, title, criteria, now):
 
 def decide(service, payload):
     """Rozhodnutí člověka o návrhu (`POST /api/intake/milestone`): `activate` nahradí aktivní milník oblasti,
-    `reject` návrh zamítne. Jen `proposed`, jinak 409."""
+    `reject` zamítne návrh i aktivní milník (např. když plán srostl s duplicitou a karty zmizely; oblast pak
+    nemá aktivní milník). `activate` jen u `proposed`, jinak 409."""
     keys = {"project", "workspace", "milestoneId", "action"}
     if not isinstance(payload, dict) or set(payload) != keys:
         raise invalid("Tělo je přesně {project, workspace, milestoneId, action}.",
@@ -140,8 +141,11 @@ def decide(service, payload):
             if milestone is None or milestone["workspaceId"] != workspace:
                 raise GateError(404, "milestone_not_found", "Milník v tomto pracovním prostoru neexistuje.",
                                 "ID milníku (ms_…) je v GET /api/intake u oblasti v návrzích.")
-            if milestone["status"] != "proposed":
-                raise GateError(409, "milestone_not_proposed", f"Milník je {milestone['status']}, rozhodnout jde jen o návrh.",
+            allowed = ("proposed", "active") if action == "reject" else ("proposed",)
+            if milestone["status"] not in allowed:
+                raise GateError(409, "milestone_not_proposed",
+                                f"Milník je {milestone['status']}, " + ("zamítnout jde jen návrh nebo aktivní milník."
+                                                                        if action == "reject" else "aktivovat jde jen návrh."),
                                 "Nový milník navrhuje srdce (opora_heart.py milestone).")
             superseded = store.activate(milestone["id"])[1] if action == "activate" else None
             if action == "reject":

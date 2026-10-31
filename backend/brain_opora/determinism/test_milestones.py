@@ -75,6 +75,18 @@ def test_human_activation_supersedes_the_active_milestone_and_reject_keeps_histo
     assert refused(milestones.decide, service, {"project": "draft"}) == "invalid_payload"
 
 
+def test_reject_ends_an_active_milestone_but_activate_stays_proposal_only(service):
+    first = proposed(service, "První")
+    decide(service, first["id"])
+    assert refused(decide, service, first["id"]) == "milestone_not_proposed"
+    assert decide(service, first["id"], "reject") == {"id": first["id"], "status": "superseded", "superseded": None}
+    assert IntakeMilestones(service.db_for("draft")).active("draft", "a1") is None
+    area = next(item for item in milestones.plan(service.db_for("draft"), "draft", "draft",
+                                                  [{"id": "a1", "name": "Hledání"}])[0] if item["id"] == "a1")
+    assert area["milestone"] is None
+    assert refused(decide, service, first["id"], "reject") == "milestone_not_proposed"
+
+
 def test_criterion_is_met_when_all_its_cards_are_closed_and_progress_averages_cards(service):
     milestone = IntakeMilestones(service.db_for("draft")).get(proposed(service)["id"])
     db = service.db_for("draft")

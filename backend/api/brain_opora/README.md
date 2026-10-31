@@ -74,7 +74,7 @@ stdio: `tools/list` = `GET /api/gate/kinds` for the role, tool `opora_<kind with
   carry `openCondition`, `unassigned` = open / deferred requirements without a known area. Entries have no public
   write, the server records them itself. `POST /api/intake/milestone {project, workspace, milestoneId,
   action: activate|reject}` is human only, or an agent (the heart) in a project with full autonomy (`require_authority`; 403 otherwise): activation supersedes the
-  area's active milestone; not a proposal 409 `milestone_not_proposed`. Logic: `determinism/intake.py`, `milestones.py`, `brief.py`.
+  area's active milestone; `reject` also ends the active milestone (the area then has none); `activate` of a non-proposal and `reject` of a finished one: 409 `milestone_not_proposed`. Logic: `determinism/intake.py`, `milestones.py`, `brief.py`.
   Interrogation slice 3 (`docs/navrhy/2026-10-30-vyslech-srdce.md` §7): each requirement carries
   `brief: {status, synthesis, questions, missing}`. `POST /api/intake/brief/answer {project, workspace, requirement,
   question, answer | accept: true}` answers an open question (`accept` takes the heart's recommendation; answered
