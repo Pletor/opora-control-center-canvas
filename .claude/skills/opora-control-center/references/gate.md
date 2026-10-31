@@ -27,6 +27,12 @@ python "<SKILL_DIR>/scripts/opora_gate.py" tell "Záměr člověka doslova"
 
 ## Smyčka pracovníka
 
+Postup dělníka krok za krokem (smyčka, sprinty, cílené čtení, kdy se ptát) je ve skillu
+[opora-gate-worker](../../opora-gate-worker/SKILL.md). Tady jen tvar odpovědí a chyb.
+Sprinty: úkol z `next` nese `checkpoint` a `sprint`; mimo kontrolní bod se build a testy nespouští a hlásí jako
+`--check "npm run build=deferred" --check "npm test=deferred"`, kontrolní bod hlásí skutečné výsledky
+(`deferred` → 422 `checkpoint_needs_checks`).
+
 1. `next` → `answer.task = {id, title, nodeId, status, attempts, body}`; `body` má pevný tvar
    `{why, do, files[], doneWhen[], dontTouch[{path, heldBy}], context{intent?, rules[]?, pattern?}, commit}`.
    Opakované `next` vrátí tentýž držený úkol. Prázdná fronta: `{task: null, plan: [{id, name, stage}]}` (nejvýš 20

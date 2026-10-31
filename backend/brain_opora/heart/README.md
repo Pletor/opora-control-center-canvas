@@ -73,7 +73,9 @@ Modules (H2a):
   `research --requirement rq_…` is interrogation research: the per-requirement cap is checked before the desk runs and
   the cost is added to the requirement's brief (`docs/navrhy/2026-10-30-vyslech-srdce.md` §8).
 - `skills/*.md`: mode procedures copied to `brain/skills/`, read only on demand via `opora_heart.py skill NAME`
-  (`vyslech.md` when a batch carries `VÝSLECH`); never part of the system prompt.
+  (`vyslech.md` when a batch carries `VÝSLECH`; `sprinty.md` when planning queue tasks into sprints; `zruseni.md`
+  when a change cancels or renames an earlier thing; `chybi-podklad.md` when an input relies on a missing API, data
+  or file); never part of the system prompt, which only says when to load each one. Every `*.md` here is copied.
 - `prompt.md`: the heart's role, task shape with a full example (an implementation card has 2–8 steps, each with `kind`
   and `files`, so the card gauge can size it), application-wide rules, when to ask the advisor.
 
