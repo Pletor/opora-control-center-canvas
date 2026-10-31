@@ -305,6 +305,17 @@ def _intent(facts):
     return ""
 
 
+def _work_first(facts, cards):
+    """Karty s pracovním kontextem před holými (před ořezem na PAGES): s prací (běží, PR, sloučeno), blokované,
+    úkolové `[task]`, zbytek; v každé skupině zůstává pořadí grafu. Jinak by 37 architektonických karet vytlačilo
+    ty, které srdce zrovna potřebuje s plným ID."""
+    work, blocked = facts.get("work") or {}, facts.get("blocked") or {}
+
+    def rank(card):
+        return 0 if work.get(card["id"], FREE) != FREE else 1 if card["id"] in blocked else 2 if card["name"].startswith("[task]") else 3
+    return sorted(cards, key=rank)
+
+
 def _plan(facts):
     """Řádky sekce PLÁN, každý s plným ID uzlu (bere ho `member`, `milestone`, `--node`, `"@<id>"`): stránky, otevřené
     karty mimo stránky, oblasti a sektory. Srdce tak ID nehledá přes `ctx tree`, `plan-of` ani nový `snapshot`."""
@@ -319,7 +330,7 @@ def _plan(facts):
             + doing(page["id"]) + (f" · cíl: {_short(page['goal'], 120)}" if page["goal"] else "") for page in pages]
     shown = {page["id"] for page in pages}
     rows += [f"- {_short(card['name'], 80)} · {card['id']} · {card['stage']}" + doing(card["id"])
-             for card in [card for card in facts["cards"] if card["id"] not in shown][:PAGES]]
+             for card in _work_first(facts, [card for card in facts["cards"] if card["id"] not in shown])[:PAGES]]
     rows += [f"- oblast {_short(area['name'], 60)} · {area['id']}" for area in (facts.get("areas") or [])[:AREAS]]
     rows += [f"- sektor {_short(sector['name'], 60)} · {sector['id']}"
              + (f" · oblast {sector['memberOf']}" if sector.get("memberOf") else "")
@@ -521,7 +532,7 @@ def view(facts, session_id=None):
     stages = {card["id"]: card["stage"] for card in facts["cards"]}
     plan = ([{"id": page["id"], "name": page["name"], "stage": stages.get(page["id"], "closed"), "path": page["path"],
               "goal": page["goal"]} for page in facts["pages"][:PAGES]]
-            or [{key: card[key] for key in ("id", "name", "stage")} for card in facts["cards"][:PAGES]])
+            or [{key: card[key] for key in ("id", "name", "stage")} for card in _work_first(facts, facts["cards"])[:PAGES]])
     held = next((task for task in facts["tasks"] if session_id and task["status"] == "assigned"
                  and task["sessionId"] == session_id), None)
     return {"project": {"id": facts["project"], "name": facts["name"], "workspace": facts["workspace"]},
