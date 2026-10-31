@@ -44,6 +44,7 @@ from backend.brain_opora.heart.inputs import (
 )
 from backend.canvas.process_signal import PROCESS_SIGNAL
 from backend.project.workspace.workspace_sources import WorkspaceSources
+from backend.project.worktrees import workspace_fast_forward
 from database.repositories import opora_events
 
 LOGGER = logging.getLogger(__name__)
@@ -303,12 +304,32 @@ class HeartSupervisor:
                     continue
                 if kind == "git":
                     self._sync(project)
+                    self._advance_workspaces(project, kind)
                 for workspace in self._watched(project, kind):
                     self._watch_head(project, workspace, kind)
                 self.git_errors.pop(project, None)
             except Exception as error:  # noqa: BLE001 - selhaný zdroj jen zapsat, ostatní projekty běží dál
                 LOGGER.warning("Srdce: hlídač gitu projektu %s: %s", project, error)
                 self.git_errors[project] = f"{type(error).__name__}: {error}"[:500]
+
+    def _advance_workspaces(self, project, kind):
+        """Po synchronizaci posune čisté prostory za `main` (docs/domeny-a-worktree.md, „Posun worktree za main“)."""
+        sources = WorkspaceSources(self.service)
+        try:
+            main_sha = git_log.head(sources.root(project, HOME[kind]))
+        except Exception as error:  # noqa: BLE001 - bez HEAD mainu není kam posouvat
+            LOGGER.warning("Srdce: HEAD mainu projektu %s: %s", project, error)
+            return
+        for workspace in self._watched(project, kind):
+            if workspace == HOME[kind]:
+                continue
+            try:
+                root = sources.root(project, workspace)
+                moved = workspace_fast_forward.fast_forward(root, main_sha) if root is not None else None
+                if moved:
+                    self.heads[(project, workspace)] = moved
+            except Exception as error:  # noqa: BLE001 - jeden prostor nerozbije průchod
+                LOGGER.warning("Srdce: posun prostoru %s/%s: %s", project, workspace, error)
 
     def _targets(self, project, workspace, kind):
         """Kam vstup `commits` patří. `main` git projektu je jen ke čtení (karty tam nevzniknou): jeho posun dostanou

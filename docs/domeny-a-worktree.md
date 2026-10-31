@@ -98,6 +98,10 @@ Modul `backend/canvas/migrate_architecture.py` + `test_migrate_architecture.py`,
 - `close_workspace(pid, wid, reason, confirmed)` = **přesun do skladiště** (§13.3): odmítne, když je worktree `dirty` nebo má živou relaci (§7); jinak `git worktree remove` bez `--force`, **větev `work/<wid>` zůstane**, řádek `workspaces` se přesune do `archived_workspaces(id, project_id, node_id, branch, actor, base_sha, reason, archived_at)` v registru, data prostoru do `canvas/workspaces/_archive/<wid>`. `GET /api/workspaces/archive?project=` vrací skladiště (jen čtení).
 - `backend/project/worktrees/worktree_manager.py` a jeho test se smažou (mrtvý kód, jiné schéma ID, volají ho jen jeho testy); upravit `backend/project/worktrees/README.md` a odkaz v `docs/pravidla-struktury.md`.
 
+### Posun worktree za main
+
+Srdce čte kód z worktree prostoru (`worktrees/<8 znaků>`, větev `work/<id>`), který se po založení sám nehýbe a zastarává za `main`. Proto po úspěšné synchronizaci `main` v `watch_git` server posune každý hlídaný prostor git projektu (kromě domovského `main`) na HEAD mainu, ale **jen když platí vše**: složka worktree existuje, `git status --porcelain` je prázdné a HEAD worktree je striktní předek HEAD mainu (`git merge-base --is-ancestor`, a ne rovný). Pak `git merge --ff-only <sha mainu>`. Jinak se mlčky přeskočí (vlastní commity, špinavý strom, nečitelný stav); nikdy `--force` ani `reset`. Selhání jednoho prostoru se jen zapíše do logu a nerozbije průchod. Nový HEAD si supervisor zapíše do `heads[(projekt, prostor)]`, aby `_watch_head` nevyslal duplicitní vstup `commits` (posun mainu už prostory dostaly přes `_targets`). Kód: `backend/project/worktrees/workspace_fast_forward.py`.
+
 ## 7. Stav práce
 
 Archivace se serializuje se změnami grafu a projektu. Databázové záznamy grafu,
