@@ -3,6 +3,9 @@
 Dávka složí zprávu (snímek, vstupy, pokyn skončit `done`), spustí proces, přečte výsledek JSON a zapíše
 jeden řádek do `brain/batches.jsonl`: vstupy, relaci, cenu po modelech (`modelUsage`; poradce = položka Opus),
 tahy, chybu, trvání, shrnutí z `done` a cenu dílčích volání dílny (`subCostUsd` z `dilna/runs.jsonl`, §3b).
+Cena: `claude -p --resume` vrací součet celé relace, proto u navázané dávky nesou `costUsd` a `costByModel` jen
+přírůstek proti poslednímu záznamu téže relace a `sessionCostUsd` / `sessionCostByModel` surové kumulativní hodnoty
+(nová relace: obě dvojice stejné).
 Tokeny: `inputTokens` je součet vstupu přes všechny tahy, `contextTokens` kontext posledního tahu (podle něj se
 rotuje relace, `session.context_tokens`) a `fresh`, `cacheRead`, `cacheCreation`, `output` rozpad `usage` dávky. Když poradce za den přesáhne `ADVISOR_DAY_USD`, běží dávka
 bez `--advisor` (záznam nese `advisor: false`). Pozná vyčerpaný limit předplatného (`rate_limited`) a vypršení času.
@@ -123,6 +126,36 @@ def costs(result):
     return {model: round(float(item.get("costUSD") or 0), 6) for model, item in usage.items() if isinstance(item, dict)}
 
 
+def _round_cost(value):
+    return round(max(float(value or 0), 0.0), 6)
+
+
+def previous_session_cost(brain, session_id):
+    """`(costUsd, costByModel)` kumulativní ceny relace z posledního záznamu deníku se stejným `sessionId`, jinak None.
+    Starší záznamy bez `sessionCostUsd` ukládaly kumulativní hodnoty do `costUsd` / `costByModel`."""
+    try:
+        lines = (Path(brain) / JOURNAL).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        entry = parse(line)
+        if entry and entry.get("sessionId") == session_id:
+            total = entry["sessionCostUsd"] if "sessionCostUsd" in entry else entry.get("costUsd")
+            by_model = entry["sessionCostByModel"] if "sessionCostByModel" in entry else entry.get("costByModel")
+            return total, by_model if isinstance(by_model, dict) else {}
+    return None
+
+
+def batch_cost(total, by_model, previous):
+    """`(costUsd, costByModel)` dávky: bez předchozího záznamu relace kumulativní hodnoty, jinak nezáporný přírůstek
+    (model, který v předchozím záznamu nebyl, se bere celý)."""
+    if previous is None:
+        return total, by_model
+    before_total, before_models = previous
+    delta_total = None if total is None else _round_cost(float(total) - float(before_total or 0))
+    return delta_total, {model: _round_cost(cost - float(before_models.get(model) or 0)) for model, cost in by_model.items()}
+
+
 def rate_limited(result, stderr=""):
     """Vyčerpaný limit předplatného: `is_error` s `rate_limit` nebo text „hit your … limit“."""
     text = json.dumps(result, ensure_ascii=False) if result else ""
@@ -170,11 +203,15 @@ def run(spec, runner=run_process, clock=time.time):
         # Chybná dávka (třeba ztracená relace) vynutí rotaci, aby se další dávka nezasekla na --resume.
         session.record(brain, result["session_id"], context if status == "ok" else session.ROTATE_AT + 1,
                        prompt_digest)
+    total, by_model = (result or {}).get("total_cost_usd"), costs(result)
+    own_session = (result or {}).get("session_id") or session_id
+    cost, cost_by_model = batch_cost(total, by_model, previous_session_cost(brain, own_session) if resume else None)
     at = datetime.fromtimestamp(started, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     entry = {"at": at, "project": spec.project,
              "workspace": spec.workspace, "status": status, "inputs": spec.inputs,
-             "sessionId": (result or {}).get("session_id") or session_id, "resumed": resume, "advisor": advisor,
-             "costUsd": (result or {}).get("total_cost_usd"), "costByModel": costs(result),
+             "sessionId": own_session, "resumed": resume, "advisor": advisor,
+             "costUsd": cost, "costByModel": cost_by_model,
+             "sessionCostUsd": total, "sessionCostByModel": by_model,
              "numTurns": (result or {}).get("num_turns"), "isError": bool((result or {}).get("is_error", True)),
              "durationMs": int((clock() - started) * 1000), "inputTokens": used, "summary": _summary(brain),
              "subCostUsd": sub_cost(brain, at), "contextTokens": context, **session.parts(usage)}

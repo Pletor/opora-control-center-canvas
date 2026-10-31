@@ -49,6 +49,10 @@ cwd = <data>/projects/<id>/brain/       env: without ANTHROPIC_API_KEY; OPORA_BA
   tickets, failed tasks), then the instruction to finish with `opora_heart.py done --summary`.
 - **Output.** The JSON result gives `session_id`, `total_cost_usd`, `modelUsage`, `num_turns` and `is_error`. They
   are written to `brain/batches.jsonl` as one line per batch, together with the inputs and the cost per model.
+  `claude -p --resume` reports the cost of the whole session, so for a resumed batch `costUsd` and `costByModel` hold
+  only the increment against the last entry of the same `sessionId` (non-negative, 6 places; a model missing in the
+  previous entry counts fully), while `sessionCostUsd` and `sessionCostByModel` keep the raw cumulative values (a new
+  session has both pairs equal; older entries without them stored cumulative values in `costUsd`).
   Advisor usage is the Opus entry in `modelUsage`.
 - **Rotation.** When the context of the batch's last main-thread turn (`input + cache_read + cache_creation` of the
   last `assistant` event in the stream; fallback estimate from totals / `num_turns`) passes 60k tokens, the next batch
