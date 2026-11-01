@@ -41,7 +41,10 @@ def reason(state, questions):
     stages = _stages(state)
     if not (state.get("heads") or {}).get("acceptedHead"):
         return None
-    if any((stages.get(name) or {}).get("count") for name in ("claim", "work", "evidence", "review")):
+    if any((stages.get(name) or {}).get("count") for name in ("claim", "work")):
+        return None
+    # Evidence a review podle karet, ne podle počtu etapy: `stale_evidence` umí počítat i výsledek bez karty v etapě.
+    if any(card.get("stage") in ("evidence", "review") for card in state.get("cards") or []):
         return None
     if (stages.get("merge") or {}).get("reason") == "pull_requests_open":
         return None

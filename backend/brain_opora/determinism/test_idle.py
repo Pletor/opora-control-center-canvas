@@ -17,7 +17,8 @@ def state(revision="r1", merged=3, claim=0, work=0, evidence=0, review=0, merge_
             "stages": [stage("claim", claim, "cards_ready" if claim else "nothing_ready"),
                        stage("work", work), stage("evidence", evidence), stage("review", review),
                        stage("merge", merged, merge_reason)],
-            "cards": []}
+            "cards": [{"nodeId": f"{name}-{i}", "stage": name} for name, n in (("evidence", evidence), ("review", review))
+                      for i in range(n)]}
 
 
 @pytest.fixture
@@ -63,6 +64,15 @@ def test_another_merged_card_or_new_plan_revision_wakes_again(service):
 def test_ready_card_active_run_or_office_work_does_not_wake(service, busy):
     _, read = reader(state=state(**busy))
     assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read) == ([], {"w1": None})
+
+
+def test_stale_evidence_count_without_a_card_in_the_stage_still_wakes(service):
+    """`stale_evidence` umí počítat výsledek bez karty v etapě: srdce na něj nečeká."""
+    phantom = state()
+    phantom["stages"] = [item if item["id"] != "evidence" else stage("evidence", 1, "stale_evidence", "waiting")
+                         for item in phantom["stages"]]
+    _, read = reader(state=phantom)
+    assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)[1] == {"w1": "frontier_empty"}
 
 
 @pytest.mark.parametrize("facts", [{"questions": 1}, {"state": state(decisions=[{"kind": "accept_low"}])}])
