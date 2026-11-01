@@ -34,6 +34,7 @@ NOTES = 400  # nejvýš znaků poznámky selhaného kroku v detailu
 STEP_FAILED_ADVICE = ("zadání koliduje s repem → přepiš kroky karty návrhem změny (fields.steps) podle skutečného"
                       " stavu main, kartu vrať k převzetí; čísla migrací = poslední na main + 1")
 HISTORY = 5  # nejméně hotových karet se štítkem pro medián
+LIVE = ("ready", "running", "blocked", "needs-steps", "reported")  # stavy karet, které spouštěče hodnotí
 CARDS = 40  # nejvýš karet prostoru, které se vyhodnotí (ProcessSync v pořadí grafu)
 SPACES = 5  # nejvýš prostorů s přijatým plánem na projekt
 
@@ -179,7 +180,10 @@ def facts(service, project, workspace, now):
     from database.repositories.opora_execution_pull_requests import list_execution_pull_requests
     from database.repositories.opora_executions import Executions
 
-    items = ProcessSync(service).read(project, workspace, limit=CARDS)["items"]  # vlastní zámky, před čtením níže
+    # Všechny karty, pak živé stavy a teprve z nich `CARDS`: prvních `CARDS` v pořadí grafu jsou u velkého plánu
+    # hotové a nenaplánované karty a živé (třeba `reported` se selhaným krokem, PLAN-002) by spouštěč neviděl.
+    items = [item for item in ProcessSync(service).read(project, workspace, limit=None)["items"]  # vlastní zámky
+             if item.get("status") in LIVE][:CARDS]
     graph = service.view(project, workspace)["graph"]
     accepted = {item["nodeId"]: item for item in OporaChangesets(service).context(project, workspace)["acceptedDocuments"]}
     index = card_gauge.graph_index(graph)
@@ -209,7 +213,7 @@ def facts(service, project, workspace, now):
     result = []
     for item in items:
         node = item["nodeId"]
-        if node not in index["nodes"] or item.get("status") not in ("ready", "running", "blocked", "needs-steps", "reported"):
+        if node not in index["nodes"]:
             continue
         run, latest = run_of(node), newest.get(node) or {}
         claimed, step = _seconds(latest.get("createdAt")), _seconds(steps_at.get(node))
