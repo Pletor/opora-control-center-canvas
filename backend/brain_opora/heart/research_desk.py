@@ -10,11 +10,12 @@ import tomllib
 from pathlib import Path
 
 try:
+    import research_browser
     import research_digest
     import research_fetch
     import research_verify
 except ImportError:  # v testech moduly balíčku
-    from backend.brain_opora.heart import research_digest, research_fetch, research_verify
+    from backend.brain_opora.heart import research_browser, research_digest, research_fetch, research_verify
 
 # Digest a čtení odpovědí jsou v `research_digest`; stůl je vystavuje dál (opora_research, duel, eval).
 (DISTILL, LAYERS, child_env, claude_result, clip, dicts, facts_block, find_claude, fix_verdict, flat, last_object,
@@ -125,14 +126,17 @@ class _Desk:
         return answer, {"exit": exit_code, "timedOut": bool(timed_out), "costUsd": cost, "stderr": (err or "")[-500:]}
 
 
-def gather_command(claude, *, deep=False, source_root=None, data_dir=None, rea=False, mcp_path=None,
-                   turns=GATHER_TURNS):
-    """Výzkumník: web a čtení zdroje, povolené přesně tyto nástroje (s `rea` navíc webové nástroje REA),
-    bez nastavení, háčků a lomítkových příkazů; MCP jen REA a jen s `rea` (`--strict-mcp-config` vždy)."""
-    allowed = [GATHER_TOOLS, *(f"mcp__rea__{name}" for name in (*REA_TOOLS, *BROWSER_TOOLS) if rea)]
+def gather_command(claude, *, deep=False, source_root=None, data_dir=None, rea=False, mcp_path=None, chrome=False,
+                   settings_path=None, turns=GATHER_TURNS):
+    """Výzkumník: web a čtení zdroje, povolené přesně tyto nástroje (s `rea` navíc webové nástroje REA, s `chrome`
+    čtecí nástroje prohlížeče), bez nastavení a lomítkových příkazů; MCP jen REA a prohlížeč a jen s `rea` / `chrome`
+    (`--strict-mcp-config` vždy); háček jen s `chrome` (`settings_path` z `research_browser.write_gather_config`)."""
+    browser = research_browser.tool_names() if chrome else []
+    allowed = [GATHER_TOOLS, *(f"mcp__rea__{name}" for name in (*REA_TOOLS, *BROWSER_TOOLS) if rea), *browser]
     line = [claude, "-p", "--output-format", "stream-json", "--verbose", "--model", "sonnet" if deep else "haiku",
-            "--tools", GATHER_TOOLS, "--allowedTools", ",".join(allowed), "--strict-mcp-config",
-            *(["--mcp-config", str(mcp_path)] if rea else []),
+            "--tools", ",".join([GATHER_TOOLS, *browser]), "--allowedTools", ",".join(allowed), "--strict-mcp-config",
+            *(["--mcp-config", str(mcp_path)] if rea or chrome else []),
+            *(["--settings", str(settings_path)] if chrome else []),
             "--setting-sources", "", "--permission-mode", "dontAsk", "--disable-slash-commands"]
     for folder in (source_root, data_dir):
         if folder:
@@ -163,8 +167,9 @@ def _fill(template, last, **parts):
 
 
 def run_desk(question, targets, *, runner, claude, source_root, data_dir, deep=False, layers=(), browser=None,
-             mcp_path=None, budget=600, opener=None, distill_model=None):
-    """Celý výzkum (§3d) → `{digest, facts, options, stats}`; syrová odpověď výzkumníka v `data_dir/gather/q1.json`."""
+             mcp_path=None, budget=600, opener=None, distill_model=None, chrome=False):
+    """Celý výzkum (§3d) → `{digest, facts, options, stats}`; syrová odpověď výzkumníka v `data_dir/gather/q1.json`.
+    S `chrome` má výzkumník prohlížeč člověka jen ke čtení na povolených doménách (`research_browser`)."""
     data_dir, targets = Path(data_dir), [target for target in targets if target]
     (data_dir / "gather").mkdir(parents=True, exist_ok=True)
     desk, facts_text = _Desk(runner, str(data_dir), budget), project_facts(source_root) or "—"
@@ -177,8 +182,13 @@ def run_desk(question, targets, *, runner, claude, source_root, data_dir, deep=F
     parts = {"T": ", ".join(targets) or "—", "F": facts_text, "N": str(MAX_FINDINGS),
              "R": str(source_root or "(projekt nemá připojený zdroj)"),
              "D": f"\nStažené cíle: {data_dir / 'index.json'} (url → soubor; čti je Read). Doklad z nich uveď jejich původní URL, ne cestu k souboru." if targets else "",
-             "P": REA_HINT.replace("<B>", json.dumps(str(browser))) if rea else ""}
-    line = gather_command(claude, deep=deep, source_root=source_root, data_dir=data_dir, rea=rea, mcp_path=mcp_path)
+             "P": (REA_HINT.replace("<B>", json.dumps(str(browser))) if rea else "")
+             + (research_browser.HINT if chrome else "")}
+    settings = None
+    if chrome:
+        mcp_path, settings = research_browser.write_gather_config(data_dir / "gather", mcp_path if rea else None)
+    line = gather_command(claude, deep=deep, source_root=source_root, data_dir=data_dir, rea=rea, mcp_path=mcp_path,
+                          chrome=chrome, settings_path=settings)
     answer, run = desk.ask(line, _fill(GATHER, ("TASK", task), **parts), GATHER_TIMEOUT,
                            {**child_env(), **RESEARCH_ENV}, "gather q1", reserve=DISTILL_RESERVE)
     found, observed = last_object(answer), research_verify.observed_text(desk.last_out) if run else ""

@@ -68,7 +68,8 @@ Modules (H2a):
 - Research (K4, §3c): `opora_research.py` (stdlib, copied next to the tool) runs `research` (a `research` fragment
   in the brief vault, deterministic `prefetch` of the targets into `dilna/data/research/<id>/`, one researcher
   `claude -p` with Read/Grep/Glob and, only when a Chrome/Edge is found, REA web tools plus browser launch from
-  `dilna/rea-mcp.json` with compact schemas, result via `research-update`) and `duel` (deterministic, Haiku sub-calls as actors
+  `dilna/rea-mcp.json` with compact schemas, with `OPORA_RESEARCH_CHROME=1` the human's Chrome read only on the
+  domain allowlist of `research_browser.py` behind its PreToolUse hook, result via `research-update`) and `duel` (deterministic, Haiku sub-calls as actors
   `srdce-obhajce-a|b` and judges `srdce-soudce-1|2`, `duel-decide` by the server rule). Both log to `runs.jsonl`.
   `research --requirement rq_…` is interrogation research: the per-requirement cap is checked before the desk runs and
   the cost is added to the requirement's brief (`docs/navrhy/2026-10-30-vyslech-srdce.md` §8).

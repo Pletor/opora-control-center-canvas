@@ -246,7 +246,14 @@ question ─▶ project facts (code) ─▶ RESEARCHER (web + source) ─▶ VER
    Research is about *this* project's stack.
 2. **Researcher**: one `claude -p` (Haiku, `--deep` = Sonnet), ≤ 12 turns, 420 s, tools `WebSearch, WebFetch, Read,
    Grep, Glob` (+ the REA web tools of §3c when a browser exists and a target is `http(s)`), no OPORA token, no API
-   keys. It covers every layer the question touches (`--layer`, repeatable, from `fe, be, db, api, cache, infra,
+   keys. With `OPORA_RESEARCH_CHROME=1` (default off) it also gets the human's running Chrome via
+   `chrome-devtools-mcp@1.12.0 --autoConnect`, read only (`list_pages, new_page, navigate_page, select_page,
+   take_snapshot, wait_for, close_page`) and only on the domain allowlist in `research_browser.py` (official docs and
+   framework sources, expert programming sources, medium.com). Enforced by code, not the prompt: the server's
+   `--allowedUrlPattern` (navigations, redirects, subresources; other tabs are detached), input/emulation/performance/
+   network/memory categories and `evaluate_script` off, and a PreToolUse hook (`--settings` of this GATHER only)
+   that lets only the read tools and allowlisted `https` URLs through. No Chrome with remote debugging = the browser
+   tools fail and the research goes on with the web. It covers every layer the question touches (`--layer`, repeatable, from `fe, be, db, api, cache, infra,
    security, data, ops`, narrows it) and answers ≤ 12 findings
    `{claim, layer, kind: fact|practice|option|risk|version, source, quote}` + ≤ 4 options. `source` is a URL or
    `path:line` (text around a URL is cut off by code), `quote` verbatim ≤ 300 chars. Source order: official docs and
@@ -290,7 +297,8 @@ question ─▶ project facts (code) ─▶ RESEARCHER (web + source) ─▶ VER
   tell the human. Never plan on a `false` or unverified fact as if it held.
 - **Files**: `opora_research.py` (command, vault), `research_desk.py` (facts, researcher, orchestration),
   `research_digest.py` (distill, digest, verdict fix, shared sub-call helpers), `research_fetch.py` (prefetch, HTML to
-  text, quote check), `research_verify.py` (findings against sources, `observed`), `opora_duel.py` (§3c duel); stdlib,
+  text, quote check), `research_verify.py` (findings against sources, `observed`), `research_browser.py` (Chrome allowlist, server,
+  hook), `opora_duel.py` (§3c duel); stdlib,
   copied by the supervisor into `brain/`.
 
 **Measured** (`.claude/hillclimb/research-desk/eval.py`, 7 scenarios across fe/be/db/cache/infra, a hypothesis and a
