@@ -83,3 +83,16 @@ def test_live_card_behind_many_finished_cards_in_graph_order_is_still_seen(deliv
 
     monkeypatch.setattr(ProcessSync, "read", padded)
     assert card_a(service)["stepFailed"]["stepId"] == "s1"
+
+
+def test_delivered_card_wins_over_many_cards_waiting_for_steps(delivered, service, monkeypatch):
+    """Víc než `CARDS` karet `needs-steps` v grafu před ní: odevzdaná karta se selhaným krokem jde první."""
+    real = ProcessSync.read
+
+    def padded(self, project, workspace, node=None, limit=None):
+        result = real(self, project, workspace, node=node, limit=None)
+        filler = [{"nodeId": f"x{i}", "status": "needs-steps"} for i in range(triggers.CARDS)]
+        return {**result, "items": filler + result["items"]}
+
+    monkeypatch.setattr(ProcessSync, "read", padded)
+    assert card_a(service)["stepFailed"]["stepId"] == "s1"

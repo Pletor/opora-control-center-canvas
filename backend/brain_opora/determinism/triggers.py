@@ -34,7 +34,7 @@ NOTES = 400  # nejvýš znaků poznámky selhaného kroku v detailu
 STEP_FAILED_ADVICE = ("zadání koliduje s repem → přepiš kroky karty návrhem změny (fields.steps) podle skutečného"
                       " stavu main, kartu vrať k převzetí; čísla migrací = poslední na main + 1")
 HISTORY = 5  # nejméně hotových karet se štítkem pro medián
-LIVE = ("ready", "running", "blocked", "needs-steps", "reported")  # stavy karet, které spouštěče hodnotí
+LIVE = ("reported", "running", "ready", "blocked", "needs-steps")  # hodnocené stavy karet, v pořadí priority
 CARDS = 40  # nejvýš karet prostoru, které se vyhodnotí (ProcessSync v pořadí grafu)
 SPACES = 5  # nejvýš prostorů s přijatým plánem na projekt
 
@@ -182,8 +182,10 @@ def facts(service, project, workspace, now):
 
     # Všechny karty, pak živé stavy a teprve z nich `CARDS`: prvních `CARDS` v pořadí grafu jsou u velkého plánu
     # hotové a nenaplánované karty a živé (třeba `reported` se selhaným krokem, PLAN-002) by spouštěč neviděl.
-    items = [item for item in ProcessSync(service).read(project, workspace, limit=None)["items"]  # vlastní zámky
-             if item.get("status") in LIVE][:CARDS]
+    # Pořadí `LIVE` je priorita: odevzdané a běžící karty před čekajícími na kroky, jinak je stovka karet
+    # `needs-steps` / `blocked` vytlačí za `CARDS` (PLAN-002); uvnitř stavu zůstává pořadí grafu.
+    items = sorted((item for item in ProcessSync(service).read(project, workspace, limit=None)["items"]  # vlastní zámky
+                    if item.get("status") in LIVE), key=lambda item: LIVE.index(item["status"]))[:CARDS]
     graph = service.view(project, workspace)["graph"]
     accepted = {item["nodeId"]: item for item in OporaChangesets(service).context(project, workspace)["acceptedDocuments"]}
     index = card_gauge.graph_index(graph)
