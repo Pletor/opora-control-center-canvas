@@ -37,7 +37,7 @@ je chyba, nikdy tiché oslabení.
 | `risk.medium_lines` / `high_lines` | 200 / 1000 | Přidané + odebrané řádky celé změny PR |
 | `risk.medium_files` / `high_files` | 10 / 40 | Počet změněných souborů |
 | `risk.sensitive` | `.github/workflows/**`, `**/auth/**`, `**/migrations/**`, `database/schema/**`, … | Citlivé cesty (glob: `*` uvnitř segmentu, `**` přes adresáře) |
-| `approvals.low/medium/high` | 0 / 1 / 1 | Požadovaná lidská schválení (`high = 1` je rozhodnutí vlastníka, viz níže) |
+| `approvals.low/medium/high` | 0 / 0 / 0 | Požadovaná lidská schválení (rozhodnutí vlastníka 2026-11-01, plná autonomie; citlivé cesty dál `sensitive_minimum`) |
 | `approvals.sensitive_minimum` | 1 | Citlivá změna vždy aspoň tolik schválení |
 | `approvals.agent_account_ids` | `[]` | Číselná GitHub ID účtů agentů; jejich schválení se nepočítají |
 | `security.enabled` / `min_tier` | `true` / `medium` | Bezpečnostní review (`kind: "security"`) pro hlavy s rizikem aspoň `min_tier` |

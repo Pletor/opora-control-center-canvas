@@ -66,8 +66,8 @@ def test_config_is_validated_and_shipped_default_is_disabled(monkeypatch):
     monkeypatch.delenv("OPORA_REVIEW_JOBS_CONFIG", raising=False)
     shipped = load()
     assert shipped["enabled"] is False and shipped["finders"] == 3 and shipped["maxRounds"] == 3
-    # Owner decision (solo project): high needs one human; sensitive paths still need at least one.
-    assert shipped["approvals"] == {"low": 0, "medium": 1, "high": 1} and DEFAULT_PATH.exists()
+    # Owner decision 2026-11-01 (GATE-001, full autonomy): no human approval by tier; sensitive paths still need one.
+    assert shipped["approvals"] == {"low": 0, "medium": 0, "high": 0} and DEFAULT_PATH.exists()
     assert shipped["sensitiveMinimum"] >= 1
     monkeypatch.setenv("OPORA_REVIEW_JOBS", "1")
     assert load()["enabled"] is True

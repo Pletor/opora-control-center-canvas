@@ -31,10 +31,12 @@ sensitive = [
 
 [approvals]
 low = 0
-medium = 1
-# Rozhodnutí vlastníka (sólo vývojář): high = 1. Pro tým zvyšte zpět na 2
+# Rozhodnutí vlastníka 2026-11-01 (GATE-001, plná autonomie): medium = high = 0. PR zakládá účet vlastníka,
+# který si na GitHubu approve dát nemůže; bránu drží review, nálezy, kontroly a bezpečnostní review.
+# Citlivé cesty (migrace, auth, workflow) dál žádají sensitive_minimum. Pro tým vraťte medium = 1, high = 2
 # (docs/oporahub-review-jobs.md, „Schválení pro riziko high“).
-high = 1
+medium = 0
+high = 0
 sensitive_minimum = 1
 # Číselná GitHub ID účtů agentů: jejich schválení se nikdy nepočítá jako lidské.
 agent_account_ids = []
