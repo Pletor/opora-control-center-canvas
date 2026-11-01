@@ -70,3 +70,16 @@ def test_accepted_new_steps_return_the_card_to_claim_and_the_trigger_is_silent(d
     assert item["currentExecution"]["staleEvidence"]  # výsledek je historie, karta jde znovu k převzetí
     card = card_a(service)
     assert card["stepFailed"] is None and triggers.step_failed(card) is None
+
+
+def test_live_card_behind_many_finished_cards_in_graph_order_is_still_seen(delivered, service, monkeypatch):
+    """Velký plán: prvních `CARDS` karet v pořadí grafu jsou hotové / nenaplánované, živá karta je za nimi."""
+    real = ProcessSync.read
+
+    def padded(self, project, workspace, node=None, limit=None):
+        result = real(self, project, workspace, node=node, limit=None)
+        filler = [{"nodeId": f"x{i}", "status": "closed"} for i in range(triggers.CARDS)]
+        return {**result, "items": filler + result["items"]} if limit is None else {**result, "items": filler[:limit]}
+
+    monkeypatch.setattr(ProcessSync, "read", padded)
+    assert card_a(service)["stepFailed"]["stepId"] == "s1"
