@@ -110,3 +110,26 @@ def test_last_activity_is_the_newest_activity_event_of_the_workspace(service):
             opora_events.insert(db, event("2027-01-15T07:30:00Z", "step.done"))  # krok není činnost fronty
             opora_events.insert(db, event("2027-01-15T07:40:00Z", "merge.done", "w2"))
         assert idle.last_activity(db, "draft", "w1") == "2027-01-15T07:00:00Z"
+
+
+def test_goal_document_rides_along_with_the_idle_input(service):
+    _, read = reader()
+    found, _ = idle.wakes(service, "draft", ["w1"], "at", NOW, read=read, goal=lambda *_: "Obrazovky 00, 05, 06 podle návrhu.")
+    assert found[0][1]["goal"] == "Obrazovky 00, 05, 06 podle návrhu."
+
+
+def test_without_a_goal_document_the_input_has_no_goal(service):
+    _, read = reader()
+    found, _ = idle.wakes(service, "draft", ["w1"], "at", NOW, read=read, goal=lambda *_: None)
+    assert "goal" not in found[0][1]
+
+
+def test_goal_doc_reads_the_file_from_the_workspace_root(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "cil-projektu.md").write_text("  Cíl: obrazovky podle návrhu.\n", encoding="utf-8")
+    from backend.project.workspace import workspace_sources
+
+    monkeypatch.setattr(workspace_sources.WorkspaceSources, "root", lambda self, project, workspace: str(tmp_path))
+    assert idle.goal_doc(object(), "p", "w") == "Cíl: obrazovky podle návrhu."
+    monkeypatch.setattr(workspace_sources.WorkspaceSources, "root", lambda self, project, workspace: str(tmp_path / "none"))
+    assert idle.goal_doc(object(), "p", "w") is None

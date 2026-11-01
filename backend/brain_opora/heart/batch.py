@@ -96,7 +96,9 @@ def _input_line(item):
     if kind == "idle":  # spouštěč prázdné fronty (determinism/idle.py, OPORA-002)
         return (f"- PRÁZDNÁ FRONTA od {item.get('since')} (karet {item.get('cardsTotal')}, sloučeno {item.get('done')}):"
                 " Plán nemá žádnou kartu k převzetí a nic neběží. Podle cíle projektu a stavu aplikace naplánuj"
-                " další malou kartu (nebo ukonči fázi otázkou člověku, pokud cíl je splněný).")
+                " další malou kartu (nebo ukonči fázi otázkou člověku, pokud cíl je splněný)."
+                + ("\n  CÍL PROJEKTU (docs/cil-projektu.md na main, rozhodnutí člověka; plánuj k němu, ne podle starého plánu):"
+                   f"\n{item['goal']}" if item.get("goal") else ""))
     if kind == "humanChange":
         return f"- SPOUŠTĚČ {item.get('kind')}: člověk změnil plán (revize {item.get('revision')})"
     return "- " + json.dumps(item, ensure_ascii=False, sort_keys=True)
