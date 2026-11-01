@@ -21,11 +21,12 @@ import time
 from pathlib import Path
 
 try:
+    import research_browser
     import research_desk
     import research_fetch
     import research_verify
 except ImportError:  # v testech moduly balíčku
-    from backend.brain_opora.heart import research_desk, research_fetch, research_verify
+    from backend.brain_opora.heart import research_browser, research_desk, research_fetch, research_verify
 
 ROOT_TITLE = "Výzkum srdce"
 ROOT_TEXT = "Kořen výzkumů a duelů srdce (docs/brain-heart.md §3c). Není to zadání ke stavbě."
@@ -138,7 +139,7 @@ def research(args, tool):
                                     source_root=os.environ.get("OPORA_SOURCE_ROOT") or None,
                                     data_dir=dilna / RESEARCH_DATA / fragment["id"],
                                     deep=args.deep, layers=getattr(args, "layer", None) or (), browser=browser,
-                                    mcp_path=mcp, budget=BUDGET)
+                                    mcp_path=mcp, budget=BUDGET, chrome=research_browser.enabled())
     fields, digest = vault_fields(result, tool.now())
     tool.call("POST", "/api/brief-vault", {**scope, "op": "research-update", "fragmentId": fragment["id"],
                                            "expectedRevision": fragment["revision"],
