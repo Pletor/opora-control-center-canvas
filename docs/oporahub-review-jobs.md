@@ -94,8 +94,22 @@ je přesně SHA úlohy. Přejmenování počítá starou i novou cestu.
   tuto úlohu obnoví.
 - Po `max_rounds` dokončených kolech se nová úloha nezařadí. Brána hlásí
   `review_round_cap_reached`; člověk rozhodne přes `POST /decisions`.
+  Výjimkou je rebase beze změny obsahu (níže).
 - Fáze: `find` (N slotů hledačů) → `vote` (V slotů ověřovatelů, jen když existuje
   kandidát) → `completed`.
+
+**Rebase beze změny obsahu.** Čistý rebase na posunutý main nespotřebuje kolo (PIPE-006).
+Čtečka změny počítá `patchFingerprint`: sha256 přes seřazené soubory (cesta, předchozí cesta,
+`status` a text `patch` bez hlaviček hunků `@@ … @@`, takže posun čísel řádků nevadí); soubor bez
+`patch` (binární, velký) přispěje `sha` blobu, a když chybí i ten, otisk je `null`. Otisk se ukládá
+do `risk` každé nové úlohy `code`; starší úloze bez otisku ho server jednou dopočítá z
+`GET /compare/{baseSha}...{headSha}` (mimo zámky) a uloží. Má-li nová hlava stejný otisk jako
+poslední dokončené (ne přenesené) kolo, vznikne **přenesená** úloha: `completed` hned, stejné
+`round`, `riskTier` a `requiredHumanApprovals` jako zdroj, `risk.carriedFrom` = ID zdrojové úlohy,
+bez hledačů. Přenesené úlohy se do kol ani do stropu nepočítají a přenos platí i po vyčerpání
+`max_rounds`; brána ji bere jako dokončené review hlavy a nálezy (per PR) zůstávají, jak byly.
+`sinceSha` dalšího kola je hlava přenesené úlohy. Jiný otisk nebo `null` (selhání čtení,
+neúplná změna) znamená chování jako dřív. Bezpečnostní úlohy se nepřenášejí.
 
 **Agregace.** Po odevzdání všech hledačů backend seskupí kandidáty podle
 `fingerprint` (nejvyšší závažnost, znění nejnižšího slotu, seznam `finders`).
