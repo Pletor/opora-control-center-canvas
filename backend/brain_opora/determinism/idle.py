@@ -12,11 +12,14 @@ Srdce budí jen události; po sloučení poslední karty plán nemá co předat,
   v `heart_triggers`, takže nová revize plánu nebo další sloučená karta smí budit znovu, stejný stav ne.
 """
 from datetime import UTC, datetime
+from pathlib import Path
 
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_triggers import HeartTriggers
 
 IDLE_MINUTES = 10
+# Cíl projektu v repu (OPORA-003): soubor na main, který prošel PR, je rozhodnutí člověka; srdce ho dostane v dávce prázdné fronty.
+GOAL_DOC, GOAL_MAX = "docs/cil-projektu.md", 4000
 FRONTIER_EMPTY, WAITING_HUMAN = "frontier_empty", "waiting_human"
 # Činnost prostoru, od které se měří stání (poslední z nich je „od kdy fronta stojí“).
 ACTIVITY = ("merge.done", "result.reported", "stage.changed", "lease.claimed", "card.closed", "changeset.accepted")
@@ -99,7 +102,22 @@ def evaluate(state, questions, since, workspace, now):
     return found, key(workspace, revision, done), item
 
 
-def wakes(service, project, workspaces, at, now, read=facts):
+def goal_doc(service, project, workspace):
+    """Text `GOAL_DOC` z kořene zdroje prostoru (nejvýš `GOAL_MAX` znaků), nebo None, když soubor není."""
+    from backend.project.workspace.workspace_sources import WorkspaceSources
+
+    try:
+        root = WorkspaceSources(service).root(project, workspace)
+    except Exception:  # noqa: BLE001 - prostor bez zdroje: dávka jde dál bez cíle
+        return None
+    path = None if root is None else Path(root) / GOAL_DOC
+    if path is None or not path.is_file():
+        return None
+    text = path.read_text(encoding="utf-8", errors="replace").strip()
+    return text[:GOAL_MAX] or None
+
+
+def wakes(service, project, workspaces, at, now, read=facts, goal=goal_doc):
     """`([(prostor, vstup idle)], {prostor: důvod})` pro prostory s přijatým plánem; značky zapíše v jedné transakci.
     Chyba jednoho prostoru nevadí ostatním (volající ji zaloguje celou, proto se tu nepolyká)."""
     reasons, hits = {}, []
@@ -108,7 +126,8 @@ def wakes(service, project, workspaces, at, now, read=facts):
         found, mark, item = evaluate(state, questions, since, workspace, now)
         reasons[workspace] = found
         if item is not None:
-            hits.append((workspace, mark, item))
+            text = goal(service, project, workspace)
+            hits.append((workspace, mark, {**item, "goal": text} if text else item))
     if not hits:
         return [], reasons
     with service.lock_for(project):

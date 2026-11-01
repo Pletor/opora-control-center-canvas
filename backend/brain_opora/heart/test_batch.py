@@ -66,6 +66,12 @@ def test_message_renders_an_empty_frontier_with_the_instruction_to_plan_the_next
             " otázkou člověku, pokud cíl je splněný).") in text
 
 
+def test_message_renders_the_goal_document_under_an_empty_frontier():
+    text = batch.message("S", [{"type": "idle", "reason": "frontier_empty", "since": "2027-01-15T07:45:00Z",
+                                "cardsTotal": 4, "done": 3, "goal": "Obrazovky 00, 05, 06 podle návrhu."}])
+    assert "CÍL PROJEKTU (docs/cil-projektu.md na main" in text and "\nObrazovky 00, 05, 06 podle návrhu." in text
+
+
 def test_message_renders_a_brief_for_a_requirement_and_a_short_one_for_a_thin_card():
     text = batch.message("S", [{"type": "brief", "requirementId": "rq_1", "title": "Metriky", "reason": "new",
                                 "detail": "„Chci metriky.“ · karty: žádné"},
