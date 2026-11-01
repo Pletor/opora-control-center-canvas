@@ -27,3 +27,18 @@ def test_facts_read_a_real_accepted_plan_and_the_heart_acceptance_is_not_a_human
     head = db.execute("SELECT accepted_id FROM opora_spec_refs WHERE project_id='draft'").fetchone()[0]
     with db:
         assert triggers.human_change(db, "draft", "draft", head, "t") is None
+
+
+def test_idle_reads_the_real_agent_state_and_a_ready_card_is_not_an_empty_frontier(heart):  # noqa: F811
+    """Skutečná aplikace (OPORA-002): fakta prázdné fronty jdou z dokumentu agent-state; přijatý plán s kartou
+    `ready` frontu prázdnou nemá, takže `idle_wakes` nebudí a důvod je None."""
+    from backend.brain_opora.determinism import idle
+    from backend.brain_opora.heart.inputs import idle_wakes
+
+    client, _, tmp_path = heart
+    plan(tmp_path, opora_heart.PLAN_EXAMPLE)
+    service = client.app.state.service
+    state, questions, since = idle.facts(service, "draft", "draft")
+    assert state["heads"]["acceptedHead"] and questions == 0 and since is not None
+    assert idle.reason(state, questions) is None
+    assert idle_wakes(service, "draft", "t", 10 ** 10) == ([], {"draft": None})

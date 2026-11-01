@@ -37,6 +37,7 @@ from backend.brain_opora.heart.inputs import (
     card_wakes,
     closed_workspaces,
     human_changes,
+    idle_wakes,
     milestone_wakes,
     resolve,
     trigger_workspaces,
@@ -58,6 +59,7 @@ COMMITS = 20  # nejvýš řádků „sha7 titulek“ ve vstupu `commits`
 HOME = {"git": "main", "local": "draft"}  # pracovní prostor, jehož zdroj hlídač čte vždy
 CARD_GAP = 60.0  # spouštěče karet po událostech nejvýš jednou za minutu na projekt
 CARD_POLL = 600.0  # a bez událostí jednou za 10 min (zaseknutý běh žádnou událost nepošle)
+IDLE_POLL = 120.0  # spouštěč prázdné fronty (determinism/idle.py) nejvýš jednou za 2 min na projekt
 
 
 def enabled(environ=None):
@@ -87,6 +89,7 @@ class HeartSupervisor:
         self.pending, self.running, self.starts, self.cursors, self.tokens, self.errors = {}, set(), {}, {}, {}, {}
         self.sleeping_until, self.generation, self.polled_at = 0.0, None, float("-inf")
         self.card_at, self.card_dirty = {}, {}  # spouštěče karet: poslední vyhodnocení a prostory k vyhodnocení
+        self.idle_at, self.idle = {}, {}  # prázdná fronta: poslední vyhodnocení a `idleReason` projektu
         self.current = {}  # běžící dávka projektu: {startedAt, inputs}, jen v paměti (kanál srdce „právě teď“)
 
     def start(self):
@@ -171,6 +174,7 @@ class HeartSupervisor:
             if cursor is None:
                 self._milestones(project, None, now)  # první čtení: milník mohl dozrát, když supervisor nečetl
                 self._cards(project, set(), now)
+                self._idle(project, now)
                 self._briefs(project, now)
                 continue
             for event in events:
@@ -183,6 +187,7 @@ class HeartSupervisor:
                 self._milestones(project, closed, now)
             self._human_changes(project, events, now)
             self._cards(project, trigger_workspaces(events), now)
+            self._idle(project, now)
             self._briefs(project, now)
 
     def _briefs(self, project, now):
@@ -226,6 +231,25 @@ class HeartSupervisor:
         except Exception:  # noqa: BLE001 - spouštěč nesmí shodit čtení outboxu
             LOGGER.exception("Srdce: spouštěče karet projektu %s selhaly.", project)
             return
+        for workspace, item in found:
+            self._add(project, workspace, item, now + WINDOW)
+
+    def _idle(self, project, now):
+        """Spouštěč prázdné fronty (OPORA-002, determinism/idle.py): nejvýš jednou za `IDLE_POLL`, ne během dávky
+        projektu (srdce právě může plánovat). Vstup `idle` jednou na stav, s oknem `WINDOW`; stropy a `nextAllowedAt`
+        hlídá spouštění dávky jako u ostatních vstupů. Chyba se jen zaloguje."""
+        with self.lock:
+            busy = project in self.running
+        if busy or now - self.idle_at.get(project, float("-inf")) < IDLE_POLL:
+            return
+        self.idle_at[project] = now
+        try:
+            found, reasons = idle_wakes(self.service, project, _iso(now), now)
+        except Exception:  # noqa: BLE001 - spouštěč nesmí shodit čtení outboxu
+            LOGGER.exception("Srdce: spouštěč prázdné fronty projektu %s selhal.", project)
+            return
+        values = set(reasons.values())
+        self.idle[project] = next((value for value in ("frontier_empty", "waiting_human") if value in values), None)
         for workspace, item in found:
             self._add(project, workspace, item, now + WINDOW)
 
@@ -454,8 +478,9 @@ class HeartSupervisor:
 
     def status(self, project, now=None):
         """`GET /api/brain/heart/status`: relace, posledních 5 dávek, spánek, nejbližší povolený čas, `activeWorkspace`
-        (prostor posledního plánu, který srdce přijalo; docs/brain-heart-orchestrator.md §9) a `current` (běžící dávka
-        `{startedAt, inputs}`, jinak None; docs/navrhy/2026-10-31-viditelnost-srdce-a-karet.md §A)."""
+        (prostor posledního plánu, který srdce přijalo; docs/brain-heart-orchestrator.md §9), `current` (běžící dávka
+        `{startedAt, inputs}`, jinak None; docs/navrhy/2026-10-31-viditelnost-srdce-a-karet.md §A) a `idleReason`
+        (prázdná fronta z posledního vyhodnocení `_idle`: `frontier_empty` / `waiting_human` / None)."""
         now = self.clock() if now is None else now
         brain = self.brain(project)
         with self.lock:
@@ -467,7 +492,7 @@ class HeartSupervisor:
                 "sleeping": self.sleeping_until > now, "sleepingUntil": _iso(self.sleeping_until),
                 "nextAllowedAt": _iso(allowed), "error": self.errors.get(project),
                 "gitError": self.git_errors.get(project), "activeWorkspace": brain_files.active_workspace(brain),
-                "current": current}
+                "current": current, "idleReason": self.idle.get(project)}
 
 
 def _iso(moment):

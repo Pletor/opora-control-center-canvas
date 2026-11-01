@@ -93,6 +93,10 @@ def _input_line(item):
         spis = f" · spis: {item['detail']}" if item.get("detail") else ""
         return (f"- VÝSLECH: {item.get('requirementId')} „{item.get('title')}“"
                 f" ({BRIEF_REASONS.get(item.get('reason'), item.get('reason'))}){spis}")
+    if kind == "idle":  # spouštěč prázdné fronty (determinism/idle.py, OPORA-002)
+        return (f"- PRÁZDNÁ FRONTA od {item.get('since')} (karet {item.get('cardsTotal')}, sloučeno {item.get('done')}):"
+                " Plán nemá žádnou kartu k převzetí a nic neběží. Podle cíle projektu a stavu aplikace naplánuj"
+                " další malou kartu (nebo ukonči fázi otázkou člověku, pokud cíl je splněný).")
     if kind == "humanChange":
         return f"- SPOUŠTĚČ {item.get('kind')}: člověk změnil plán (revize {item.get('revision')})"
     return "- " + json.dumps(item, ensure_ascii=False, sort_keys=True)

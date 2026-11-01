@@ -370,6 +370,30 @@ def test_card_triggers_run_on_first_read_after_events_at_most_once_a_minute_and_
     assert calls == [None, {"w1"}, None]
 
 
+def test_empty_frontier_runs_at_most_every_two_minutes_not_during_a_batch_and_shows_in_status(setup, monkeypatch):
+    service, heart, clock, runner, _ = setup
+    calls, reasons = [], {"w1": "frontier_empty"}
+
+    def wakes(service, project, at, now):
+        calls.append(now)
+        return [("w1", {"type": "idle", "reason": "frontier_empty", "since": "s", "cardsTotal": 2, "done": 2})], reasons
+
+    monkeypatch.setattr(supervisor, "idle_wakes", wakes)
+    assert heart.status("draft")["idleReason"] is None
+    heart.poll_events(clock.now)
+    assert calls == [clock.now] and heart.pending["draft"][0][1]["type"] == "idle"
+    assert heart.status("draft")["idleReason"] == "frontier_empty"
+    heart._idle("draft", clock.now + supervisor.IDLE_POLL - 1)
+    assert len(calls) == 1
+    heart.running.add("draft")  # dávka běží: srdce možná právě plánuje
+    heart._idle("draft", clock.now + supervisor.IDLE_POLL)
+    assert len(calls) == 1
+    heart.running.discard("draft")
+    reasons["w1"] = "waiting_human"
+    heart._idle("draft", clock.now + supervisor.IDLE_POLL)
+    assert len(calls) == 2 and heart.status("draft")["idleReason"] == "waiting_human"
+
+
 def test_status_shows_the_running_batch_with_its_inputs_and_clears_it_after(setup):
     _, heart, _, _, _ = setup
     seen = []

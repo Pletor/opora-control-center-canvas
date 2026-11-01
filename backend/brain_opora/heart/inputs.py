@@ -16,10 +16,12 @@ Spouštěč výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §2) dává vstup
 (nový, otevřené rozšíření, `changes_intent`) se spisem a krátký výslech karty `ready` s tenkými podklady přes
 `card_wakes` (`brief.card_hit`); obojí jednou na stav (`heart_triggers`). Odpověď člověka na otázku výslechu
 a „Vyslechni mě k tomu“ z Velínu budí přes `brief_wakes` také, jednou na odpověď a jednou na žádost.
+Prázdná fronta (`idle_wakes`, `determinism/idle.py`, OPORA-002): přijatý plán bez karty k převzetí a bez běhu budí
+srdce vstupem `idle` jednou na revizi plánu a počet sloučených karet, aby naplánovalo další kartu.
 """
 from datetime import UTC, datetime, timedelta
 
-from backend.brain_opora.determinism import brain_files, brief, brief_setting, intake, milestones, triggers
+from backend.brain_opora.determinism import brain_files, brief, brief_setting, idle, intake, milestones, triggers
 from backend.brain_opora.determinism import brief_vault_link as vault_link
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
@@ -73,6 +75,13 @@ def card_wakes(service, project, workspaces, at, now):
     s přijatým plánem); značky zapíše v jedné transakci. Vypnutý výslech (`brain.brief`) tenké karty nebudí."""
     enabled = brief_setting.read(service, project)["enabled"]
     return triggers.wakes(service, project, workspaces, at, now, extra=brief.card_hit if enabled else None)
+
+
+def idle_wakes(service, project, at, now):
+    """`([(prostor, vstup idle)], {prostor: důvod})` za prázdnou frontu prostorů s přijatým plánem (`idle.wakes`)."""
+    with service.reading(project):
+        workspaces = triggers.spaces(service.db_for(project), project)
+    return idle.wakes(service, project, workspaces, at, now)
 
 
 def brief_wakes(service, project, at, now):
