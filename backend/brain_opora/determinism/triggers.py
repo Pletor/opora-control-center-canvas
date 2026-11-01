@@ -7,6 +7,9 @@ do `heart_triggers` (klíč `trigger:card:<nodeId>:<druh>:<stav>`), takže stejn
 - `card.too_big`: štítek XL u karty `ready` (štítek „?“ chudých podkladů nepouští); stav `XL<body>@<prostor>`,
   jiné body (přeplánovaná karta, pořád XL) budí znovu;
 - `card.retry`: `failures` ≥ 2; stav = ID posledního selhaného běhu, každé další selhání budí znovu;
+- `card.step_failed` (PLAN-002): poslední běh karty odevzdal výsledek (ProcessSync `reported`), aspoň jeden krok
+  nahlásil `failed` a běh nemá otevřený ani sloučený PR (karta by jinak visela v review bez PR); stav = ID běhu,
+  stejný běh budí jednou, nový selhaný běh znovu; detail nese krok, jeho poznámku a pokyn přepsat kroky karty;
 - `card.stalled`: běžící běh starší než 3× medián doby běhu hotových karet se stejným štítkem a bez události kroku
   (`step.*`) za tu dobu; stav = ID běhu;
 - `card.over_budget`: `costUsd` > 2× medián; cena zatím chybí (`costUsd` null, §7), takže se nevyhodnocuje;
@@ -23,10 +26,13 @@ from statistics import median
 from backend.canvas import card_gauge
 from database.repositories.heart_triggers import HeartTriggers
 
-CARD_KINDS = ("card.too_big", "card.retry", "card.stalled", "card.over_budget")
+CARD_KINDS = ("card.too_big", "card.retry", "card.step_failed", "card.stalled", "card.over_budget")
 HUMAN_CHANGE = "graph.human_change"
 RETRY_FAILURES = 2
 STALL_FACTOR, BUDGET_FACTOR = 3, 2
+NOTES = 400  # nejvýš znaků poznámky selhaného kroku v detailu
+STEP_FAILED_ADVICE = ("zadání koliduje s repem → přepiš kroky karty návrhem změny (fields.steps) podle skutečného"
+                      " stavu main, kartu vrať k převzetí; čísla migrací = poslední na main + 1")
 HISTORY = 5  # nejméně hotových karet se štítkem pro medián
 CARDS = 40  # nejvýš karet prostoru, které se vyhodnotí (ProcessSync v pořadí grafu)
 SPACES = 5  # nejvýš prostorů s přijatým plánem na projekt
@@ -75,11 +81,26 @@ def too_big(card):
 
 
 def retry(card):
-    if card.get("failures", 0) < RETRY_FAILURES or not card.get("failedRun"):
+    if card.get("status") == "reported" or card.get("failures", 0) < RETRY_FAILURES or not card.get("failedRun"):
         return None
     higher = _higher(card.get("effort"))
     advice = f"doporučeno effort {higher}" if higher else "rozděl kartu"
     return _hit("card.retry", card, card["failedRun"], f"{card['failures']}× selhal, {advice}")
+
+
+def _short(text, limit=NOTES):
+    text = " ".join(str(text or "").split())
+    return text if len(text) <= limit else text[:limit - 1] + "…"
+
+
+def step_failed(card):
+    """Odevzdaný běh se selhaným krokem a bez PR (`stepFailed` z `facts`); stav = ID běhu."""
+    failed = card.get("stepFailed")
+    if not failed or failed.get("pulled") or not failed.get("runId"):
+        return None
+    notes = _short(failed.get("notes")) or "bez poznámky"
+    return _hit("card.step_failed", card, failed["runId"],
+                f"krok {failed.get('stepId')} selhal (běh {failed['runId']}): {notes} — {STEP_FAILED_ADVICE}")
 
 
 def stalled(card, typical):
@@ -106,7 +127,7 @@ def evaluate(cards, done):
     """Spouštěče karet `[{kind, nodeId, title, detail, state}]` z faktů karet a hotových karet (pořadí tabulky)."""
     typical, found = medians(done), []
     for card in cards:
-        for hit in (too_big(card), retry(card), stalled(card, typical), over_budget(card, typical)):
+        for hit in (too_big(card), retry(card), step_failed(card), stalled(card, typical), over_budget(card, typical)):
             if hit is not None:
                 found.append(hit)
     return found
@@ -133,10 +154,23 @@ def spaces(db, project):
     return [row[0] for row in rows]
 
 
+def failed_step(runs, run):
+    """`{stepId, notes}` prvního kroku běhu `run` hlášeného `failed`, nebo None: nejdřív `stepResults` nejnovějšího
+    výsledku (`deliver` / `results`), pak průběžná hlášení kroků (`opora_execution_steps`), od nejnovějšího."""
+    reported = [item for receipt in reversed(runs.receipts(run))
+                for item in (receipt.get("result") or {}).get("stepResults", [])]
+    reported += reversed(runs.steps(run))
+    item = next((item for item in reported if isinstance(item, dict) and item.get("status") == "failed"), None)
+    if item is None:
+        return None
+    return {"stepId": item.get("stepId"), "notes": (item.get("evidence") or {}).get("notes") or ""}
+
+
 def facts(service, project, workspace, now):
-    """`(karty, hotové)` prostoru jedním čtením: karty `ProcessSync` (stav `ready` / `running`, nejvýš `CARDS`)
-    s profilem běhu, běhy (`tally`), stářím a poslední událostí kroku; hotové karty se štítkem a dobou běhu
-    (claim → poslední hlášení výsledku)."""
+    """`(karty, hotové)` prostoru jedním čtením: karty `ProcessSync` (stav `ready` / `running` / `blocked` /
+    `needs-steps` / `reported`, nejvýš `CARDS`) s profilem běhu, běhy (`tally`), stářím, poslední událostí kroku a
+    u `reported` selhaným krokem odevzdaného běhu (`stepFailed: {runId, stepId, notes, pulled}`, `pulled` = běh má
+    otevřený nebo sloučený PR); hotové karty se štítkem a dobou běhu (claim → poslední hlášení výsledku)."""
     from backend.canvas.opora_changesets import OporaChangesets
     from backend.canvas.opora_event_stage import confirmed_nodes
     from backend.canvas.opora_plan_steps import steps_of
@@ -150,6 +184,8 @@ def facts(service, project, workspace, now):
     accepted = {item["nodeId"]: item for item in OporaChangesets(service).context(project, workspace)["acceptedDocuments"]}
     index = card_gauge.graph_index(graph)
     cards = [node for node in index["nodes"] if index["nodes"][node].get("kind") in card_gauge.CARD_KINDS]
+    delivered = {item["nodeId"]: item["currentExecution"]["id"] for item in items
+                 if item.get("status") == "reported" and (item.get("currentExecution") or {}).get("results")}
     with service.reading(project):
         db = service.db_for(project)
         runs = Executions(db, project, workspace)
@@ -157,12 +193,15 @@ def facts(service, project, workspace, now):
         linked = list_execution_pull_requests(db, project, workspace)
         steps_at = opora_events.last_step_at(db, project, workspace)
         closed = confirmed_nodes(db, project, workspace, cards)
+        broken = {node: {"runId": run, **found} for node, run in delivered.items()
+                  if (found := failed_step(runs, run)) is not None}
 
     def run_of(node):
         return card_gauge.profile(index["nodes"][node], graph, steps_of((accepted.get(node) or {}).get("fields")), index)
 
     tally, newest, failed = card_gauge.tally(history, linked), {}, {}
     pulled = {item.get("executionId") for item in linked or [] if item.get("state") in ("open", "merged")}
+    broken = {node: {**found, "pulled": found["runId"] in pulled} for node, found in broken.items()}
     for record in history:  # od nejnovějšího
         newest.setdefault(record["nodeId"], record)
         if record.get("state") in card_gauge.ENDED_WITHOUT_RESULT and record.get("executionId") not in pulled:
@@ -170,7 +209,7 @@ def facts(service, project, workspace, now):
     result = []
     for item in items:
         node = item["nodeId"]
-        if node not in index["nodes"] or item.get("status") not in ("ready", "running", "blocked", "needs-steps"):
+        if node not in index["nodes"] or item.get("status") not in ("ready", "running", "blocked", "needs-steps", "reported"):
             continue
         run, latest = run_of(node), newest.get(node) or {}
         claimed, step = _seconds(latest.get("createdAt")), _seconds(steps_at.get(node))
@@ -180,7 +219,8 @@ def facts(service, project, workspace, now):
                        "effort": run["effort"], "failures": (tally.get(node) or {}).get("failures", 0),
                        "failedRun": failed.get(node), "runId": latest.get("executionId") if active else None,
                        "age": now - claimed if active and claimed is not None else None,
-                       "sinceStep": now - step if step is not None else None, "costUsd": None})
+                       "sinceStep": now - step if step is not None else None, "costUsd": None,
+                       "stepFailed": broken.get(node)})
     done = []
     for node in closed:
         record = next((item for item in history if item["nodeId"] == node and item["executionId"] in reported), None)

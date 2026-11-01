@@ -41,6 +41,22 @@ def test_retry_after_second_failure_recommends_one_effort_higher_and_new_failure
     assert triggers.retry(card(failures=2, failedRun="e2", effort=None, label="XL"))["detail"].endswith("rozděl kartu")
 
 
+def broken(run="e5", pulled=False, notes="migrace 0042 je obsazena (poslední 0048)"):
+    return card(status="reported", stepFailed={"runId": run, "stepId": "s1", "notes": notes, "pulled": pulled})
+
+
+def test_step_failed_wakes_on_a_delivered_run_with_a_failed_step_and_without_a_pull_request():
+    hit = triggers.step_failed(broken())
+    assert triggers.card_key(hit) == "trigger:card:n1:step_failed:e5"
+    assert hit["detail"].startswith("krok s1 selhal (běh e5): migrace 0042 je obsazena (poslední 0048) — zadání koliduje")
+    assert "fields.steps" in hit["detail"] and "poslední na main + 1" in hit["detail"]
+    assert triggers.step_failed(broken(pulled=True)) is None  # běh s PR čeká na review PR
+    assert triggers.step_failed(card(status="reported")) is None  # žádný krok nehlásil failed
+    long = triggers.step_failed(broken(notes="x " * 500))["detail"]
+    assert "x " * 199 + "x…" in long and "x " * 201 not in long  # poznámka zkrácená na 400 znaků
+    assert triggers.retry(card(status="reported", failures=2, failedRun="e2")) is None  # výsledek odevzdán
+
+
 def test_stalled_needs_history_of_five_done_cards_with_the_same_label():
     slow = card(status="running", runId="e7", age=2000, sinceStep=None)
     assert triggers.evaluate([slow], done(count=4)) == []  # bez historie neběží
@@ -80,6 +96,19 @@ def test_wakes_once_per_state_and_a_new_failure_wakes_again(service, monkeypatch
     state["cards"] = [card(failures=3, failedRun="e3")]
     assert [item["detail"] for _, item in triggers.wakes(service, "draft", {"w1"}, "t3", 0)] == [
         "3× selhal, doporučeno effort high"]
+
+
+def test_step_failed_wakes_once_per_run_and_a_new_failed_run_wakes_again(service, monkeypatch):
+    state = {"cards": [broken("e5")]}
+    monkeypatch.setattr(triggers, "facts", lambda *args: (state["cards"], []))
+    [(space, item)] = triggers.wakes(service, "draft", {"w1"}, "t1", 0)
+    assert (space, item["kind"], item["nodeId"]) == ("w1", "card.step_failed", "n1")
+    assert triggers.wakes(service, "draft", {"w1"}, "t2", 0) == []  # stejný běh podruhé nebudí
+    state["cards"] = [broken("e6")]
+    assert [item["detail"][:22] for _, item in triggers.wakes(service, "draft", {"w1"}, "t3", 0)] == [
+        "krok s1 selhal (běh e6"]
+    state["cards"] = [broken("e7", pulled=True), card(status="reported")]
+    assert triggers.wakes(service, "draft", {"w1"}, "t4", 0) == []  # s PR ani bez failed nebudí
 
 
 def test_wakes_without_an_accepted_plan_reads_nothing(service):
