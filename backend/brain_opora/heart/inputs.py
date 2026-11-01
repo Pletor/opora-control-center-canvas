@@ -9,7 +9,7 @@ třeba při restartu serveru): čekající lístky a nedávné zprávy člověka
 `milestone_wakes` je deterministický vstup bez vlastní události outboxu (spouštěč `milestone.done`,
 docs/navrhy/2026-10-30-metriky-a-spoustece.md §4): supervisor ho spočítá po události `card.closed` a při prvním
 čtení projektu; splněný aktivní milník budí srdce jednou (`heart_triggers`) s odloženými požadavky k otevření.
-Stejnou cestou jdou spouštěče karet (`card_wakes`, `determinism/triggers.py`: too_big, retry, stalled,
+Stejnou cestou jdou spouštěče karet (`card_wakes`, `determinism/triggers.py`: too_big, retry, step_failed, stalled,
 over_budget) po událostech běhu a plánu (`TRIGGER_EVENTS`) a ruční změna plánu (`human_changes`: `changeset.accepted`,
 jejíž revizi přijal člověk).
 Spouštěč výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §2) dává vstup `brief`: `brief_wakes` pro požadavky

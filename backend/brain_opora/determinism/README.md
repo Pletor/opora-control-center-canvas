@@ -132,13 +132,17 @@ Modules (milestones and requirements, slice 3, contract `docs/navrhy/2026-10-30-
   `POŽADAVKY` (both omitted when empty).
 - `triggers.py` (slice 4 of the contract, card triggers §4): a fixed table of pure functions over the card gauge and the
   history of done cards. `card.too_big` = label XL on a `ready` card (label `?` of thin evidence never fires);
-  `card.retry` = `failures` ≥ 2, recommends `effort` one step higher (XL: split); `card.stalled` = a running run older
+  `card.retry` = `failures` ≥ 2, recommends `effort` one step higher (XL: split); `card.step_failed` = the
+  card's last run delivered a result (ProcessSync `reported`) with a step `failed` and has no open or merged PR
+  (PLAN-002: otherwise the card waits in review without a PR), detail = step, its notes (≤ 400 chars) and the
+  advice to rewrite the card's steps against main; `card.stalled` = a running run older
   than 3× the median run time of done cards with the same label and no `step.*` event in that time; `card.over_budget`
   = `costUsd` > 2× the median, prepared but idle while the price is null. Medians need ≥ 5 done cards
   (`done.confirmed`) with the label; run time = claim → last result receipt. `facts` reads one workspace once
-  (`ProcessSync` up to 40 cards, accepted context, execution history, receipts, last step events, confirmed cards);
+  (`ProcessSync` up to 40 cards, accepted context, execution history, receipts, the failed step of a `reported`
+  run, last step events, confirmed cards);
   `wakes` marks `heart_triggers` once per state, key `trigger:card:<nodeId>:<kind>:<state>` (too_big
-  `XL<points>@<workspace>`, retry = id of the last failed run, stalled / over_budget = run id) and returns
+  `XL<points>@<workspace>`, retry = id of the last failed run, step_failed / stalled / over_budget = run id) and returns
   `cardTrigger` inputs. `human_change` = `graph.human_change`: a `changeset.accepted` whose revision was accepted by
   a human (`by.kind == human`, not the heart), once per revision (`trigger:graph:<revision>:human_change`).
 - `requirements.py`: `intake.confirm` with `requirement`: `new` (needs `title`) creates a requirement in the entry's

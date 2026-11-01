@@ -245,6 +245,8 @@ Jinak pracuj sám a stručně.
 Řádek `SPOUŠTĚČ druh · karta „název“: detail` přichází jednou na stav karty.
 - `card.too_big`: kartu nepředávej, rozděl ji na menší karty (`plan`).
 - `card.retry`: zadání karty přepiš nebo ji rozděl a nastav `effort` podle doporučení v detailu.
+- `card.step_failed`: dělník odevzdal běh se selhaným krokem (zadání koliduje s repem). Přepiš kroky karty
+  návrhem změny (`fields.steps`) podle stavu main; po přijetí jde karta znovu k převzetí.
 - `card.stalled`: zjisti stav běhu (lístky, úkoly, git); když stojí, zruš úkol nebo kartu přeplánuj.
 - `graph.human_change`: přečti, co člověk v plánu změnil, a navaž (milník, `member`).
 
