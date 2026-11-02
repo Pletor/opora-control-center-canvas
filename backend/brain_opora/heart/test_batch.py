@@ -66,6 +66,12 @@ def test_message_renders_an_empty_frontier_with_the_instruction_to_plan_the_next
             " otázkou člověku, pokud cíl je splněný).") in text
 
 
+def test_message_names_abandoned_cards_under_an_empty_frontier():
+    text = batch.message("S", [{"type": "idle", "reason": "frontier_empty", "since": "T", "cardsTotal": 4, "done": 3,
+                                "abandoned": [{"nodeId": "dup", "executionId": "e7", "pr": 77}]}])
+    assert "OPUŠTĚNÉ KARTY (PR zavřené bez sloučení, nikdo na nich nepracuje): dup (PR #77). Ověř na origin/main" in text
+
+
 def test_message_renders_the_goal_document_under_an_empty_frontier():
     text = batch.message("S", [{"type": "idle", "reason": "frontier_empty", "since": "2027-01-15T07:45:00Z",
                                 "cardsTotal": 4, "done": 3, "goal": "Obrazovky 00, 05, 06 podle návrhu."}])
