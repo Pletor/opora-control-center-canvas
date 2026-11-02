@@ -8,8 +8,10 @@ Srdce budí jen události; po sloučení poslední karty plán nemá co předat,
 - karta ve `evidence` / `review`, jejíž PR je zavřené bez sloučení (`pr.state` `closed`), je opuštěný pokus: nikdo na
   ní nepracuje, frontu neblokuje a ani její rozhodnutí `review_result` nečeká na člověka; vstup ji nese v `abandoned`,
   aby ji srdce odebralo nebo vrátilo (IDLE-002: tři takové karty držely pipeline 12 h);
-- čeká-li rozhodnutí člověka (`decisions`) nebo otevřená otázka srdce pro člověka (eskalace), důvod je
-  `waiting_human` a srdce se nebudí (čeká se na člověka, ne na srdce);
+- karta, která čeká na člověka (PR se schválením člověka `human_approvals_missing`, výsledek `human_review_required`),
+  rozhodnutí člověka (`decisions`) a otevřená otázka srdce (eskalace) blokují jen sebe, ne celý prostor: důvod je
+  `waiting_human` a srdce se budí stejně jako u prázdné fronty, s výčtem toho, co čeká (`waitingHuman`), aby plánovalo
+  jinde (STALL-001: jedna eskalace zastavila srdce na 5,5 h);
 - prázdná fronta trvající aspoň `IDLE_MINUTES` od poslední činnosti prostoru (`ACTIVITY` v outboxu) dá vstup
   `{"type": "idle", "reason": "frontier_empty", ...}` jednou na stav: značka `trigger:idle:<prostor>:<revize>:<sloučeno>`
   v `heart_triggers`, takže nová revize plánu nebo další sloučená karta smí budit znovu, stejný stav ne.
@@ -48,22 +50,40 @@ def abandoned(state):
             if card.get("stage") in ("evidence", "review") and (card.get("pr") or {}).get("state") == "closed"]
 
 
+def human_waits(state):
+    """Karty, které čekají na člověka: `[{nodeId, pr, why}]`, `why` `approval` (PR) nebo `review` (výsledek)."""
+    found = []
+    for card in state.get("cards") or []:
+        if card.get("stage") != "review" or (card.get("pr") or {}).get("state") == "closed":
+            continue
+        if (card.get("gate") or {}).get("rule") == "human_approvals_missing":
+            found.append({"nodeId": card["nodeId"], "pr": card["pr"].get("number"), "why": "approval"})
+        elif card.get("reason") == "human_review_required":
+            found.append({"nodeId": card["nodeId"], "pr": (card.get("pr") or {}).get("number"), "why": "review"})
+    return found
+
+
 def reason(state, questions):
     """`frontier_empty` | `waiting_human` | None (práce je, nebo plán není přijatý). `questions` = počet otevřených
     otázek srdce pro člověka."""
     stages = _stages(state)
-    left = {item["nodeId"] for item in abandoned(state)}
+    left = {item["nodeId"] for item in abandoned(state) + human_waits(state)}
     runs = {item["executionId"] for item in abandoned(state)}
+    cards = state.get("cards") or []
     if not (state.get("heads") or {}).get("acceptedHead"):
         return None
     if any((stages.get(name) or {}).get("count") for name in ("claim", "work")):
         return None
     # Evidence a review podle karet, ne podle počtu etapy: `stale_evidence` umí počítat i výsledek bez karty v etapě.
-    if any(card.get("stage") in ("evidence", "review") and card["nodeId"] not in left for card in state.get("cards") or []):
+    if any(card.get("stage") in ("evidence", "review") and card["nodeId"] not in left for card in cards):
         return None
-    if (stages.get("merge") or {}).get("reason") == "pull_requests_open":
+    # Otevřené PR drží frontu, jen když na něm pracuje stroj (PR bez karty v seznamu nepoznáme, ten drží vždy).
+    opened = [card for card in cards if (card.get("pr") or {}).get("state") == "open"]
+    if (stages.get("merge") or {}).get("reason") == "pull_requests_open" and (
+            not opened or any(card["nodeId"] not in left for card in opened)):
         return None
-    if any(item.get("targetId") not in runs for item in state.get("decisions") or []) or questions:
+    if (human_waits(state) or questions
+            or any(item.get("targetId") not in runs for item in state.get("decisions") or [])):
         return WAITING_HUMAN
     return FRONTIER_EMPTY
 
@@ -103,7 +123,7 @@ def _seconds(value):
 def evaluate(state, questions, since, workspace, now):
     """`(důvod, klíč, vstup | None)`: vstup jen při prázdné frontě trvající aspoň `IDLE_MINUTES`."""
     found = reason(state, questions)
-    if found != FRONTIER_EMPTY:
+    if found not in (FRONTIER_EMPTY, WAITING_HUMAN):
         return found, None, None
     start = _seconds(since)
     if start is None or now - start < IDLE_MINUTES * 60:
@@ -114,6 +134,9 @@ def evaluate(state, questions, since, workspace, now):
     left = abandoned(state)
     if left:
         item["abandoned"] = left
+    if found == WAITING_HUMAN:
+        item["waitingHuman"] = {"cards": human_waits(state), "questions": questions,
+                                "decisions": len(state.get("decisions") or [])}
     return found, key(workspace, revision, done), item
 
 

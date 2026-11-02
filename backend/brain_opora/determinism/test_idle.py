@@ -76,9 +76,31 @@ def test_stale_evidence_count_without_a_card_in_the_stage_still_wakes(service):
 
 
 @pytest.mark.parametrize("facts", [{"questions": 1}, {"state": state(decisions=[{"kind": "accept_low"}])}])
-def test_open_question_or_decision_for_the_human_waits_for_the_human(service, facts):
+def test_open_question_or_decision_for_the_human_still_wakes_the_heart_to_plan_elsewhere(service, facts):
+    """STALL-001: what waits for the human blocks only itself; the heart wakes with what waits and plans elsewhere."""
     _, read = reader(**facts)
-    assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read) == ([], {"w1": "waiting_human"})
+    found, reasons = idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)
+    assert reasons == {"w1": "waiting_human"}
+    waits = found[0][1]["waitingHuman"]
+    assert waits["questions"] == facts.get("questions", 0) and waits["cards"] == []
+
+
+def test_cards_waiting_for_a_human_approval_or_review_block_only_themselves(service):
+    """#82 waits for a human approval (sensitive path), de34 for a human review of its result: neither holds the heart."""
+    held = state(merge_reason="pull_requests_open")
+    held["cards"] = [
+        {"nodeId": "mig", "stage": "review", "reason": "review_gate_pending", "pr": {"number": 82, "state": "open"},
+         "gate": {"status": "pending", "rule": "human_approvals_missing"}},
+        {"nodeId": "res", "stage": "review", "reason": "human_review_required"}]
+    _, read = reader(state=held)
+    found, reasons = idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)
+    assert reasons == {"w1": "waiting_human"}
+    assert found[0][1]["waitingHuman"]["cards"] == [{"nodeId": "mig", "pr": 82, "why": "approval"},
+                                                     {"nodeId": "res", "pr": None, "why": "review"}]
+    held["cards"][0]["gate"]["rule"] = "self_checks_missing"
+    assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)[1] == {"w1": None}
+    held["cards"] = [held["cards"][1]]
+    assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)[1] == {"w1": None}, "an open PR without a card holds"
 
 
 def test_review_cards_whose_pr_closed_unmerged_do_not_hold_the_frontier(service):

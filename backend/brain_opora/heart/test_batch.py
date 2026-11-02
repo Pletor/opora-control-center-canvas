@@ -72,6 +72,14 @@ def test_message_names_abandoned_cards_under_an_empty_frontier():
     assert "OPUŠTĚNÉ KARTY (PR zavřené bez sloučení, nikdo na nich nepracuje): dup (PR #77). Ověř na origin/main" in text
 
 
+def test_message_names_what_waits_for_the_human_and_asks_to_plan_elsewhere():
+    text = batch.message("S", [{"type": "idle", "reason": "waiting_human", "since": "T", "cardsTotal": 4, "done": 3,
+                                "waitingHuman": {"cards": [{"nodeId": "mig", "pr": 82, "why": "approval"}],
+                                                 "questions": 1, "decisions": 0}}])
+    assert ("ČEKÁ NA ČLOVĚKA (blokuje jen sebe a navazující karty): mig (PR ke schválení #82), otázky srdce: 1."
+            " Tyto karty ani svou otázku neopakuj") in text
+
+
 def test_message_renders_the_goal_document_under_an_empty_frontier():
     text = batch.message("S", [{"type": "idle", "reason": "frontier_empty", "since": "2027-01-15T07:45:00Z",
                                 "cardsTotal": 4, "done": 3, "goal": "Obrazovky 00, 05, 06 podle návrhu."}])

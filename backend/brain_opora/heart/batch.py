@@ -102,11 +102,27 @@ def _input_line(item):
                    + ". Ověř na origin/main: je-li práce sloučená jinde nebo jde o duplikát, kartu odeber z plánu"
                    " a navazující karty napoj na její předchůdce; jinak ji připrav k novému převzetí."
                    if item.get("abandoned") else "")
+                + ("\n  ČEKÁ NA ČLOVĚKA (blokuje jen sebe a navazující karty): " + _waiting(item["waitingHuman"])
+                   + ". Tyto karty ani svou otázku neopakuj a nečekej na ně: naplánuj práci, která na nich nezávisí"
+                   " (jiná oblast nebo obrazovka podle cíle projektu)."
+                   if item.get("waitingHuman") else "")
                 + ("\n  CÍL PROJEKTU (docs/cil-projektu.md na main, rozhodnutí člověka; plánuj k němu, ne podle starého plánu):"
                    f"\n{item['goal']}" if item.get("goal") else ""))
     if kind == "humanChange":
         return f"- SPOUŠTĚČ {item.get('kind')}: člověk změnil plán (revize {item.get('revision')})"
     return "- " + json.dumps(item, ensure_ascii=False, sort_keys=True)
+
+
+def _waiting(waits):
+    """Co čeká na člověka, jednou větou: karty (PR ke schválení / výsledek k revizi), otázky, rozhodnutí."""
+    why = {"approval": "PR ke schválení", "review": "výsledek k revizi"}
+    parts = [f"{c.get('nodeId')} ({why.get(c.get('why'), c.get('why'))}" + (f" #{c['pr']})" if c.get("pr") else ")")
+             for c in waits.get("cards") or []]
+    if waits.get("questions"):
+        parts.append(f"otázky srdce: {waits['questions']}")
+    if waits.get("decisions"):
+        parts.append(f"rozhodnutí: {waits['decisions']}")
+    return ", ".join(parts) or "—"
 
 
 def message(snapshot_text, inputs):
