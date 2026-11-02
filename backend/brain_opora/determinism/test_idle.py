@@ -81,6 +81,21 @@ def test_open_question_or_decision_for_the_human_waits_for_the_human(service, fa
     assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read) == ([], {"w1": "waiting_human"})
 
 
+def test_review_cards_whose_pr_closed_unmerged_do_not_hold_the_frontier(service):
+    """IDLE-002: duplicate cards in review with a closed PR held the pipeline 12 h. They are abandoned attempts: the
+    frontier counts as empty, their `review_result` decisions do not wait for the human, the input names them."""
+    stuck = state(decisions=[{"kind": "review_result", "targetId": "e7"}])
+    stuck["cards"] = [{"nodeId": "dup", "stage": "review", "executionId": "e7", "pr": {"number": 77, "state": "closed"}}]
+    _, read = reader(state=stuck)
+    found, reasons = idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)
+    assert reasons == {"w1": "frontier_empty"}
+    assert found[0][1]["abandoned"] == [{"nodeId": "dup", "executionId": "e7", "pr": 77}]
+    stuck["decisions"].append({"kind": "accept_low", "targetId": "x"})
+    assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)[1] == {"w1": "waiting_human"}
+    stuck["cards"][0]["pr"]["state"] = "open"
+    assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)[1] == {"w1": None}
+
+
 def test_less_than_ten_minutes_or_no_activity_does_not_wake_yet(service):
     _, read = reader(since="2027-01-15T07:51:00+00:00")
     assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read) == ([], {"w1": "frontier_empty"})

@@ -66,6 +66,17 @@ def test_project_is_sorted_and_prefers_the_open_link():
     assert list(rows[1]) == ["nodeId", "stage", "health", "reason", "executionId"]
 
 
+def test_a_merged_link_beats_a_later_attempt_closed_without_merge():
+    """IDLE-002: the card's work merged (#70), a duplicate PR (#77) was opened later and closed; the card is merged."""
+    merged = {"executionId": "old", "state": "merged", "cardId": "a", "number": 70, "awaitingHumanClose": True}
+    closed = {"executionId": "e1", "state": "closed", "cardId": "a", "number": 77}
+    for linked in ([merged, closed], [closed, merged]):
+        row = project({"a": {"nodeId": "a"}}, HEAD, [run("reported", 1)], [], linked, None, 100.0)[0]
+        assert (row["stage"], row["reason"], row["pr"]) == ("merge", "awaiting_human_close", {"number": 70, "state": "merged"})
+    newer = {**merged, "executionId": "e2", "number": 71}
+    assert project({"a": {"nodeId": "a"}}, HEAD, [], [], [merged, newer], None, 100.0)[0]["pr"]["number"] == 71
+
+
 def test_pull_request_badge_facts():
     """`pr` on the card: number and state of the linked PR; none on a closed card or for a stale closed PR."""
     merged = {"executionId": "e1", "state": "merged", "cardId": "n", "number": 42}

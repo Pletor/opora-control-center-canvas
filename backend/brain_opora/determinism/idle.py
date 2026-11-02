@@ -5,6 +5,9 @@ Srdce budí jen události; po sloučení poslední karty plán nemá co předat,
 
 - fronta je prázdná, když přijatý plán (`heads.acceptedHead`) nemá kartu k převzetí (etapa `claim` 0), nic neběží
   (`work` 0), žádný výsledek nečeká na review ani PR (`evidence`, `review` 0, `merge` bez `pull_requests_open`);
+- karta ve `evidence` / `review`, jejíž PR je zavřené bez sloučení (`pr.state` `closed`), je opuštěný pokus: nikdo na
+  ní nepracuje, frontu neblokuje a ani její rozhodnutí `review_result` nečeká na člověka; vstup ji nese v `abandoned`,
+  aby ji srdce odebralo nebo vrátilo (IDLE-002: tři takové karty držely pipeline 12 h);
 - čeká-li rozhodnutí člověka (`decisions`) nebo otevřená otázka srdce pro člověka (eskalace), důvod je
   `waiting_human` a srdce se nebudí (čeká se na člověka, ne na srdce);
 - prázdná fronta trvající aspoň `IDLE_MINUTES` od poslední činnosti prostoru (`ACTIVITY` v outboxu) dá vstup
@@ -38,20 +41,29 @@ def done_count(state):
     return sum(entry.get("reason") in _CLOSED for entry in state.get("cards") or [])
 
 
+def abandoned(state):
+    """Karty ve `evidence` / `review`, jejichž PR je zavřené bez sloučení: `[{nodeId, executionId, pr}]`."""
+    return [{"nodeId": card["nodeId"], "executionId": card.get("executionId"), "pr": card["pr"].get("number")}
+            for card in state.get("cards") or []
+            if card.get("stage") in ("evidence", "review") and (card.get("pr") or {}).get("state") == "closed"]
+
+
 def reason(state, questions):
     """`frontier_empty` | `waiting_human` | None (práce je, nebo plán není přijatý). `questions` = počet otevřených
     otázek srdce pro člověka."""
     stages = _stages(state)
+    left = {item["nodeId"] for item in abandoned(state)}
+    runs = {item["executionId"] for item in abandoned(state)}
     if not (state.get("heads") or {}).get("acceptedHead"):
         return None
     if any((stages.get(name) or {}).get("count") for name in ("claim", "work")):
         return None
     # Evidence a review podle karet, ne podle počtu etapy: `stale_evidence` umí počítat i výsledek bez karty v etapě.
-    if any(card.get("stage") in ("evidence", "review") for card in state.get("cards") or []):
+    if any(card.get("stage") in ("evidence", "review") and card["nodeId"] not in left for card in state.get("cards") or []):
         return None
     if (stages.get("merge") or {}).get("reason") == "pull_requests_open":
         return None
-    if state.get("decisions") or questions:
+    if any(item.get("targetId") not in runs for item in state.get("decisions") or []) or questions:
         return WAITING_HUMAN
     return FRONTIER_EMPTY
 
@@ -99,6 +111,9 @@ def evaluate(state, questions, since, workspace, now):
     done, revision = done_count(state), state["heads"]["acceptedHead"]
     item = {"type": "idle", "reason": FRONTIER_EMPTY, "since": since,
             "cardsTotal": int(state.get("cardsTotal") or 0), "done": done}
+    left = abandoned(state)
+    if left:
+        item["abandoned"] = left
     return found, key(workspace, revision, done), item
 
 

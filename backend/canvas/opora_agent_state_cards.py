@@ -88,8 +88,11 @@ def project(cards, accepted, latest, claims, linked, reviewing, now):
     for item in linked or []:
         if item.get("cardId"):
             current = links.get(item["cardId"])
-            # An open PR is the live one; otherwise keep the newest merged/closed link reported.
-            if current is None or item.get("state") == "open" or current.get("state") != "open":
+            # An open PR is the live one; a merged one beats a later attempt closed without merge (IDLE-002: a
+            # duplicate PR closed after the card's work merged must not pull the card back into review);
+            # otherwise keep the newest link reported.
+            state, held = item.get("state"), current.get("state") if current else None
+            if current is None or state == "open" or (held != "open" and (state == "merged" or held != "merged")):
                 links[item["cardId"]] = item
     for gate in (reviewing or {}).get("gates", []):
         gates[gate["executionId"]] = gate

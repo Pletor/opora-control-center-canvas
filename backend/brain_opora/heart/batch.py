@@ -97,6 +97,11 @@ def _input_line(item):
         return (f"- PRÁZDNÁ FRONTA od {item.get('since')} (karet {item.get('cardsTotal')}, sloučeno {item.get('done')}):"
                 " Plán nemá žádnou kartu k převzetí a nic neběží. Podle cíle projektu a stavu aplikace naplánuj"
                 " další malou kartu (nebo ukonči fázi otázkou člověku, pokud cíl je splněný)."
+                + ("\n  OPUŠTĚNÉ KARTY (PR zavřené bez sloučení, nikdo na nich nepracuje): "
+                   + ", ".join(f"{a.get('nodeId')} (PR #{a.get('pr')})" for a in item["abandoned"])
+                   + ". Ověř na origin/main: je-li práce sloučená jinde nebo jde o duplikát, kartu odeber z plánu"
+                   " a navazující karty napoj na její předchůdce; jinak ji připrav k novému převzetí."
+                   if item.get("abandoned") else "")
                 + ("\n  CÍL PROJEKTU (docs/cil-projektu.md na main, rozhodnutí člověka; plánuj k němu, ne podle starého plánu):"
                    f"\n{item['goal']}" if item.get("goal") else ""))
     if kind == "humanChange":
