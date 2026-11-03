@@ -9,15 +9,12 @@ import re
 from urllib.parse import unquote, urlsplit
 
 from backend.canvas.payload_errors import invalid, keys_problem
-from backend.canvas.site_settings import site_problem
 
 DNS_LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", re.IGNORECASE)
 # Stejný tvar jako `graph.valid_id`; graph importuje tento modul, proto vlastní kopie bez cyklu.
 SECTION_ID = re.compile(r"[A-Za-z0-9_-]{1,80}")
 # Stránka nese záměr člověka (goal, feel, navLabel) a sekce, které navrhuje agent. Vše nepovinné, bez výchozích hodnot.
-# `seo` a `design` (jen header/footer) přebíjí nastavení webu projektu (`site_settings.py`).
-PAGE_KEYS = {"kind", "path", "goal", "feel", "navLabel", "sections", "seo", "design"}
-PAGE_OVERRIDES = ("seo", "design")
+PAGE_KEYS = {"kind", "path", "goal", "feel", "navLabel", "sections"}
 PAGE_TEXT_LIMITS = {"goal": ("cíl stránky", 200), "feel": ("působení stránky", 120), "navLabel": ("popisek v menu", 40)}
 SECTION_KEYS = {"id", "role", "name", "intent"}
 # Čím sekce posouvá zákazníka v kroku cesty (pain reliever / gain creator, `docs/cesta-zakaznika-a-brief.md` §2.3).
@@ -28,7 +25,11 @@ SECTION_ROLES = ("hero", "cta", "form", "content", "gallery", "proof", "faq", "f
 # Aplikace nese cesty zákazníka jako trychtýř stránek, který zadává člověk: cesta je proměna zákazníka (`actor`,
 # bod A → bod B), krok je stránka s rolí, posunem, námitkou a signálem přechodu `via`; vazby mezi kroky (kudy
 # zákazník jde po mapě) se neukládají, odvodí je stroj (§6). Počty lidí se neukládají (`docs/cesta-zakaznika-a-brief.md`).
-APPLICATION_KEYS = {"kind", "environments", "healthPath", "journeys"}
+APPLICATION_KEYS = {"kind", "environments", "platform", "healthPath", "journeys"}
+# Mobilní aplikace (Android, iOS) nemá host: prostředí nese `bundleId` v reverzní doménové notaci, unikátní v grafu.
+PLATFORMS = ("web", "android", "ios")
+MOBILE_PLATFORMS = ("android", "ios")
+BUNDLE_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)+")
 JOURNEY_KEYS = {"id", "name", "steps"}
 JOURNEY_TEXT_LIMITS = {"purpose": ("účel cesty", 200), "actor": ("zákazník cesty", 80),
                        "pointA": ("bod A cesty", 200), "pointB": ("bod B cesty", 200)}
@@ -43,6 +44,7 @@ VIA_KEYS = {"do", "section", "text"}
 VIA_TEXT_MAX = 60
 # Krátké platné příklady do chybových zpráv: agent opraví tvar napoprvé, bez sondování (docs/plna-autonomie-agenta.md).
 ENVIRONMENT_EXAMPLE = {"name": "local", "host": "127.0.0.1:5173"}
+MOBILE_ENVIRONMENT_EXAMPLE = {"name": "Produkce", "bundleId": "cz.example.app"}
 APPLICATION_EXAMPLE = {"kind": "application", "environments": [ENVIRONMENT_EXAMPLE]}
 SECTION_EXAMPLE = {"id": "hero", "role": "hero", "name": "Úvod", "intent": "Proč tu zůstat."}
 PAGE_EXAMPLE = {"kind": "page", "path": "/pribeh", "goal": "Návštěvník uvěří, že to zvládne.",
@@ -71,12 +73,6 @@ def validate_page_fields(label, site):
         if key in site and not _text(site[key], 1, maximum):
             raise invalid(label, f"site.{key}", f"{title} ({key}) má neplatnou hodnotu {site[key]!r}.",
                           f"text 1–{maximum} znaků bez řídicích znaků; prázdné pole vynechte", PAGE_EXAMPLE)
-    overrides = {key: site[key] for key in PAGE_OVERRIDES if key in site}
-    problem = site_problem(overrides, partial=True) if overrides else None
-    if problem:
-        field, text, expected = problem
-        raise invalid(label, f"site.{field}", f"přebití nastavení webu {text}", expected,
-                      {"seo": {"titleTemplate": "%s · Příběh"}, "design": {"header": "bez menu"}})
     if "sections" not in site:
         return
     sections = site["sections"]
@@ -261,6 +257,13 @@ def host_key(value):
         raise ValueError("Neplatný host; použijte doménu nebo localhost:port bez protokolu.") from error
 
 
+def bundle_key(value):
+    """Bundle ID mobilní aplikace (`cz.example.app`); porovnává se bez ohledu na velikost písmen."""
+    if not isinstance(value, str) or len(value) > 155 or not BUNDLE_ID.fullmatch(value):
+        raise ValueError("Bundle ID musí být reverzní doménová notace (cz.example.app), nejvýše 155 znaků.")
+    return ("bundle", value.casefold())
+
+
 def route_key(value):
     if not isinstance(value, str) or not value.startswith("/") or len(value) > 2048:
         raise ValueError("Cesta stránky musí začínat / a mít nejvýše 2048 znaků.")
@@ -303,9 +306,17 @@ def validate_sites(nodes):
                 raise invalid(label, "kind", f"aplikace (site.kind application) leží na uzlu druhu {node['kind']}.",
                               "uzel kind sector", APPLICATION_EXAMPLE)
             _shape(label, "site", site, {"kind", "environments"}, APPLICATION_KEYS - {"kind", "environments"},
-                   "aplikace {kind: application, environments: [{name, host}]} a volitelně healthPath, journeys",
+                   "aplikace {kind: application, environments: [{name, host}]} a volitelně platform, healthPath, journeys",
                    APPLICATION_EXAMPLE)
             validate_journeys(label, site, page_ids)
+            platform = site.get("platform", "web")
+            if platform not in PLATFORMS:
+                raise invalid(label, "site.platform", f"platforma {platform!r} není známá.", "jedna z " + ", ".join(PLATFORMS),
+                              {**APPLICATION_EXAMPLE, "platform": "web"})
+            mobile = platform in MOBILE_PLATFORMS
+            if mobile and "healthPath" in site:
+                raise invalid(label, "site.healthPath", "mobilní aplikace nemá host, healthPath u ní nedává smysl.",
+                              "healthPath vynechte")
             if "healthPath" in site:
                 # Cesta, na které web hlásí zdraví (např. /api/v1/health); stejná pravidla jako cesta stránky.
                 _checked(route_key, site["healthPath"], label, "site.healthPath",
@@ -317,7 +328,8 @@ def validate_sites(nodes):
             names = set()
             for index, environment in enumerate(environments):
                 field = f"site.environments[{index}]"
-                _shape(label, field, environment, {"name", "host"}, (), "{name, host}", ENVIRONMENT_EXAMPLE)
+                address, example = ("bundleId", MOBILE_ENVIRONMENT_EXAMPLE) if mobile else ("host", ENVIRONMENT_EXAMPLE)
+                _shape(label, field, environment, {"name", address}, (), "{name, %s}" % address, example)
                 name = environment["name"]
                 if not isinstance(name, str) or not name.strip() or len(name) > 80 or "\0" in name:
                     raise invalid(label, field + ".name", "název prostředí je prázdný nebo dlouhý.",
@@ -326,17 +338,21 @@ def validate_sites(nodes):
                 if key in names:
                     raise ValueError(f"{label}: název prostředí {name} se opakuje.")
                 names.add(key)
-                host = _checked(host_key, environment["host"], label, field + ".host",
-                                "doména nebo localhost:port bez protokolu a cesty", ENVIRONMENT_EXAMPLE)
+                if mobile:
+                    host = _checked(bundle_key, environment["bundleId"], label, field + ".bundleId",
+                                    "reverzní doménová notace (cz.example.app)", MOBILE_ENVIRONMENT_EXAMPLE)
+                else:
+                    host = _checked(host_key, environment["host"], label, field + ".host",
+                                    "doména nebo localhost:port bez protokolu a cesty", ENVIRONMENT_EXAMPLE)
                 if host in hosts:
-                    raise ValueError(f"{label}: host {environment['host']} už patří prostředí {hosts[host]}.")
+                    raise ValueError(f"{label}: {address} {environment[address]} už patří prostředí {hosts[host]}.")
                 hosts[host] = f"{label} / {name}"
         elif site.get("kind") == "page":
             if node["kind"] != "node":
                 raise invalid(label, "kind", f"stránka (site.kind page) leží na uzlu druhu {node['kind']}.",
                               "uzel kind node pod sektorem aplikace", PAGE_EXAMPLE)
             _shape(label, "site", site, {"kind", "path"}, PAGE_KEYS - {"kind", "path"},
-                   "stránka {kind: page, path} a volitelně goal, feel, navLabel, sections, seo, design", PAGE_EXAMPLE)
+                   "stránka {kind: page, path} a volitelně goal, feel, navLabel, sections", PAGE_EXAMPLE)
             route = _checked(route_key, site["path"], label, "site.path",
                              "cesta začínající / bez dotazu a fragmentu", PAGE_EXAMPLE)
             validate_page_fields(label, site)

@@ -9,18 +9,20 @@ export type IconName = "frontend" | "style" | "logic" | "backend" | "tenant" | "
 
 export const LIBRARY_FAMILIES: LibraryFamily[] = [
   { id: "frontend", label: "Frontend", tone: "frontend", categories: ["fe-components", "fe-css", "fe-logic"] },
-  { id: "backend", label: "Backend", tone: "backend", categories: ["backend", "tenancy"] },
+  { id: "backend", label: "Backend", tone: "backend", categories: ["backend", "tenancy", "functions", "events", "storage", "notifications", "payments", "search"] },
   { id: "database", label: "Databáze", tone: "database", categories: ["database"] },
   { id: "security", label: "Security", tone: "security", categories: ["security"] },
   { id: "tests", label: "Testy", tone: "infrastructure", categories: ["tests"] },
   { id: "cache", label: "Cache", tone: "cache", categories: ["cache"] },
-  { id: "cloud", label: "Cloud a infrastruktura", tone: "infrastructure", categories: ["cloud"] },
+  { id: "cloud", label: "Cloud a infrastruktura", tone: "infrastructure", categories: ["cloud", "devops", "docker", "monitoring", "analytics", "config"] },
 ];
 
 /** Ikona dlaždice podle kategorie; jen piktogram, význam nese popisek. */
 export const CATEGORY_ICON: Record<CatalogCategory, IconName> = {
   "fe-components": "frontend", "fe-css": "style", "fe-logic": "logic", backend: "backend", tenancy: "tenant",
   database: "database", security: "security", tests: "tests", cache: "cache", cloud: "cloud",
+  devops: "cloud", docker: "cloud", monitoring: "tests", functions: "logic", events: "backend", storage: "database",
+  notifications: "frontend", payments: "security", analytics: "tests", search: "database", config: "cloud",
 };
 
 /** Neprázdné rodiny s prvky, které odpovídají hledání, v pořadí kontraktu. */

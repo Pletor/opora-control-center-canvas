@@ -2,9 +2,9 @@
 // Domény (sektory `site.kind = "application"`) se seskupí podle svého jediného prostředí,
 // starší vícehostové aplikace spadnou do „Sdílené struktury“. Pod doménou jsou její stránky
 // v uloženém pořadí, podstránky s hloubkou pro odsazení. Bez Reactu, test vedle.
-import type { CanvasNode, Graph } from "@/shared/types/logic/types";
+import type { CanvasNode, Graph, SiteEnvironment } from "@/shared/types/logic/types";
 import { productTree, type ProductBranch } from "@/project/product-tree/logic/product-tree";
-import { DOMAIN_KIND_LABEL, domainKindOf, type DomainKind } from "../../../landing/logic/domain-kind";
+import { DOMAIN_KIND_LABEL, domainKindOf, environmentAddress, type DomainKind } from "../../../landing/logic/domain-kind";
 
 export type TreeTone = "live" | "dev" | "shared" | "other";
 export type TreePage = { id: string; name: string; path: string | null; depth: number; active: boolean };
@@ -21,7 +21,7 @@ const FIXED: { label: string; badge: string; tone: TreeTone }[] = [
 ];
 
 /** Jediné prostředí domény; vícehostová nebo prázdná aplikace žádné vlastní nemá. */
-export function environmentOf(node: CanvasNode): { name: string; host: string } | null {
+export function environmentOf(node: CanvasNode): SiteEnvironment | null {
   return node.site?.kind === "application" && node.site.environments.length === 1 ? node.site.environments[0] : null;
 }
 
@@ -50,8 +50,8 @@ function flatten(branches: ProductBranch[], activePage: string | null, depth = 0
 function domainOf(branch: ProductBranch, activeDomain: string | null, activePage: string | null): TreeDomain {
   const node = branch.node;
   const env = environmentOf(node);
-  const hosts = node.site?.kind === "application" ? node.site.environments.map((item) => item.host).filter(Boolean) : [];
-  const host = env?.host || hosts.join(", ") || null;
+  const hosts = node.site?.kind === "application" ? node.site.environments.map(environmentAddress).filter(Boolean) : [];
+  const host = environmentAddress(env) || hosts.join(", ") || null;
   const kind = domainKindOf(node);
   return {
     id: node.id, name: node.name, host, kind, kindLabel: DOMAIN_KIND_LABEL[kind], purpose: node.purpose,

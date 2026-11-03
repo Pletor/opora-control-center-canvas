@@ -3,17 +3,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from backend.canvas.graph import EMPTY, encode, valid_id
-from backend.canvas.payload_errors import invalid
-from backend.canvas.site_settings import empty as empty_site
-from backend.canvas.site_settings import site_problem
 
 PLATFORMS = {"web", "app", "component"}
 # Profil projektu (docs/suplik-a-profil.md): "" = nenastaveno, podle pole se pak nic nefiltruje.
 ARCHITECTURES = {"", "monolith", "modular", "microservices", "serverless"}
 TENANCIES = {"", "single", "multi"}
 DEFAULT_PROFILE = {"architecture": "", "tenancy": ""}
-# `site` = globální nastavení a design webu (backend/canvas/site_settings.py); leží jen v project.json.
-DEFAULT_SETTINGS = {"goal": "", "platform": "web", **DEFAULT_PROFILE, "site": empty_site()}
+DEFAULT_SETTINGS = {"goal": "", "platform": "web", **DEFAULT_PROFILE}
 
 
 class ProjectHub:
@@ -71,23 +67,14 @@ class ProjectHub:
         project = self.canvas.row("projects", pid)
         return {key: project.get(key) for key in ("id", "name", "url", "branch")} | self.source_info(project)
 
-    def site_settings(self, pid):
-        """Nastavení webu z `project.json` (`settings.site`); chybějící nebo neplatné = nevyplněné."""
-        try:
-            folder = self.canvas.folder(pid)
-            stored = folder.read().get("settings", {}).get("site") if folder.exists() else None
-        except (ValueError, OSError, AttributeError):
-            stored = None
-        return stored if stored is not None and site_problem(stored) is None else empty_site()
-
     def _settings(self, pid):
         row = self.canvas.db_for(pid).execute(
             "SELECT revision,goal,platform FROM project_settings WHERE project_id=?", (pid,)
         ).fetchone()
-        profile, site = self._profile(pid), self.site_settings(pid)
+        profile = self._profile(pid)
         if row is None:
-            return 0, {**DEFAULT_SETTINGS, **profile, "site": site}
-        return row["revision"], {"goal": row["goal"], "platform": row["platform"], **profile, "site": site}
+            return 0, {**DEFAULT_SETTINGS, **profile}
+        return row["revision"], {"goal": row["goal"], "platform": row["platform"], **profile}
 
     def settings(self, project):
         if not isinstance(project, str) or (project != "draft" and not valid_id(project)):
@@ -147,10 +134,6 @@ class ProjectHub:
             raise ValueError("Neplatná architektura projektu.")
         if not isinstance(values["tenancy"], str) or values["tenancy"] not in TENANCIES:
             raise ValueError("Neplatné rozdělení uživatelů projektu.")
-        problem = site_problem(values["site"])
-        if problem:
-            field, text, expected = problem
-            raise invalid("Nastavení webu", f"settings.site.{field}", text, expected)
 
     def save_settings(self, payload):
         if not isinstance(payload, dict) or set(payload) != {"project", "expected_revision", "name", "settings"}:

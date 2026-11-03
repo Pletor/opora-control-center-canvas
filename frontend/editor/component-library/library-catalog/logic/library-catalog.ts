@@ -12,6 +12,7 @@ import { securityItems, testItems } from "./catalog-safety";
 import { architectureItems, tenancyItems } from "./catalog-architecture";
 import type { CatalogFit } from "./catalog-fit";
 import { practicalItems } from "./catalog-practical";
+import { operationsItems } from "./catalog-operations";
 import { agentContextViolations, type AgentContextRule, type CatalogFetch, type CatalogPort } from "./catalog-agent-context";
 
 export type CatalogCategory =
@@ -24,7 +25,18 @@ export type CatalogCategory =
   | "cloud"
   | "cache"
   | "security"
-  | "tests";
+  | "tests"
+  | "devops"
+  | "docker"
+  | "monitoring"
+  | "functions"
+  | "events"
+  | "storage"
+  | "notifications"
+  | "payments"
+  | "analytics"
+  | "search"
+  | "config";
 
 /** Kategorie tak, jak ji vidí uživatel: popisek v panelu a věta, co do ní patří. */
 export type CatalogCategoryInfo = { id: CatalogCategory; label: string; hint: string };
@@ -81,6 +93,17 @@ export const CATALOG_CATEGORIES: CatalogCategoryInfo[] = [
   { id: "cache", label: "Cache", hint: "Klíč z digestu vstupů, invalidace při změně zdroje." },
   { id: "security", label: "Security", hint: "Same-origin zápis, validace na serveru, žádná tajemství v klientu." },
   { id: "tests", label: "Testy", hint: "Unit vedle logiky, e2e po cestě uživatele, brány hotovo." },
+  { id: "devops", label: "DevOps", hint: "CI při každé změně, vydání verze, návrat na předchozí verzi." },
+  { id: "docker", label: "Docker", hint: "Malý opakovatelný obraz, lokální prostředí jedním příkazem." },
+  { id: "monitoring", label: "Monitoring", hint: "Kontrola zdraví a upozornění dřív, než si všimne zákazník." },
+  { id: "functions", label: "Funkce a metody", hint: "Čisté funkce s testem vedle, převod dat na jednom místě." },
+  { id: "events", label: "Fronta a události", hint: "Událost ve stejné transakci, doručení s opakováním, idempotentní odběratel." },
+  { id: "storage", label: "Úložiště souborů", hint: "Soubory mimo databázi, ověřený typ a velikost, soukromé odkazy." },
+  { id: "notifications", label: "Notifikace a push", hint: "E-mail z fronty, push jen se souhlasem a platným tokenem." },
+  { id: "payments", label: "Platby", hint: "Částka ze serveru, potvrzení z ověřeného webhooku, karty jen u brány." },
+  { id: "analytics", label: "Analytika", hint: "Pojmenované události cesty zákazníka, jen se souhlasem a bez osobních údajů." },
+  { id: "search", label: "Vyhledávání", hint: "Fulltext s češtinou, stránkování a oprávnění jako u detailu." },
+  { id: "config", label: "Konfigurace a feature flags", hint: "Funkce zapnout bez nasazení, každý flag s vlastníkem a koncem." },
 ];
 
 const CATEGORY_ORDER = new Map(CATALOG_CATEGORIES.map((category, index) => [category.id, index]));
@@ -99,6 +122,7 @@ export const CATALOG_ITEMS: CatalogItem[] = [
   ...securityItems,
   ...testItems,
   ...architectureItems,
+  ...operationsItems,
 ].sort((a, b) => (CATEGORY_ORDER.get(a.category) ?? 0) - (CATEGORY_ORDER.get(b.category) ?? 0));
 
 /** Položky jedné kategorie v pořadí katalogu. */

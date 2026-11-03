@@ -60,12 +60,7 @@ Druhé patro nového základu (`docs/navrhy/2026-11-03-novy-zaklad.md`, artefakt
 
 ## 7. Globální nastavení a design webu
 
-- **Nastavení projektu `site`:**
-  - `seo` (`titleTemplate`, `description`, `ogImage`);
-  - `legal` (`gdprContact`, `cookies`);
-  - `email` (`from`, `replyTo`, bez tajemství);
-  - `design`: `header`, `footer`, `typography` (`h1`–`h5`, `body`, `fonts`) a `buttons`.
-- Stránka smí přebít `seo` a `design.header`/`footer`. Uložení je přes nastavení projektu, editace na stránce Projekt a srdce ho čte ve snímku i v `intent show`. Tajemství (SMTP heslo) sem nepatří.
+Globální nastavení a design webu řeší kontrakt [Správa webu a Design systém](2026-11-04-sprava-webu-design-system.md); tenké nastavení z #282 je smazané.
 
 ## 8. Vlak PR
 
