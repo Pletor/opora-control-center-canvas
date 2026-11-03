@@ -15,6 +15,8 @@ from backend.brain_opora.determinism import (
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.canvas_service import CanvasService
 from backend.canvas.test_graph_card import node
+from backend.editor.brief_vault.test_brief_vault_discipline import post
+from backend.editor.brief_vault.test_brief_vault_gates import root, vault_client, walk
 
 FACTS = {"project": "p1", "name": "Zahrada", "workspace": "main", "goal": "",
          "pages": [{"id": "home", "name": "Domů", "path": "/", "goal": "Uvěřit, že to zvládnu.", "feel": "klidná"},
@@ -457,3 +459,29 @@ def test_collect_lists_open_heart_escalations_and_drops_withdrawn_ones(service):
     gate.withdraw(service, heart, second["ticketId"], "ID je v plánu.")
     rows = _block(snapshot.snapshot(service, "draft", "draft"), "OTÁZKY U ČLOVĚKA:")
     assert [row.split(" · ")[0] for row in rows] == [f"- {first['ticketId']}"]
+
+
+def test_vault_line_counts_briefs_gates_and_research_after_work_tickets():
+    vault = {"workspace": "main", "briefs": 83, "gates": 0, "research": 0}
+    text = snapshot.render({**FACTS, "vault": vault})
+    line = ("SCHRÁNKA: 83 briefů, 0 bran, 0 výzkumů · plánuj z ní: python opora_heart.py vault ls | vault show ID"
+            " | vault plan")
+    assert line in text and text.index("TICKETY PRÁCE:") < text.index(line) < text.index("LÍSTKY ČEKAJÍCÍ:")
+    assert "SCHRÁNKA (prostor w1): 83 briefů" in snapshot.render({**FACTS, "vault": {**vault, "workspace": "w1"}})
+    assert "SCHRÁNKA" not in snapshot.render({**FACTS, "vault": {**vault, "briefs": 0}})
+    assert "SCHRÁNKA" not in snapshot.render(FACTS)
+
+
+def test_collect_counts_the_vault_and_main_reads_the_last_plan_workspace(tmp_path):
+    with vault_client(tmp_path) as client:
+        walk(client, root(client), "synthesized")
+        other = post(client, op="create", scopeNodeId="s1", discipline="db", title="B", text="b")["fragment"]
+        post(client, op="research", fragmentId=other["id"], title="R", text="r")
+        service = client.app_state.service
+        counts = {"workspace": "draft", "briefs": 2, "gates": 3, "research": 1}
+        assert snapshot.collect(service, "draft", "draft")["vault"] == counts
+        assert snapshot._vault(service, "draft", "main")["briefs"] == 0
+        brain = brain_files.brain_dir(service, "draft")
+        brain.mkdir(parents=True, exist_ok=True)
+        (brain / brain_files.ACTIVE).write_text(json.dumps({"workspace": "draft"}), encoding="utf-8")
+        assert snapshot._vault(service, "draft", "main") == counts

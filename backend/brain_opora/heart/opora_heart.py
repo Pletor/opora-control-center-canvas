@@ -35,6 +35,9 @@
                                    [--requirement rq_…]
     python opora_heart.py skill vyslech
     python opora_heart.py duel --subject F --a TEXT --b TEXT
+    python opora_heart.py vault ls [--kind brief|gate|research] [--q TEXT] [--workspace W]
+    python opora_heart.py vault show ID [--workspace W]
+    python opora_heart.py vault plan [--node ID]… [--workspace W]
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
 OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrnutí do `last_done.json` v cwd.
@@ -76,6 +79,10 @@ zadání (`/api/oporahub/changesets`, docs/oporahub-plan-steps.md); při `autono
 (`missing`); `ask` položí člověku otázku výslechu s doporučenou odpovědí (docs/navrhy/2026-10-30-vyslech-srdce.md §7).
 `research` (§3d, výzkumný stůl) je v `opora_research.py`, `duel` (§3c) v `opora_duel.py` vedle nástroje;
 `research --requirement rq_…` je rešerše výslechu se stropem ceny na požadavek (vyslech-srdce.md §8).
+`vault` je Schránka jako nástroj srdce (PR 8b): `ls` kompaktní výpis briefů, bran a výzkumů (`id · druh · titulek ·
+stav`, strop řádků), `show ID` plné znění položky, `plan` návrh dávky z generátoru Schránky do
+`dilna/out/vault-plan.json` pro `plan --file` (sám na plátno nic nezapisuje); v main jde jako výzkum do prostoru
+posledního plánu.
 `skill NAME` vypíše postup režimu ze `skills/NAME.md` vedle nástroje (výslech čte `skill vyslech`, jen při výslechu).
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
@@ -156,7 +163,7 @@ def call(method, path, body=None, query=None, actor="heart"):
 
 
 GENERIC_HINT = "Zkontrolujte argumenty příkazu."
-DETAILS = ("field", "expected", "example", "cycle")  # podrobnosti chyby serveru (payload_errors, card_cycle)
+DETAILS = ("field", "expected", "example", "cycle", "fragments")  # podrobnosti chyby serveru (+ Blocked Schránky)
 
 
 def server_failure(status, payload):
@@ -1117,13 +1124,107 @@ def open_workspace(domain, reuse, name=None):
             "created": created}
 
 
+# Schránka jako nástroj srdce (PR 8b): fakta plánu z briefů, bran a výzkumů, ne z hlavy.
+VAULT_KINDS = ("brief", "gate", "research")
+VAULT_LINES, VAULT_CHARS, VAULT_BLOCKED = 80, 8000, 20  # strop výpisu `vault ls` a výčtu blokací `vault plan`
+VAULT_PLAN = DILNA / "out" / "vault-plan.json"
+
+
+def vault_items(roots):
+    """Živé fragmenty stromu `GET /api/brief-vault` v pořadí stromu (předek před potomky)."""
+    items, stack = [], list(reversed(roots or []))
+    while stack:
+        item = stack.pop()
+        items.append(item)
+        stack.extend(reversed(item.get("children") or []))
+    return items
+
+
+def vault_row(item, kind):
+    """Řádek `id · druh · titulek · stav`: brief = etapa, disciplína a platné brány; výzkum = verdikt a stav."""
+    if kind == "research":
+        found = item.get("research") or {}
+        state = " · ".join(str(found[key]) for key in ("verdict", "confidence", "status") if found.get(key))
+    else:
+        on = [name for name, value in (item.get("gates") or {}).items() if value is True]
+        state = (f"{item.get('stage')} · {item.get('effectiveDiscipline') or 'bez disciplíny'} · brány "
+                 + (",".join(on) if on else "žádné") + (" (zastaralé)" if item.get("gatesStale") else ""))
+    return " · ".join((str(item.get("id")), kind, _cut(str(item.get("title") or ""), 100), state or "—"))
+
+
+def vault_ls(kind, text):
+    """`vault ls [--kind brief|gate|research] [--q TEXT]`: kompaktní výpis Schránky prostoru srdce (gate = brief
+    s aspoň jednou platnou bránou); strop `VAULT_LINES` řádků a `VAULT_CHARS` znaků, zkrácení hlásí poslední řádek."""
+    tree = call("GET", "/api/brief-vault", query=scope())
+    if tree.get("readOnly"):
+        return (f"SCHRÁNKA prostor {scope()['workspace']} · jen pro čtení (main); Schránka žije v pracovním "
+                "prostoru: --workspace W")
+    needle = (text or "").casefold()
+    rows = []
+    for item in vault_items(tree.get("roots")):
+        own = item.get("kind")
+        if own not in ("brief", "research") or (kind in ("brief", "research") and own != kind):
+            continue
+        if kind == "gate" and not (own == "brief" and any(value is True for value in (item.get("gates") or {}).values())):
+            continue
+        if needle and needle not in str(item.get("title") or "").casefold():
+            continue
+        rows.append(vault_row(item, own))
+    head = f"SCHRÁNKA prostor {scope()['workspace']} · {len(rows)} položek" + (f" ({kind})" if kind else "")
+    shown, size = [], len(head)
+    for row in rows[:VAULT_LINES]:
+        if size + len(row) + 1 > VAULT_CHARS:
+            break
+        shown.append(row)
+        size += len(row) + 1
+    tail = ([f"… zkráceno: {len(shown)} z {len(rows)}; zúž --kind nebo --q"] if len(shown) < len(rows) else [])
+    return "\n".join([head, *(shown or ["- žádné"]), *tail])
+
+
+def vault_show(fragment_id):
+    """`vault show ID`: plné znění položky (text, cesta, brány s payloady, děti, karty, podrobnosti výzkumu);
+    historie revizí jen jako počet."""
+    found = call("GET", "/api/brief-vault/fragment", query={**scope(), "id": fragment_id})
+    history = found.pop("history", None) or []
+    return {**found, "historyCount": len(history)}
+
+
+def vault_plan(nodes):
+    """`vault plan [--node ID]…`: generátor plánu Schránky (`POST /api/brief-vault/plan`, jen čtení, dávka ověřená
+    dryRun) pro vybrané fragmenty, bez `--node` pro všechny kořeny. Dávku zapíše do `dilna/out/vault-plan.json`
+    pro `plan --file`; na plátno nic nezapisuje. Blokace (bez disciplíny, bez brány synthesized…) vrátí výčtem."""
+    ids = list(nodes or [])
+    if not ids:
+        ids = [item["id"] for item in call("GET", "/api/brief-vault", query=scope()).get("roots") or []
+               if item.get("kind") == "brief"]
+    if not ids:
+        raise Failure({"error": "Schránka prostoru je prázdná.", "code": "vault_empty",
+                       "hint": "Plán ze Schránky potřebuje briefy; vypiš je: vault ls."})
+    try:
+        found = call("POST", "/api/brief-vault/plan", {**scope(), "fragmentIds": ids})
+    except Failure as failure:
+        blocked = failure.payload.get("fragments")
+        if isinstance(blocked, list):
+            failure.payload.update(fragments=blocked[:VAULT_BLOCKED], blockedTotal=len(blocked),
+                                   hint="Generátor bere jen briefy s disciplínou a platnou bránou synthesized; "
+                                        "doplň je (vault show ID) nebo vyber jiné --node.")
+        raise
+    VAULT_PLAN.parent.mkdir(parents=True, exist_ok=True)
+    VAULT_PLAN.write_text(json.dumps(found["plan"], ensure_ascii=False, indent=1), encoding="utf-8")
+    plan = found["plan"]
+    return {"path": VAULT_PLAN.as_posix(), "summary": found.get("summary"), "hash": found.get("hash"),
+            "skipped": found.get("skipped"), "nodes": len(plan.get("nodes") or []), "edges": len(plan.get("edges") or []),
+            "extend": len(plan.get("extend") or []),
+            "next": f"uprav dávku a pošli: python opora_heart.py plan --file {VAULT_PLAN.as_posix()} [--dry-run]"}
+
+
 def run(args):
     if args.command == "skill":  # postup režimu nepotřebuje prostředí dávky
         return read_skill(args.name)
     project = env("OPORA_PROJECT")
     # `--workspace` jen u plan, task a decide; u ctx je to prostor cizího plánu (plan-of), ne přepis prostoru srdce
-    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "prune", "member", "order", "research", "duel") else None
-    if args.command in ("research", "duel") and not _override["workspace"] and os.environ.get("OPORA_WORKSPACE") == "main":
+    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "prune", "member", "order", "research", "duel", "vault") else None
+    if args.command in ("research", "duel", "vault") and not _override["workspace"] and os.environ.get("OPORA_WORKSPACE") == "main":
         _override["workspace"] = active_workspace()  # schránka v main neexistuje (read-only): výzkum jde do prostoru posledního plánu
     if args.command == "ctx":
         return load_context(args.name, args.project, args.workspace, args.node, args.full)
@@ -1138,6 +1239,9 @@ def run(args):
         return call("GET", "/api/brain/heart/snapshot", query=scope())["snapshot"]
     if args.command == "plan":
         return submit_plan(args)
+    if args.command == "vault":
+        return (vault_ls(args.kind, args.q) if args.action == "ls" else vault_show(args.id) if args.action == "show"
+                else vault_plan(args.node))
     if args.command == "unlink":
         return submit_unlink(args)
     if args.command == "prune":
@@ -1317,6 +1421,14 @@ def parser():
     research.add_argument("--layer", action="append", default=[], choices=LAYERS)
     research.add_argument("--requirement")  # rešerše výslechu: strop ceny na požadavek, cena do spisu
     commands.add_parser("skill").add_argument("name")
+    vault = commands.add_parser("vault").add_subparsers(dest="action", required=True)  # Schránka (PR 8b)
+    listing = vault.add_parser("ls")
+    listing.add_argument("--kind", choices=VAULT_KINDS)
+    listing.add_argument("--q")
+    vault.add_parser("show").add_argument("id")
+    vault.add_parser("plan").add_argument("--node", action="append", default=[], help="ID fragmentu brief")
+    for sub in vault.choices.values():
+        sub.add_argument("--workspace")
     duel = commands.add_parser("duel")
     for flag in ("--subject", "--a", "--b"):
         duel.add_argument(flag, required=True)
