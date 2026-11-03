@@ -5,22 +5,19 @@ import { agentStateFixture } from "@/hub/oporahub-agent-state/logic/fixtures";
 import OporaHubOverview, { PLAN_LENS_TARGET } from "./OporaHubOverview";
 import { LEGACY_LINKS } from "./LegacyLinks";
 
-const render = (tab: "overview" | "agents", state = agentStateFixture()) => renderToStaticMarkup(createElement(OporaHubOverview, {
+const render = (tab: "process" | "agents", state = agentStateFixture()) => renderToStaticMarkup(createElement(OporaHubOverview, {
   agent: { state, etag: '"v1"', error: "", loadedAt: 1 }, tab, onTab: vi.fn(), onOpenCard: vi.fn(), open: vi.fn(), onRefresh: vi.fn() }));
 
 describe("OporaHub overview reads one agent-state document", () => {
-  it("renders the ten-stage loop with data-oh contract attributes", () => {
-    const html = render("overview");
-    expect(html.match(/data-oh-stage="/g)).toHaveLength(10);
-    expect(html).toContain('data-oh-stage="work" data-oh-health="blocking" data-oh-reason="lease_past_deadline"');
-    expect(html).toContain('data-oh-view="overview"');
+  it("carries the root data-oh attributes and has no loop overview any more", () => {
+    const html = render("agents");
     expect(html).toContain(`data-oh-accepted-head="${"a".repeat(40)}"`);
     expect(html).toContain('data-oh-etag="&quot;v1&quot;"');
-    expect(html).toContain('data-oh-decision="dec_1" data-oh-action-id="act_1"');
-    expect(html).toContain('data-oh-gap="pull_request_link"');
+    expect(html).not.toContain("data-oh-stage=");
+    expect(html).not.toContain(">Přehled</button>");
   });
   it("mirrors the exact document in a JSON script for agents", () => {
-    const html = render("overview");
+    const html = render("agents");
     const json = html.match(/<script type="application\/json" id="oh-agent-state">(.*?)<\/script>/)?.[1] ?? "";
     expect(JSON.parse(json)).toEqual(agentStateFixture());
   });
@@ -42,13 +39,13 @@ describe("OporaHub overview reads one agent-state document", () => {
     expect(html).not.toContain("Načítám stav OporaHubu");
   });
   it("keeps every legacy drawer reachable from the footer", () => {
-    const html = render("overview");
+    const html = render("agents");
     for (const link of LEGACY_LINKS) expect(html).toContain(`data-oh-detail="${link.kind}"`);
     expect(html).toContain("Formální podklady");
     expect(html).toContain("Změny obsahu");
   });
   it("puts Lens plánu in the header as a prominent action, not in the legacy footer", () => {
-    const html = render("overview");
+    const html = render("agents");
     const header = html.match(/<header class="oporahub-overview__top">(.*?)<\/header>/)?.[1] ?? "";
     expect(header).toContain('class="oporahub-overview__lens" data-oh-detail="plan-lens"');
     expect(header).toContain("◫ Lens plánu");
@@ -60,7 +57,7 @@ describe("OporaHub overview reads one agent-state document", () => {
   });
   it("opens the plan-lens detail from the header button", () => {
     const open = vi.fn();
-    const tree = OporaHubOverview({ agent: { state: agentStateFixture(), etag: "", error: "", loadedAt: 1 }, tab: "overview",
+    const tree = OporaHubOverview({ agent: { state: agentStateFixture(), etag: "", error: "", loadedAt: 1 }, tab: "agents",
       onTab: vi.fn(), onOpenCard: vi.fn(), open, onRefresh: vi.fn() });
     const find = (node: unknown): { props: { onClick: () => void } } | undefined => {
       if (!node || typeof node !== "object") return undefined;
@@ -75,9 +72,9 @@ describe("OporaHub overview reads one agent-state document", () => {
   });
   it("says it is loading instead of inventing a state", () => {
     const html = renderToStaticMarkup(createElement(OporaHubOverview, { agent: { state: null, etag: "", error: "", loadedAt: 0 },
-      tab: "overview", onTab: vi.fn(), onOpenCard: vi.fn(), open: vi.fn(), onRefresh: vi.fn() }));
+      tab: "agents", onTab: vi.fn(), onOpenCard: vi.fn(), open: vi.fn(), onRefresh: vi.fn() }));
     expect(html).toContain("Načítám stav OporaHubu");
-    expect(html).not.toContain("data-oh-stage");
+    expect(html).not.toContain("data-oh-action-id");
     expect(html).toContain('id="oh-agent-state">null</script>');
   });
 });

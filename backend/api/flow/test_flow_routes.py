@@ -58,3 +58,14 @@ def test_workflow_versions_run_decision_and_log():
     assert c.get("/api/flow/runs/nic").status_code == 404
     assert c.post(f"/api/flow/runs/{run['id']}/advance").json()["status"] == "succeeded"
     assert c.get("/api/flow/stalls").json()["stalls"] == []
+
+
+def test_node_types_expose_ports_for_the_editor():
+    types = {t["type"]: t for t in client().get("/api/flow/node-types").json()["node_types"]}
+    assert types["trigger.manual"]["trigger"] is True
+    agent = {(p["name"], p["direction"]): p for p in types["agent.claude"]["ports"]}
+    assert agent[("model", "in")] == {"name": "model", "direction": "in", "kind": "model", "cardinality": "one",
+                                      "schema": None}
+    assert agent[("tool", "in")]["cardinality"] == "many"
+    assert [p["name"] for p in types["approval.human"]["ports"] if p["direction"] == "out"] == [
+        "approved", "rejected", "timeout"]

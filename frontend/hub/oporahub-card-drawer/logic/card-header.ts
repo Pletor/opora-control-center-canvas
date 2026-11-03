@@ -1,6 +1,6 @@
 import type { AgentAction, AgentCardStage, AgentState, Health, StageId } from "@/hub/oporahub-agent-state/logic/agent-state";
 import { VERB_LABEL } from "@/hub/oporahub-agent-state/logic/actions-model";
-import { healthGlyph, healthLabel, reasonText } from "@/hub/oporahub-agent-state/logic/loop-model";
+import { healthGlyph, healthLabel, reasonText } from "@/hub/oporahub-agent-state/logic/health-labels";
 
 // Hlavička detailu karty: jeden stavový řádek a jedna další akce, obojí jen ze snímku agent-state.
 // Pole `cards[]` z vlny DAG (kind, blockedBy, nextActionId, gate, steps, dod) parser agent-state nehlídá,

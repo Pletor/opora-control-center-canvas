@@ -1,0 +1,28 @@
+/* LOG BĚHU (blok `run-log`)
+   Spodní panel vysoký nejvýš 220 px, jako Logs v n8n: plátno nad ním zůstává hlavní a log se dá sbalit na jediný řádek
+   s počtem událostí. Událost je jeden řádek tabulky se stálými sloupci (pořadí, čas, plátno, uzel, typ, popis), aby se
+   dal číst shora dolů jako záznam toho, co se v běhu dělo. */
+.run-log { display: flex; flex-direction: column; max-height: 220px; flex: none; border-top: 1px solid var(--line); background: var(--surface); font-size: 11px; }
+.run-log--closed { max-height: none; }
+.run-log__head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 5px 10px; border-bottom: 1px solid var(--line); }
+.run-log__toggle { border: 0; background: none; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.run-log__filter { display: flex; gap: 4px; align-items: center; color: var(--ink-muted); }
+.run-log__error { color: var(--danger); }
+.run-log__rows { margin: 0; padding: 0; overflow: auto; list-style: none; }
+.run-log__item { display: block; }
+.run-log__empty { padding: 8px 10px; color: var(--ink-muted); }
+
+/* Řádek s uzlem je tlačítko: klik vybere uzel na plátně a řádky vybraného uzlu dostanou podklad v barvě akcentu, takže
+   log a plátno ukazují totéž. Tón řádku (zelená hotovo, červená chyba, zlatá čekání) je jen proužek vlevo, aby barvy
+   nepřekřičely text. */
+.run-log__row { display: grid; grid-template-columns: 44px 70px 26px 110px 120px 1fr; gap: 8px; width: 100%; min-height: 0; padding: 2px 10px; line-height: 1.5; border: 0; border-left: 3px solid transparent;
+  background: none; color: var(--ink); font: 11px var(--mono, monospace); text-align: left; cursor: pointer; }
+.run-log__row:disabled { cursor: default; }
+.run-log__row:hover:enabled { background: var(--surface-2); }
+.run-log__row--ok { border-left-color: var(--ok); }
+.run-log__row--bad { border-left-color: var(--danger); }
+.run-log__row--wait { border-left-color: var(--gold); }
+.run-log__row--selected { background: var(--accent-soft); }
+.run-log__seq, .run-log__time, .run-log__canvas, .run-log__type { color: var(--ink-muted); }
+.run-log__node { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.run-log__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

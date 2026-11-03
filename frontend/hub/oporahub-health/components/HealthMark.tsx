@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Health } from "@/hub/oporahub-agent-state/logic/agent-state";
-import { healthGlyph, healthLabel } from "@/hub/oporahub-agent-state/logic/loop-model";
+import { healthGlyph, healthLabel } from "@/hub/oporahub-agent-state/logic/health-labels";
 import "../styles/oporahub-health.css";
 
 /** Štítek zdraví: tvar značky + slovo + barva; žádný stav se nerozlišuje jen odstínem. */

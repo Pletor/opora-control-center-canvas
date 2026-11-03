@@ -1,7 +1,7 @@
 // Krátká čeština pro jediný stavový řádek karty. Strojový kód (`stage`, `reason`, pravidlo brány) je smlouva
 // backendu (docs/oporahub-agent-state.md); tady je jen jeho znění do jednoho řádku. Neznámý kód zůstane doslova.
 import type { StageId } from "@/hub/oporahub-agent-state/logic/agent-state";
-import { reasonText } from "@/hub/oporahub-agent-state/logic/loop-model";
+import { reasonText } from "@/hub/oporahub-agent-state/logic/health-labels";
 
 export const STAGE_WORD: Record<StageId, string> = {
   plan: "plán", proposal: "návrh", acceptance: "přijetí", claim: "k převzetí", work: "běh", evidence: "důkazy",

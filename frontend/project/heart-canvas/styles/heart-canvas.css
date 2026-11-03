@@ -1,0 +1,19 @@
+/* PLÁTNO SRDCE (blok `heart-canvas`)
+   Plátno srdce zabírá celou plochu stránky Projekt pod hlavní lištou a dělí ji do řad: hlavička se jménem workflow a
+   přepínačem Editor | Běhy (jako Editor | Executions v n8n, nad jedním grafem), lišta verzí, tělo a v Bězích spodní
+   log. Tělo je řádek: v Bězích vlevo seznam běhů, zbytek patří editoru toku, protože graf je to hlavní, co člověk čte. */
+.heart-canvas { display: flex; flex: 1; flex-direction: column; width: 100%; min-width: 0; height: 100%; min-height: 0; background: var(--bg); color: var(--ink); }
+.heart-canvas__empty { margin: 24px; color: var(--ink-muted); }
+.heart-canvas__head { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.heart-canvas__title { display: flex; gap: 8px; align-items: baseline; margin: 0; font-size: 15px; }
+.heart-canvas__scope { color: var(--ink-muted); font-size: 11px; font-weight: 400; }
+
+/* Přepínač pohledu je dvojice tlačítek uprostřed hlavičky; u Běhů visí počet prostojů, aby člověk viděl, že srdce
+   někde stojí, i když se zrovna dívá do editoru. */
+.heart-canvas__modes { display: flex; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 6px; }
+.heart-canvas__mode { padding: 4px 14px; border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 12px; cursor: pointer; }
+.heart-canvas__mode[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.heart-canvas__notice { color: var(--ok); font-size: 12px; }
+.heart-canvas__error { color: var(--danger); font-size: 12px; }
+.heart-canvas__body { display: flex; flex: 1; min-height: 0; }
+.heart-canvas__editor { flex: 1; min-width: 0; }
