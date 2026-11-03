@@ -217,3 +217,23 @@ def test_plan_section_must_exist_on_the_nearest_page(tmp_path):
         again = send(client, cleared.json()["digest"], {"extend": [item(ui, section="hero")]})
         assert again.status_code == 200, again.text
         assert nodes_of(client)[ui]["card"] == {"layer": "frontend", "section": "hero"}
+
+
+def test_extend_writes_brief_marks_on_an_existing_area_and_sector_only_once(tmp_path):
+    """Srdce dopíše značky Schránky oblasti a sektoru přijatým návrhem grafu `extend`em (návrh stav nenese)."""
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        digest = seed(client)
+        revision = client.get("/api/desktop-v3/state", params=SCOPE).json()["revision"]
+        marks = [{"node": "@a0", "expectedRevision": revision, "briefGroup": "logika"},
+                 {"node": "@s0", "expectedRevision": revision, "briefDiscipline": "be"}]
+        for bad in ({"node": "@a0", "expectedRevision": revision},  # oblast bez obsahu
+                    {"node": "@a0", "expectedRevision": revision, "briefDiscipline": "be"},  # značka jiného druhu
+                    {"node": "@n0", "expectedRevision": revision, "briefGroup": "logika"}):
+            assert send(client, digest, {"extend": [bad]}).status_code == 409
+        result = send(client, digest, {"extend": marks})
+        assert result.status_code == 200, result.text
+        nodes = client.get("/api/desktop-v3/state", params=SCOPE).json()["state"]["nodes"]
+        assert (nodes["a0"]["briefGroup"], nodes["s0"]["briefDiscipline"]) == ("logika", "be")
+        twin = {"ref": "twin", "kind": "area", "parent": None, "name": "Logika", "size": {"w": 600, "h": 400},
+                "briefGroup": "logika"}
+        assert send(client, result.json()["digest"], {"nodes": [twin]}).status_code == 409  # druhá značka v kontejneru
