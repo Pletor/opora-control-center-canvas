@@ -1,8 +1,8 @@
 // Stav stránky Správa webu: uložený dokument s revizí, rozepsaný dokument, uložení s optimistickým zámkem (409 =
-// někdo uložil mezitím) a vygenerovaný `tokens.css` uložené revize pro náhledy. Jediné místo, které na stránce zapisuje.
+// někdo uložil mezitím; 422 u vlastního CSS nese řádek) a vygenerovaný `tokens.css` a `components.css` uložené revize pro náhledy. Jediné místo, které na stránce zapisuje.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/shared/types/logic/types";
-import { fileToBase64, loadSiteAdmin, loadTokensCss, saveSiteAdmin, uploadFont } from "./site-admin-api";
+import { fileToBase64, loadSiteAdmin, loadSiteCss, saveProblem, saveSiteAdmin, uploadFont, type SiteInvalid } from "./site-admin-api";
 import type { SiteDocument } from "./site-document";
 
 export type SiteAdminState = ReturnType<typeof useSiteAdmin>;
@@ -13,6 +13,8 @@ export function useSiteAdmin(project: string) {
   const [saved, setSaved] = useState<SiteDocument | null>(null);
   const [draft, setDraft] = useState<SiteDocument | null>(null);
   const [tokensCss, setTokensCss] = useState("");
+  const [componentsCss, setComponentsCss] = useState("");
+  const [invalid, setInvalid] = useState<SiteInvalid | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -22,14 +24,17 @@ export function useSiteAdmin(project: string) {
   const [uploadError, setUploadError] = useState("");
   const ticket = useRef(0);
 
-  const refreshCss = useCallback(() => { loadTokensCss(project).then(setTokensCss, () => setTokensCss("")); }, [project]);
+  const refreshCss = useCallback(() => {
+    loadSiteCss(project, "tokens.css").then(setTokensCss, () => setTokensCss(""));
+    loadSiteCss(project, "components.css").then(setComponentsCss, () => setComponentsCss(""));
+  }, [project]);
   const load = useCallback(async () => {
     const mine = ++ticket.current;
     setLoading(true); setError("");
     try {
       const view = await loadSiteAdmin(project);
       if (mine !== ticket.current) return;
-      setRevision(view.revision); setSaved(view.document); setDraft(view.document); setConflict(false); setNotes([]);
+      setRevision(view.revision); setSaved(view.document); setDraft(view.document); setConflict(false); setNotes([]); setInvalid(null);
       refreshCss();
     } catch (failure) { if (mine === ticket.current) setError(message(failure)); }
     finally { if (mine === ticket.current) setLoading(false); }
@@ -41,10 +46,11 @@ export function useSiteAdmin(project: string) {
     setSaving(true); setError("");
     try {
       const result = await saveSiteAdmin(project, over, draft);
-      setRevision(result.revision); setSaved(result.document); setDraft(result.document); setNotes(result.notes); setConflict(false);
+      setRevision(result.revision); setSaved(result.document); setDraft(result.document); setNotes(result.notes); setConflict(false); setInvalid(null);
       refreshCss();
     } catch (failure) {
-      if (failure instanceof ApiError && failure.status === 409) setConflict(true); else setError(message(failure));
+      if (failure instanceof ApiError && failure.status === 409) setConflict(true);
+      else { const problem = saveProblem(failure); setError(problem.message); setInvalid(problem.invalid); }
     } finally { setSaving(false); }
   }
   /** Konflikt: uložit moje rozepsané nad novou revizí (přepíše cizí změnu), nebo ji načíst a moje zahodit. */
@@ -61,6 +67,6 @@ export function useSiteAdmin(project: string) {
     finally { setUploading(false); }
   }
   const change = (update: (document: SiteDocument) => SiteDocument) => setDraft((current) => current && update(current));
-  return { revision, saved, draft, dirty: draft !== saved, tokensCss, loading, saving, error, conflict, notes, uploading, uploadError,
+  return { revision, saved, draft, dirty: draft !== saved, tokensCss, componentsCss, invalid, loading, saving, error, conflict, notes, uploading, uploadError,
     change, save: () => save(), overwrite, reload: load, upload, dismissNotes: () => setNotes([]) };
 }

@@ -1,0 +1,78 @@
+/* TLAČÍTKA WEBU (blok `site-buttons`)
+   Shora dolů jako v `image.png`: řada variant, pod ní karta s náhledem vlevo nahoře a stylem varianty vedle,
+   záložky stavů (Tlačítko, Hover, Active, Focus, Disabled) a pole vybraného stavu. Pod kartou vlastní CSS a nakonec
+   škála velikostí, která platí pro všechny varianty. Člověk tak čte „jaké tlačítko → jak vypadá → v jakém stavu“. */
+.site-buttons { display: flex; flex-direction: column; gap: var(--sp-4); }
+.site-buttons__hint { margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }
+.site-buttons__problem { margin: 0; font-size: var(--fs-1); color: var(--danger); }
+
+/* Varianty jsou štítky se jménem a třídou, kterou použije AI (`ds-btn--primary`); vybraný štítek má akcentní rámeček.
+   Prázdný systém místo štítků ukáže jednu velkou akci „Začít z předvoleb“, protože bez tlačítek se nedá nic ladit. */
+.site-buttons__variants { display: flex; flex-direction: column; gap: var(--sp-2); }
+.site-buttons__empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-4); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
+.site-buttons__primary-action { padding: 8px 14px; border: 1px solid var(--accent-line); border-radius: var(--radius); background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 600; cursor: pointer; }
+.site-buttons__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.site-buttons__chip { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.site-buttons__chip--on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.site-buttons__chip-name { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 10px; border: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.site-buttons__chip-class { font-size: 10.5px; font-weight: 400; color: var(--ink-muted); }
+.site-buttons__icon { width: 26px; height: 26px; padding: 0; border: 1px solid transparent; border-radius: var(--radius); background: transparent; color: var(--ink-muted); font: inherit; cursor: pointer; }
+.site-buttons__icon:hover:not(:disabled) { border-color: var(--line); color: var(--ink); }
+.site-buttons__new { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.site-buttons__new-name { width: 180px; }
+.site-buttons__add { padding: 4px 10px; border: 1px solid var(--accent-line); border-radius: var(--radius); background: var(--accent-soft); color: var(--ink); font: inherit; font-size: var(--fs-2); cursor: pointer; align-self: flex-start; }
+.site-buttons__add:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Karta varianty: bílá plocha s jemným stínem jako v `image.png`, náhled vlevo a styl varianty vpravo vedle sebe. */
+.site-buttons__editor { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.site-buttons__top { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr); gap: var(--sp-4); padding: var(--sp-4); }
+.site-buttons__meta { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+/* Náhled je výřez webu s tokeny projektu: nahoře velké tlačítko v právě upravovaném stavu, pod ním velikosti
+   (dají se najet myší a projet tabulátorem, takže je vidět skutečný hover, focus i animace) a řada všech stavů
+   vedle sebe, aby šlo porovnat, jestli Hover a Disabled drží rodinu. */
+.site-buttons__preview { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.site-buttons__stage { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--radius); background: #fff; color: #1a1a1a; }
+.site-buttons__hero { display: flex; min-height: 64px; align-items: center; }
+.site-buttons__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.site-buttons__state-sample { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; }
+.site-buttons__state-name { font-size: 11px; color: #555; }
+.site-buttons__preview-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.site-buttons__toggle { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-1); color: var(--ink-2); cursor: pointer; }
+
+/* Záložky stavů leží na spodní hraně karty jako v `image.png`; vybraná se spojí s polem pod sebou. */
+.site-buttons__tabs { display: flex; gap: 2px; padding: 0 var(--sp-4); border-bottom: 1px solid var(--line); }
+.site-buttons__tab { margin-bottom: -1px; padding: 8px 16px; border: 1px solid transparent; border-radius: var(--radius) var(--radius) 0 0; background: transparent; color: var(--ink-muted); font: inherit; cursor: pointer; }
+.site-buttons__tab--on { border-color: var(--line); border-bottom-color: var(--surface); background: var(--surface); color: var(--ink); font-weight: 600; }
+.site-buttons__panel { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); }
+
+/* Pole stavu jdou po třech; nadpisy skupin (Font, Rámeček, Přechod) přes celou šířku dělí mřížku na kapitoly. */
+.site-buttons__fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--sp-3) var(--sp-4); }
+.site-buttons__subhead { grid-column: 1 / -1; margin: var(--sp-2) 0 0; padding-top: var(--sp-2); border-top: 1px solid var(--line); font-size: var(--fs-2); }
+.site-buttons__motion { display: flex; flex-wrap: wrap; gap: 4px var(--sp-3); }
+.site-buttons__check { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-1); font-family: var(--mono, ui-monospace, monospace); }
+
+/* Přechod: pruh nahoře ukazuje výsledek, pod ním úhel a zastávky; zastávka je barva, poloha v % a odebrání. */
+.site-buttons__gradient { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.site-buttons__gradient-bar { display: block; height: 28px; border-radius: var(--radius); border: 1px solid var(--line); }
+.site-buttons__gradient-angle { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-1); }
+.site-buttons__stop { display: grid; grid-template-columns: minmax(180px, 1fr) 110px auto; gap: var(--sp-2); align-items: end; }
+.site-buttons__stop-position { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-1); font-weight: 600; color: var(--ink-2); }
+
+/* Vlastní CSS a velikosti jsou samostatné karty pod editorem. Kód má vlevo čísla řádků; řádek, který odmítl náhled
+   nebo server (422), zčervená, aby člověk chybu našel bez počítání. */
+.site-buttons__group { margin: 0; padding: var(--sp-3) var(--sp-4) var(--sp-4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); display: flex; flex-direction: column; gap: var(--sp-2); }
+.site-buttons__legend { padding: 0 4px; font-weight: 600; font-size: var(--fs-3); }
+.site-buttons__code { display: flex; border: 1px solid var(--line); border-radius: var(--radius); background: var(--code-bg, var(--field)); overflow: hidden; }
+.site-buttons__gutter { display: flex; flex-direction: column; padding: 8px 0; min-width: 36px; border-right: 1px solid var(--line); background: var(--surface-2); overflow: hidden; }
+.site-buttons__line { padding: 0 6px; text-align: right; font: 12px/18px var(--mono, ui-monospace, monospace); color: var(--ink-muted); }
+.site-buttons__line--bad { background: var(--danger-soft); color: var(--danger); font-weight: 700; }
+.site-buttons__textarea { flex: 1; min-width: 0; padding: 8px; border: 0; background: transparent; color: var(--ink); font: 12px/18px var(--mono, ui-monospace, monospace); resize: vertical; white-space: pre; overflow-x: auto; }
+.site-buttons__textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.site-buttons__notes { margin: 0; padding-left: 1.2em; font-size: var(--fs-1); color: var(--warn); }
+.site-buttons__note { margin: 2px 0; }
+.site-buttons__sizes { border-collapse: collapse; font-size: var(--fs-1); }
+.site-buttons__th { padding: 4px 8px; text-align: left; font-weight: 600; color: var(--ink-muted); }
+.site-buttons__td { padding: 3px 6px; }
+.site-buttons__size-input { width: 110px; }
+@media (max-width: 1000px) { .site-buttons__top { grid-template-columns: 1fr; } }

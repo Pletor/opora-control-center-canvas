@@ -1,0 +1,25 @@
+/* POLE NASTAVENÍ WEBU (blok `site-fields`): společná pole Vzhledu a Tlačítek
+   Podle `image.png` má každé pole popisek nad sebou a pod ním jeden ovládací prvek stejné výšky, takže se pole
+   řadí do mřížky po třech a oko jede po řádcích „Styl – Pozadí – Barva písma“. Prázdné pole ukazuje šedě, co platí
+   místo něj (zděděnou hodnotu z výchozího stavu), aby člověk věděl, že nic nepřepisuje. */
+.site-fields__field { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: var(--fs-2); }
+.site-fields__field--wide { grid-column: 1 / -1; }
+.site-fields__label { font-size: var(--fs-1); font-weight: 600; color: var(--ink-2); }
+.site-fields__hint { font-size: 11px; color: var(--ink-muted); }
+.site-fields__input { min-height: 34px; padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font: inherit; font-size: var(--fs-2); box-sizing: border-box; }
+.site-fields__input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.site-fields__input::placeholder { color: var(--ink-muted); }
+.site-fields__input--mono { font-family: var(--mono, ui-monospace, monospace); }
+.site-fields__input--bare { flex: 1; min-width: 0; border: 0; background: transparent; }
+
+/* Barva je jeden rámeček: vlevo čtvereček s výběrem (jako zelený vzorek v `image.png`), vpravo hodnota textem.
+   Do textu jde napsat i alias `{token}`, nabídka aliasů vychází z Colors, aby tlačítko i stránka mluvily tokeny. */
+.site-fields__color { display: flex; align-items: center; gap: 6px; padding-left: 4px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); }
+.site-fields__picker { width: 28px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: transparent; cursor: pointer; flex-shrink: 0; }
+
+/* Segmenty (zaoblení rohů, šířka) stojí těsně vedle sebe jako jeden přepínač; vybraný je plný akcent, jak modrý
+   prostřední roh v `image.png`. Druhé kliknutí volbu zruší a platí zase zděděná hodnota. */
+.site-fields__segments { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; align-self: flex-start; }
+.site-fields__segment { min-width: 44px; min-height: 34px; padding: 4px 10px; border: 0; border-right: 1px solid var(--line); background: var(--field); color: var(--ink-2); font: inherit; font-size: var(--fs-1); cursor: pointer; }
+.site-fields__segment:last-child { border-right: 0; }
+.site-fields__segment--on { background: var(--accent); color: var(--accent-ink); }

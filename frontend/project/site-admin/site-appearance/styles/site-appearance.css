@@ -1,0 +1,26 @@
+/* VZHLED WEBU (blok `site-appearance`)
+   Vlevo formulář po skupinách (Pozadí, Písmo, Barvy textu, Nadpisy, Odrážky, Pokročilé), vpravo náhled stránky,
+   který zůstává na místě, když se formulář posouvá. Člověk tak mění pole a hned vidí web, ne čísla. Pod 1100 px
+   se náhled přesune pod formulář. */
+.site-appearance { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 440px); gap: var(--sp-5); align-items: start; }
+.site-appearance__form { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+
+/* Skupina polí je karta s nadpisem; pole uvnitř jdou po třech jako v `image.png`, aby se řádek dal přečíst naráz. */
+.site-appearance__group, .site-appearance__advanced { margin: 0; padding: var(--sp-3) var(--sp-4) var(--sp-4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.site-appearance__legend { padding: 0 4px; font-weight: 600; font-size: var(--fs-3); }
+.site-appearance__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-3) var(--sp-4); }
+.site-appearance__spacer { display: block; }
+.site-appearance__summary { padding: var(--sp-1, 4px) 0 var(--sp-3); font-weight: 600; cursor: pointer; }
+
+/* Nadpisy jsou tabulka: šest řádků H1–H6 a čtyři sloupce, protože se porovnávají mezi sebou (H2 menší než H1). */
+.site-appearance__table { width: 100%; border-collapse: collapse; font-size: var(--fs-1); }
+.site-appearance__th { padding: 4px 6px; text-align: left; font-weight: 600; color: var(--ink-muted); }
+.site-appearance__td { padding: 3px 6px; }
+.site-appearance__level { width: 64px; padding: 3px 6px; text-align: left; color: var(--ink); }
+.site-appearance__cell { width: 100%; }
+
+/* Náhled je výřez webu: vlastní pozadí, písmo a barvy z tokenů projektu (ne OPORY), lepí se nahoru panelu. */
+.site-appearance__preview { position: sticky; top: 0; max-height: calc(100vh - 160px); overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.site-appearance__page { min-height: 100%; padding: var(--sp-4); background: #fff; color: #1a1a1a; }
+.site-appearance__inverse { margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4); background: #1a1a1a; color: #fff; }
+@media (max-width: 1100px) { .site-appearance { grid-template-columns: 1fr; } .site-appearance__preview { position: static; max-height: none; } }

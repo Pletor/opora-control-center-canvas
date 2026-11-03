@@ -3,6 +3,7 @@ import "../styles/ds-files.css";
 
 const FILES: { name: SiteFile; what: string }[] = [
   { name: "tokens.css", what: "Proměnné všech témat, třídy typografických stylů a @font-face. Web ho načte jako první stylesheet." },
+  { name: "components.css", what: "Vzhled stránky (pozadí, nadpisy, odkazy, seznamy, kontejner), tlačítka ds-btn a sanitizované vlastní CSS. Načítá se po tokens.css." },
   { name: "tokens.json", what: "Tokeny v gramatice formátu Design System pro nástroje a kontrolu." },
   { name: "README.md", what: "Brand book a generovaná část „Jak systém použít“. Dělník ho čte jako první." },
 ];
