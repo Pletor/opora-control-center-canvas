@@ -55,9 +55,11 @@ python "<SKILL_DIR>/scripts/opora_gate.py" tell "Záměr člověka doslova"
 | `/api/gate/kinds` | kdokoli na loopbacku | `GET` → druhy lístků pro roli volajícího (bez tokenu a s tokenem pracovníka druhy pracovníka) |
 | `/api/gate/inbox` | token pracovníka | `GET ?after=<answeredSeq>&wait=0..30` → `{tickets, last}` (long-poll) |
 | `/api/gate/tickets/{ticket_id}` | token (vlastní lístek) nebo člověk s `?project=` | `GET` lístek |
-| `/api/brain/tickets` | čtení kdokoli | `GET ?project&workspace&status?` → `{tickets}` (tickety práce prostoru); `/api/brain/tickets/{id}?project=` jeden |
+| `/api/brain/tickets` | čtení kdokoli | `GET ?project&workspace&status?` → `{tickets}` (tickety práce prostoru); `/api/brain/tickets/{ticket_id}?project=` jeden (404 neznámý) |
 | `/api/brain/heart/messages` | člověk nebo token pracovníka téhož projektu | `POST {project, workspace, text}` → `{queued, pending}` (relé `tell`; 401 neplatný token, 403 `gate_scope`, 409 `gate_off`) |
 | `/api/gate/tickets/{ticket_id}/answer` | jen člověk | `POST {answer}` na čekající `ask` / `change` |
+| `/api/brain/intake-setting` | čtení kdokoli, zápis jen člověk | `GET ?project=`, `POST` povolení a denní strop Jevu vstupní brány (agent jen čte) |
+| `/api/brain/brief-setting` | čtení kdokoli, zápis člověk nebo agent při plné autonomii | `GET ?project=`, `POST` výslech srdce zapnutý a strop rešerše na požadavek |
 | `/api/brain/gate-setting` | čtení kdokoli, zápis jen člověk | `GET ?project=`, `POST {project, enabled}` |
 
 ## MCP místo `opora_gate.py` (H1d)
