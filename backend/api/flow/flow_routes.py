@@ -1,25 +1,32 @@
 """API engine toků (`backend/flow/`, kontrakt `docs/navrhy/2026-11-03-novy-zaklad.md` §3.1).
 
 Tenký router: validace těla a volání modulu. Data leží v registry.sqlite, každé volání drží `registry_lock`.
+Záměr stránky (`docs/navrhy/2026-11-03-platno-2-zamer-stranky.md` §2–§3): `approve` / `reject` jen člověk
+(doklad UI, `request.state.actor == "human"`), 409 s `code` (`approval_required`, `not_runnable`, `owner_taken`).
 """
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from backend.canvas.activity_log import require_human
 from backend.flow import interpreter, workflows
 from backend.flow.graph_check import FlowInvalid
-from backend.flow.node_types import NODE_TYPES
+from backend.flow.node_types import catalog
 from backend.flow.run_log import read_log
 from backend.flow.stalls import list_stalls
 from backend.flow.workflows import FlowConflict, FlowNotFound
 
+Kind = Literal["heart", "page_intent", "brain_workflow"]
+
 
 class WorkflowIn(BaseModel):
-    kind: Literal["heart", "page_intent", "brain_workflow"]
+    kind: Kind
     name: str = Field(min_length=1, max_length=200)
     project_id: str | None = Field(default=None, max_length=64)
+    owner_ref: str | None = Field(default=None, max_length=200)
 
 
 class DraftIn(BaseModel):
@@ -36,6 +43,10 @@ class RunIn(BaseModel):
     node_id: str | None = None
 
 
+class RejectIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+
+
 class DecisionIn(BaseModel):
     decision: Literal["approved", "rejected"]
     actor: str = Field(default="human", min_length=1, max_length=120)
@@ -45,34 +56,38 @@ def create_flow_router(service):
     router = APIRouter(prefix="/api/flow", tags=["flow"])
 
     def call(action, *args):
-        """404 neznámé ID, 409 nedovolený přechod, 422 neplatný graf nebo požadavek."""
+        """404 neznámé ID, 409 nedovolený přechod (s `code` jako `{error, code}`), 422 neplatný graf nebo požadavek."""
         try:
             with service.registry_lock:
                 return action(service.db, *args)
         except FlowNotFound as error:
             raise HTTPException(404, str(error)) from error
         except FlowConflict as error:
+            if error.code:
+                return JSONResponse({"error": str(error), "code": error.code}, status_code=409)
             raise HTTPException(409, str(error)) from error
         except FlowInvalid as error:
             raise HTTPException(422, str(error)) from error
 
     @router.get("/node-types")
-    def node_type_list():
-        """Registr typů uzlů pro editor: porty s `kind` a `cardinality` (pravidla vazeb, paleta podle portu)."""
+    def node_type_list(kind: Kind | None = None):
+        """Typy uzlů pro editor podle druhu workflow (`?kind=page_intent` = katalog záměru, jinak plátno 1):
+        porty s `kind` a `cardinality` (pravidla vazeb, paleta podle portu) a `params` uzlu."""
         return {"node_types": [
-            {"type": t.type, "version": t.version, "trigger": t.trigger,
+            {"type": t.type, "version": t.version, "trigger": t.trigger, "params": t.params,
              "ports": [{"name": p.name, "direction": p.direction, "kind": p.kind, "cardinality": p.cardinality,
                         "schema": p.schema} for p in t.ports]}
-            for t in NODE_TYPES.values()
+            for t in catalog(kind).values()
         ]}
 
     @router.get("/workflows")
-    def workflow_list(project: str | None = Query(default=None, max_length=64)):
-        return {"workflows": call(workflows.list_workflows, project)}
+    def workflow_list(project: str | None = Query(default=None, max_length=64), kind: Kind | None = None,
+                      owner_ref: str | None = Query(default=None, max_length=200)):
+        return {"workflows": call(workflows.list_workflows, project, kind, owner_ref)}
 
     @router.post("/workflows")
     def workflow_create(body: WorkflowIn):
-        return call(workflows.create_workflow, body.kind, body.name, body.project_id)
+        return call(workflows.create_workflow, body.kind, body.name, body.project_id, body.owner_ref)
 
     @router.get("/workflows/{workflow_id}/versions")
     def version_list(workflow_id: str):
@@ -89,6 +104,17 @@ def create_flow_router(service):
     @router.post("/versions/{version_id}/activate")
     def version_activate(version_id: str):
         return call(workflows.activate, version_id)
+
+    @router.post("/versions/{version_id}/approve")
+    def version_approve(version_id: str, request: Request):
+        """Schválení kandidáta záměru stránky: jen člověk v UI (token srdce či dělníka dostane 403)."""
+        require_human(getattr(request.state, "actor", None), "Záměr stránky schvaluje jen člověk v UI.")
+        return call(workflows.approve, version_id, "human")
+
+    @router.post("/versions/{version_id}/reject")
+    def version_reject(version_id: str, body: RejectIn, request: Request):
+        require_human(getattr(request.state, "actor", None), "Záměr stránky zamítá jen člověk v UI.")
+        return call(workflows.reject, version_id, body.reason, "human")
 
     @router.post("/workflows/{workflow_id}/rollback")
     def version_rollback(workflow_id: str):

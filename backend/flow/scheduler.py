@@ -20,14 +20,18 @@ DONE = ("succeeded", "failed", "cancelled")
 
 
 def due_runs(db, now=None):
-    """ID neukončených běhů, které potřebují `advance`: prostoj (`list_stalls`) nebo zařazený nevykonaný uzel."""
+    """ID neukončených běhů, které potřebují `advance`: prostoj (`list_stalls`) nebo zařazený nevykonaný uzel.
+    Záměr stránky (`page_intent`) se nespouští, plánovač ho přeskočí."""
     stalled = {row["run_id"] for row in list_stalls(db, now or datetime.now(UTC))}
     queued = {row[0] for row in db.execute("SELECT DISTINCT run_id FROM flow_node_runs WHERE status='queued'")}
     ids = sorted(stalled | queued)
     if not ids:
         return []
     marks = ",".join("?" * len(ids))
-    rows = db.execute(f"SELECT id FROM flow_runs WHERE id IN ({marks}) AND status NOT IN {DONE}", ids).fetchall()
+    rows = db.execute(
+        f"SELECT r.id FROM flow_runs r JOIN flow_workflow_versions v ON v.id=r.workflow_version_id "
+        f"JOIN flow_workflows w ON w.id=v.workflow_id "
+        f"WHERE r.id IN ({marks}) AND r.status NOT IN {DONE} AND w.kind!='page_intent'", ids).fetchall()
     return sorted(row["id"] for row in rows)
 
 

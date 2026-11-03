@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from database.schema.project_schema import REGISTRY_SCHEMA
+from database.schema.project_schema import REGISTRY_SCHEMA, ensure_flow_owner_ref
 
 
 @pytest.fixture
@@ -10,6 +10,7 @@ def db():
     connection = sqlite3.connect(":memory:", check_same_thread=False)
     connection.row_factory = sqlite3.Row
     connection.executescript(REGISTRY_SCHEMA)
+    ensure_flow_owner_ref(connection)
     yield connection
     connection.close()
 

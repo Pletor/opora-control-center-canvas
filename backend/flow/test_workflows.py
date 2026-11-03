@@ -5,9 +5,10 @@ import pytest
 from backend.flow.conftest import edge, node
 from backend.flow.graph_check import FlowInvalid
 from backend.flow.workflows import (
-    FlowConflict, FlowNotFound, activate, create_draft, create_workflow, get_version, list_workflows, rollback,
-    set_candidate,
+    FlowConflict, FlowNotFound, activate, approve, create_draft, create_workflow, get_version, list_workflows, reject,
+    rollback, set_candidate,
 )
+from database.schema.project_schema import ensure_flow_owner_ref
 
 GRAPH = {"nodes": [node("t", "trigger.manual"), node("e", "debug.echo")], "edges": [edge("1", "t", "e")]}
 
@@ -21,7 +22,7 @@ def promote(db, wid, graph=GRAPH):
 def test_shared_and_project_workflows(db):
     db.execute("INSERT INTO projects(id,name) VALUES('p','P')")
     shared = create_workflow(db, "heart", "Srdce")
-    own = create_workflow(db, "page_intent", "Záměr", project_id="p")
+    own = create_workflow(db, "page_intent", "Záměr", project_id="p", owner_ref="opora:page:n1")
     assert shared["project_id"] is None
     assert {w["id"] for w in list_workflows(db, "p")} == {shared["id"], own["id"]}
     assert [w["id"] for w in list_workflows(db, "jiny")] == [shared["id"]]
@@ -60,3 +61,55 @@ def test_draft_rules_and_immutability(db):
     set_candidate(db, draft["id"])
     with pytest.raises(FlowConflict):
         set_candidate(db, draft["id"])
+
+
+INTENT = {"nodes": [node("in", "intent.entry"), node("ok", "intent.done")], "edges": [edge("1", "in", "ok")]}
+
+
+def test_owner_ref_rules_and_lookup(db):
+    db.execute("INSERT INTO projects(id,name) VALUES('p','P')")
+    for kind, project, owner in (("page_intent", "p", None), ("page_intent", "p", "stránka"),
+                                 ("page_intent", None, "opora:page:n1"), ("heart", None, "opora:page:n1")):
+        with pytest.raises(FlowInvalid):
+            create_workflow(db, kind, "X", project_id=project, owner_ref=owner)
+    page = create_workflow(db, "page_intent", "Záměr", project_id="p", owner_ref="opora:page:n1")
+    with pytest.raises(FlowConflict) as taken:
+        create_workflow(db, "page_intent", "Jiný", project_id="p", owner_ref="opora:page:n1")
+    assert taken.value.code == "owner_taken"
+    create_workflow(db, "heart", "Srdce")
+    create_workflow(db, "heart", "Srdce 2")  # NULL owner_ref jedinečnost nehlídá
+    assert [w["id"] for w in list_workflows(db, "p", "page_intent", "opora:page:n1")] == [page["id"]]
+    assert list_workflows(db, "p", owner_ref="opora:page:n2") == []
+
+
+def test_page_intent_uses_its_catalog_and_human_approval(db):
+    db.execute("INSERT INTO projects(id,name) VALUES('p','P')")
+    wid = create_workflow(db, "page_intent", "Záměr", project_id="p", owner_ref="opora:page:n1")["id"]
+    with pytest.raises(FlowInvalid):
+        create_draft(db, wid, GRAPH)  # typy plátna 1 do záměru nepatří
+    v1 = set_candidate(db, create_draft(db, wid, INTENT)["id"])
+    with pytest.raises(FlowConflict) as refused:
+        activate(db, v1["id"])
+    assert refused.value.code == "approval_required"
+    assert approve(db, v1["id"], "human")["status"] == "active"
+    v2 = set_candidate(db, create_draft(db, wid, INTENT)["id"])
+    with pytest.raises(FlowInvalid):
+        reject(db, v2["id"], "  ", "human")
+    assert reject(db, v2["id"], "chybí mapa", "human")["status"] == "retired"
+    with pytest.raises(FlowConflict):
+        reject(db, v2["id"], "znovu", "human")
+    approve(db, set_candidate(db, create_draft(db, wid, INTENT)["id"])["id"], "human")
+    assert rollback(db, wid)["id"] == v1["id"]  # zamítnutý v2 aktivní nikdy nebyl, návrat ho přeskočí
+    heart = create_workflow(db, "heart", "Srdce")["id"]
+    with pytest.raises(FlowConflict):
+        approve(db, set_candidate(db, create_draft(db, heart, GRAPH)["id"])["id"], "human")
+
+
+def test_owner_ref_migration_on_old_registry():
+    old = sqlite3.connect(":memory:")
+    old.execute("CREATE TABLE flow_workflows(id TEXT PRIMARY KEY, kind TEXT, project_id TEXT, name TEXT, "
+                "created_at TEXT)")
+    ensure_flow_owner_ref(old)
+    ensure_flow_owner_ref(old)
+    assert "owner_ref" in {row[1] for row in old.execute("PRAGMA table_info(flow_workflows)")}
+    assert old.execute("SELECT 1 FROM sqlite_master WHERE name='flow_workflows_owner'").fetchone()

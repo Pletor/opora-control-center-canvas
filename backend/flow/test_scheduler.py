@@ -16,7 +16,7 @@ APPROVAL = {"nodes": [node("t", "trigger.manual"), node("a", "approval.human", p
 
 
 def test_due_runs_and_run_once_advance_expired_and_queued_runs(db):
-    vid = create_draft(db, create_workflow(db, "page_intent", "Záměr")["id"], APPROVAL)["id"]
+    vid = create_draft(db, create_workflow(db, "heart", "Tok")["id"], APPROVAL)["id"]
     waiting = start_run(db, vid, {"payload": "x"}, now=NOW)["id"]
     stuck = start_run(db, vid, {"payload": "y"}, now=NOW)["id"]
     with db:  # pád mezi zápisy: zařazený uzel, který nikdo nevykonal
@@ -44,3 +44,16 @@ def test_broken_hook_is_dropped_and_scheduler_starts(db):
         assert scheduler.hooks == [] and scheduler.thread.is_alive()
     finally:
         scheduler.close()
+
+
+def test_page_intent_run_is_skipped(db):
+    """Záměr stránky se nespouští; i zbloudilý zařazený uzel jeho verze plánovač přeskočí."""
+    db.execute("INSERT INTO projects(id,name) VALUES('p','P')")
+    wid = create_workflow(db, "page_intent", "Záměr", project_id="p", owner_ref="opora:page:n1")["id"]
+    graph = {"nodes": [node("in", "intent.entry"), node("ok", "intent.done")], "edges": [edge("1", "in", "ok")]}
+    vid = create_draft(db, wid, graph)["id"]
+    with db:
+        append(db, "r", None, "run.created", {"workflow_version_id": vid, "trigger": {}}, moment=NOW)
+        append(db, "r", "nr", "node.queued", {"node_id": "in", "attempt": 1, "idempotency_key": "k", "input": None},
+               moment=NOW)
+    assert due_runs(db, NOW) == []

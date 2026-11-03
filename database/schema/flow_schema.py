@@ -2,6 +2,9 @@
 
 Workflow je sdílené (`project_id` NULL) nebo patří projektu, proto žije v registru vedle `projects`.
 Verze je neměnná (mění se jen `status`), log je append-only; `flow_runs` a `flow_node_runs` jsou projekce logu.
+Vlastník workflow `owner_ref` (`opora:page:<nodeId>` u `page_intent`, `docs/navrhy/2026-11-03-platno-2-zamer-stranky.md`
+§2) je na `(project_id, kind, owner_ref)` jedinečný; index zakládá `project_schema.ensure_flow_owner_ref`, protože
+starší registr sloupec teprve dostane.
 """
 
 TABLES = ("flow_workflows", "flow_workflow_versions", "flow_runs", "flow_node_runs", "flow_log_events")
@@ -9,7 +12,7 @@ TABLES = ("flow_workflows", "flow_workflow_versions", "flow_runs", "flow_node_ru
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS flow_workflows(
   id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('heart','page_intent','brain_workflow')),
-  project_id TEXT, name TEXT NOT NULL, created_at TEXT NOT NULL);
+  project_id TEXT, name TEXT NOT NULL, created_at TEXT NOT NULL, owner_ref TEXT);
 CREATE TABLE IF NOT EXISTS flow_workflow_versions(
   id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL REFERENCES flow_workflows(id), n INTEGER NOT NULL,
   graph TEXT NOT NULL, hash TEXT NOT NULL, parent_version_id TEXT,
@@ -44,4 +47,9 @@ CREATE TRIGGER IF NOT EXISTS flow_log_events_update BEFORE UPDATE ON flow_log_ev
   BEGIN SELECT RAISE(ABORT,'Log toků je append-only'); END;
 CREATE TRIGGER IF NOT EXISTS flow_log_events_delete BEFORE DELETE ON flow_log_events
   BEGIN SELECT RAISE(ABORT,'Log toků je append-only'); END;
+"""
+
+OWNER_INDEX = """
+CREATE UNIQUE INDEX IF NOT EXISTS flow_workflows_owner ON flow_workflows(project_id, kind, owner_ref)
+  WHERE owner_ref IS NOT NULL;
 """

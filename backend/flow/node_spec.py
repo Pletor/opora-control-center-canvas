@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-PORT_KINDS = ("main", "model", "memory", "tool", "subagent", "approval")
+PORT_KINDS = ("main", "model", "memory", "tool", "subagent", "approval", "data")  # data: tok dat záměru stránky
 
 
 @dataclass(frozen=True)
@@ -22,6 +22,7 @@ class NodeType:
     run: object
     trigger: bool = False
     detached: bool = False  # běží mimo zámek: `running` s čerstvým heartbeatem = „běží jinde“, ne „přerušeno“
+    params: dict | None = None  # parametry uzlu pro editor ({jméno: popis}); katalog záměru je jen popisný
 
     def port(self, name, direction):
         return next((p for p in self.ports if p.name == name and p.direction == direction), None)
