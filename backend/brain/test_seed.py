@@ -1,4 +1,4 @@
-"""Seed Brainu: `opora-heart` z repa, `ponytail` z instalace (nebo přeskočený), idempotentní a bez přepisu."""
+"""Seed Brainu: `opora-heart` a `opora-control-center` z repa, `ponytail` z instalace (nebo přeskočený), idempotentní a bez přepisu."""
 import json
 import sqlite3
 
@@ -28,18 +28,30 @@ def fake_ponytail(cache):
     return cache
 
 
-def test_seed_without_ponytail_creates_heart_skills_once(tmp_path):
+def test_seed_without_ponytail_creates_repo_skills_once(tmp_path):
     conn = db()
     seed.ensure(conn, tmp_path, ponytail_cache=tmp_path / "chybi")
     ids = [artifact["id"] for artifact in registry.list_artifacts(conn)]
-    assert ids == ["opora:brain:skill:heart", "opora:brain:skill:vyslech"]
+    assert ids == ["opora:brain:skill:opora-control-center", "opora:brain:skill:heart", "opora:brain:skill:vyslech"]
     heart = registry.active(conn, "opora:brain:skill:heart")
     expected = (seed.SEED_DIR / "opora-heart" / "skills" / "heart" / "SKILL.md").read_text(encoding="utf-8")
     assert Store(tmp_path).read("opora-heart", heart["content_ref"], heart["version"]) == expected
     count = conn.execute("SELECT COUNT(*) FROM brain_artifact_versions").fetchone()[0]
     seed.ensure(conn, tmp_path, ponytail_cache=tmp_path / "chybi")
-    assert conn.execute("SELECT COUNT(*) FROM brain_artifact_versions").fetchone()[0] == count == 2
+    assert conn.execute("SELECT COUNT(*) FROM brain_artifact_versions").fetchone()[0] == count == 3
     assert registry.active(conn, "opora:brain:skill:heart") == heart
+
+
+def test_seed_brings_control_center_plugin_with_scripts_but_no_test_leftovers(tmp_path):
+    conn, store = db(), Store(tmp_path)
+    source = seed.SEED_DIR / "opora-control-center" / "skills" / "opora-control-center"
+    (source / "scripts" / "__pycache__").mkdir(exist_ok=True)  # stopa běhu testů skriptů
+    seed.ensure(conn, tmp_path, ponytail_cache=tmp_path / "chybi")
+    active = registry.active(conn, "opora:brain:skill:opora-control-center")
+    assert (active["plugin"], active["content_ref"]) == ("opora-control-center", "skills/opora-control-center/SKILL.md")
+    assert store.read("opora-control-center", "skills/opora-control-center/scripts/opora_gate.py", active["version"])         == (source / "scripts" / "opora_gate.py").read_text(encoding="utf-8")
+    assert json.loads(store.read("opora-control-center", ".claude-plugin/plugin.json", active["version"]))["name"]         == "opora-control-center"
+    assert not any("__pycache__" in rel for rel in seed._files(seed.SEED_DIR / "opora-control-center"))
 
 
 def test_seed_keeps_a_brain_that_already_moved_on(tmp_path):
@@ -74,7 +86,7 @@ def test_seed_fills_missing_evals_without_a_new_artifact_version(tmp_path):
     assert filled != old
     assert store.read("opora-heart", "evals/ticket-s-kriteriem/prompt.md", filled) == \
         files["evals/ticket-s-kriteriem/prompt.md"]
-    assert conn.execute("SELECT COUNT(*) FROM brain_artifact_versions").fetchone()[0] == 2
+    assert conn.execute("SELECT COUNT(*) FROM brain_artifact_versions").fetchone()[0] == 3
     edited = store.write("opora-heart", {"evals/ticket-s-kriteriem/prompt.md": "jiná sada\n"}, "ruční úprava")
     seed.ensure(conn, tmp_path, ponytail_cache=tmp_path / "chybi")
     assert store.version("opora-heart") == edited  # existující evals/ seed nepřepíše

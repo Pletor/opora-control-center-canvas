@@ -387,10 +387,10 @@ přidá k roli posun („Prodej kurzu · Upsell (krok 4) – z … na …“), j
 
 | Oblast | Soubory |
 |---|---|
-| Kontrakt | `docs/architektura-pro-agenty.md` §3.1–§3.2, §4, §5, §6, `docs/karta-pro-agenty.md` (architecture), `.claude/skills/opora-control-center/references/api.md` |
+| Kontrakt | `docs/architektura-pro-agenty.md` §3.1–§3.2, §4, §5, §6, `docs/karta-pro-agenty.md` (architecture), `backend/brain/seed/opora-control-center/skills/opora-control-center/references/api.md` |
 | Validátor | `backend/canvas/site_metadata.py` (+ `test_site_metadata.py`): `JOURNEY_OPTIONAL_KEYS`, `STEP_OPTIONAL_KEYS`, `STEP_TEXT_LIMITS`, `via`, `SECTION_KEYS` → volitelné `moves` |
 | Odvození | `backend/project/architecture/journeys.py` (`rate` pryč, nové klíče do kroků), `map_check.py` (`journey.via-unknown`), `node_architecture.py` (`_journeys`, `_neighbour`, `_page`, `_fit`) + jejich testy |
-| Skill | `.claude/skills/opora-control-center/scripts/opora_read.py` + `test_opora_read.py` (souhrn cest) |
+| Skill | `backend/brain/seed/opora-control-center/skills/opora-control-center/scripts/opora_read.py` + `test_opora_read.py` (souhrn cest) |
 | Typy | `frontend/shared/types/logic/types.ts` (`JourneyStep`, `CustomerJourney`, `PageSection`) |
 | Mapa domény | `domain-map/logic/journeys.ts` (+test), `page-site.ts` (+test), `page-journeys.ts` (+test), `derived-journeys.ts` (+test), `JourneyFunnel.tsx`, `JourneyFunnelEditor.tsx`, `JourneyFunnelLink.tsx`, `JourneyStepCard.tsx`, `PageSectionsEditor.tsx`, `PageJourneys.tsx`, `CustomerJourneys.tsx` (prázdný text), `styles/domain-map.css`, `README.md` |
 | Editor stránky | `components/ArchitectureEditor.tsx` (předá cesty, derivované segmenty a `onSaveJourneys` / `onSavePage`), `page-editor/components/PageEditor.tsx` (sloty pruhu a úseku), nový dílek `page-editor/journey-slice/` (`components/`, `logic/page-slice.ts` + test, `styles/journey-slice.css`, README), `page-editor/README.md` |

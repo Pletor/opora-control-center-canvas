@@ -26,7 +26,7 @@ from urllib.request import ProxyHandler, Request, build_opener
 
 MULTI = Path(__file__).resolve().parent
 REPO = MULTI.parents[4]
-GATE_CLIENT = REPO / ".claude" / "skills" / "opora-control-center" / "scripts" / "opora_gate.py"
+GATE_CLIENT = REPO / "backend" / "brain" / "seed" / "opora-control-center" / "skills" / "opora-control-center" / "scripts" / "opora_gate.py"
 WORKSPACE = "draft"           # lokální projekt žije v pracovním prostoru `draft` (jako rameno A)
 HEART_WAIT_S = 15 * 60        # strop čekání na dávku srdce (= timeout dávky v backendu)
 WORKER_ROUNDS = 3             # nejvýš kol pracovníka na část sezení

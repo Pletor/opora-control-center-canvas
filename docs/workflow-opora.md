@@ -2,7 +2,7 @@
 
 Jedna pipeline pro všechny projekty. Skilly `/grill-me` a `/wayfinder` ji otevírají: zpřesní jádro zadání a výsledek zapíšou do prvků, které OPORA už má (sektor, karta, spec, bloky, pravidla, vazby, rozhodnutí). Agent pak dostane úplný `node-brief` a nepálí tokeny na práci mimo podstatu aplikace. Každá karta je dílek, který navazuje na existující komponenty a vazby.
 
-Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kódu; skilly `grilling` a `wayfinder` zapisují podle mapování v §3, operace popisuje `.claude/skills/opora-control-center/references/workflow.md`. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md).
+Stav: **schváleno a zavedeno** (2026-10-01). Inventura je ověřená proti kódu; skilly `grilling` a `wayfinder` zapisují podle mapování v §3, operace popisuje `backend/brain/seed/opora-control-center/skills/opora-control-center/references/workflow.md`. Kontrakt karty zůstává v [karta-pro-agenty.md](karta-pro-agenty.md), předání modelům v [predani-modelum.md](predani-modelum.md).
 
 ## 1. Inventura (ověřeno proti `backend/`, 108 rout v `backend/app/factory.py`)
 
@@ -154,8 +154,8 @@ Soubory:
 - `~/.claude/skills/setup-matt-pocock-skills/issue-tracker-opora.md`: nový, „Wayfinding operations“ nad API OPORA;
 - `~/.claude/skills/wayfinder/SKILL.md`: odstavec „Projekt v OPORA → tracker OPORA“; jinak beze změny;
 - `~/.claude/skills/grilling/SKILL.md`: odstavec „Projekt v OPORA → kola do `agent-workspace.log`, rozhodnutí přes `agent-output`“; jinak beze změny;
-- `.claude/skills/opora-control-center/references/workflow.md`: nový, tato pipeline v krátké podobě pro agenta, plus řádek v tabulce `SKILL.md`;
-- `.claude/skills/opora-control-center/scripts/opora_read.py`: příkazy `node-brief` a `frontier` (jen GET). Zavírá rozpor 3 a mezeru „Frontier“;
+- `backend/brain/seed/opora-control-center/skills/opora-control-center/references/workflow.md`: nový, tato pipeline v krátké podobě pro agenta, plus řádek v tabulce `SKILL.md`;
+- `backend/brain/seed/opora-control-center/skills/opora-control-center/scripts/opora_read.py`: příkazy `node-brief` a `frontier` (jen GET). Zavírá rozpor 3 a mezeru „Frontier“;
 - tento dokument a `docs/predani-modelum.md`.
 
 Rozpory 1–9 jsou opravené v dokumentaci a referencích skillu samostatným commitem.

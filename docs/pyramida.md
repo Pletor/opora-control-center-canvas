@@ -71,7 +71,7 @@ jedním rozhodnutím.
 4. Po potvrzení se sektory objeví v oblasti (geometricky uvnitř rámečku). Rozpad sektoru na karty dělá
    další agent stejným způsobem (dávka → jedno rozhodnutí); router pak určí proces.
 
-Kontrakt pro rozkladače je `.claude/skills/opora-control-center/references/canvas-plan.md` (dávka) a tento
+Kontrakt pro rozkladače je `backend/brain/seed/opora-control-center/skills/opora-control-center/references/canvas-plan.md` (dávka) a tento
 dokument (co má sektor obsahovat). Laťka sektoru: cíl do 3 vět, akceptace jako seznam ověřitelných vět,
 brána = jedna podmínka, pravidla jen ta, která se liší od projektu.
 
