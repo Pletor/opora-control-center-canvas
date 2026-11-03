@@ -91,6 +91,8 @@ class HeartSupervisor:
         self.card_at, self.card_dirty = {}, {}  # spouštěče karet: poslední vyhodnocení a prostory k vyhodnocení
         self.idle_at, self.idle = {}, {}  # prázdná fronta: poslední vyhodnocení a `idleReason` projektu
         self.current = {}  # běžící dávka projektu: {startedAt, inputs}, jen v paměti (kanál srdce „právě teď“)
+        self.card_poll = CARD_POLL  # engine toků (`OPORA_FLOW_HEART=on`) ho vypne a rozvrh karet řídí `trigger.schedule`
+        self.flow = False  # True = dávky řídí engine toků (backend/flow/catalogs/heart/), vlákno supervisoru neběží
 
     def start(self):
         if not enabled() or self.thread or self.stop.is_set():
@@ -218,7 +220,7 @@ class HeartSupervisor:
         dirty = self.card_dirty.setdefault(project, set())
         dirty.update(space for space in workspaces if isinstance(space, str))
         last = self.card_at.get(project, float("-inf"))
-        if now - last >= CARD_POLL:
+        if now - last >= self.card_poll:
             spaces = None
         elif dirty and now - last >= CARD_GAP:
             spaces = set(dirty)
@@ -389,37 +391,48 @@ class HeartSupervisor:
             self._add(project, target, {"type": "commits", "from": old, "to": new, "log": log}, self.clock() + WINDOW)
         self.wakeup.set()
 
-    def next_allowed(self, project, now):
+    def next_allowed(self, project, now, per_hour=PER_HOUR):
         """Nejbližší čas, kdy smí projekt začít dávku (spánek po limitu a strop dávek za hodinu)."""
         starts = self.starts.setdefault(project, deque())
         while starts and starts[0] <= now - HOUR:
             starts.popleft()
-        capped = starts[0] + HOUR if len(starts) >= PER_HOUR else now
+        capped = starts[0] + HOUR if len(starts) >= per_hour else now
         return max(now, self.sleeping_until, capped)
 
-    def run_once(self, now=None):
-        """Jeden průchod: přečte události a pustí splatné dávky; vrací seznam projektů, kterým dávku pustil."""
-        now = self.clock() if now is None else now
+    def collect(self, now):
+        """Vstupy průchodu: outbox událostí (po signálu nebo jednou za `POLL`) a hlídač gitu ve vlastním vlákně."""
         if PROCESS_SIGNAL.generation != self.generation or now - self.polled_at >= POLL:
             self.generation, self.polled_at = PROCESS_SIGNAL.generation, now
             self.poll_events(now)
         if now - self.git_at >= GIT_POLL and not self.git_busy:
             self.git_at, self.git_busy = now, True
             self.git_spawn(self._git_pass)
+
+    def take_due(self, now, per_hour=PER_HOUR, busy=None):
+        """Splatné vstupy jednoho prostoru na projekt, který nemá běžící dávku (`busy`) a nepřekročil stropy;
+        vybrané projekty jdou do `running`. Vrací `[(project, workspace, items)]`."""
+        busy = busy or (lambda project: project in self.running)
         started = []
         with self.lock:
             for project, items in list(self.pending.items()):
-                if not items or project in self.running or min(due for _, _, due in items) > now:
+                if not items or busy(project) or min(due for _, _, due in items) > now:
                     continue
                 # zpráva člověka strop za hodinu obchází (eval m2: strop zablokoval zadání), limit předplatného ne
                 human = any(item.get("type") == "message" for _, item, _ in items)
-                if (max(now, self.sleeping_until) if human else self.next_allowed(project, now)) > now:
+                if (max(now, self.sleeping_until) if human else self.next_allowed(project, now, per_hour)) > now:
                     continue
                 workspace = items[0][0]
                 taken = [item for space, item, _ in items if space == workspace]
                 self.pending[project] = [entry for entry in items if entry[0] != workspace]
                 self.running.add(project)
                 started.append((project, workspace, taken))
+        return started
+
+    def run_once(self, now=None):
+        """Jeden průchod: přečte události a pustí splatné dávky; vrací seznam projektů, kterým dávku pustil."""
+        now = self.clock() if now is None else now
+        self.collect(now)
+        started = self.take_due(now)
         for project, workspace, taken in started:
             self.spawn(lambda p=project, w=workspace, t=taken: self._batch(p, w, t))
         return [project for project, _, _ in started]
@@ -487,7 +500,7 @@ class HeartSupervisor:
             pending = len(self.pending.get(project, []))
             running, allowed = project in self.running, self.next_allowed(project, now)
             current = self.current.get(project) if running else None
-        return {"project": project, "enabled": enabled() and self.thread is not None, "running": running,
+        return {"project": project, "enabled": enabled() and (self.thread is not None or self.flow), "running": running,
                 "pending": pending, "session": session.load(brain), "batches": batch.read_journal(brain, 5),
                 "sleeping": self.sleeping_until > now, "sleepingUntil": _iso(self.sleeping_until),
                 "nextAllowedAt": _iso(allowed), "error": self.errors.get(project),

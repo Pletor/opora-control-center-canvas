@@ -5,6 +5,8 @@
 - Aktivace uzlu má stálý `idempotency_key` (běh + příčina + uzel); opakovaný pokus zvedne `attempt`.
 - `advance` je jediný krok plánovače: uzavře čekání po deadline větví `timeout`, znovu spustí přerušené uzly
   a vykoná frontu. Volá se pod zámkem registru, takže `running` na jeho začátku = přerušený pokus.
+  Výjimka: uzel typu `detached` běží mimo zámek; přerušený je, až když mu chybí heartbeat (`stalls.stall_reason`).
+  Takový uzel posílá `heartbeat` a končí `finish` / `fail`, které běh zase posunou.
 """
 
 import hashlib
@@ -15,6 +17,7 @@ from datetime import UTC, datetime
 from backend.flow.graph_check import FlowInvalid
 from backend.flow.node_types import NODE_TYPES
 from backend.flow.run_log import append, now_iso
+from backend.flow.stalls import stall_reason
 from backend.flow.workflows import FlowConflict, FlowNotFound, get_version
 
 APPROVAL_DECISIONS = ("approved", "rejected")
@@ -84,11 +87,14 @@ def start_run(db, version_id, trigger=None, registry=NODE_TYPES, now=None, paren
     return advance(db, run_id, registry, now)
 
 
-def _expire_and_resume(db, run_id, graph, now):
+def _expire_and_resume(db, run_id, graph, registry, now):
     for row in db.execute("SELECT * FROM flow_node_runs WHERE run_id=? AND status='waiting'", (run_id,)).fetchall():
         if row["deadline"] and datetime.fromisoformat(row["deadline"]) <= now:
             _complete(db, run_id, row, graph, "timeout", json.loads(row["input_ref"]), now)
+    types = {n["id"]: registry[n["type"]] for n in graph["nodes"]}
     for row in db.execute("SELECT * FROM flow_node_runs WHERE run_id=? AND status='running'", (run_id,)).fetchall():
+        if types[row["node_id"]].detached and stall_reason(dict(row), now) is None:
+            continue  # běží jinde a hlásí se
         append(db, run_id, row["id"], "node.failed", {"error": "Pokus přerušen, uzel se spustí znovu."}, moment=now)
         append(db, run_id, uuid.uuid4().hex, "node.queued",
                {"node_id": row["node_id"], "attempt": row["attempt"] + 1,
@@ -100,7 +106,8 @@ def _execute(db, run_id, row, graph, registry, now):
     with db:
         _set_status(db, run_id, "running", now)
         append(db, run_id, row["id"], "node.started", {"attempt": row["attempt"]}, moment=now)
-    ctx = {"run_id": run_id, "node": node, "input": json.loads(row["input_ref"]), "config": _config(graph, node["id"]),
+    ctx = {"run_id": run_id, "node_run_id": row["id"], "node": node, "input": json.loads(row["input_ref"]),
+           "config": _config(graph, node["id"]),
            "idempotency_key": row["idempotency_key"], "attempt": row["attempt"], "now": now}
     try:
         if node.get("pinned_output") is not None:
@@ -112,6 +119,8 @@ def _execute(db, run_id, row, graph, registry, now):
             append(db, run_id, row["id"], "node.failed", {"error": str(error) or type(error).__name__}, moment=now)
             _set_status(db, run_id, "failed", now)
         return False
+    if result.get("detach"):
+        return True  # uzel zůstává `running`, skončí přes finish / fail
     with db:
         if "wait" in result:
             append(db, run_id, row["id"], "node.waiting",
@@ -129,7 +138,7 @@ def advance(db, run_id, registry=NODE_TYPES, now=None):
         return get_run(db, run_id)
     graph = get_version(db, run["workflow_version_id"])["graph"]
     with db:
-        _expire_and_resume(db, run_id, graph, now)
+        _expire_and_resume(db, run_id, graph, registry, now)
     while True:
         row = db.execute("SELECT * FROM flow_node_runs WHERE run_id=? AND status='queued' ORDER BY rowid LIMIT 1",
                          (run_id,)).fetchone()
@@ -137,10 +146,51 @@ def advance(db, run_id, registry=NODE_TYPES, now=None):
             break
         if not _execute(db, run_id, row, graph, registry, now):
             return get_run(db, run_id)
-    waiting = db.execute("SELECT 1 FROM flow_node_runs WHERE run_id=? AND status='waiting'", (run_id,)).fetchone()
+    open_ = {row[0] for row in db.execute(
+        "SELECT status FROM flow_node_runs WHERE run_id=? AND status IN ('running','waiting')", (run_id,))}
     with db:
-        _set_status(db, run_id, "waiting" if waiting else "succeeded", now)
+        _set_status(db, run_id, "running" if "running" in open_ else "waiting" if open_ else "succeeded", now)
     return get_run(db, run_id)
+
+
+def _detached_row(db, node_run_id):
+    """Řádek uzlu, který běží jinde; None, když mezitím skončil nebo byl prohlášen za přerušený (nic se nemění)."""
+    row = db.execute("SELECT * FROM flow_node_runs WHERE id=?", (node_run_id,)).fetchone()
+    if row is None:
+        raise FlowNotFound("Uzel běhu neexistuje.")
+    return row if row["status"] == "running" else None
+
+
+def heartbeat(db, node_run_id, now=None):
+    """Uzel mimo zámek žije: posune `last_heartbeat_at`. Vrací False, když uzel už neběží (práce má skončit)."""
+    row = _detached_row(db, node_run_id)
+    if row is not None:
+        with db:
+            append(db, row["run_id"], node_run_id, "node.heartbeat", {}, moment=now)
+    return row is not None
+
+
+def finish(db, node_run_id, port, output, extra=None, registry=NODE_TYPES, now=None):
+    """Uzel mimo zámek skončil portem `port`; běh pokračuje. Pozdní hlášení přerušeného pokusu se zahodí (None)."""
+    now = now or datetime.now(UTC)
+    row = _detached_row(db, node_run_id)
+    if row is None:
+        return None
+    graph = get_version(db, _run_row(db, row["run_id"])["workflow_version_id"])["graph"]
+    with db:
+        _complete(db, row["run_id"], row, graph, port, output, now, extra)
+    return advance(db, row["run_id"], registry, now)
+
+
+def fail(db, node_run_id, error, now=None):
+    """Uzel mimo zámek selhal: běh končí `failed` jako u okamžitého uzlu. Pozdní hlášení se zahodí (None)."""
+    row = _detached_row(db, node_run_id)
+    if row is None:
+        return None
+    with db:
+        append(db, row["run_id"], node_run_id, "node.failed", {"error": error}, moment=now)
+        _set_status(db, row["run_id"], "failed", now)
+    return get_run(db, row["run_id"])
 
 
 def decide(db, node_run_id, decision, actor="human", registry=NODE_TYPES, now=None):

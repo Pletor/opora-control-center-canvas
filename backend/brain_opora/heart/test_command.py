@@ -29,6 +29,14 @@ def test_new_session_command_matches_the_contract():
     assert line[-2:] == ["--max-turns", "40"]
 
 
+def test_flow_node_sets_model_advisor_and_allowed_subcommands():
+    line = command.build_command("claude", session_id=SID, resume=False, settings_path="s", mcp_path="m",
+                                 model="sonnet", advisor_model="fable", subcommands=("plan", "done"))
+    pairs = {line[i]: line[i + 1] for i in range(1, len(line) - 1) if line[i].startswith("--")}
+    assert pairs["--model"] == "sonnet" and pairs["--advisor"] == "fable"
+    assert pairs["--allowedTools"] == "Read,Grep,Glob,Bash(python opora_heart.py plan:*),Bash(python opora_heart.py done:*)"
+
+
 def test_resume_and_no_source_root():
     line = build(True)
     assert line[line.index("--resume") + 1] == SID and "--session-id" not in line and "--add-dir" not in line

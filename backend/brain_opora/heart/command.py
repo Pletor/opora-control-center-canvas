@@ -110,19 +110,27 @@ def write_config(brain, source_root=None):
     return settings_path, mcp_path
 
 
+def allowed_tools(subcommands=None):
+    """`--allowedTools`: bez výčtu celý nástroj srdce, jinak jen jeho vyjmenované podpříkazy (uzel `tool.opora_heart`)."""
+    if subcommands is None:
+        return ALLOWED_TOOLS
+    return ",".join(["Read", "Grep", "Glob", *(f"Bash(python {TOOL_NAME} {name}:*)" for name in subcommands)])
+
+
 def build_command(claude, *, session_id, resume, settings_path, mcp_path, source_root=None, prompt_file=PROMPT_FILE,
-                  max_turns=MAX_TURNS, advisor=True):
-    """Řádka §2. Zpráva dávky jde na stdin (`-p` bez pozičního argumentu), ne do řádky (limit délky Windows)."""
+                  max_turns=MAX_TURNS, advisor=True, model=MODEL, advisor_model=ADVISOR, subcommands=None):
+    """Řádka §2. Zpráva dávky jde na stdin (`-p` bez pozičního argumentu), ne do řádky (limit délky Windows).
+    `model`, `advisor_model` a `subcommands` nastavuje uzel `agent.claude` enginu toků; výchozí = dnešní srdce."""
     if not session_id:
         raise ValueError("Dávka potřebuje ID relace.")
     uuid.UUID(str(session_id))  # --session-id i --resume berou UUID
     # `stream-json` (s `--verbose`) nese `usage` každého tahu: rotace relace měří kontext posledního tahu
     # (`session.context_tokens`); poslední řádek proudu je tentýž objekt výsledku jako u `json`.
-    command = [claude, "-p", "--output-format", "stream-json", "--verbose", "--model", MODEL, *(["--advisor", ADVISOR] if advisor else []),
+    command = [claude, "-p", "--output-format", "stream-json", "--verbose", "--model", model, *(["--advisor", advisor_model] if advisor else []),
                *(["--resume", session_id] if resume else ["--session-id", session_id]),
                "--setting-sources", "project", "--settings", str(settings_path),
                "--strict-mcp-config", "--mcp-config", str(mcp_path),
-               "--tools", TOOLS, "--allowedTools", ALLOWED_TOOLS, "--permission-mode", "dontAsk",
+               "--tools", TOOLS, "--allowedTools", allowed_tools(subcommands), "--permission-mode", "dontAsk",
                # Vlastní systémový prompt místo výchozího: poradce dostává celý kontext, takže každý
                # ušetřený token zlevní poradu (smoke 2026-10-29: 193k vstupních tokenů za 6 kol).
                "--system-prompt-file", str(prompt_file), "--disable-slash-commands"]

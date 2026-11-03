@@ -30,6 +30,8 @@ Modules (H2a):
   At most one batch per project at a time and 6 automatic per hour (a human message skips the cap); a rate-limited batch puts the heart to sleep for 15 min
   and keeps its inputs. It runs only when `OPORA_HEART` is not `off` and `OPORA_CANVAS_HOST` is loopback
   (`tools/opora.py` sets it). Tests set `OPORA_HEART=off` in `backend/conftest.py`.
+  With `OPORA_FLOW_HEART=on` the thread does not start: the flow engine runs the batches (`backend/flow/catalogs/heart/`)
+  and uses `collect`, `take_due`, `message` and `status` of this class; caps come from the `agent.claude` node.
 - `inputs.py`: event → input (`wake_input`) and the fresh data of each input right before a batch (`resolve`);
   a ticket answered in the meantime drops out.
 - `batch.py`: one batch = one `claude -p` process. The message is the snapshot, the inputs and the instruction to end

@@ -1,36 +1,21 @@
 """Registr typů uzlů v kódu: porty a funkce, která uzel vykoná.
 
-Funkce dostane `ctx` (node, input, config sub-portů, idempotency_key, now) a vrátí jedno z:
+Funkce dostane `ctx` (node, node_run_id, input, config sub-portů, idempotency_key, now) a vrátí jedno z:
 - `{"port": "<výstupní port>", "output": ...}`: uzel skončil a tok pokračuje hranami `main` z portu,
-- `{"wait": "<na co čeká>", "deadline": <datetime>}`: uzel čeká; po deadline pokračuje portem `timeout`.
+- `{"wait": "<na co čeká>", "deadline": <datetime>}`: uzel čeká; po deadline pokračuje portem `timeout`,
+- `{"detach": True}`: jen typ s `detached=True`; práce běží jinde (mimo zámek registru), posílá heartbeat
+  a skončí přes `interpreter.finish` / `interpreter.fail`.
+
+Typy katalogu srdce (`backend/flow/catalogs/heart/`) se do registru přidávají na konci modulu; katalog importuje
+`node_spec`, ne tento modul, takže nevzniká kruh.
 """
 
-from dataclasses import dataclass
 from datetime import timedelta
 
-PORT_KINDS = ("main", "model", "memory", "tool", "subagent", "approval")
+from backend.flow.catalogs.heart.nodes import HEART_TYPES
+from backend.flow.node_spec import PORT_KINDS, NodeType, Port  # noqa: F401
+
 DEFAULT_APPROVAL_SECONDS = 24 * 3600
-
-
-@dataclass(frozen=True)
-class Port:
-    name: str
-    direction: str  # "in" | "out"
-    kind: str = "main"
-    cardinality: str = "many"  # "one" | "many": kolik hran smí port nést
-    schema: dict | None = None
-
-
-@dataclass(frozen=True)
-class NodeType:
-    type: str
-    version: int
-    ports: tuple
-    run: object
-    trigger: bool = False
-
-    def port(self, name, direction):
-        return next((p for p in self.ports if p.name == name and p.direction == direction), None)
 
 
 def _pass_input(ctx):
@@ -55,3 +40,5 @@ NODE_TYPES = {
         ),
     )
 }
+
+NODE_TYPES.update({t.type: t for t in HEART_TYPES})

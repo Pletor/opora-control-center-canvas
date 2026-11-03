@@ -43,6 +43,9 @@ class BatchSpec:
     snapshot: str
     inputs: list = field(default_factory=list)
     source_root: Path | None = None
+    model: str = command.MODEL  # uzel `model.claude` enginu toků; výchozí = dnešní srdce
+    advisor_model: str = command.ADVISOR
+    subcommands: tuple | None = None  # uzel `tool.opora_heart`: povolené podpříkazy, None = všechny
 
 
 def _intake(item):
@@ -221,7 +224,8 @@ def run(spec, runner=run_process, clock=time.time):
     started = clock()
     advisor = advisor_spent(brain, started) < ADVISOR_DAY_USD
     line = command.build_command(spec.claude, session_id=session_id, resume=resume, settings_path=settings_path,
-                                 mcp_path=mcp_path, source_root=spec.source_root, advisor=advisor)
+                                 mcp_path=mcp_path, source_root=spec.source_root, advisor=advisor, model=spec.model,
+                                 advisor_model=spec.advisor_model, subcommands=spec.subcommands)
     env = command.child_env(base_url=spec.base_url, token=spec.token, project=spec.project, workspace=spec.workspace,
                             source_root=spec.source_root)
     outcome = runner(line, cwd=str(brain), env=env, stdin_text=message(spec.snapshot, spec.inputs), timeout=TIMEOUT)
