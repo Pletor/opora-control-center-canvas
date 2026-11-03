@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { assetUrls, scopeComponentsCss, scopeWebSelector, splitSelectors } from "./components-scope";
+import { assetUrls, PREVIEW_RESET, scopeComponentsCss, scopeWebSelector, splitSelectors } from "./components-scope";
 
 const css = `/* Ember — components.css, generated from design-system.json; load after tokens.css */
 @layer base, components, custom;
@@ -69,4 +69,9 @@ it("closes components.css into the preview, unwraps layers and keeps keyframe st
 it("points unquoted asset urls from sanitized custom CSS to the project API", () => {
   expect(assetUrls("background: url(assets/ikony/sipka.svg) no-repeat;", "p1"))
     .toBe('background: url("/api/site-admin/assets/ikony/sipka.svg?project=p1") no-repeat;');
+});
+
+it("resets the app element styles inside the preview without outweighing the site rules", () => {
+  expect(PREVIEW_RESET).toContain(".ds-web :where(h3) { font-size: 1.17em; }");
+  expect(PREVIEW_RESET.split("\n").every((line) => line.startsWith(".ds-web :where("))).toBe(true);
 });

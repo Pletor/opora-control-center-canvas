@@ -34,8 +34,8 @@ const ring = (color: string) => ({ outline: { width: "2px", style: "solid", colo
  *  kontrastem; člověk je pak přepíše na tokeny. */
 export const PRESET_VARIANTS: Record<string, Variant> = {
   primary: { label: "Primary", preset: "solid", states: {
-    default: { background: "#1c9749", color: "#ffffff", radius: "md", transition: MOTION },
-    hover: { background: "#157a3a" }, active: { background: "#0f5c2b" }, focusVisible: ring("#0f5c2b"),
+    default: { background: "#157a3a", color: "#ffffff", radius: "md", transition: MOTION },
+    hover: { background: "#0f5c2b" }, active: { background: "#0a4520" }, focusVisible: ring("#0f5c2b"),
     disabled: { background: "#c9d1cc", color: "#4b5563" } } },
   secondary: { label: "Secondary", preset: "solid", states: {
     default: { background: "#e6efe8", color: "#14361f", radius: "md", transition: MOTION },

@@ -6,12 +6,12 @@ import type { Background, Gradient } from "./button-model";
 export const MAX_STOPS = 8;
 export const isGradient = (value: Background | undefined): value is Gradient => typeof value === "object" && value !== null;
 
-/** Zapnutí přechodu začne od současné barvy ke světlejšímu konci; vypnutí si nechá první barvu. */
+/** Zapnutí přechodu začne od současné barvy k tmavšímu zelenému konci (bílý text projde 4,5:1); vypnutí si nechá první barvu. */
 export function toggleGradient(value: Background | undefined, on: boolean): Background | undefined {
   if (!on) return isGradient(value) ? value.gradient.stops[0]?.color : value;
   if (isGradient(value)) return value;
-  const from = value && value !== "transparent" ? value : "#1c9749";
-  return { gradient: { angle: 135, stops: [{ color: from, position: 0 }, { color: "#7ad39b", position: 1 }] } };
+  const from = value && value !== "transparent" ? value : "#157a3a";
+  return { gradient: { angle: 135, stops: [{ color: from, position: 0 }, { color: "#0a4520", position: 1 }] } };
 }
 
 export const withAngle = (value: Gradient, angle: number): Gradient =>

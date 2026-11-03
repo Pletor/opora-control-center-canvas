@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { PreviewStyle, TokensScope } from "@/project/site-admin/ds-preview/components/TokensScope";
-import { scopeComponentsCss, WEB } from "@/project/site-admin/ds-preview/logic/components-scope";
+import { PREVIEW_RESET, scopeComponentsCss, WEB } from "@/project/site-admin/ds-preview/logic/components-scope";
 import { buttonsCss } from "../logic/button-css";
 import { SIZES, STATES, type Buttons, type StateName } from "../logic/button-model";
 import { customCssPreview, REDUCED_MOTION_CSS } from "../logic/custom-css-preview";
@@ -22,12 +22,12 @@ export default function ButtonsPreview({ project, theme, componentsCss, buttons,
   const sample = (extra: string, key: string, disabled = false) =>
     <button key={key} type="button" className={`ds-btn ds-btn--${slug} ${extra}`} disabled={disabled} onClick={(event) => event.preventDefault()}>{label}</button>;
   return <div className="site-buttons__preview" data-testid="button-preview">
-    <PreviewStyle css={[saved, draft, custom, REDUCED_MOTION_CSS].join("\n")} name="buttons"/>
+    <PreviewStyle css={[PREVIEW_RESET, saved, draft, custom, REDUCED_MOTION_CSS].join("\n")} name="buttons"/>
     <TokensScope theme={theme} className={WEB + " site-buttons__stage" + (still ? " ds-web--still" : "")}>
       <div className="site-buttons__hero">{sample(state === "default" ? "" : `ds-btn--is-${state}`, "hero", state === "disabled")}</div>
       <div className="site-buttons__row" aria-label="Velikosti">{SIZES.map((size) => sample(`ds-btn--${size}`, size))}</div>
       <div className="site-buttons__row" aria-label="Stavy">{STATES.map((item) => <span key={item.id} className="site-buttons__state-sample">
-        {sample(item.id === "default" ? "" : `ds-btn--is-${item.id} ds-btn--sm`, item.id, item.id === "disabled")}
+        {sample(item.id === "default" ? "ds-btn--sm" : `ds-btn--is-${item.id} ds-btn--sm`, item.id, item.id === "disabled")}
         <small className="site-buttons__state-name">{item.label}</small>
       </span>)}</div>
     </TokensScope>

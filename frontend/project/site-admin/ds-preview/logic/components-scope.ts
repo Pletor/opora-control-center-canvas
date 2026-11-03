@@ -34,7 +34,17 @@ export function scopeWebSelector(selector: string, root = ROOT): string {
   }).join(", ");
 }
 
-const ASSET_URL = /url\(\s*["']?assets\/([^"'/)]+)\/([^"')]+?)["']?\s*\)/g;
+/** Výchozí vzhled prohlížeče pod `.ds-web`: globální styly OPORY na `h3`, `a` nebo `ul` by jinak prosákly do
+ *  náhledu webu. `:where()` drží specificitu na `.ds-web`, takže pravidla webu (`.ds-web h1`) vždy vyhrají. */
+export const PREVIEW_RESET = [
+  `${ROOT} :where(h1, h2, h3, h4, h5, h6, p, ul, ol, li, a) { color: inherit; font-family: inherit; text-transform: none; letter-spacing: normal; }`,
+  `${ROOT} :where(h1, h2, h3, h4, h5, h6) { margin: 0.67em 0 0.33em; font-weight: 700; line-height: 1.2; }`,
+  ...["2em", "1.5em", "1.17em", "1em", "0.83em", "0.67em"].map((size, index) => `${ROOT} :where(h${index + 1}) { font-size: ${size}; }`),
+  `${ROOT} :where(p, ul, ol) { margin: 0 0 1em; font-size: inherit; }`,
+  `${ROOT} :where(ul) { list-style-type: disc; } ${ROOT} :where(ol) { list-style-type: decimal; } ${ROOT} :where(a) { color: LinkText; text-decoration: underline; }`,
+].join("\n");
+
+const ASSET_URL =/url\(\s*["']?assets\/([^"'/)]+)\/([^"')]+?)["']?\s*\)/g;
 
 /** `url("assets/<skupina>/<soubor>")` → adresa assetu v API projektu. */
 export function assetUrls(css: string, project: string): string {

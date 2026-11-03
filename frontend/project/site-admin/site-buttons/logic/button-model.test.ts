@@ -1,4 +1,5 @@
 import { expect, it } from "vitest";
+import { contrastRatio } from "@/project/site-admin/ds-colors/logic/color-contrast";
 import { addVariant, effective, PRESET_VARIANTS, readButtons, readCustomCss, removeVariant, slugProblem, variantNotes, withNestedKey, withSize, withStateKey } from "./button-model";
 
 it("reads an empty document with default sizes and no variants", () => {
@@ -53,4 +54,12 @@ it("picks the server notes that belong to one variant", () => {
   const notes = ["Tlačítko primary (hover): kontrast textu 2.10:1 je pod 4,5:1.", "Tlačítko primary: focus ring je vypnutý bez náhrady (stín nebo outline).",
     "Tlačítko ghost (default): kontrast", "Tlačítka sm: minHeight 20px je pod 24 px (WCAG 2.5.8).", "settings.customCss.button.primary, řádek 2: focus ring je vypnutý"];
   expect(variantNotes(notes, "primary")).toEqual([notes[0], notes[1], notes[3], notes[4]]);
+});
+
+it("ships presets whose text passes 4.5:1 in every state but disabled, like the server checks", () => {
+  for (const [slug, variant] of Object.entries(PRESET_VARIANTS)) for (const state of ["default", "hover", "active", "focusVisible"] as const) {
+    const merged = effective(variant, state);
+    const background = merged.background === "transparent" ? "#ffffff" : merged.background as string;
+    expect(contrastRatio(merged.color!, background), `${slug} ${state}`).toBeGreaterThanOrEqual(4.5);
+  }
 });

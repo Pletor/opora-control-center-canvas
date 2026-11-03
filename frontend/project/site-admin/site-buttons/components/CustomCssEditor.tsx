@@ -26,7 +26,7 @@ export default function CustomCssEditor({ slug, project, value, invalid, notes, 
       <div ref={gutter} className="site-buttons__gutter" aria-hidden="true">
         {Array.from({ length: lines }, (_item, index) => <span key={index} className={"site-buttons__line" + (marked.has(index + 1) ? " site-buttons__line--bad" : "")}>{index + 1}</span>)}
       </div>
-      <textarea className="site-buttons__textarea" value={value} rows={lines} wrap="off" spellCheck={false} aria-label={`Vlastní CSS varianty ${slug}`}
+      <textarea className="site-buttons__textarea" value={value} rows={lines + 1} wrap="off" spellCheck={false} aria-label={`Vlastní CSS varianty ${slug}`}
         placeholder={EXAMPLE} aria-invalid={!!(local || server)} onChange={(event) => onChange(event.target.value)}
         onScroll={(event) => { if (gutter.current) gutter.current.scrollTop = event.currentTarget.scrollTop; }}/>
     </div>

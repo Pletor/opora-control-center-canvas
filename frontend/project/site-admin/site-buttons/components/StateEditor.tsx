@@ -20,7 +20,7 @@ export default function StateEditor({ variant, state, aliases, families, onChang
   const radius = own.radius ?? "";
   const custom = radius && !RADII.some((option) => option.value === radius) ? radius : "";
   return <div className="site-buttons__fields" data-testid={"button-state-" + state}>
-    <ColorField label="Pozadí tlačítka" value={gradient ? "" : own.background as string ?? ""} placeholder={typeof inherited.background === "string" ? inherited.background : "zděděné"}
+    <ColorField label="Pozadí tlačítka" value={gradient ? "" : own.background as string ?? ""} placeholder={gradient ? "barevný přechod níže" : typeof inherited.background === "string" ? inherited.background : "zděděné"}
       aliases={aliases} onChange={(value) => onChange(withStateKey(variant, state, "background", value))}>
       <label className="site-buttons__toggle">
         <input type="checkbox" checked={!!gradient} onChange={(event) => onChange(withStateKey(variant, state, "background", toggleGradient(gradient ?? (background as string), event.target.checked)))}/>

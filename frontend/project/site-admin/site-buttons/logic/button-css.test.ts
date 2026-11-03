@@ -18,7 +18,7 @@ it("writes one state as component tokens like the server", () => {
 it("scopes sizes, variants and states under the preview and adds forced state classes", () => {
   const css = buttonsCss(addVariant(readButtons({}), "primary"));
   expect(css).toContain(".ds-web .ds-btn--lg {\n  --btn-px: 2rem;");
-  expect(css).toContain(".ds-web .ds-btn--primary {\n  --btn-bg: #1c9749;");
+  expect(css).toContain(".ds-web .ds-btn--primary {\n  --btn-bg: #157a3a;");
   expect(css).toContain('.ds-web .ds-btn--primary:hover:not(:disabled):not([aria-disabled="true"]), .ds-web .ds-btn--primary.ds-btn--is-hover {');
   expect(css).toContain('.ds-web .ds-btn--primary:disabled, .ds-web .ds-btn--primary[aria-disabled="true"], .ds-web .ds-btn--primary.ds-btn--is-disabled {');
   expect(css).toContain(".ds-web .ds-btn.ds-btn--is-focusVisible {");

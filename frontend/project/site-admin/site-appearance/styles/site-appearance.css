@@ -21,6 +21,6 @@
 
 /* Náhled je výřez webu: vlastní pozadí, písmo a barvy z tokenů projektu (ne OPORY), lepí se nahoru panelu. */
 .site-appearance__preview { position: sticky; top: 0; max-height: calc(100vh - 160px); overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); }
-.site-appearance__page { min-height: 100%; padding: var(--sp-4) 0; background: #fff; color: #1a1a1a; }
+.site-appearance__page { min-height: 100%; padding: var(--sp-4); background: #fff; color: #1a1a1a; }
 .site-appearance__inverse { margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4); background: #1a1a1a; color: #fff; }
 @media (max-width: 1100px) { .site-appearance { grid-template-columns: 1fr; } .site-appearance__preview { position: static; max-height: none; } }
