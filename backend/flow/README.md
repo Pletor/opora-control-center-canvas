@@ -6,6 +6,7 @@ Tenký engine workflow pro plátno 1 (spouští se) a plátno 2 (záměr stránk
   - `trigger.manual`;
   - `debug.echo` (vrátí vstup);
   - `approval.human` (čeká na člověka do `params.timeout_seconds`, výchozí 24 h; výstupní porty `approved` / `rejected` / `timeout`);
+  - `critic` (`critic.py`): ChatGPT kritik přes `codex exec` pod předplatným. Vstup `{subject, criteria, context?}`, výstup `{verdict: ok|concerns|reject, findings: [{severity, text}], raw?}`. Je `detached` (`runtime.detached` katalogu srdce), codex běží `read-only` s posuzovaným obsahem v promptu (sandbox na Windows soubory nečte), limit `OPORA_CRITIC_TIMEOUT` (300 s). Chyba kritika uzel neshodí, dá `verdict: concerns`. Srdce v1 ho nemá, do pipeline srdce jde až přes eval;
   - typy katalogu srdce (`catalogs/heart/nodes.py`).
 - `graph_check.py`: validace grafu. Uzly musí mít známý typ, hrany musí vést mezi existujícími porty, kind hrany musí sedět s kindem obou portů a port s `cardinality: one` nese nejvýš jednu hranu.
 - `workflows.py`: workflow (`kind` heart / page_intent / brain_workflow, `project_id` null = sdílené) a jeho verze.
