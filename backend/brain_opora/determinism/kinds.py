@@ -118,7 +118,9 @@ TABLE = (
          lambda body: ticket_model.ticket_id(body, _hint("ticket.release")), ticket.release),
     Kind("ticket.issue", "heart", "Vydá ticket práce (issued) v prostoru tokenu srdce: tělo pro dělníka bez ID "
          "(essence, build, openPaths, cautions, skills, doneCriteria) a strojová vrstva (cardId, executionId, "
-         "cardVersion).", HEART_ONLY, ticket_model.issue_payload, ticket.issue),
+         "cardVersion, department, profile, pins = piny Brainu po pluginech; výchozí ponytail doplní server, "
+         "pins v těle jsou ID artefaktů opora:brain:skill:<name>[@sha12]).", HEART_ONLY, ticket_model.issue_payload,
+         ticket.issue),
     Kind("ticket.cancel", "heart", "Zruší ticket práce, který už nedává smysl (vydaný, vzatý i rozpracovaný → "
          "cancelled); odevzdaný ani uzavřený ne.", {**HEART_ONLY, **WORK_MISSING, **WORK_STATE},
          lambda body: ticket_model.ticket_id(body, _hint("ticket.cancel")), ticket.cancel),

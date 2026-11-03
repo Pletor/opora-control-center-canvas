@@ -39,7 +39,28 @@ def test_body_gets_default_pin_and_keeps_layers_apart():
                                                 "department": "design"})
     assert body == {**BODY, "openPaths": [], "cautions": [], "skills": ["ponytail@5.3.3"]}
     assert machine == {"cardId": "hero", "executionId": None, "cardVersion": 2, "department": "design",
-                       "profile": None}
+                       "profile": None, "pins": []}  # ID artefaktů Brainu; piny po pluginech doplní obsluha
+
+
+def card(node_id, purpose=""):
+    return {"id": node_id, "parentId": None, "kind": "node", "name": node_id.upper(), "purpose": purpose, "x": 0, "y": 0}
+
+
+GRAPH = {"nodes": [card("a"), card("b", " Proč B. "), card("c"), card("d"), card("lone")],
+         "edges": [{"id": "e1", "source": "a", "target": "b"},
+                   {"id": "e2", "source": "a", "target": "c", "port": "block", "sourceBlockId": "k", "sourcePortId": "p"},
+                   {"id": "e3", "source": "a", "target": "b", "port": "block", "sourceBlockId": "k", "sourcePortId": "q"},
+                   {"id": "e4", "source": "a", "target": "d", "port": "rule"},
+                   {"id": "e5", "source": "d", "target": "a", "port": "next"}]}
+
+
+def test_neighbors_follow_next_and_block_edges_of_the_card():
+    assert ticket_model.neighbors(GRAPH, "a") == {
+        "successors": [{"cardId": "b", "name": "B", "essence": "Proč B."}, {"cardId": "c", "name": "C"}],
+        "predecessors": [{"cardId": "d", "name": "D"}]}  # vazba rule není práce, b je jen jednou
+    assert ticket_model.neighbors(GRAPH, "c") == {"successors": [], "predecessors": [{"cardId": "a", "name": "A"}]}
+    assert ticket_model.neighbors(GRAPH, "lone") == {"successors": [], "predecessors": []}
+    assert ticket_model.neighbors(GRAPH, "nikde") == {"successors": [], "predecessors": []}
 
 
 @pytest.mark.parametrize("payload", [

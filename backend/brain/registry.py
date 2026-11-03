@@ -91,6 +91,25 @@ def active(db, artifact):
     return {"artifact_id": artifact, **dict(row), "pin": pin(artifact, row["version"])}
 
 
+def resolve(db, ref):
+    """`opora:brain:<kind>:<name>` → aktivní verze, `…@<sha12>` → ta verze (kterýkoli stav); jinak None.
+    Tvar jako `active`."""
+    artifact, _, short = ref.partition("@")
+    if not short:
+        return active(db, artifact)
+    row = db.execute("SELECT a.plugin, a.name, v.version, v.content_ref FROM brain_artifacts a JOIN "
+                     "brain_artifact_versions v ON v.artifact_id=a.id WHERE a.id=? AND substr(v.version,1,12)=?",
+                     (artifact, short)).fetchone()
+    return row and {"artifact_id": artifact, **dict(row), "pin": pin(artifact, row["version"])}
+
+
+def plugin_version(db, plugin, short):
+    """Plné SHA verze pluginu podle prvních 12 znaků, když ji registr zná u některého artefaktu; jinak None."""
+    row = db.execute("SELECT v.version FROM brain_artifacts a JOIN brain_artifact_versions v ON v.artifact_id=a.id "
+                     "WHERE a.plugin=? AND substr(v.version,1,12)=? LIMIT 1", (plugin, short)).fetchone()
+    return row and row["version"]
+
+
 def list_artifacts(db):
     rows = db.execute("SELECT * FROM brain_artifacts ORDER BY plugin, name").fetchall()
     actives = {row["artifact_id"]: _version(row) for row in
