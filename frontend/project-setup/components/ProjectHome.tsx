@@ -4,16 +4,21 @@ import { ARCHITECTURE_OPTIONS, TENANCY_OPTIONS } from "@/shared/project-capabili
 import AgentAutonomyBadge from "@/shared/agent-autonomy/components/AgentAutonomyBadge";
 import AgentAutonomySwitch from "@/shared/agent-autonomy/components/AgentAutonomySwitch";
 import type { AgentAutonomyApi } from "@/shared/agent-autonomy/logic/use-agent-autonomy";
+import HeartPipelineCard from "@/project-setup/heart-pipeline/components/HeartPipelineCard";
+import { heartPipelineSummary } from "@/project-setup/heart-pipeline/logic/heart-pipeline";
+import { useHeartData } from "@/project/heart-canvas/logic/use-heart-data";
 import "@/project-setup/styles/project-home.css";
 
 type Draft = SettingsSnapshot & { dirty: boolean };
 const drafts = new Map<string, Draft>();
 
-export default function ProjectHome({ projects, draftProject, projectId, jobs, autonomy, onChoose, onRefresh, onOpen, onRemove, onConnected }: {
+export default function ProjectHome({ projects, draftProject, projectId, jobs, autonomy, onChoose, onRefresh, onOpen, onOpenHeart, onRemove, onConnected }: {
   projects: Project[]; draftProject?: Project; projectId: string; jobs: Job[];
   /** Plná autonomie agentů otevřeného projektu (drží a ukládá App přes useAgentAutonomy). */
   autonomy: AgentAutonomyApi;
   onChoose: (id: string, kind?: string) => void; onRefresh: () => Promise<void>; onOpen: () => void; onRemove: () => void;
+  /** Otevře samostatnou obrazovku srdce projektu (`screen=heart`, vyřizuje App). */
+  onOpenHeart: () => void;
   onConnected?: () => void;
 }) {
   const [form, setForm] = useState<Draft | null>(null);
@@ -28,6 +33,7 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, a
   const [reload, setReload] = useState(0);
   const generation = useRef(0);
   const current = useRef(projectId); current.current = projectId;
+  const heart = useHeartData(projectId);
   useEffect(() => {
     const ticket = ++generation.current;
     setLoading(true); setError(""); setForm(null);
@@ -117,6 +123,7 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, a
         {/* Plná autonomie se ukládá hned a mimo revizi nastavení (docs/plna-autonomie-agenta.md). */}
         <AgentAutonomySwitch autonomy={autonomy.autonomy} disabled={autonomy.loading || busy} saving={autonomy.saving} error={autonomy.error} onChange={(full) => { void autonomy.setFull(full); }} />
       </section>
+      <HeartPipelineCard summary={heartPipelineSummary(heart.workflow, heart.versions, heart.runs, heart.stalls)} loading={heart.loading} error={heart.error} onOpen={onOpenHeart} />
     </main>
   </div>;
 }

@@ -352,6 +352,33 @@ PUT: ≤ 1 MiB, ≤ 1000 uzlů a 5000 hran, `type` hrany z 12 datových typů po
 `event`, …); `binding.nodeId` musí být karta přijaté architektury. 404 neznámý projekt, 409 jiná revize
 (načti znovu), 422 tvar. Čísla ze simulace (rps, latence) do modelu ani do zadání nepiš.
 
+### Správa webu a design systém projektu
+
+Kontrakt `docs/navrhy/2026-11-04-sprava-webu-design-system.md` §2. Jeden dokument na projekt
+`{v, revision, title, lastChange, settings: {seo, affiliate, email, header, footer, buttons, gdpr}, design: {readme,
+sections, tokens, components, assetGroups, cover}}`; tokeny v gramatice formátu `tokens.json` typu Design System.
+Při vývoji webu čti `README.md` (brand book a „Jak systém použít“) a používej `tokens.css`; hodnoty nikdy nepiš
+natvrdo. Design jen čteš, mění ho člověk na stránce Správa webu.
+
+| Cesta | Parametry / tělo → odpověď | Kdo |
+|---|---|---|
+| GET `/api/site-admin?project=` | → `{revision, document}`; neuložený = prázdný dokument s `revision: 0` | kdokoli |
+| PUT `/api/site-admin?project=` | `{expectedRevision, document, note?}` → `{revision, document, notes}`; `notes` = zahozené neplatné hodnoty tokenů | člověk (agent 403) |
+| GET `/api/site-admin/tokens.css?project=` | generovaný `tokens.css` (témata `data-theme`, `:root`, třídy stylů, `@font-face` s `url("fonts/…")`) | kdokoli |
+| GET `/api/site-admin/tokens.json?project=` | tokeny v gramatice formátu (`version: 1` + rodiny) | kdokoli |
+| GET `/api/site-admin/README.md?project=` | brand book a generovaná sekce „Jak systém použít“ (komponenty, assety, písma) | kdokoli |
+| POST `/api/site-admin/assets` | `{project, group, name, data (base64)}` → `{name, blob: "assets/<group>/<name>", size, type}` | člověk |
+| DELETE `/api/site-admin/assets?project=&group=&name=` | → `{deleted}` | člověk |
+| GET `/api/site-admin/assets/{group}/{name}?project=` | soubor assetu | kdokoli |
+| POST `/api/site-admin/fonts` | `{project, name, data (base64)}` → `{file: "fonts/<name>", size, type}` | člověk |
+| DELETE `/api/site-admin/fonts?project=&name=` | → `{deleted}` | člověk |
+| GET `/api/site-admin/fonts/{name}?project=` | soubor fontu | kdokoli |
+
+Tajemství (heslo, token, klíč) v `settings` je 422; e-mail nese jen `secretRef` (`env:SMTP_PASSWORD`). Neplatná
+hodnota tokenu (pojmenovaná barva, `var()`, alias bez cíle nebo v cyklu…) se zahodí s poznámkou, chyba tvaru je 422.
+Soubory: typ z prvních bajtů musí sedět s příponou (png, jpg, gif, webp, svg, mp4, webm, pdf; fonty woff2, woff,
+ttf, otf, ttc), asset ≤ 10 MB, SVG ≤ 2 MB bez skriptů, font ≤ 2 MB. 404 neznámý projekt nebo soubor, 409 jiná revize.
+
 ## Karta, zdroje a projekt mimo skripty
 
 Kdy mě číst: potřebuješ adresné zprávy mezi kartami, deník nebo obrázky karty, strom zdrojů projektu nebo

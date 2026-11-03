@@ -9,12 +9,35 @@ Zadání je v obrázcích člověka `image9.png` a `image10.png` v kořeni repa 
 - Design systém umí totéž co typ Design System: tokeny s tématy, typografii, spacing, radius, stíny, komponenty s náhledem, assety a brand book.
 - Dělník dostane `design/tokens.css`, `design/tokens.json` a `design/README.md` do relace a srdce vidí sekci `DESIGN` ve snímku.
 
+## 0. Milníky (stavět jen milník, po kontrole člověkem jít dál)
+
+**M1: Design systém projektu a nejvyšší dvě vrstvy.** Kontrola v prohlížeči proti `image6.png`, `image9.png` a `image10.png`:
+1. Tenké nastavení webu z #282 je pryč (S-1).
+2. Každý projekt má vlastní design systém: jeden dokument na projekt, API, `tokens.css`/`tokens.json`/README (S-2).
+3. Editor Design Systemu: Overview (README), Colors (témata), Typography (skupiny, styly, fonty), Spacing, Corner radius, Shadows. Vstup „Design systém“ ze stránky Projekt a ze „Správy webu“ na kartě webové domény (S-4a).
+   Nad tokeny stojí přátelské editory podle příkladů člověka (`image.png` „Tlačítka webu“ a text „Vzhled“ z 2026-11-04):
+   - **Vzhled:**
+     - pozadí: barva, obrázek, vzorek;
+     - fonty nadpisů, podnadpisů a textů s velikostí;
+     - barva inverzních textů, barva odkazů a odkazů po najetí;
+     - velikosti H1–H6, styl odrážek;
+     - pokročilé: šířka stránky.
+
+     Každé pole zapisuje sémantický token nebo typografický styl a je jen pohled na tokeny, nikdy druhý zdroj pravdy.
+   - **Tlačítka:** varianty (primary, secondary, outline, ghost, link…) se záložkami stavů Tlačítko, Hover, Focus a Disabled. Nastavuje se styl (předvolba), pozadí (barva nebo barevný přechod), barva písma, zaoblení (předvolby a vlastní), výška a šířka (škála), font, rámeček, stín a přechod. K tomu **vlastní CSS s animací** (`@keyframes`, `transition`, pseudo-elementy), omezené na třídu tlačítka a sanitizované, s živým náhledem a respektem k `prefers-reduced-motion`. Tlačítka jsou komponentní tokeny a komponenta `Button` v systému.
+
+   Přesný seznam polí a bezpečnostní pravidla CSS dodá research (`research-vzhled-tlacitka`).
+4. Vrstva **Projekty**: stránka projektu má část „Pracovní workflow a pipeline srdce → Otevřít canvas srdce“. Srdce je izolované plátno 1 nejvyšší úrovně pro LLM, s vlastním vstupem, ne v liště architektury. Z lišty projektu zmizí Srdce i Graphify-out (L-1).
+5. Vrstva **Architektura s knihovnami**: prostředí Produkce a Vývoj (web, aplikace, administrace a nově mobilní aplikace Android a iOS) a vedle nich panel **Komponenty**, knihovna univerzálních komponent. Knihovny Skills, Tools a Harness vedou do Brainu, ostatní (Databáze, Backend, DevOps, Cache, Docker, Funkce a metody, Infrastruktura, Security, Monitoring a další pro web a aplikace) jsou katalog s popisem a vstupem do editoru (L-2, rozsah upřesní diagnóza).
+
+**M2 až po schválení M1:** Components, Assets a Files v Design Systemu; Nastavení (SEO, Affiliate, SMTP); Vzhled (hlavička, patička, tlačítka); GDPR; AI (S-5).
+
 ## 1. Vstup a obrazovka
 
 - **Vstup:**
   - Hlavní je třetí akce „Správa webu“ na kartě domény v landingu Architektury (`landing/components/DomainCard.tsx`). Je jen u webové domény a druh domény přichází přes `project-capabilities`.
   - Druhý vstup je odkaz v levém panelu mapy domény (`DomainPanel.tsx`).
-- **URL:** `projectView=site&domainId=<id>`.
+- **URL:** `projectView=site` (design systém projektu).
 - **Stránka Nastavení webové stránky:** levé menu má tři skupiny z `image9.png` a vedle nich Design System.
 
 | Skupina | Části |
@@ -24,11 +47,11 @@ Zadání je v obrázcích člověka `image9.png` a `image10.png` v kořeni repa 
 | GDPR | Cookie lišta |
 | Design System | Overview, Colors, Typography, Spacing, Corner radius, Shadows, Components, Assets, Files a vyhledávání |
 
-- Nastavení patří doméně, tedy webu. Jedna aplikace může mít web, aplikaci i administraci, každý s vlastním systémem. Vývoj a produkce sdílejí systém domény.
+- Design systém je **individuální pro každý projekt**: jeden dokument na projekt, sdílený všemi doménami a prostředími projektu.
 
 ## 2. Datový model
 
-Jeden dokument JSON na doménu: `<projekt>/site/<domainId>.json`, s revizí (optimistický zámek jako u nastavení projektu). Gramatika tokenů je převzatá z otevřeného formátu `tokens.json` typu Design System (`artifact-type/reference/format.md`). Kód typu se nepřebírá.
+Jeden dokument JSON na projekt: `<projekt>/site/design-system.json`, s revizí (optimistický zámek jako u nastavení projektu). Gramatika tokenů je převzatá z otevřeného formátu `tokens.json` typu Design System (`artifact-type/reference/format.md`). Kód typu se nepřebírá.
 
 ```jsonc
 {
@@ -68,7 +91,7 @@ Jeden dokument JSON na doménu: `<projekt>/site/<domainId>.json`, s revizí (opt
   - `tokens.css`: `:root, [data-theme=první]`, pak jeden blok na každé další téma, `:root` pro spacing, radius, vlastní rodiny a `--font-*`, třída na každý typografický styl, `@font-face`;
   - `tokens.json`;
   - `README.md`: brand book a generovaná sekce „Jak systém použít“ se seznamem komponent a assetů.
-- Assety a fonty jdou jako soubory do `<projekt>/site/<domainId>/assets|fonts/`.
+- Assety a fonty jdou jako soubory do `<projekt>/site/assets|fonts/`.
 
 ## 3. Rozhraní Design Systemu
 
@@ -89,13 +112,13 @@ Každá sekce je dílek s editorem, rodič drží revizi a ukládá.
 
 - **Snímek srdce:** sekce `DESIGN` (titulek, témata, počty tokenů po rodinách, styly, komponenty, stav nastavení SEO, GDPR a e-mailu) nahrazuje sekci `WEB`.
 - **Nástroj srdce:** `opora_heart.py site show|propose`. Srdce smí navrhnout změnu jen jako návrh (revize) a schvaluje ji člověk na stránce, stejně jako záměr stránky.
-- **Dělník:** ticket karty na webové doméně nese `machine.design = {domainId, revision}`. Kancelář nebo relace dostane export `design/` do worktree, design jen čte a hodnoty mimo tokeny nepíše.
+- **Dělník:** ticket karty na webové doméně nese `machine.design = {revision}`. Kancelář nebo relace dostane export `design/` do worktree, design jen čte a hodnoty mimo tokeny nepíše.
 - **Kontrola mapy:** pravidlo `site.no-design` (webová doména bez design systému).
 
 ## 5. Vlak PR
 
 1. **S-1 smazání #282:** modul nastavení webu v `backend/canvas/`, sekce WEB snímku srdce, přebití `seo`/`design` u stránky, `site-settings/` ve frontendu a zmínky v dokumentaci (seznam v inventuře).
-2. **S-2 model a API:** dokument domény, validátor, kompilace `tokens.css`, `tokens.json` a README, `GET/PUT /api/site-admin?project=&domain=`, upload a stažení assetů a fontů. Testy.
+2. **S-2 model a API:** dokument domény, validátor, kompilace `tokens.css`, `tokens.json` a README, `GET/PUT /api/site-admin?project=`, upload a stažení assetů a fontů. Testy.
 3. **S-3 stránka a vstup:** `projectView=site`, akce na kartě domény, levé menu a části Nastavení, Vzhled a GDPR. Závisí na S-2.
 4. **S-4 Design System editor:** sekce z §3. Závisí na S-2 a jde paralelně s S-3. Může se dělit po sekcích.
 5. **S-5 AI:** sekce `DESIGN`, `site show|propose`, `machine.design`, export do relace, `site.no-design`. Závisí na S-2.
