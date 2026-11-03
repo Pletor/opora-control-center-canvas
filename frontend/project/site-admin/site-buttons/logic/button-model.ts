@@ -79,8 +79,9 @@ export function removeVariant(buttons: Buttons, slug: string): Buttons {
 }
 export const withVariant = (buttons: Buttons, slug: string, variant: Variant): Buttons =>
   ({ ...buttons, variants: { ...buttons.variants, [slug]: variant } });
+/** Velikost po změně pole; prázdné pole server při uložení doplní výchozí hodnotou. */
 export const withSize = (buttons: Buttons, size: SizeName, key: keyof Size, value: string): Buttons =>
-  ({ ...buttons, sizes: { ...buttons.sizes, [size]: { ...buttons.sizes[size], [key]: value.trim() || DEFAULT_SIZES[size][key] } } });
+  ({ ...buttons, sizes: { ...buttons.sizes, [size]: { ...buttons.sizes[size], [key]: value } } });
 
 const empty = (value: unknown) => value === undefined || value === null || value === "" || (Array.isArray(value) && !value.length);
 

@@ -43,10 +43,10 @@ it("merges a state over default field by field", () => {
   expect(state.border).toEqual({ width: "2px", style: "solid", color: "#9ca3af" });
 });
 
-it("keeps a size field or falls back to its default", () => {
+it("changes one size field and keeps the others", () => {
   const buttons = withSize(readButtons({}), "lg", "minHeight", "56px");
-  expect(buttons.sizes.lg.minHeight).toBe("56px");
-  expect(withSize(buttons, "lg", "minHeight", "").sizes.lg.minHeight).toBe("52px");
+  expect(buttons.sizes.lg).toEqual({ paddingX: "2rem", paddingY: "0.875rem", minHeight: "56px", fontSize: "1.125rem" });
+  expect(buttons.sizes.md.minHeight).toBe("44px");
 });
 
 it("picks the server notes that belong to one variant", () => {

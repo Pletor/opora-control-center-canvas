@@ -45,6 +45,7 @@ export default function SiteAdmin({ project, onBack }: { project: string; onBack
       <main className="site-admin__main">
         {state.draft ? <SitePanel section={section} context={{
           project, document: state.draft, revision: state.revision, dirty: state.dirty, theme,
+          componentsCss: state.componentsCss, notes: state.notes, invalid: state.invalid,
           uploading: state.uploading, uploadError: state.uploadError, change: state.change, upload: (file, record) => void state.upload(file, record), onSelect: setSection,
         }}/> : <p className="site-admin__loading" role="status">{state.loading ? "Načítám Správu webu…" : "Správu webu se nepodařilo načíst."}</p>}
       </main>
