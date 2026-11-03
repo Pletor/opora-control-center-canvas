@@ -46,7 +46,7 @@ def service(tmp_path):
 
 def test_every_kind_is_complete_and_its_example_passes_check_and_schema():
     assert list(kinds.KINDS) == ["next", "ask", "report", "change", "state", "inbox", "release", "ticket.request",
-                                 "ticket.claim", "ticket.feedback", "ticket.deliver", "task.create", "task.cancel",
+                                 "ticket.claim", "ticket.feedback", "ticket.deliver", "ticket.release", "task.create", "task.cancel",
                                  "ticket.issue", "ticket.answer", "escalate"]
     assert set(SCHEMAS) == set(kinds.KINDS)
     for name, kind in kinds.KINDS.items():
@@ -63,7 +63,7 @@ def test_every_kind_is_complete_and_its_example_passes_check_and_schema():
 def test_role_decides_the_visible_kinds():
     worker = [kind["kind"] for kind in kinds.visible("worker")]
     assert worker == ["next", "ask", "report", "change", "state", "inbox", "release", "ticket.request",
-                      "ticket.claim", "ticket.feedback", "ticket.deliver"]
+                      "ticket.claim", "ticket.feedback", "ticket.deliver", "ticket.release"]
     assert [kind["kind"] for kind in kinds.visible("heart")] == list(kinds.KINDS)
     assert kinds.visible("human") == kinds.visible("heart")
 

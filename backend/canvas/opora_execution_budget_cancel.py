@@ -46,6 +46,8 @@ def cancel(service, identifier, payload, by):
                 )
                 record["state"] = "cancelled"
                 executions.save(record)
+                from backend.brain_opora.determinism.ticket_lifecycle import safe_follow
+                safe_follow(db, project, identifier)  # ticket zrušené exekuce → failed
             content = {
                 "schemaVersion": 1,
                 "project": project,

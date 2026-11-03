@@ -55,6 +55,8 @@ def _actor(session):
 def _emit(db, project, workspace, ticket, actor, source=None):
     """`from` (role relace, která lístek založila) u vzniku: srdce se nebudí na vlastní eskalaci."""
     data = {"ticketId": ticket["ticketId"], "kind": ticket["kind"], "status": ticket["status"]}
+    if ticket["kind"] == "ticket.feedback" and isinstance(ticket["body"], dict):
+        data["feedbackKind"] = ticket["body"].get("kind")  # srdce budí jen otázka (flow/catalogs/heart/inputs.py)
     emit_event(db, project_id=project, workspace_id=workspace, kind="gate.ticket", actor=actor,
                data=data | ({"from": source} if source else {}))
 

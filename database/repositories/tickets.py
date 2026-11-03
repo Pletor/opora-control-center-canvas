@@ -65,13 +65,28 @@ class TicketStore:
         found = self._select("id=?", (ticket_id,))
         return found[0] if found else None
 
-    def move(self, ticket_id, old, new, at, *, session_id=None, delivery=None):
-        """Stav `old` → `new` (compare-and-set); `session_id` / `delivery` jen když nejsou None. True = změněno."""
+    def move(self, ticket_id, old, new, at, *, session_id=None, delivery=None, execution_id=None):
+        """Stav `old` → `new` (compare-and-set); `session_id` / `delivery` / `execution_id` jen když nejsou None.
+        True = změněno."""
         cursor = self.db.execute(
             "UPDATE tickets SET status=?, updated_at=?, session_id=COALESCE(?, session_id),"
-            " delivery=COALESCE(?, delivery) WHERE project_id=? AND id=? AND status=?",
-            (new, at, session_id, None if delivery is None else _json(delivery), self.project, ticket_id, old))
+            " delivery=COALESCE(?, delivery), execution_id=COALESCE(?, execution_id)"
+            " WHERE project_id=? AND id=? AND status=?",
+            (new, at, session_id, None if delivery is None else _json(delivery), execution_id, self.project,
+             ticket_id, old))
         return cursor.rowcount == 1
+
+    def unclaim(self, ticket_id, at):
+        """`claimed` → `issued` bez držitele a bez vazby na exekuci (`ticket.release`); True = změněno."""
+        cursor = self.db.execute(
+            "UPDATE tickets SET status='issued', updated_at=?, session_id=NULL, execution_id=NULL"
+            " WHERE project_id=? AND id=? AND status='claimed'", (at, self.project, ticket_id))
+        return cursor.rowcount == 1
+
+    def by_execution(self, execution_id):
+        """Nejnovější ticket navázaný na exekuci, nebo None."""
+        found = self._select("execution_id=? ORDER BY seq DESC LIMIT 1", (execution_id,))
+        return found[0] if found else None
 
     def held_by(self, session_id):
         """Nejstarší ticket, který relace drží (claimed až delivered), nebo None."""

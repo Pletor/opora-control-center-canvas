@@ -41,6 +41,8 @@ def merge_events(db, project, workspace, row, merge_sha, merged_at):
         emit_event(db, project_id=project, workspace_id=workspace, kind=kind, node_id=row["node_id"],
                    execution_id=row["execution_id"], pr_number=None if local else row["number"],
                    data={"repository": row["repository"], **extra, **data})
+    from backend.brain_opora.determinism.ticket_lifecycle import safe_follow
+    safe_follow(db, project, row["execution_id"])  # ticket exekuce: sloučeno = verified → closed
 
 
 def write_back(db, project, workspace, row, key, content, merge_sha, merged_at, head_sha):

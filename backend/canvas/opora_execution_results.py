@@ -68,4 +68,6 @@ class ExecutionResults(OporaExecutions):
             self.finish(repo, record, "reported")
             from backend.canvas.opora_lease_events import reported
             reported(repo, record, receipt)
+            from backend.brain_opora.determinism.ticket_lifecycle import safe_follow
+            safe_follow(repo.db, project, identifier)  # odevzdaný ticket exekuce: zelené selfChecks = verified
             return receipt
