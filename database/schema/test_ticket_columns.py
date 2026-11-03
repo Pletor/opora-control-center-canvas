@@ -1,4 +1,4 @@
-"""Starší databáze projektu dostane sloupce oddělení a profilu ticketu; opakované otevření nic nemění."""
+"""Starší databáze projektu dostane sloupce oddělení, profilu a pinů ticketu; opakované otevření nic nemění."""
 import sqlite3
 
 from database.schema.project_initialization import initialize_project_schema
@@ -13,4 +13,4 @@ def test_old_tickets_table_gets_department_and_profile():
     initialize_project_schema(db)
     initialize_project_schema(db)
     columns = [row[1] for row in db.execute("PRAGMA table_info(tickets)")]
-    assert columns[-2:] == ["department", "profile"]
+    assert columns[-3:] == ["department", "profile", "pins"]

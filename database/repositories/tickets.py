@@ -1,14 +1,14 @@
 """Řádky `tickets` a `ticket_feedback` (docs/navrhy/2026-11-03-novy-zaklad.md §3.3): ticket jako jednotka práce.
 
 Ticket nese tělo pro dělníka bez ID (`body`, JSON), strojovou vrstvu (`card_id`, `execution_id`, `card_version`,
-oddělení a profil kanceláře `department` / `profile`),
+oddělení a profil kanceláře `department` / `profile`, piny Brainu `pins`, JSON),
 držitele (`session_id`) a odevzdání (`delivery`, JSON). Položky zpětné vazby mají vlastní řádky s ID a odpovědí srdce.
 Otázkové lístky leží dál v `gate_tickets`. Změna stavu je compare-and-set na starý stav; které přechody smí, říká
 `backend/brain_opora/determinism/ticket_model.py`. Transakci vlastní volající."""
 import json
 
 COLUMNS = ("seq", "id", "project_id", "workspace_id", "status", "body", "card_id", "execution_id", "card_version",
-           "session_id", "delivery", "created_at", "updated_at", "department", "profile")
+           "session_id", "delivery", "created_at", "updated_at", "department", "profile", "pins")
 FEEDBACK = ("seq", "id", "ticket_id", "kind", "text", "session_id", "answer", "answered_at", "created_at")
 HELD = ("claimed", "in_progress", "needs_answer", "delivered")  # stavy, ve kterých ticket drží relace dělníka
 
@@ -37,7 +37,7 @@ def public(row, feedback=()):
             "status": value["status"], "body": json.loads(value["body"]),
             "machine": {"cardId": value["card_id"], "executionId": value["execution_id"],
                         "cardVersion": value["card_version"], "department": value["department"],
-                        "profile": value["profile"]},
+                        "profile": value["profile"], "pins": _load(value["pins"]) or []},
             "sessionId": value["session_id"], "delivery": _load(value["delivery"]),
             "feedback": [public_feedback(item) for item in feedback],
             "createdAt": value["created_at"], "updatedAt": value["updated_at"]}
@@ -59,10 +59,10 @@ class TicketStore:
     def insert(self, ticket_id, workspace, status, body, machine, at):
         self.db.execute(
             "INSERT INTO tickets(id,project_id,workspace_id,status,body,card_id,execution_id,card_version,"
-            "department,profile,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            "department,profile,pins,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (ticket_id, self.project, workspace, status, _json(body), machine.get("cardId"),
              machine.get("executionId"), machine.get("cardVersion"), machine.get("department"),
-             machine.get("profile"), at, at))
+             machine.get("profile"), _json(machine.get("pins", [])), at, at))
 
     def get(self, ticket_id):
         found = self._select("id=?", (ticket_id,))

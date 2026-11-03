@@ -46,7 +46,7 @@ def test_ticket_lifecycle_with_question_and_answer(service):
     issued = send(service, brain, "ticket.issue", ISSUE)["ticket"]
     assert issued["status"] == "issued" and issued["body"]["skills"] == ["ponytail@5.3.3"]
     assert issued["machine"] == {"cardId": "hero", "executionId": None, "cardVersion": 3, "department": "design",
-                                 "profile": "frontend"}
+                                 "profile": "frontend", "pins": []}  # Brain bez ponytailu = bez výchozího pinu
     offered = send(service, office, "ticket.request")
     assert offered["held"] is False and offered["ticket"]["ticketId"] == issued["ticketId"]
     tid = issued["ticketId"]

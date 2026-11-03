@@ -39,7 +39,7 @@ def test_body_gets_default_pin_and_keeps_layers_apart():
                                                 "department": "design"})
     assert body == {**BODY, "openPaths": [], "cautions": [], "skills": ["ponytail@5.3.3"]}
     assert machine == {"cardId": "hero", "executionId": None, "cardVersion": 2, "department": "design",
-                       "profile": None}
+                       "profile": None, "pins": []}  # ID artefaktů Brainu; piny po pluginech doplní obsluha
 
 
 @pytest.mark.parametrize("payload", [

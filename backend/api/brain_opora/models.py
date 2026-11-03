@@ -132,12 +132,22 @@ class WorkTicketBody(BaseModel):
     doneCriteria: list[str]
 
 
+class WorkTicketPin(BaseModel):
+    """Pin Brainu po pluginu (docs/navrhy/2026-11-03-novy-zaklad.md §3.4): zip pro `claude --plugin-dir`."""
+
+    pin: str
+    plugin: str
+    version: str
+    zip: str
+
+
 class WorkTicketMachine(BaseModel):
     cardId: str | None
     executionId: str | None
     cardVersion: int | None
     department: str | None
     profile: str | None
+    pins: list[WorkTicketPin]
 
 
 class WorkTicketFeedback(BaseModel):
