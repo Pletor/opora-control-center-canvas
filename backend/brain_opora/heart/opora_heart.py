@@ -28,7 +28,7 @@
     python opora_heart.py steps --node ID --file F [--dry-run]
     python opora_heart.py rule --text T
     python opora_heart.py done --summary S
-    python opora_heart.py ctx tasks|tickets|journal|messages|rules|decisions|tree
+    python opora_heart.py ctx work|tickets|journal|messages|rules|decisions|tree
     python opora_heart.py ctx plan-of --project P [--workspace W] [--node N | --full]
     python opora_heart.py run SCRIPT [ARG…]
     python opora_heart.py research --question Q --title T [--target URL|cesta]… [--layer L]… [--fragment F] [--deep]
@@ -99,7 +99,7 @@ LAST_DONE = "last_done.json"
 ACTIVE = "active_workspace.json"  # prostor posledního přijatého plánu (kopie brain_files.ACTIVE, nástroj je jen stdlib)
 _OPENER = build_opener(ProxyHandler({}))  # loopback bez systémové proxy
 DILNA = Path("dilna")
-CONTEXTS = ("tasks", "tickets", "journal", "messages", "rules", "decisions", "tree", "plan-of")
+CONTEXTS = ("work", "tickets", "journal", "messages", "rules", "decisions", "tree", "plan-of")
 # Stanoviska vstupní brány, která srdce smí dát (kopie determinism.intake.VERDICTS, nástroj je jen stdlib).
 VERDICTS = ("done", "extends_in_progress", "fix_for_milestone", "changes_intent", "later_extension", "needs_info")
 LAYERS = ("fe", "be", "db", "api", "cache", "infra", "security", "data", "ops")  # vrstvy výzkumu (§3d)

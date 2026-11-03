@@ -102,7 +102,7 @@ export function bundleEvents(events: TrailRecent[]): EventBundle[] {
 
 /** Relace a změny karty v jedné ose, nejnovější první, nejvýš `settings.limit`; nejnovější relace je v ose vždy a jen ona je rozbalená. */
 export function timeline(trail: CardTrail, settings: TrailSettings = TRAIL_SETTINGS): TimelineItem[] {
-  const runs: TimelineItem[] = trail.runs.map((run, index) => ({ kind: "run", key: `run:${run.executionId ?? run.taskId ?? index}`,
+  const runs: TimelineItem[] = trail.runs.map((run, index) => ({ kind: "run", key: `run:${run.executionId ?? run.ticketId ?? index}`,
     at: run.createdAt, run, expanded: false }));
   const events: TimelineItem[] = bundleEvents(trail.recent.filter((event) => !HIDDEN_KINDS.has(event.kind)))
     .map((bundle, index) => ({ kind: "event", key: `event:${index}:${bundle.event.at}`, at: bundle.event.at, ...bundle }));

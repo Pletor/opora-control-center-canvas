@@ -1,4 +1,4 @@
-// Hlavička Kanceláře: kolik pracovníků brány právě drží úkol a co dělá srdce (pracuje / spí, zprávy ve frontě).
+// Hlavička Kanceláře: kolik pracovníků brány právě drží ticket a co dělá srdce (pracuje / spí, zprávy ve frontě).
 import type { HeartStatus } from "@/layout/heart-channel/logic/heart-api";
 
 type Props = {

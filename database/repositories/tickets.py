@@ -104,6 +104,10 @@ class TicketStore:
             return self._select("workspace_id=? AND status=? ORDER BY seq LIMIT ?", (workspace, status, limit))
         return self._select("workspace_id=? ORDER BY seq LIMIT ?", (workspace, limit))
 
+    def for_card(self, workspace, card, limit=10):
+        """Nejnovější tickety karty (`card_id`) v prostoru, nejnovější první (stopa práce karty)."""
+        return self._select("workspace_id=? AND card_id=? ORDER BY seq DESC LIMIT ?", (workspace, card, limit))
+
     def add_feedback(self, feedback_id, ticket_id, kind, text, session_id, at):
         self.db.execute("INSERT INTO ticket_feedback(id,project_id,ticket_id,kind,text,session_id,created_at)"
                         " VALUES(?,?,?,?,?,?,?)", (feedback_id, self.project, ticket_id, kind, text, session_id, at))

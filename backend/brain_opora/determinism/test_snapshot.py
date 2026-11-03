@@ -10,7 +10,6 @@ from backend.brain_opora.determinism import (
     intake,
     kinds,
     snapshot,
-    task_queue,
     tokens,
 )
 from backend.brain_opora.determinism.gate_payloads import GateError
@@ -21,9 +20,6 @@ FACTS = {"project": "p1", "name": "Zahrada", "workspace": "main", "goal": "",
          "pages": [{"id": "home", "name": "Domů", "path": "/", "goal": "Uvěřit, že to zvládnu.", "feel": "klidná"},
                    {"id": "kontakt", "name": "Kontakt", "path": "/kontakt", "goal": "", "feel": ""}],
          "cards": [{"id": "home", "name": "Domů", "stage": "ready"}],
-         "tasks": [{"taskId": "ht_1", "seq": 1, "title": "Hero", "status": "done", "sessionId": "gs_1"},
-                   {"taskId": "ht_2", "seq": 2, "title": "Formulář", "status": "assigned", "sessionId": "gs_2",
-                    "updatedAt": "2026-10-29T08:00:00Z"}],
          "workTickets": [{"ticketId": "tk_1", "seq": 1, "status": "delivered", "body": {"build": "Hero\nUdělej hero."},
                           "machine": {"cardId": "home"}, "sessionId": "gs_1", "updatedAt": "2026-10-29T07:00:00Z"},
                          {"ticketId": "tk_2", "seq": 2, "status": "issued", "body": {"build": "Formulář"},
@@ -60,7 +56,7 @@ def test_render_prefers_project_goal_and_falls_back_to_cards():
     facts = {**FACTS, "goal": "Prodat sazenice.", "pages": []}
     text = snapshot.render(facts)
     assert "ZÁMĚR: Prodat sazenice." in text and "- Domů · home · ready" in text
-    empty = snapshot.render({**facts, "goal": "", "cards": [], "tasks": [], "tickets": [], "checks": []})
+    empty = snapshot.render({**facts, "goal": "", "cards": [], "tickets": [], "checks": []})
     assert "ZÁMĚR: —" in empty and "- (prázdný plán)" in empty and empty.count("- žádné") == 9  # lístky, kontroly, git, čtyři části okolí, dílna a výzkum
 
 
@@ -77,13 +73,12 @@ def test_collect_reads_work_tickets_question_tickets_and_unknown_project(service
     heart = gate.authenticate(service, token, roles=("heart",))
     kinds.run(service, heart, {"kind": "ticket.issue", "body": {"body": {
         "essence": "Proč.", "build": "Stránka\nPostav ji.", "doneCriteria": ["npm test projde"]}, "cardId": "home"}})
-    task_queue.create(service, {"project": "draft", "workspace": "draft", "title": "Starý úkol", "body": {"do": "x"}})
     session = gate.authenticate(service, gate.open_session(
         service, {"project": "draft", "workspace": "draft", "worker": {"name": "dev"}})["token"])
     kinds.run(service, session, {"kind": "ask", "body": {"question": "?"}})
     text = snapshot.snapshot(service, "draft", "draft")
     assert "TICKETY PRÁCE: issued 1" in text and "[issued] Stránka (tk_" in text and " · karta home" in text
-    assert " ask " in text and "Starý úkol" not in text
+    assert " ask " in text
     with pytest.raises(GateError) as caught:
         snapshot.collect(service, "nikde", "draft")
     assert caught.value.code == "project_not_found"
@@ -135,11 +130,13 @@ def test_render_without_surroundings_prints_empty_sections():
         assert _block(text, head) == ["- žádné"]
 
 
-def test_view_rules_put_approved_memory_rules_before_task_rules():
-    tasks = [{**FACTS["tasks"][0], "body": {"context": {"rules": ["Česky a bez emoji", "Mobil první"]}}}]
-    view = snapshot.view({**FACTS, **MEMORY, "tasks": tasks})
-    assert view["rules"] == ["Česky a bez emoji", "Mobil první"]
-    assert set(view) == {"project", "intent", "rules", "plan", "queue", "myTask"}
+def test_view_has_approved_memory_rules_ticket_counts_and_the_held_ticket():
+    work = [{**item, "workspaceId": "main", "feedback": [], "createdAt": "t"} for item in FACTS["workTickets"]]
+    view = snapshot.view({**FACTS, **MEMORY, "workTickets": work}, "gs_1")
+    assert view["rules"] == ["Česky a bez emoji"]
+    assert set(view) == {"project", "intent", "rules", "plan", "tickets", "myTicket"}
+    assert view["tickets"]["delivered"] == 1 and view["tickets"]["issued"] == 1 and view["myTicket"]["ticketId"] == "tk_1"
+    assert snapshot.view({**FACTS, "workTickets": work}, "gs_cizi")["myTicket"] is None
 
 
 class Memory:

@@ -1,7 +1,7 @@
 """Data dílny srdce (docs/brain-heart.md §3b): velký kontext pro `ctx <name>`, deterministicky a bez modelu.
 
-`context` vrátí seznam položek jednoho druhu: `tasks` (všechny úkoly s tělem a reportem), `tickets` (všechny lístky
-pracovního prostoru), `journal` (celý deník dávek), `messages` (zprávy člověka v prostoru), `rules` a `decisions`
+`context` vrátí seznam položek jednoho druhu: `work` (všechny tickety práce prostoru s tělem, odevzdáním a zpětnou
+vazbou), `tickets` (všechny lístky brány pracovního prostoru), `journal` (celý deník dávek), `messages` (zprávy člověka v prostoru), `rules` a `decisions`
 (paměť Desktop v3) a `tree` (soubory zdroje `{path, size, mtime}` bez `node_modules`, `.git` a výstupu buildu,
 nejvýš `TREE_CAP`). Nástroj srdce je zapíše do `brain/dilna/data/<name>.json`; do okna modelu nejdou.
 `plan-of` (docs/brain-heart-orchestrator.md §9 O7) je plán jiného projektu (uzly plátna se zadáním a vazbami) jako data,
@@ -19,9 +19,9 @@ from backend.canvas.project_architecture import ARCHITECTURE_WID
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories.gate_tickets import GateTicketStore
-from database.repositories.heart_tasks import HeartTaskStore
+from database.repositories.tickets import TicketStore
 
-NAMES = ("tasks", "tickets", "journal", "messages", "rules", "decisions", "tree", "plan-of")
+NAMES = ("work", "tickets", "journal", "messages", "rules", "decisions", "tree", "plan-of")
 ROWS = 10_000  # strop řádků z databáze; dílna je pro velký kontext, ne pro nekonečný
 TREE_CAP = 20_000
 PLAN_OF_BYTES, PLAN_OF_TEXT, PLAN_OF_STEPS = 300_000, 2000, 30  # plán jiného projektu: celý JSON, text pole, kroky
@@ -33,8 +33,8 @@ SKIP = {"node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".svel
 def _rows(service, project, workspace, name):
     with service.reading(project):
         db = service.db_for(project)
-        if name == "tasks":
-            return HeartTaskStore(db, project).list(workspace, limit=ROWS)
+        if name == "work":
+            return TicketStore(db, project).list(workspace, limit=ROWS)
         return GateTicketStore(db, project).all(workspace, ROWS)
 
 
@@ -198,7 +198,7 @@ def context(service, project, workspace, name, of=None, of_workspace=None, of_no
         if not isinstance(of, str) or not of:
             raise invalid("plan-of potřebuje projekt (?of=<id>).", "python opora_heart.py ctx plan-of --project <id>.")
         return plan_of(service, of, of_workspace or None, of_node or None)
-    if name in ("tasks", "tickets"):
+    if name in ("work", "tickets"):
         return _rows(service, project, workspace, name)
     if name in ("rules", "decisions"):
         return _memory(service, project, workspace, name)

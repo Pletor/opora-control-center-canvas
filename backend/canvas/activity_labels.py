@@ -1,8 +1,9 @@
 """Čitelný popisek a dotčené uzly zápisů, které mění karty (docs/zaznam-cinnosti.md, „Stopa karty“).
 
 Popisek je krátká česká věta pro člověka („Pořadí 12 karet“, „Návrh grafu: +3 karty, −1 vazba“,
-„Úkol do fronty: Hero“), nejvýš `LABEL_MAX` znaků. Počítá se jen z těla požadavku nebo z uloženého
-návrhu (počty, ID), nikdy z textů zadání; jediný převzatý text je název úkolu. Funkce jsou čisté.
+„Ticket práce: Hero“), nejvýš `LABEL_MAX` znaků. Počítá se jen z těla požadavku nebo z uloženého
+návrhu (počty, ID), nikdy z textů zadání; jediný převzatý text je první řádek „co postavit“ vydaného ticketu
+(`ticket.issue` přes `POST /api/gate/requests`, karta = `cardId`). Funkce jsou čisté.
 """
 from backend.canvas.canvas_plan_summary import counted
 
@@ -89,8 +90,20 @@ def changeset_label(changes):
     return clean(f"Návrh zadání: {counted(len(changes), CARDS)}")
 
 
-def task_label(title):
-    return clean("Úkol do fronty: " + title) if isinstance(title, str) and title.strip() else "Úkol do fronty"
+def ticket_label(build):
+    """Popisek vydaného ticketu: první řádek `build`, jinak jen druh zápisu."""
+    first = build.strip().splitlines()[0] if isinstance(build, str) and build.strip() else ""
+    return clean("Ticket práce: " + first) if first else "Ticket práce"
+
+
+def _issued(payload):
+    """(`label`, `nodeIds`) požadavku brány `ticket.issue`; jiný druh = žádná věta."""
+    issue = payload.get("body") if payload.get("kind") == "ticket.issue" else None
+    if not isinstance(issue, dict):
+        return "", []
+    work = issue.get("body") if isinstance(issue.get("body"), dict) else {}
+    card = issue.get("cardId")
+    return ticket_label(work.get("build")), [card] if isinstance(card, str) and card else []
 
 
 def body_label(path, payload):
@@ -102,8 +115,8 @@ def body_label(path, payload):
     if path == "/api/canvas-plan" and isinstance(payload.get("plan"), dict):
         from backend.canvas.canvas_plan_summary import plan_summary
         return clean("Plán: " + plan_summary(payload["plan"])), []
-    if path == "/api/brain/tasks":
-        return task_label(payload.get("title")), []
+    if path == "/api/gate/requests":
+        return _issued(payload)
     return "", []
 
 

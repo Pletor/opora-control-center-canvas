@@ -1,8 +1,9 @@
-// Kancelář (docs/kancelar.md §1–2): z grafu, úkolů brány, přehledu práce a pronájmů složí budovu.
+// Kancelář (docs/kancelar.md §1–2): z grafu, ticketů práce, přehledu práce a pronájmů složí budovu.
 // Oddělení = oblast na kořenové vrstvě, místnost = sektor (člen oblasti podle polohy, jinak Hala),
-// stůl = karta s `parentId` = sektor, pracovník = relace brány, která drží úkol (`assigned` se `sessionId`).
-// Pracovník sedí u stolu (úkol na kartě), u společného stolu místnosti (úkol na sektoru) nebo v Recepci
-// (úkol bez uzlu, nebo uzel mimo budovu). Čistá data bez Reactu; dílky je jen kreslí.
+// stůl = karta s `parentId` = sektor, pracovník = relace brány, která drží ticket (claimed / in_progress / needs_answer / delivered se `sessionId`).
+// Pracovník sedí u stolu (ticket na kartě), u společného stolu místnosti (ticket na sektoru) nebo v Recepci
+// (ticket bez karty, nebo uzel mimo budovu). Čistá data bez Reactu; dílky je jen kreslí.
+import { ticketTitle } from "@/layout/heart-channel/logic/tickets";
 import type { AreaColor, CanvasNode, Graph } from "@/shared/types/logic/types";
 import { nodeWorkflowOf, type DesktopState } from "@/shared/desktop-state/logic/types";
 import { areaColorOf, areaLabel, isArea, membersOf } from "@/editor/canvas/area/logic/area-model";
@@ -11,10 +12,16 @@ import { processView } from "@/editor/canvas/node-card/logic/card-process";
 import type { WorkRow } from "@/editor/canvas/node-card/logic/use-work-overview";
 import type { CardLease } from "@/editor/canvas/node-card/logic/use-leases";
 
-/** Úkol z `GET /api/brain/tasks`, jen pole, která Kancelář čte. */
-export type OfficeTask = { taskId: string; title: string; status: string; sessionId: string | null; nodeId: string | null; updatedAt: string };
-/** Pracovník: relace brány (`id` = `sessionId`) a úkol, který drží. */
-export type Worker = { id: string; taskId: string; title: string; nodeId: string | null; updatedAt: string };
+/** Ticket z `GET /api/brain/tickets`, jen pole, která Kancelář čte (`WorkTicket` je splňuje). */
+export type OfficeTicket = {
+  ticketId: string; seq?: number; status: string; sessionId: string | null; updatedAt: string;
+  body: { build: string }; machine: { cardId: string | null };
+};
+/** Pracovník: relace brány (`id` = `sessionId`) a ticket, který drží. */
+export type Worker = { id: string; ticketId: string; title: string; nodeId: string | null; updatedAt: string };
+
+/** Stavy, ve kterých ticket drží relace dělníka. */
+const HELD = new Set(["claimed", "in_progress", "needs_answer", "delivered"]);
 export type Desk = { id: string; name: string; closed: boolean; state: CardStateLine; workers: Worker[] };
 export type ToneCounts = Record<CardStateTone, number>;
 export type Room = { id: string; name: string; purpose: string; tones: ToneCounts; desks: Desk[]; common: Worker[] };
@@ -23,7 +30,7 @@ export type Office = { departments: Department[]; hall: Room[]; reception: Worke
 
 export type OfficeInput = {
   graph: Graph;
-  tasks: OfficeTask[];
+  tickets: OfficeTicket[];
   workRows?: Record<string, WorkRow>;
   leases?: Record<string, CardLease>;
   state: DesktopState;
@@ -36,14 +43,14 @@ export const TONE_ORDER: CardStateTone[] = ["ok", "run", "warn", "fail", "idle"]
 
 const emptyTones = (): ToneCounts => ({ ok: 0, run: 0, warn: 0, fail: 0, idle: 0 });
 
-/** Pracovníci: přidělené úkoly s relací, každá relace jednou (drží-li víc úkolů, platí první v seznamu). */
-export function workersOf(tasks: OfficeTask[]): Worker[] {
+/** Pracovníci: tickety držené relací, každá relace jednou (drží-li víc ticketů, platí první v seznamu). */
+export function workersOf(tickets: OfficeTicket[]): Worker[] {
   const seen = new Set<string>();
   const workers: Worker[] = [];
-  for (const t of tasks) {
-    if (t.status !== "assigned" || !t.sessionId || seen.has(t.sessionId)) continue;
+  for (const t of tickets) {
+    if (!HELD.has(t.status) || !t.sessionId || seen.has(t.sessionId)) continue;
     seen.add(t.sessionId);
-    workers.push({ id: t.sessionId, taskId: t.taskId, title: t.title, nodeId: t.nodeId, updatedAt: t.updatedAt });
+    workers.push({ id: t.sessionId, ticketId: t.ticketId, title: ticketTitle(t), nodeId: t.machine.cardId, updatedAt: t.updatedAt });
   }
   return workers;
 }
@@ -64,12 +71,12 @@ function deskOf(card: CanvasNode, input: OfficeInput): Omit<Desk, "workers"> {
 
 export function buildOffice(input: OfficeInput): Office {
   const { graph } = input;
-  const workers = workersOf(input.tasks);
+  const workers = workersOf(input.tickets);
   const sectors = graph.nodes.filter((n) => n.kind === "sector");
   const sectorIds = new Set(sectors.map((s) => s.id));
   const cardSector = new Set(graph.nodes.filter((n) => n.kind === "node" && !!n.parentId && sectorIds.has(n.parentId)).map((n) => n.id));
 
-  // Kam kdo sedí: uzel úkolu je karta v budově → stůl; sektor v budově → společný stůl; jinak Recepce.
+  // Kam kdo sedí: karta ticketu je karta v budově → stůl; sektor v budově → společný stůl; jinak Recepce.
   const atDesk = new Map<string, Worker[]>();
   const atCommon = new Map<string, Worker[]>();
   const reception: Worker[] = [];

@@ -72,11 +72,11 @@ def _input_line(item):
     if kind == "ticket":
         body = json.dumps(item.get("body"), ensure_ascii=False, sort_keys=True)
         return f"- LÍSTEK {item['ticketId']} ({item['kind']}) od pracovníka: {body}{_intake(item)}"
-    if kind == "taskFailed":
+    if kind == "workFailed":  # ticket práce selhal (ticket.failed, docs/navrhy/2026-11-03-novy-zaklad.md §3.3)
         body = json.dumps(item.get("body"), ensure_ascii=False, sort_keys=True)[:1500]
-        report = json.dumps(item.get("report"), ensure_ascii=False, sort_keys=True)[:1500]
-        return (f"- ÚKOL SELHAL {item['taskId']} „{item.get('title', '')}“ (druhá červená, už uzavřený): "
-                f"zadání {body}; report {report}")
+        delivery = json.dumps(item.get("delivery"), ensure_ascii=False, sort_keys=True)[:1500]
+        return (f"- TICKET SELHAL {item['ticketId']} (karta {item.get('cardId') or '?'}, už uzavřený): "
+                f"{item.get('reason') or 'bez důvodu'}; tělo {body}; odevzdání {delivery}")
     if kind == "merged":
         pr = f"PR #{item['pr']}" if item.get("pr") else "lokální sloučení"
         return (f"- SLOUČENO: karta {item.get('nodeId') or '?'}, {pr}, sha {str(item.get('mergeSha') or '?')[:12]}"

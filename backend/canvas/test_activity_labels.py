@@ -9,7 +9,7 @@ from backend.canvas.activity_labels import (
     graph_label,
     plan_nodes,
     proposal_trace,
-    task_label,
+    ticket_label,
 )
 from backend.canvas.activity_log import describe, entry_label
 
@@ -33,10 +33,13 @@ def test_plan_nodes_are_existing_ids_only():
     assert plan_nodes("nonsense") == []
 
 
-def test_changeset_task_and_clean():
+def test_changeset_ticket_and_clean():
     assert changeset_label([{"nodeId": "a", "fields": {"steps": [{}, {}, {}, {}]}}]) == "Kroky karty: 4 kroky"
     assert changeset_label([{"nodeId": "a", "fields": {}}, {"nodeId": "b", "fields": {}}]) == "Návrh zadání: 2 karty"
-    assert task_label("  Hero\n sekce ") == "Úkol do fronty: Hero sekce" and task_label(None) == "Úkol do fronty"
+    assert ticket_label("  Hero\n sekce ") == "Ticket práce: Hero" and ticket_label(None) == "Ticket práce"
+    issue = {"kind": "ticket.issue", "body": {"body": {"build": "Hero sekce\nDetail."}, "cardId": "n1"}}
+    assert body_label("/api/gate/requests", issue) == ("Ticket práce: Hero sekce", ["n1"])
+    assert body_label("/api/gate/requests", {"kind": "ask", "body": {"question": "?"}}) == ("", [])
     long = clean("x" * 300)
     assert len(long) == 120 and long.endswith("…") and "|" not in clean("a | b")
 

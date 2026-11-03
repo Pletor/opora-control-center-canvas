@@ -37,7 +37,6 @@ const ACTION_LABELS: Record<string, string> = {
   "/api/canvas-versions": "Uložit vše",
   "/api/desktop-v3/decision": "Rozhodnutí",
   "/api/desktop-v3/rule": "Pravidlo",
-  "/api/brain/tasks": "Úkol do fronty",
   "/api/brain/heart/ask": "Otázka pro vás",
   "/api/brain/heart/escalate": "Otázka pro vás",
   "/api/brain/heart/brief": "Spis požadavku",

@@ -1,7 +1,7 @@
 """Stopa práce karty: čistá projekce existujících záznamů do jedné odpovědi (docs/stopa-prace-karty.md).
 
 Vstupem jsou syrová fakta, která posbírá `card_trail_read.gather` (běhy exekucí s výsledky a průběžnými kroky,
-úkoly brány, události, záznam činnosti, zprávy na vazbách, PR, `dod.missing`, soubory commitů). Funkce nic
+tickety práce karty, události, záznam činnosti, zprávy na vazbách, PR, `dod.missing`, soubory commitů). Funkce nic
 nečte, nic nezapisuje a nevolá model. Každý text nese `source`: `det` (odvozeno kódem), `agent` (napsal
 dělník), `heart` (napsalo srdce), `human` (napsal člověk). Stav, kontroly, commity a soubory jsou vždy záznam.
 """
@@ -12,6 +12,8 @@ from backend.canvas.card_trail_judgment import judgment
 RECENT = 10
 QUIET_KINDS = ("lease.heartbeat",)  # tikání převzetí do logu karty nepatří, `now` ho nese samo
 CHECK_STATUS = {"passed": "green", "failed": "red"}
+HELD = ("claimed", "in_progress", "needs_answer")  # ticket, na kterém dělník právě pracuje
+TICKET_STEP = {"delivered": "done", "verified": "done", "closed": "done", "failed": "failed"}
 
 
 def moment(value):
@@ -83,48 +85,34 @@ def execution_run(run, files):
     steps = [_step(key, by_id.get(key, {}).get("title"), reported.get(key), result.get("selfChecks"), files,
                    by_id.get(key, {}).get("files")) for key in order if isinstance(key, str)]
     summary = result.get("summary") if isinstance(result.get("summary"), str) else ""
-    return {"executionId": record.get("executionId"), "taskId": None, "owner": record.get("owner"),
+    return {"executionId": record.get("executionId"), "ticketId": None, "owner": record.get("owner"),
             "createdAt": record.get("createdAt"), "until": iso(record.get("expiresAt")), "state": record.get("state"),
             "summary": summary, "source": author(record.get("owner")) if summary.strip() else "det",
             "attempts": len(receipts), "reported": bool(receipts), "steps": steps}
 
 
-def task_owner(task, events):
-    """Dělník úkolu brány: poslední agent v událostech `gate.task` toho úkolu (nejnovější první)."""
-    for event in events:
-        actor = event.get("actor") or {}
-        if (event.get("kind") == "gate.task" and (event.get("data") or {}).get("taskId") == task.get("taskId")
-                and actor.get("kind") == "agent" and actor.get("name") not in (None, "heart")):
-            return actor["name"]
-    return None
-
-
-def task_run(task, events, files):
-    """Úkol brány jako běh s jedním krokem (krok = úkol); `attempts` = počet červených hlášení."""
-    report = task.get("report") or {}
-    checks = [{"name": item.get("name"), "status": item.get("status", "unknown")}
-              for item in report.get("checks") or [] if isinstance(item, dict)]
-    commits = [report["sha"]] if isinstance(report.get("sha"), str) else []
-    status = {"done": "done", "failed": "failed"}.get(task.get("status"), "pending")
-    step = {"stepId": task.get("taskId"), "title": task.get("title"), "status": status, "checks": checks,
-            "commits": commits, "notes": "", "source": "det"}
+def ticket_run(ticket, files):
+    """Ticket práce bez exekuce jako běh s jedním krokem (krok = ticket); ticket s exekucí ukazuje její běh."""
+    delivery = ticket.get("delivery") or {}
+    commits = [delivery["sha"]] if isinstance(delivery.get("sha"), str) else []
+    build = str((ticket.get("body") or {}).get("build") or "")
+    step = {"stepId": ticket.get("ticketId"), "title": build.splitlines()[0] if build else "",
+            "status": TICKET_STEP.get(ticket.get("status"), "pending"), "checks": [], "commits": commits,
+            "notes": "", "source": "det"}
     changed = _files(commits, files)
     if changed is not None:
         step["files"] = changed
-    allowed = (task.get("body") or {}).get("files")
-    if isinstance(allowed, list):
-        step["allowed"] = allowed
-    summary = report.get("summary") if isinstance(report.get("summary"), str) else ""
-    return {"executionId": None, "taskId": task.get("taskId"), "owner": task_owner(task, events),
-            "createdAt": task.get("createdAt"), "until": None, "state": task.get("status"), "summary": summary,
-            "source": "agent" if summary.strip() else "det", "attempts": task.get("attempts") or 0,
-            "reported": task.get("report") is not None, "steps": [step]}
+    summary = delivery.get("summary") if isinstance(delivery.get("summary"), str) else ""
+    return {"executionId": None, "ticketId": ticket.get("ticketId"), "owner": ticket.get("sessionId"),
+            "createdAt": ticket.get("createdAt"), "until": None, "state": ticket.get("status"), "summary": summary,
+            "source": "agent" if summary.strip() else "det", "attempts": 1 if delivery else 0,
+            "reported": bool(delivery), "steps": [step]}
 
 
 def current(runs):
-    """Kdo kartu teď drží: běžící exekuce, jinak úkol brány přidělený relaci."""
+    """Kdo kartu teď drží: běžící exekuce, jinak ticket práce, na kterém dělník pracuje."""
     for run in runs:
-        if run["state"] in ("running", "assigned"):
+        if run["state"] == "running" or run["state"] in HELD:
             step = next((item["stepId"] for item in run["steps"] if item["status"] != "done"), None)
             return {"owner": run["owner"], "since": run["createdAt"], "until": run["until"], "stepId": step,
                     "source": "det"}
@@ -182,7 +170,8 @@ def project_trail(facts):
     """Celá stopa jedné karty z `facts` (tvar viz `card_trail_read.gather`)."""
     files, events = facts.get("files"), facts.get("events") or []
     runs = [execution_run(run, files) for run in facts.get("runs") or []]
-    runs += [task_run(task, events, files) for task in facts.get("tasks") or []]
+    runs += [ticket_run(ticket, files) for ticket in facts.get("tickets") or []
+             if not (ticket.get("machine") or {}).get("executionId")]
     runs.sort(key=lambda run: moment(run["createdAt"]), reverse=True)
     return {"nodeId": facts["nodeId"], "now": current(runs), "runs": runs, "pr": facts.get("pr"),
             "missing": list(facts.get("missing") or []), "recent": recent(events, facts.get("activity") or []),

@@ -4,7 +4,7 @@ import { batchRange, heartStepsQuery, inputLabel, liveLine, stepRows, stepText, 
 
 function entry(id: number, extra: Partial<ActivityEntry> = {}): ActivityEntry {
   return {
-    id, at: "2026-10-31T10:00:00+00:00", actor: "agent", agent: "heart", method: "POST", path: "/api/brain/tasks",
+    id, at: "2026-10-31T10:00:00+00:00", actor: "agent", agent: "heart", method: "POST", path: "/api/gate/tickets",
     project: "p", workspace: "w", nodeIds: [], status: 201, summary: "", ...extra,
   };
 }
@@ -22,7 +22,7 @@ describe("co srdce probudilo", () => {
   ])("%j → %s", (input, label) => expect(inputLabel(input)).toBe(label));
 
   it("první vstup a počet dalších; bez vstupů dohánění", () => {
-    expect(wakeReason([{ type: "message", text: "a" }, { type: "commits" }, { type: "taskFailed" }])).toBe("zpráva člověka + 2 další");
+    expect(wakeReason([{ type: "message", text: "a" }, { type: "commits" }, { type: "workFailed" }])).toBe("zpráva člověka + 2 další");
     expect(wakeReason([])).toBe("dohánění vstupů");
   });
 
@@ -53,8 +53,7 @@ describe("rozsah a dotaz kroků", () => {
 
 describe("kroky srdce", () => {
   it("věta z popisku akce, konce cesty a operace", () => {
-    expect(stepText({ path: "/api/brain/tasks", summary: "body,title" })).toBe("Úkol do fronty");
-    expect(stepText({ path: "/api/brain/tasks/T1/cancel", summary: "" })).toBe("Zrušení úkolu");
+    expect(stepText({ path: "/api/gate/tickets", summary: "body,title" })).toBe("Lístek brány");
     expect(stepText({ path: "/api/oporahub/graph-proposals/g1/accept", summary: "" })).toBe("Přijetí návrhu");
     expect(stepText({ path: "/api/desktop-v3/block", summary: "nodeId,op op=addBlock" })).toBe("Blok karty · addBlock");
   });
@@ -66,7 +65,7 @@ describe("kroky srdce", () => {
     );
     expect(rows.map((row) => [row.key, row.text, row.cards, row.failed])).toEqual([
       [2, "Otázka pro vás", [], true],
-      [1, "Úkol do fronty", ["Kontakty", "n9"], false],
+      [1, "Lístek brány", ["Kontakty", "n9"], false],
     ]);
   });
 });

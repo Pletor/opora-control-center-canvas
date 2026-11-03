@@ -21,23 +21,15 @@ Modules (H1a2):
   project gets `authority = resolve("agent", True)` in that project only; a request without an agent header is then
   logged as agent `heart`. Projects with the gate off never reach `decide`.
 
-Modules (H1b):
-- `task_queue.py`: the task queue `heart_tasks` (repository `database/repositories/heart_tasks.py`). `create`,
-  `list_tasks`, `cancel` back `POST|GET /api/brain/tasks` and `POST /api/brain/tasks/{id}/cancel` (writes human
-  only). `next_task` is the `next` handler: the held task again (idempotent), else the oldest `ready`; tasks of
-  expired or revoked sessions go back to `ready` first; an empty queue answers `{task: null, plan}` with at most 20
-  open cards `{id, name, stage}` from `ProcessSync` (the card overview agent-state is built from; `stage` is its
-  process status), read after the queue lock is released. `report` is the `report` handler: every check goes to
-  `check_runs` (`CheckRuns.record`, scope `nodeId` or the task id, sha lowercased); all green = `done`, red = back
-  to `ready` with `attempts + 1`, the second red = `failed`. Event `gate.task {taskId, status}` on create, assign,
-  done, failed and cancel.
-- `task_payloads.py`: body checks of tasks and reports (`invalid_payload`, `invalid_sha`, `checks_required`); a task
-  body is filled to the fixed shape `{why, do, files, doneWhen, dontTouch, context, commit}`.
+Modules (H1b, replaced in PR 5c):
+- The task queue (`task_queue.py`, `task_payloads.py`, table `heart_tasks`, `/api/brain/tasks`, kinds `next`, `report`,
+  `release`, `task.create`, `task.cancel`, event `gate.task`) was replaced by the ticket of work (see PR 4 below) and
+  deleted without backward compatibility; `drop_retired_tables` drops the old table with its data.
 - Worker client: `.claude/skills/opora-control-center/scripts/opora_gate.py` (reference `references/gate.md`).
 
 Modules (H1c, contract `docs/brain-control-api.md`):
-- `kinds.py`: the single table of request kinds (`next`, `ask`, `report`, `change`, `state`, `inbox`, `release`,
-  `ticket.request|claim|feedback|deliver` for workers; `task.create`, `task.cancel`, `ticket.issue`, `ticket.cancel`,
+- `kinds.py`: the single table of request kinds (`ask`, `change`, `state`, `inbox`,
+  `ticket.request|claim|feedback|deliver|release` for workers; `ticket.issue`, `ticket.cancel`,
   `ticket.answer`, `escalate` for the heart). Each kind has role, description,
   input/output schema, example, error codes with `hint`, a body check and a handler (`ask` / `change` have none and
   stay queued). `run` serves `POST /api/gate/requests`: a worker sending a heart kind gets 403 `heart_required`, a
@@ -69,20 +61,19 @@ Modules (PR 4 of the new base, contract `docs/navrhy/2026-11-03-novy-zaklad.md` 
   `ExecutionResults.submit`, `opora_execution_pr_closure.merge_events` and the budget cancellation; `ticket.deliver`
   catches up facts that came first.
 - `snapshot.py` also builds `view`, the JSON of the `state` kind; `rules` are the approved project rules of the
-  Desktop v3 memory, then the `context.rules` of the tasks (no repeats).
+  Desktop v3 memory, only (no `context.rules` of tasks any more); `tickets{<status>: count}` and `myTicket` replaced the queue counts.
 
 Modules (H2a, contract `docs/brain-heart.md`):
 - `snapshot.py`: the deterministic project snapshot for the heart (§3): project and workspace, intent (project goal,
   else the home page goal and feel), plan pages with their stage (≤ 20), open cards outside pages (≤ 20), areas
   (≤ 10) and sectors (≤ 20, with `memberOf`); every `PLÁN` row carries the full node ID, so the heart needs no
-  `ctx tree` / `plan-of` / second `snapshot` for `member`, `milestone` or `@<id>`; task queue counts and the
-  last 10 tasks, waiting tickets (≤ 10), last checks (≤ 10). `collect` reads, `render` is pure; the text is cut at
+  `ctx tree` / `plan-of` / second `snapshot` for `member`, `milestone` or `@<id>`; the section `TICKETY PRÁCE` (counts and the
+  last 10 work tickets), waiting tickets (≤ 10), last checks (≤ 10). `collect` reads, `render` is pure; the text is cut at
   12 000 characters.
 - `snapshot.py` appends to each open card in `PLÁN` its run tag from `backend/canvas/card_gauge.py` (`[S · sonnet+opus]`;
   `[XL – nepředávat, rozděl]`; a card with ≤ 1 step and no files shows `[? – doplň kroky a soubory]`; a card effort more than one step off the recommendation shows `ODCHYLKA`), contract
   `docs/navrhy/2026-10-30-metriky-a-spoustece.md` §3. One read of the accepted context per snapshot; unreadable = no tags.
-- `delivery.py`: the delivery channel of the project, line `DORUČENÍ` right before `PLÁN` (`docs/brain-heart.md` §3e):
-  `cards` when any card execution exists in the project, otherwise `gate` (work as queue tasks). No model, no time.
+- The delivery channel (`delivery.py`, line `DORUČENÍ`) was deleted in PR 5c: the heart gives work only as tickets.
 
 Modules (K1, contract `docs/brain-heart.md` §3a, the heart's surroundings):
 - `brain_files.py`: the project's `brain/` folder (`brain_dir`), durable human messages `brain/messages.jsonl`
@@ -91,14 +82,13 @@ Modules (K1, contract `docs/brain-heart.md` §3a, the heart's surroundings):
 - `snapshot.py` adds `ZPRÁVY ČLOVĚKA`, `PRAVIDLA` (Desktop v3 rules with scope `project`: approved, then
   `(návrh)`; ≤ 20), `ROZHODNUTÍ` (pinned, then newest; ≤ 10) after `ZÁMĚR` and `DENÍK` (last 5 batch summaries) at
   the end. An unreadable source is an empty section (`- žádné`), never an error.
-- `task_queue.py` / `gate.py`: tasks and ticket answers may come from the heart of the same project
-  (`created_by` / `answeredBy = "heart"`, event actor `agent heart`). A task has an optional `order`: `next` takes
-  the lowest `order`, then the lowest `seq` (column `task_order`, added to older tables by `ensure_order_column`).
+- `gate.py`: ticket answers may come from the heart of the same project (`answeredBy = "heart"`, event actor
+  `agent heart`).
   The `gate.ticket` event of a new ticket carries `from` (the session role), so the heart's own escalation does not
   wake it.
 
 Modules (K3, contract `docs/brain-heart.md` §3b, the heart's workshop):
-- `workshop.py`: `context(service, project, workspace, name)` = the data of `ctx <name>`: `tasks`, `tickets`,
+- `workshop.py`: `context(service, project, workspace, name)` = the data of `ctx <name>`: `work` (the work tickets of the workspace), `tickets`,
   `journal`, `messages`, `rules`, `decisions` (all, not capped like the snapshot) and `tree` (source files
   `{path, size, mtime}` without `node_modules`, `.git`, build output and links, ≤ 20 000); `plan-of` items carry
   `stage` (card status) when the node has one, for the one-line `ctx plan-of` rows. Route

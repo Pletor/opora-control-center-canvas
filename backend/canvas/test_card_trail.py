@@ -30,7 +30,7 @@ STEPS = [{"id": "s1", "title": "Test modulu", "files": ["backend/x/**"]}, {"id":
 
 
 def facts(**extra):
-    return {"nodeId": "n0", "runs": [], "tasks": [], "events": [], "activity": [], "edges": [], "names": {},
+    return {"nodeId": "n0", "runs": [], "tickets": [], "events": [], "activity": [], "edges": [], "names": {},
             "reports": {}, "pr": None, "missing": [], "files": None, **extra}
 
 
@@ -83,19 +83,25 @@ def test_receipt_wins_over_checkpoint_and_running_run_is_now():
     assert {item["code"] for item in trail["judgment"]} == {"delivered_without_evidence", "missing_summary"}
 
 
-def test_gate_task_becomes_single_step_run_with_owner_from_events():
-    task = {"taskId": "ht_1", "title": "Oprav test", "status": "assigned", "attempts": 1, "createdBy": "heart",
-            "createdAt": "2026-10-31T12:00:00+00:00", "body": {"files": ["src/x.ts"]},
-            "report": {"sha": SHA_B, "summary": "", "checks": [{"name": "npm test", "status": "red"}]}}
-    events = [{"kind": "gate.task", "actor": {"kind": "agent", "name": "worker-3"}, "data": {"taskId": "ht_1"},
-               "at": "2026-10-31T12:01:00Z", "title": "Úkol přidělen"}]
-    trail = project_trail(facts(tasks=[task], events=events, files={SHA_B: ["src/x.ts"]}))
+def ticket(ticket_id, status, execution=None, delivery=None):
+    return {"ticketId": ticket_id, "status": status, "sessionId": "gs_office", "createdAt": "2026-10-31T12:00:00+00:00",
+            "body": {"build": "Oprav test\nPodrobnosti."}, "delivery": delivery,
+            "machine": {"cardId": "n0", "executionId": execution, "cardVersion": None}}
+
+
+def test_work_ticket_without_execution_becomes_single_step_run_and_bound_one_is_its_execution():
+    held = ticket("tk_1", "in_progress")
+    bound = ticket("tk_2", "delivered", execution="e9")
+    trail = project_trail(facts(tickets=[held, bound]))
     (only,) = trail["runs"]
-    assert only["taskId"] == "ht_1" and only["owner"] == "worker-3" and only["state"] == "assigned"
-    assert only["steps"][0]["checks"] == [{"name": "npm test", "status": "red"}]
-    assert only["steps"][0]["files"] == ["src/x.ts"]
-    assert trail["now"]["owner"] == "worker-3" and trail["now"]["stepId"] == "ht_1"
-    assert trail["judgment"] == []  # jeden červený pokus a úkol ještě běží
+    assert only["ticketId"] == "tk_1" and only["owner"] == "gs_office" and only["state"] == "in_progress"
+    assert only["steps"][0]["title"] == "Oprav test" and only["steps"][0]["status"] == "pending"
+    assert trail["now"]["owner"] == "gs_office" and trail["now"]["stepId"] == "tk_1"
+    done = project_trail(facts(tickets=[ticket("tk_3", "delivered", delivery={"summary": "Hotovo.", "sha": SHA_B})],
+                               files={SHA_B: ["src/x.ts"]}))["runs"][0]
+    assert done["summary"] == "Hotovo." and done["source"] == "agent" and done["reported"]
+    assert done["steps"][0] == {"stepId": "tk_3", "title": "Oprav test", "status": "done", "checks": [],
+                                "commits": [SHA_B], "notes": "", "source": "det", "files": ["src/x.ts"]}
 
 
 def test_recent_merges_events_and_activity_newest_first_and_skips_noise():

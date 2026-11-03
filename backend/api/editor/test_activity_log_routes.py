@@ -52,9 +52,10 @@ def test_heart_writes_carry_nodes_and_labels_and_latest_by_node_reads_them(heart
     assert client.get(f"{LOG}/latest-by-node").status_code == 422
 
 
-def test_task_with_node_is_labelled_by_title(heart):
+def test_issued_ticket_with_card_is_labelled_by_what_to_build(heart):
     client, call, _ = heart
-    call("POST", "/api/brain/tasks", {**SCOPE, "nodeId": "n1", "title": "Hero | sekce", "body": {"do": "x"}})
+    body = {"essence": "Proč.", "build": "Hero | sekce\nPodrobnosti.", "doneCriteria": ["npm test projde"]}
+    call("POST", "/api/gate/requests", {"kind": "ticket.issue", "body": {"body": body, "cardId": "n1"}})
     entry = heart_writes(client)[0]
-    assert (entry["label"], entry["nodeIds"]) == ("Úkol do fronty: Hero / sekce", ["n1"])
-    assert client.get(f"{LOG}/latest-by-node", params=SCOPE).json()["n1"]["label"] == "Úkol do fronty: Hero / sekce"
+    assert (entry["label"], entry["nodeIds"]) == ("Ticket práce: Hero / sekce", ["n1"])
+    assert client.get(f"{LOG}/latest-by-node", params=SCOPE).json()["n1"]["label"] == "Ticket práce: Hero / sekce"

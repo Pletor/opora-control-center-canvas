@@ -8,7 +8,7 @@ from fnmatch import fnmatchcase
 
 RED_LIMIT = 2
 FILES_SHOWN = 20
-FINISHED = ("reported", "released", "revoked", "expired", "done", "failed", "cancelled")
+FINISHED = ("reported", "released", "revoked", "expired", "delivered", "verified", "closed", "failed", "cancelled")
 
 
 def _red(step):
@@ -31,9 +31,7 @@ def red_twice(runs):
     counts, flags = {}, []
     for run in runs:
         for step in run["steps"]:
-            if run["taskId"] is not None:  # úkol brány: `attempts` = počet červených hlášení
-                counts[step["stepId"]] = counts.get(step["stepId"], 0) + run["attempts"]
-            elif _red(step):
+            if _red(step):
                 counts[step["stepId"]] = counts.get(step["stepId"], 0) + 1
     for step_id, count in counts.items():
         if count >= RED_LIMIT:
@@ -59,7 +57,7 @@ def without_evidence(done):
 
 
 def missing_summary(runs):
-    return [{"code": "missing_summary", "executionId": run["executionId"], "taskId": run["taskId"], "source": "det",
+    return [{"code": "missing_summary", "executionId": run["executionId"], "ticketId": run["ticketId"], "source": "det",
              "reason": "Relace dělníka skončila bez shrnutí."}
             for run in runs if run["state"] in FINISHED and run["reported"] and not run["summary"].strip()]
 

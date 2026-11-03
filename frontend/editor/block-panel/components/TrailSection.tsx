@@ -13,12 +13,12 @@ function RunItem({ item, filesKnown }: { item: Extract<TimelineItem, { kind: "ru
   const who = whoName(item.run.owner);
   const steps = item.run.steps.length;
   return (
-    <li className="block-panel__tl-item" data-oh-run={item.run.executionId ?? item.run.taskId ?? ""}>
+    <li className="block-panel__tl-item" data-oh-run={item.run.executionId ?? item.run.ticketId ?? ""}>
       <span className={"block-panel__tl-dot block-panel__tl-dot--" + state.tone} aria-hidden="true" />
       <button type="button" className="block-panel__tl-row block-panel__tl-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="block-panel__tl-text"><b className={"block-panel__name block-panel__name--" + who.kind}>{who.name}</b>
           <span className="block-panel__muted"> · {runWhen(item.run)}</span></span>
-        <span className="block-panel__run-state">{[item.run.taskId && "úkol brány", state.word, steps && plural(steps, "krok", "kroky", "kroků")].filter(Boolean).join(" · ")}</span>
+        <span className="block-panel__run-state">{[item.run.ticketId && "ticket", state.word, steps && plural(steps, "krok", "kroky", "kroků")].filter(Boolean).join(" · ")}</span>
         <span className="block-panel__chev" aria-hidden="true">{open ? "▾" : "▸"}</span>
       </button>
       {open && <TrailRunBody run={item.run} filesKnown={filesKnown} />}

@@ -44,7 +44,7 @@ class Handler(BaseHTTPRequestHandler):
         Handler.calls.append({"method": method, "path": url.path, "query": parse_qs(url.query), "body": body,
                               "headers": dict(self.headers)})
         if url.path == "/api/brain/heart/context":
-            return self._reply(200, {"name": "tasks", "items": [{"taskId": "ht_1"}, {"taskId": "ht_2", "t": "č"}]})
+            return self._reply(200, {"name": "work", "items": [{"ticketId": "tk_1"}, {"ticketId": "tk_2", "t": "č"}]})
         if url.path == "/api/view":
             return self._reply(200, {"digest": f"d{len(Handler.calls)}", "graph": Handler.graph})
         if url.path == "/api/oporahub/agent-state":
@@ -268,14 +268,14 @@ def test_decide_and_rule_add_memory_items_in_the_fixed_shape(server, capsys):
 
 
 def test_ctx_writes_the_data_file_and_prints_only_its_size(server, capsys, tmp_path):
-    code, out = run(capsys, "ctx", "tasks")
-    raw = (tmp_path / "dilna" / "data" / "tasks.json").read_bytes()
-    assert code == 0 and json.loads(out) == {"path": "dilna/data/tasks.json", "items": 2, "bytes": len(raw)}
-    assert "ht_1" not in out and json.loads(raw)[1] == {"taskId": "ht_2", "t": "č"}
-    assert raw.decode("utf-8").splitlines()[1] == '{"taskId": "ht_1"},'  # položka na řádek: Grep a Read po řádcích
+    code, out = run(capsys, "ctx", "work")
+    raw = (tmp_path / "dilna" / "data" / "work.json").read_bytes()
+    assert code == 0 and json.loads(out) == {"path": "dilna/data/work.json", "items": 2, "bytes": len(raw)}
+    assert "tk_1" not in out and json.loads(raw)[1] == {"ticketId": "tk_2", "t": "č"}
+    assert raw.decode("utf-8").splitlines()[1] == '{"ticketId": "tk_1"},'  # položka na řádek: Grep a Read po řádcích
     call = Handler.calls[0]
     assert call["path"] == "/api/brain/heart/context" and call["headers"]["X-Opora-Gate-Token"] == "tok-heart"
-    assert call["query"] == {"project": ["p1"], "workspace": ["main"], "name": ["tasks"]}
+    assert call["query"] == {"project": ["p1"], "workspace": ["main"], "name": ["work"]}
     with pytest.raises(SystemExit):
         opora_heart.main(["ctx", "secrets"])
 

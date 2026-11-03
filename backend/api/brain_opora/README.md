@@ -20,15 +20,12 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
   (`require_authority`) hold the heart interrogation switch and research cap (`determinism/brief_setting.py`,
   `docs/navrhy/2026-10-30-vyslech-srdce.md` §8). `POST /api/brain/heart/brief/research` (heart token) checks the cap
   before `research --requirement` and adds the cost afterwards.
-- `brain_routes.py` also carries the task queue (`docs/brain-gate.md` §6, H1b): `GET /api/brain/tasks?project&workspace&status?`
-  is readable by anyone; `POST /api/brain/tasks {project, workspace, nodeId?, title, body}` and
-  `POST /api/brain/tasks/{id}/cancel?project=` accept a human or the heart of the same project (`writer.py`); the
-  body may carry `order`. The wall lets a human through, so a human writes tasks in a gate-on project too.
+- The task queue routes `/api/brain/tasks*` of H1b were deleted in PR 5c; work is the ticket (below).
 - `brain_routes.py` also reads work tickets (`docs/navrhy/2026-11-03-novy-zaklad.md` §3.3) for the future office card
   file: `GET /api/brain/tickets?project&workspace&status?` → `{tickets}` and `GET /api/brain/tickets/{id}?project=`
   (body, machine layer, holder, delivery, feedback with the heart's answers), readable by anyone. Tickets are written
   only through the gate kinds `ticket.*` (`determinism/ticket.py`).
-- `writer.py`: human or heart. The heart is recognised only by `request.state.heart_project`, which the `boundary`
+- `writer.py` (`heart_project` only): the heart is recognised only by `request.state.heart_project`, which the `boundary`
   middleware sets after the wall verified a heart token for the request's project; it cannot be spoofed. The ticket
   answer in `gate_routes.py` uses the same marker (`answeredBy = "heart"`).
 - `heart_routes.py` (H2a, `docs/brain-heart.md`, loopback-only): `POST /api/brain/heart/messages {project, workspace,
@@ -45,7 +42,7 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
   404 `card_not_found`).
 - Human channel to the heart (H2b1, `docs/brain-heart-channel.md` §2): `GET /api/brain/heart/escalations?project&workspace`
   (human only, loopback) lists the heart's open questions for the human (`ask` tickets with `for: "human"` from a
-  heart session), newest first: `{escalations: [{ticketId, text, createdAt, taskId?}]}`. When a human answers such a
+  heart session), newest first: `{escalations: [{ticketId, text, createdAt}]}`. When a human answers such a
   ticket through `POST /api/gate/tickets/{id}/answer`, `gate_routes.py` wakes the heart at once through
   `supervisor.message()` with `ODPOVĚĎ ČLOVĚKA na <ticketId>: <text>` (skips the hourly cap, gate must be on). An
   answer to a worker ticket, or an answer given by the heart, wakes nothing. `create_gate_router(service, supervisor)`
@@ -59,8 +56,8 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
 ## MCP server (H1d)
 
 `mcp/opora_mcp.py` (stdlib only, contract `docs/brain-control-api.md` §3) exposes the gate kinds as MCP tools over
-stdio: `tools/list` = `GET /api/gate/kinds` for the role, tool `opora_<kind with . → _>` (`opora_next`,
-`opora_task_create`, `opora_ticket_claim`), `tools/call` = `POST /api/gate/requests`. New kinds become tools without
+stdio: `tools/list` = `GET /api/gate/kinds` for the role, tool `opora_<kind with . → _>` (`opora_state`,
+`opora_ticket_issue`, `opora_ticket_claim`), `tools/call` = `POST /api/gate/requests`. New kinds become tools without
 a change here. A refusal comes back as `isError: true` with
 `code`, `hint` and `status`; `opora_ask` with `wait: true` long-polls the inbox up to 30 s for its answer. Env:
 `OPORA_BASE_URL` (default `http://127.0.0.1:8740`), `OPORA_PROJECT`, `OPORA_WORKSPACE`, plus `OPORA_WORKER_NAME`

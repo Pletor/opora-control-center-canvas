@@ -314,11 +314,11 @@ PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEM
                    + STUDIO_MODEL_SCHEMA + GUARD_FINDINGS_SCHEMA + GUARD_TREND_SCHEMA
                    + GUARD_EXPERIENCE_SCHEMA + INTAKE_SCHEMA)
 
-# Brána mozku (docs/brain-gate.md §5, H1b): relace pracovníků a srdce, lístky s odpověďmi a fronta úkolů.
+# Brána mozku (docs/brain-gate.md §5, H1b): relace pracovníků a srdce, lístky s odpověďmi a tickety práce.
 # `tickets` + `ticket_feedback` = ticket jako jednotka práce (docs/navrhy/2026-11-03-novy-zaklad.md §3.3); otázkové
 # lístky zůstávají v `gate_tickets` (druh otázka), aby migrace byla jen aditivní. Stav ticketu nemá CHECK: přechody
 # hlídá `determinism/ticket_model.advance` a nový stav pak nevyžaduje přestavbu tabulky (CHECK `gate_tickets` ji vyžaduje).
-GATE_TABLES = ("gate_sessions", "gate_tickets", "heart_tasks", "tickets", "ticket_feedback")
+GATE_TABLES = ("gate_sessions", "gate_tickets", "tickets", "ticket_feedback")
 GATE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS gate_sessions(
     id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
@@ -332,13 +332,6 @@ CREATE TABLE IF NOT EXISTS gate_tickets(
 CREATE INDEX IF NOT EXISTS gate_tickets_session ON gate_tickets(session_id, seq);
 CREATE INDEX IF NOT EXISTS gate_tickets_inbox ON gate_tickets(session_id, answered_seq);
 CREATE INDEX IF NOT EXISTS gate_tickets_queue ON gate_tickets(project_id, workspace_id, status, seq);
-CREATE TABLE IF NOT EXISTS heart_tasks(
-    seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
-    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT, title TEXT NOT NULL, body TEXT NOT NULL,
-    status TEXT NOT NULL CHECK(status IN ('ready','assigned','done','failed','cancelled')),
-    session_id TEXT, attempts INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL, report TEXT,
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, task_order INTEGER NOT NULL DEFAULT 0);
-CREATE INDEX IF NOT EXISTS heart_tasks_queue ON heart_tasks(project_id, workspace_id, status, seq);
 CREATE TABLE IF NOT EXISTS tickets(
     seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, status TEXT NOT NULL, body TEXT NOT NULL,

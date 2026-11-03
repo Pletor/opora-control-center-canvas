@@ -8,8 +8,8 @@ def test_commit_shas_unique_valid_and_bounded():
     evidence = {"notes": "", "commits": ["a" * 40, "not a sha", "a" * 40]}
     runs = [{"receipts": [{"result": {"stepResults": [{"stepId": "s1", "evidence": evidence}]}}],
              "checkpoints": [{"stepId": "s1", "evidence": {"commits": ["b" * 40]}}]}]
-    tasks = [{"report": {"sha": "c" * 40}}, {"report": None}]
-    assert commit_shas(runs, tasks) == ["a" * 40, "b" * 40, "c" * 40]
+    tickets = [{"delivery": {"sha": "c" * 40}}, {"delivery": None}]
+    assert commit_shas(runs, tickets) == ["a" * 40, "b" * 40, "c" * 40]
     many = [{"receipts": [], "checkpoints": [{"evidence": {"commits": [f"{index:040x}"]}} for index in range(50)]}]
     assert len(commit_shas(many, [])) == COMMITS
 

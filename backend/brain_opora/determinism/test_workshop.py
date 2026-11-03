@@ -29,8 +29,8 @@ def test_context_reads_all_journal_entries_and_refuses_unknown_names(service):
     brain.mkdir(parents=True)
     (brain / brain_files.JOURNAL).write_text("".join(f'{{"at": "t{i}"}}\n' for i in range(12)), encoding="utf-8")
     assert len(workshop.context(service, "draft", "draft", "journal")) == 12
-    assert workshop.context(service, "draft", "draft", "tasks") == []
-    for project, name in (("draft", "secrets"), ("nikde", "tasks")):
+    assert workshop.context(service, "draft", "draft", "work") == []
+    for project, name in (("draft", "secrets"), ("nikde", "work")):
         with pytest.raises(GateError):
             workshop.context(service, project, "draft", name)
 

@@ -1,5 +1,5 @@
 // Kancelář (docs/kancelar.md): plátno jako oddělení, místnosti a stoly, u kterých sedí pracovníci brány.
-// Rodič drží jen načtená data (úkoly brány, přehled práce, pronájmy, stav srdce); budovu skládá
+// Rodič drží jen načtená data (tickety práce, přehled práce, pronájmy, stav srdce); budovu skládá
 // `logic/office-model.ts`, dílky jen kreslí. Nic tu neukládá: klik otevře kartu, vstoupí do vrstvy,
 // nebo pošle App připravený text pro srdce (App ho odešle a otevře panel asistenta).
 import { useMemo, useState } from "react";
@@ -8,7 +8,7 @@ import type { DesktopState } from "@/shared/desktop-state/logic/types";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
 import { useWorkOverview } from "@/editor/canvas/node-card/logic/use-work-overview";
 import { useLeases } from "@/editor/canvas/node-card/logic/use-leases";
-import { fetchHeartStatus, fetchQueue, type HeartRequest, type HeartStatus, type QueueTask } from "@/layout/heart-channel/logic/heart-api";
+import { fetchHeartStatus, fetchTickets, type HeartRequest, type HeartStatus, type WorkTicket } from "@/layout/heart-channel/logic/heart-api";
 import { buildOffice, workerCount } from "../logic/office-model";
 import { hireRequest, type HireTarget } from "../logic/hire-message";
 import OfficeHeader from "./OfficeHeader";
@@ -34,16 +34,16 @@ export default function OfficeWorkspace({ project, workspace, graph, state, onOp
   const revisionKey = JSON.stringify([graph.nodes.length, Object.keys(state.nodes).length]);
   const work = useWorkOverview(project, workspace, revisionKey);
   const leases = useLeases(project, workspace);
-  const [tasks, setTasks] = useState<QueueTask[]>([]);
+  const [tickets, setTickets] = useState<WorkTicket[]>([]);
   const [status, setStatus] = useState<HeartStatus | null>(null);
   usePolling(() => Promise.all([
-    fetchQueue(project, workspace).then(setTasks).catch(() => setTasks([])),
+    fetchTickets(project, workspace).then(setTickets).catch(() => setTickets([])),
     fetchHeartStatus(project).then(setStatus).catch(() => setStatus(null)),
   ]), { intervalMs: 4000, enabled: !!project && !!workspace });
 
   const office = useMemo(
-    () => buildOffice({ graph, tasks, workRows: work?.data?.nodes, leases, state }),
-    [graph, tasks, work?.data, leases, state],
+    () => buildOffice({ graph, tickets, workRows: work?.data?.nodes, leases, state }),
+    [graph, tickets, work?.data, leases, state],
   );
   const blocked = hireBlockReason(status);
   const hire = (target: HireTarget) => onAskHeart(hireRequest(target, workspace));

@@ -1,6 +1,6 @@
 """Sběr faktů pro stopu práce karty (docs/stopa-prace-karty.md): jen čtení existujících záznamů, ohraničeně.
 
-Čte běhy exekucí karty s výsledky a průběžnými kroky, úkoly brány, události karty, záznam činnosti, vazby
+Čte běhy exekucí karty s výsledky a průběžnými kroky, tickety práce karty, události karty, záznam činnosti, vazby
 z karty se zprávami, PR a `dod.missing`; soubory commitů z `git show --name-only` v repozitáři projektu
 (když ho server zná). Nic nezapisuje, schéma beze změny, model nevolá. Projekci dělá `card_trail.project_trail`.
 """
@@ -11,11 +11,12 @@ from backend.canvas.graph import valid_id
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_execution_results import ExecutionResults
 from backend.integrations import git_read
+from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories import opora_events as events_store
-from database.repositories.heart_tasks import HeartTaskStore
+from database.repositories.tickets import TicketStore
 
 RUNS = 10
-TASKS = 10
+TICKETS = 10
 EVENTS = 200
 ACTIVITY = 200
 COMMITS = 20
@@ -33,11 +34,8 @@ def _runs(service, project, workspace, node):
             found.append({"record": public, "receipts": repo.receipts(record["executionId"]),
                           "checkpoints": repo.steps(record["executionId"])})
         events = events_store.latest_for_node(repo.db, project, workspace, node, EVENTS)
-        try:
-            tasks = HeartTaskStore(repo.db, project).for_node(workspace, node, TASKS)
-        except sqlite3.OperationalError:  # projekt bez fronty brány
-            tasks = []
-    return found, tasks, events
+        tickets = TicketStore(repo.db, project).for_card(workspace, node, TICKETS)
+    return found, tickets, events
 
 
 def _activity(service, project, workspace, node):
@@ -70,10 +68,12 @@ def _pr_and_missing(service, project, workspace, node):
 
 def repo_root(service, project, workspace):
     """Kořen repozitáře prostoru (zdroj prostoru, jinak složka projektu), nebo None."""
-    from backend.brain_opora.determinism.task_queue import source_root
     from backend.canvas.opora_local_merge import repository_path
 
-    root = source_root(service, project, workspace)
+    try:
+        root = WorkspaceSources(service).root(project, workspace)
+    except (ValueError, KeyError, OSError, sqlite3.Error):
+        root = None
     if root is not None:
         return str(root)
     try:
@@ -82,7 +82,7 @@ def repo_root(service, project, workspace):
         return None
 
 
-def commit_shas(runs, tasks):
+def commit_shas(runs, tickets):
     found = []
     for run in runs:
         for receipt in run["receipts"]:
@@ -90,7 +90,7 @@ def commit_shas(runs, tasks):
                 found += ((item.get("evidence") or {}).get("commits") or []) if isinstance(item, dict) else []
         for item in run["checkpoints"]:
             found += (item.get("evidence") or {}).get("commits") or [] if isinstance(item, dict) else []
-    found += [(task.get("report") or {}).get("sha") for task in tasks]
+    found += [(ticket.get("delivery") or {}).get("sha") for ticket in tickets]
     unique = []
     for sha in found:
         if isinstance(sha, str) and SHA.fullmatch(sha) and sha not in unique:
@@ -110,12 +110,12 @@ def gather(service, project, workspace, node):
     scope({"project": project, "workspace": workspace})
     if not valid_id(node):
         raise ValueError("Neplatné nodeId.")
-    runs, tasks, events = _runs(service, project, workspace, node)
+    runs, tickets, events = _runs(service, project, workspace, node)
     edges, names, reports = _graph(service, project, workspace)
     pr, missing, state = _pr_and_missing(service, project, workspace, node)
-    shas = commit_shas(runs, tasks)
+    shas = commit_shas(runs, tickets)
     files = commit_files(repo_root(service, project, workspace), shas)
-    return {"nodeId": node, "runs": runs, "tasks": tasks, "events": events,
+    return {"nodeId": node, "runs": runs, "tickets": tickets, "events": events,
             "activity": _activity(service, project, workspace, node), "edges": edges, "names": names,
             "reports": reports, "pr": pr, "missing": missing, "files": files,
             "afterMerge": {key: state[key] for key in ("afterMerge", "afterMergeEvidence")} if state and "afterMerge" in state else None}

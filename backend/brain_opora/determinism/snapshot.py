@@ -19,11 +19,13 @@ import sqlite3
 
 from backend.brain_opora.determinism import brain_files, git_log, intake, milestones
 from backend.brain_opora.determinism.gate_payloads import GateError
-from backend.brain_opora.determinism.task_queue import for_worker, open_cards
+from backend.brain_opora.determinism.ticket import for_worker
+from backend.brain_opora.determinism.ticket_model import STATES
 from backend.canvas import card_gauge
 from backend.canvas import opora_agent_state_dag as dag_state
 from backend.canvas.architecture_graph import split
 from backend.canvas.opora_auto_rebase import SOURCES as PROPOSAL_SOURCES
+from backend.canvas.opora_process_sync import ProcessSync
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault.brief_vault_details import latest_details
 from backend.editor.brief_vault.brief_vault_duel_shape import summary as duel_summary
@@ -31,7 +33,6 @@ from backend.editor.brief_vault.brief_vault_model import latest_rows
 from backend.editor.brief_vault.brief_vault_tree import live_ids
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories.gate_tickets import GateTicketStore
-from database.repositories.heart_tasks import HeartTaskStore
 from database.repositories.intake_milestones import IntakeMilestones
 from database.repositories.intake_requirements import IntakeRequirements
 from database.repositories.opora_auto_rebase import AutoRebaseStore
@@ -40,17 +41,17 @@ from database.repositories.opora_execution_pull_requests import (
     list_execution_pull_requests,
 )
 from database.repositories.opora_executions import Executions
-from database.repositories.tickets import TicketStore
+from database.repositories.tickets import HELD, TicketStore
 
 LIMIT = 12_000  # zhruba 4k tokenů
 PAGES = 20
 AREAS, SECTORS = 10, 20  # oblasti a sektory v sekci PLÁN (jejich ID bere `member` a `milestone`)
-TASKS = 10
+TASKS = 10  # nejnovější tickety práce v sekci TICKETY PRÁCE
+PLAN_LIMIT = 20  # otevřené karty z přehledu procesu
 TICKETS = 10
 CHECKS = 10
 TEXT = 160
 WORK_STATUSES = ("issued", "claimed", "in_progress", "needs_answer", "delivered", "verified", "failed")
-QUEUE = ("ready", "assigned", "done", "failed")
 RULES = 20
 MESSAGES = 5
 MESSAGE_TEXT = 400
@@ -90,6 +91,17 @@ def _identity(service, project):
         return project, ""
     settings = identity.get("settings") if isinstance(identity.get("settings"), dict) else {}
     return identity.get("name") or project, settings.get("goal") or ""
+
+
+def open_cards(service, project, workspace):
+    """Otevřené karty `{id, name, stage}` (nejvýš `PLAN_LIMIT`) z přehledu procesu; nečitelný přehled = prázdný."""
+    try:
+        items = ProcessSync(service).read(project, workspace, limit=None)["items"]
+    except (ValueError, KeyError, OSError, sqlite3.Error):
+        return []
+    cards = [{"id": item["nodeId"], "name": item["name"], "stage": item["status"]}
+             for item in items if item["status"] != "closed"]
+    return cards[:PLAN_LIMIT]
 
 
 def _pages(service, project, workspace):
@@ -309,7 +321,6 @@ def collect(service, project, workspace):
     (pages, areas, sectors), cards = _pages(service, project, workspace), open_cards(service, project, workspace)
     with service.reading(project):
         db = service.db_for(project)
-        tasks = HeartTaskStore(db, project).list(workspace)
         tickets = GateTicketStore(db, project).queued(workspace, TICKETS)
         escalations = GateTicketStore(db, project).escalations(workspace, ESCALATIONS_READ)
         checks = db.execute("SELECT scope_id, sha, status FROM check_runs WHERE project_id=? AND workspace_id=?"
@@ -325,7 +336,7 @@ def collect(service, project, workspace):
         conflicts, conflicts_total = _conflicts(db, project, workspace)
     runs = _runs(service, project, workspace, [card["id"] for card in cards])  # jen otevřené karty
     return {"workTickets": work_tickets, "conflicts": conflicts, "conflictsTotal": conflicts_total, "runs": runs, "intake": entries, "milestones": reached, "active_milestones": active, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
-            "tasks": tasks, "tickets": tickets, "escalations": escalations, "checks": [tuple(row) for row in checks], "messages": messages,
+            "tickets": tickets, "escalations": escalations, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
 
@@ -585,32 +596,29 @@ def render(facts, limit=LIMIT):
 
 
 def _rules(facts):
-    """Pravidla aplikace: schválená pravidla projektu z paměti, pak `context.rules` úkolů od nejnovějšího; bez opakování."""
+    """Pravidla aplikace: schválená pravidla projektu z paměti, bez opakování."""
     rules = []
     for rule in facts.get("rules") or []:
         text = rule.get("text")
         if _approved(rule) and isinstance(text, str) and text and text not in rules:
             rules.append(text)
-    for task in sorted(facts["tasks"], key=lambda task: task["seq"], reverse=True):
-        context = task["body"].get("context") if isinstance(task["body"], dict) else None
-        for rule in (context or {}).get("rules", []):
-            if rule not in rules:
-                rules.append(rule)
     return rules[:RULES]
 
 
 def view(facts, session_id=None):
-    """JSON druhu `state`: `{project, intent, rules, plan, queue, myTask}`; `myTask` je úkol držený relací, jinak null."""
+    """JSON druhu `state`: `{project, intent, rules, plan, tickets, myTicket}`; `tickets` jsou počty ticketů práce
+    prostoru podle stavu, `myTicket` ticket držený relací (claimed až delivered, jako `ticket.request`), jinak null."""
     stages = {card["id"]: card["stage"] for card in facts["cards"]}
     plan = ([{"id": page["id"], "name": page["name"], "stage": stages.get(page["id"], "closed"), "path": page["path"],
               "goal": page["goal"]} for page in facts["pages"][:PAGES]]
             or [{key: card[key] for key in ("id", "name", "stage")} for card in _work_first(facts, facts["cards"])[:PAGES]])
-    held = next((task for task in facts["tasks"] if session_id and task["status"] == "assigned"
-                 and task["sessionId"] == session_id), None)
+    work = facts.get("workTickets") or []
+    held = next((item for item in work if session_id and item["status"] in HELD and item["sessionId"] == session_id),
+                None)
     return {"project": {"id": facts["project"], "name": facts["name"], "workspace": facts["workspace"]},
             "intent": _intent(facts), "rules": _rules(facts), "plan": plan,
-            "queue": {status: sum(task["status"] == status for task in facts["tasks"]) for status in QUEUE},
-            "myTask": for_worker(held) if held else None}
+            "tickets": {status: sum(item["status"] == status for item in work) for status in STATES},
+            "myTicket": for_worker(held) if held else None}
 
 
 def state(service, project, workspace, session_id=None):

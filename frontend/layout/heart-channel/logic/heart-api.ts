@@ -3,20 +3,26 @@ import type { ActivityEntry } from "@/editor/canvas/activity-log/logic/activity-
 
 /** Síťová volání kanálu Srdce (docs/brain-heart-channel.md §2). Všechny routy existují v backendu. */
 
-export type Escalation = { ticketId: string; text: string; createdAt: string; taskId?: string | null };
+export type Escalation = { ticketId: string; text: string; createdAt: string };
 
-export type QueueStatus = "ready" | "assigned" | "done" | "failed" | "cancelled";
+export type TicketStatus =
+  | "draft" | "issued" | "claimed" | "in_progress" | "needs_answer"
+  | "delivered" | "verified" | "closed" | "failed" | "cancelled";
 
-export type QueueTask = {
-  taskId: string;
-  title: string;
-  status: QueueStatus;
+export type TicketFeedback = {
+  feedbackId: string; seq: number; kind: "bug" | "idea" | "improvement" | "question"; text: string;
+  sessionId: string; answer: unknown; answeredAt: string | null; createdAt: string;
+};
+
+/** Ticket práce z `GET /api/brain/tickets` (od nejstaršího). Relaci drží ve stavech claimed … delivered. */
+export type WorkTicket = {
+  ticketId: string; seq: number; workspaceId: string; status: TicketStatus;
+  body: { essence: string; build: string; openPaths: string[]; cautions: string[]; skills: string[]; doneCriteria: string[] };
+  machine: { cardId: string | null; executionId: string | null; cardVersion: number | null };
   sessionId: string | null;
-  nodeId: string | null;
-  createdBy: string;
-  updatedAt: string;
-  order: number;
-  body: { do: string; doneWhen?: string[] };
+  delivery: { summary: string; sha?: string; at: string } | null;
+  feedback: TicketFeedback[];
+  createdAt: string; updatedAt: string;
 };
 
 /** Vstup, který dávku probudil (tvar `inputs` deníku dávek; `type` určuje ostatní pole). */
@@ -66,8 +72,8 @@ export const answerEscalation = (project: string, ticketId: string, text: string
     answer: { text },
   });
 
-export const fetchQueue = (project: string, workspace: string) =>
-  api<{ tasks: QueueTask[] }>(`/api/brain/tasks?${scope(project, workspace)}`).then((r) => r.tasks);
+export const fetchTickets = (project: string, workspace: string) =>
+  api<{ tickets: WorkTicket[] }>(`/api/brain/tickets?${scope(project, workspace)}`).then((r) => r.tickets);
 
 export const fetchHeartStatus = (project: string) =>
   api<HeartStatus>(`/api/brain/heart/status?project=${encodeURIComponent(project)}`);

@@ -10,6 +10,7 @@ from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, SCOPE, seed
 AGENT = {**HEADERS, "X-Opora-Actor": "agent; name=dev"}
 SESSION = {"project": "draft", "workspace": "draft", "worker": {"name": "dev"}}
 MESSAGE = {**SCOPE, "text": "Chci web o dvou stránkách."}
+WORK = {"essence": "Návštěvník pozná, co produkt dělá.", "build": "Hero sekce", "doneCriteria": ["npm test projde"]}
 
 
 def code(response):
@@ -67,7 +68,7 @@ def test_worker_token_of_the_project_relays_a_message_marked_via(tmp_path):
         assert scoped.status_code == 403 and code(scoped) == "gate_scope", scoped.text
 
 
-def test_heart_token_writes_tasks_answers_and_escalates_in_its_project(tmp_path):
+def test_heart_token_answers_and_escalates_in_its_project(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         seed(client)
         gate_on(client)
@@ -75,24 +76,16 @@ def test_heart_token_writes_tasks_answers_and_escalates_in_its_project(tmp_path)
         _, token = tokens.issue_heart(service, "draft", "draft")
         heart = {**HEADERS, tokens.HEADER: token}
         client.cookies.clear()  # srdce nemá doklad UI
-        task = client.post("/api/brain/tasks", headers=heart, json={**SCOPE, "order": 2, "title": "Hero",
-                                                                    "body": {"do": "Hero sekce"}})
-        assert task.status_code == 201, task.text
-        assert (task.json()["createdBy"], task.json()["order"]) == ("heart", 2)
-        cancel = client.post(f"/api/brain/tasks/{task.json()['taskId']}/cancel?project=draft", headers=heart, json={})
-        assert cancel.status_code == 200 and cancel.json()["status"] == "cancelled"
         worker = {**AGENT, tokens.HEADER: client.post("/api/gate/sessions", headers=AGENT, json=SESSION).json()["token"]}
         ticket = client.post("/api/gate/requests", headers=worker, json={"kind": "ask", "body": {"question": "?"}}).json()
         answered = client.post(f"/api/gate/tickets/{ticket['ticketId']}/answer?project=draft", headers=heart,
                                json={"answer": {"text": "Ano"}})
         assert answered.status_code == 200 and answered.json()["answeredBy"] == "heart", answered.text
-        # Pracovník ani agent bez tokenu srdce neodpovídají a úkoly nepíší.
+        # Pracovník bez tokenu srdce neodpovídá.
         ticket = client.post("/api/gate/requests", headers=worker, json={"kind": "ask", "body": {"question": "?"}}).json()
         refused = client.post(f"/api/gate/tickets/{ticket['ticketId']}/answer?project=draft", headers=worker,
                               json={"answer": "x"})
         assert refused.status_code == 403 and code(refused) == "human_required"
-        assert client.post("/api/brain/tasks", headers=AGENT, json={**SCOPE, "title": "x", "body": {"do": "x"}}
-                           ).status_code == 403
         escalated = client.post("/api/brain/heart/escalate", headers=heart, json={**SCOPE, "text": "Barva?"})
         assert escalated.status_code == 201 and escalated.json()["kind"] == "ask", escalated.text
         # Pracovníka zastaví už zeď (zápis mimo /api/gate/*).
@@ -130,18 +123,7 @@ def test_heart_token_adds_decisions_and_proposes_rules_in_the_snapshot(tmp_path,
         assert refused.status_code == 403 and code(refused) == "gate_required"
 
 
-def test_heart_of_another_project_has_no_writer_rights_here(tmp_path):
-    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
-        seed(client)
-        gate_on(client)
-        other = client.post("/api/empty-project", headers=HEADERS, json={"name": "Jiný", "confirmed": True}).json()["id"]
-        _, foreign = tokens.issue_heart(client.app.state.service, other, "draft")
-        response = client.post("/api/brain/tasks", headers={**AGENT, tokens.HEADER: foreign},
-                               json={**SCOPE, "title": "x", "body": {"do": "x"}})
-        assert response.status_code == 403 and code(response) == "gate_scope"
-
-
-def test_heart_drives_the_queue_through_the_gate_in_a_gate_on_project(tmp_path):
+def test_heart_issues_and_cancels_work_tickets_through_the_gate_in_a_gate_on_project(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         seed(client)
         gate_on(client)
@@ -152,14 +134,14 @@ def test_heart_drives_the_queue_through_the_gate_in_a_gate_on_project(tmp_path):
         def gate(kind, body, query=""):
             return client.post("/api/gate/requests" + query, headers=heart, json={"kind": kind, "body": body})
 
-        created = gate("task.create", {"title": "Hero", "order": 1, "body": {"do": "Hero sekce"}})
+        created = gate("ticket.issue", {"body": WORK})
         assert created.status_code == 201, created.text
-        task = created.json()["answer"]["task"]
-        assert (task["createdBy"], task["workspaceId"], task["order"]) == ("heart", "draft", 1)
-        cancelled = gate("task.cancel", {"taskId": task["taskId"]}, "?project=draft")
-        assert cancelled.status_code == 201 and cancelled.json()["answer"]["task"]["status"] == "cancelled"
-        again = gate("task.cancel", {"taskId": task["taskId"]})
-        assert again.status_code == 409 and code(again) == "task_closed" and again.json()["hint"]
+        work = created.json()["answer"]["ticket"]
+        assert (work["status"], work["workspaceId"]) == ("issued", "draft")
+        cancelled = gate("ticket.cancel", {"ticketId": work["ticketId"]}, "?project=draft")
+        assert cancelled.status_code == 201 and cancelled.json()["answer"]["ticket"]["status"] == "cancelled"
+        again = gate("ticket.cancel", {"ticketId": work["ticketId"]})
+        assert again.status_code == 409 and code(again) == "ticket_state" and again.json()["hint"]
         assert code(gate("ticket.answer", {"ticketId": "gt_none", "text": "x"})) == "ticket_not_found"
 
 
@@ -209,13 +191,13 @@ def test_workshop_context_is_for_the_heart_of_its_own_project_only(tmp_path):
         _, token = tokens.issue_heart(service, "draft", "draft")
         heart = {**HEADERS, tokens.HEADER: token}
         client.cookies.clear()
-        assert client.post("/api/brain/tasks", headers=heart, json={**SCOPE, "title": "Hero",
-                                                                    "body": {"do": "Hero sekce"}}).status_code == 201
+        assert client.post("/api/gate/requests", headers=heart,
+                           json={"kind": "ticket.issue", "body": {"body": WORK}}).status_code == 201
         worker = {**AGENT, tokens.HEADER: client.post("/api/gate/sessions", headers=AGENT, json=SESSION).json()["token"]}
         client.post("/api/gate/requests", headers=worker, json={"kind": "ask", "body": {"question": "?"}})
-        tasks = client.get("/api/brain/heart/context", headers=heart, params={**SCOPE, "name": "tasks"})
-        assert tasks.status_code == 200, tasks.text
-        assert [(item["title"], item["body"]["do"]) for item in tasks.json()["items"]] == [("Hero", "Hero sekce")]
+        work = client.get("/api/brain/heart/context", headers=heart, params={**SCOPE, "name": "work"})
+        assert work.status_code == 200, work.text
+        assert [(item["status"], item["body"]["build"]) for item in work.json()["items"]] == [("issued", "Hero sekce")]
         tickets = client.get("/api/brain/heart/context", headers=heart, params={**SCOPE, "name": "tickets"}).json()
         assert [item["kind"] for item in tickets["items"]] == ["ask"]
         for name in ("journal", "messages", "rules", "decisions", "tree"):
@@ -223,17 +205,17 @@ def test_workshop_context_is_for_the_heart_of_its_own_project_only(tmp_path):
             assert got.status_code == 200 and isinstance(got.json()["items"], list), (name, got.text)
         assert code(client.get("/api/brain/heart/context", headers=heart, params={**SCOPE, "name": "x"})
                     ) == "invalid_payload"
-        refused = client.get("/api/brain/heart/context", headers=worker, params={**SCOPE, "name": "tasks"})
+        refused = client.get("/api/brain/heart/context", headers=worker, params={**SCOPE, "name": "work"})
         assert refused.status_code == 403 and code(refused) == "gate_scope"
-        assert client.get("/api/brain/heart/context", headers=HEADERS, params={**SCOPE, "name": "tasks"}
+        assert client.get("/api/brain/heart/context", headers=HEADERS, params={**SCOPE, "name": "work"}
                           ).status_code == 401
         other = client.post("/api/empty-project", headers=HEADERS, json={"name": "Jiný", "confirmed": True}).json()["id"]
         _, foreign = tokens.issue_heart(service, other, "draft")
         assert code(client.get("/api/brain/heart/context", headers={**HEADERS, tokens.HEADER: foreign},
-                               params={**SCOPE, "name": "tasks"})) == "gate_scope"
+                               params={**SCOPE, "name": "work"})) == "gate_scope"
         _, main = tokens.issue_heart(service, "draft", "main")
         assert code(client.get("/api/brain/heart/context", headers={**HEADERS, tokens.HEADER: main},
-                               params={**SCOPE, "name": "tasks"})) == "gate_scope"
+                               params={**SCOPE, "name": "work"})) == "gate_scope"
 
 
 def test_heart_token_confirms_an_intake_verdict_and_nobody_else_writes_it(tmp_path):

@@ -9,7 +9,7 @@ import json
 import time
 import uuid
 
-from backend.brain_opora.determinism import intake, task_queue, tokens
+from backend.brain_opora.determinism import intake, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, answer_payload, session_payload
 from backend.canvas.opora_events import emit_event
 from database.repositories.gate_tickets import GateTicketStore
@@ -17,6 +17,14 @@ from database.repositories.gate_tickets import GateTicketStore
 INBOX_LIMIT = 100
 INTAKE_TEXT = {"change": "proposal", "ask": "question"}  # pole lístku, které jde jako věta do vstupní brány
 TOKEN_HINT = "Založte relaci: POST /api/gate/sessions a pošlete token v hlavičce X-Opora-Gate-Token."
+WRITERS = {"human": {"kind": "human", "name": None}, "heart": {"kind": "agent", "name": "heart"}}
+
+
+def writer_actor(by):
+    """Původce události podle toho, kdo odpovídá: člověk, nebo srdce projektu."""
+    if by not in WRITERS:
+        raise ValueError("Odpovídá jen člověk nebo srdce.")
+    return dict(WRITERS[by])
 
 
 def workspace_known(service, project, workspace):
@@ -100,9 +108,7 @@ def escalations(service, project, workspace, limit=INBOX_LIMIT):
     with service.reading(project):
         tickets = GateTicketStore(service.db_for(project), project).escalations(workspace, limit)
     return [{"ticketId": ticket["ticketId"], "text": str(ticket["body"].get("text") or ""),
-             "createdAt": ticket["createdAt"]}
-            | ({"taskId": ticket["body"]["taskId"]} if isinstance(ticket["body"].get("taskId"), str) else {})
-            for ticket in tickets]
+             "createdAt": ticket["createdAt"]} for ticket in tickets]
 
 
 REASON_LIMIT = 500
@@ -165,7 +171,7 @@ def get_ticket(service, project, ticket_id, session=None):
 
 def answer(service, project, ticket_id, payload, answered_by="human", now=None):
     """Odpověď člověka nebo srdce (`answered_by`) na čekající lístek; podruhé 409 `ticket_answered`."""
-    actor = task_queue.writer_actor(answered_by)
+    actor = writer_actor(answered_by)
     value = answer_payload(payload)
     with service.lock_for(project):
         db = service.db_for(project)

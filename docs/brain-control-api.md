@@ -1,6 +1,6 @@
 # Brain control API and MCP (H1c, H1d)
 
-Status: contract. It builds on `docs/brain-gate.md` (gate, tokens, wall, task queue) and `docs/brain-heart.md`.
+Status: contract. It builds on `docs/brain-gate.md` (gate, tokens, wall, ticket of work) and `docs/brain-heart.md`.
 
 Goal: one strong, typed API through which any agent drives OPORA, and an MCP server on top of it. The MCP server is
 a thin layer with no logic of its own. Measured problems it addresses:
@@ -27,25 +27,27 @@ a thin layer with no logic of its own. Measured problems it addresses:
 
 | Kind | Role | Input | Output |
 |---|---|---|---|
-| `next` | worker | `{}` | `{task \| null, plan?}` (H1b) |
-| `report` | worker | `{taskId, sha, summary, checks[]}` | `{task}` (H1b) |
-| `release` | worker | `{taskId, reason}` | `{task}`: the held task goes back to `ready` (brain-gate.md §6) |
-| `ask` | worker | `{question, taskId?}` | ticket, queued; the answer arrives in the inbox |
-| `change` | worker | `{proposal, reason, taskId?}` | ticket, queued for the heart |
-| `state` | worker | `{}` | `{project, intent, rules[], plan[], queue{ready, assigned, done, failed}, myTask?}`: a compact, deterministic view (the snapshot in JSON) |
+| `ticket.request` | worker | `{}` | the ticket for the session (or `null`), in the shape of `ticket.claim` |
+| `ticket.claim` | worker | `{ticketId, executionId?}` | `{ticket}` (issued → claimed) |
+| `ticket.feedback` | worker | `{ticketId, kind, text}` | `{feedback}`; `kind` = bug / idea / improvement / question (a question → `needs_answer`) |
+| `ticket.deliver` | worker | `{ticketId, summary, sha?}` | `{ticket}` (→ delivered) |
+| `ticket.release` | worker | `{ticketId, reason}` | `{ticket}`: the claimed ticket goes back to `issued` |
+| `ask` | worker | `{question}` | ticket, queued; the answer arrives in the inbox |
+| `change` | worker | `{proposal, reason}` | ticket, queued for the heart |
+| `state` | worker | `{}` | `{project, intent, rules[], plan[], tickets{<status>: count for all 10 statuses}, myTicket}`: a compact, deterministic view (`myTicket` = the ticket held by the session in claimed..delivered, otherwise null) |
 | `inbox` | worker | `{after?, wait?}` | `{tickets, last}`, the same as `GET /api/gate/inbox` |
-| `task.create` | heart | the task body of H1b + `order` | `{task}` |
-| `task.cancel` | heart | `{taskId}` | `{task}` |
-| `ticket.answer` | heart | `{ticketId, text}` | `{ticket}` |
+| `ticket.issue` | heart | the work body + `cardId` | `{ticket}` |
+| `ticket.cancel` | heart | `{ticketId}` | `{ticket}` |
+| `ticket.answer` | heart | `{ticketId, feedbackId, text}` | `{ticket}` |
 | `escalate` | heart | `{text}` | `{ticket}` |
 
 How the kinds are served:
 - Every kind goes through `POST /api/gate/requests {kind, body}`.
-- **Synchronous kinds** (`next`, `report`, `release`, `state`, `inbox`, all heart kinds) answer in the same response and still
+- **Synchronous kinds** (`ticket.*`, `state`, `inbox`, all heart kinds) answer in the same response and still
   leave a ticket for the audit log.
 - `ask` and `change` stay `queued`.
-- The existing `/api/brain/tasks*` and `/api/gate/tickets/*/answer` routes stay for the UI and become thin wrappers
-  over the same functions.
+- The `/api/gate/tickets/*/answer` route stays for the UI as a thin wrapper over the same functions; the task queue
+  routes `/api/brain/tasks*` were deleted in PR 5c and replaced by `GET /api/brain/tickets`.
 
 **Validation.** Payload checks live in one table per kind: `determinism/kinds.py`. The registry and
 `GET /api/gate/kinds` are generated from it, so the documentation cannot drift from the code. Each kind's
@@ -58,7 +60,7 @@ How the kinds are served:
 - **Configuration:** env `OPORA_BASE_URL`, `OPORA_PROJECT`, `OPORA_WORKSPACE` and `OPORA_GATE_TOKEN` (heart) or
   `OPORA_WORKER_NAME` (worker; the server opens its own gate session at the first call and keeps the token in memory).
 - **Tools:** `tools/list` = `GET /api/gate/kinds` for the role. Tool names are `opora_<kind with . → _>`, for
-  example `opora_next` and `opora_task_create`. The tool's `inputSchema` is the kind's input schema.
+  example `opora_state` and `opora_ticket_issue`. The tool's `inputSchema` is the kind's input schema.
 - **Calls:** `tools/call` maps to `POST /api/gate/requests`.
   - The result is `content: [{type: "text", text: <json>}]`.
   - A 4xx becomes `isError: true` with `code` and `hint`.

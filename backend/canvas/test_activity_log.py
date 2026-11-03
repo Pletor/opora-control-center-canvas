@@ -85,7 +85,7 @@ def test_agent_and_time_range_filter_heart_steps_of_one_batch(tmp_path):
         for at, agent in rows:
             db.execute("INSERT INTO activity_log(at,actor,agent,method,path,project_id,workspace_id,node_ids,"
                        "status,summary) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                       (at, "agent", agent, "POST", "/api/brain/tasks", "draft", "draft", "[]", 201, ""))
+                       (at, "agent", agent, "POST", "/api/gate/requests", "draft", "draft", "[]", 201, ""))
         db.commit()
         since = client.get("/api/activity-log", params={**SCOPE, "agent": "heart",
                                                          "since": "2026-10-31T10:00:00Z"}).json()["entries"]

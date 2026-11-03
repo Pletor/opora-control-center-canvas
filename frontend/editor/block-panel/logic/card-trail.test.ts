@@ -4,7 +4,7 @@ import { cardTrailUrl, parseCardTrail } from "./card-trail";
 const sample = {
   nodeId: "n0",
   now: { owner: "agent:builder", since: "2026-10-31T11:00:00Z", until: "2026-10-31T12:00:00Z", stepId: "s2", source: "det" },
-  runs: [{ executionId: "e1", taskId: null, owner: "agent:builder", createdAt: "2026-10-31T11:00:00Z", until: null, state: "reported",
+  runs: [{ executionId: "e1", ticketId: null, owner: "agent:builder", createdAt: "2026-10-31T11:00:00Z", until: null, state: "reported",
     summary: "Doplnil test.", source: "agent", attempts: 1, reported: true,
     steps: [{ stepId: "s1", title: "Test modulu", status: "done", checks: [{ name: "npm test", status: "green" }, { status: "red" }],
       commits: ["abc1234"], notes: "test x", source: "agent", files: ["backend/x/a.py"], allowed: ["backend/x/**"] }] }, "rozbité"],

@@ -72,7 +72,7 @@ describe("trail-timeline", () => {
   });
 
   it("relace: rozsah času u skončené, jen začátek u běžící; české tvary počtu", () => {
-    const base = { executionId: "e", taskId: null, owner: "a", summary: "", source: "agent" as const, attempts: 1, reported: true, steps: [] };
+    const base = { executionId: "e", ticketId: null, owner: "a", summary: "", source: "agent" as const, attempts: 1, reported: true, steps: [] };
     expect(runWhen({ ...base, createdAt: "2026-10-31T10:42:00", until: "2026-10-31T12:58:00", state: "reported" })).toBe("10:42–12:58");
     expect(runWhen({ ...base, createdAt: "2026-10-31T10:42:00", until: "2026-10-31T12:58:00", state: "running" })).toBe("10:42");
     expect([plural(1, "krok", "kroky", "kroků"), plural(3, "krok", "kroky", "kroků"), plural(8, "krok", "kroky", "kroků")]).toEqual(["1 krok", "3 kroky", "8 kroků"]);
