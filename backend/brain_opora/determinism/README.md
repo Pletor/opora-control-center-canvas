@@ -58,6 +58,15 @@ Modules (PR 4 of the new base, contract `docs/navrhy/2026-11-03-novy-zaklad.md` 
   `feedbackId` still answers a question ticket in `gate_tickets`. Repository `database/repositories/tickets.py`
   (tables `tickets`, `ticket_feedback`; additive, the old `gate_tickets` rows stay question tickets). Reading:
   `GET /api/brain/tickets`, `GET /api/brain/tickets/{id}`.
+- PR 5a (lifecycle bound to the execution, additive): `ticket.claim` takes an optional `executionId` (running
+  execution of the ticket's `cardId` in the same workspace, not held by another open ticket, else 409
+  `ticket_execution`); `ticket.release` (`claimed → issued`, no holder, no execution) gives a ticket back when the
+  office got no slot or execution.
+- `ticket_lifecycle.py`: the one place where executions move tickets. `follow` walks `delivered → verified` (a result
+  of the execution whose `selfChecks` all passed, or a merged PR) and `verified → closed` (merged PR, GitHub or local
+  merge); a `cancelled` execution makes the ticket `failed`. Hooks (`safe_follow`, never stops the execution) sit in
+  `ExecutionResults.submit`, `opora_execution_pr_closure.merge_events` and the budget cancellation; `ticket.deliver`
+  catches up facts that came first.
 - `snapshot.py` also builds `view`, the JSON of the `state` kind; `rules` are the approved project rules of the
   Desktop v3 memory, then the `context.rules` of the tasks (no repeats).
 

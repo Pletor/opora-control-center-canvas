@@ -1,7 +1,10 @@
 """Co srdce budí a co dostane do dávky (docs/brain-heart.md §1).
 
 `wake_input` převede událost outboxu na vstup: čekající lístek `ask` / `change` pracovníka (ne vlastní
-eskalaci srdce), úkol `failed` a sloučení karty `merge.done` (docs/brain-heart-orchestrator.md §4). `resolve` těsně před dávkou doplní k vstupům aktuální data z databáze (u selhaného úkolu
+eskalaci srdce), úkol `failed` a sloučení karty `merge.done` (docs/brain-heart-orchestrator.md §4). Ticket práce
+(docs/navrhy/2026-11-03-novy-zaklad.md §3.3) budí otázkou dělníka (`ticket.feedback` typu `question` → vstup
+`workQuestion` s textem a `feedbackId`, zodpovězená mezitím vypadne) a odevzdáním (`ticket.deliver` → `workDelivered`
+se shrnutím a sha); obojí z auditní události `gate.ticket` druhu brány. `resolve` těsně před dávkou doplní k vstupům aktuální data z databáze (u selhaného úkolu
 zadání i report, aby srdce nové zadání psalo z původního), k lístku zkratku vstupu brány (`intake`: ID, stanovisko,
 podobné vstupy) a zahodí ty, které mezitím vyřešil někdo jiný (lístek už zodpovězený). Zpráva člověka projde vždy.
 `backlog` po startu srdce dohání to, co outbox už nepřinese (událost vznikla před prvním čtením kurzoru,
@@ -33,8 +36,10 @@ from backend.brain_opora.determinism import (
 from backend.brain_opora.determinism import brief_vault_link as vault_link
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
+from database.repositories.tickets import TicketStore
 
 TICKET_KINDS = ("ask", "change")
+WORK_INPUTS = {"ticket.feedback": "workQuestion", "ticket.deliver": "workDelivered"}  # ticket práce (§3.3)
 BACKLOG = 50  # nejvýš čekajících lístků dohnaných po startu
 MESSAGE_HOURS = 24  # zprávy člověka starší než tolik hodin se po startu nedohánějí
 
@@ -45,6 +50,11 @@ def wake_input(event):
     if (event.get("kind") == "gate.ticket" and data.get("status") == "queued" and data.get("kind") in TICKET_KINDS
             and data.get("from") != "heart" and isinstance(data.get("ticketId"), str)):
         return {"type": "ticket", "ticketId": data["ticketId"], "kind": data["kind"]}
+    if (event.get("kind") == "gate.ticket" and data.get("status") == "queued" and data.get("from") != "heart"
+            and isinstance(data.get("ticketId"), str)
+            and (data.get("kind") == "ticket.deliver"
+                 or (data.get("kind") == "ticket.feedback" and data.get("feedbackKind") == "question"))):
+        return {"type": WORK_INPUTS[data["kind"]], "requestId": data["ticketId"]}
     if event.get("kind") == "gate.task" and data.get("status") == "failed" and isinstance(data.get("taskId"), str):
         return {"type": "taskFailed", "taskId": data["taskId"]}
     if event.get("kind") == "merge.done":
@@ -156,15 +166,35 @@ def _task(store, item):
     return {**item, "title": task["title"], "body": task["body"], "report": task["report"]}
 
 
+def _work(gate_tickets, work, item):
+    """Otázka dělníka k ticketu práce (ještě bez odpovědi) nebo odevzdání ticketu: data z auditu brány a z ticketu."""
+    audit = gate_tickets.get(item["requestId"])
+    answer = audit["answer"] if audit and isinstance(audit["answer"], dict) else {}
+    ticket = work.get((answer.get("ticket") or {}).get("ticketId"))
+    if ticket is None:
+        return None
+    base = {"type": item["type"], "ticketId": ticket["ticketId"], "status": ticket["status"],
+            "cardId": ticket["machine"]["cardId"], "executionId": ticket["machine"]["executionId"]}
+    if item["type"] == "workQuestion":
+        found = work.feedback((answer.get("feedback") or {}).get("feedbackId"))
+        if found is None or found["answer"] is not None:
+            return None
+        return base | {"feedbackId": found["feedbackId"], "kind": found["kind"], "text": found["text"],
+                       "essence": ticket["body"]["essence"]}
+    return base | {"delivery": ticket["delivery"]}
+
+
 def resolve(service, project, items):
     """Vstupy s aktuálními daty; vyřešené mezitím vypadnou. Pořadí zůstává."""
     resolved = []
     with service.reading(project):
         db = service.db_for(project)
         tickets, tasks = GateTicketStore(db, project), HeartTaskStore(db, project)
+        work = TicketStore(db, project)
         for item in items:
             kind = item.get("type")
-            value = _ticket(tickets, item, db) if kind == "ticket" else _task(tasks, item) if kind == "taskFailed" else item
+            value = (_ticket(tickets, item, db) if kind == "ticket" else _task(tasks, item) if kind == "taskFailed"
+                     else _work(tickets, work, item) if kind in WORK_INPUTS.values() else item)
             if value is not None:
                 resolved.append(value)
     return resolved

@@ -9,7 +9,14 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from backend.brain_opora.determinism import gate, snapshot, task_queue, ticket, ticket_model
+from backend.brain_opora.determinism import (
+    gate,
+    snapshot,
+    task_queue,
+    ticket,
+    ticket_lifecycle,
+    ticket_model,
+)
 from backend.brain_opora.determinism.gate_payloads import GateError, inbox_body, invalid, shaped
 from backend.brain_opora.determinism.kind_schemas import SCHEMAS
 from backend.brain_opora.determinism.task_payloads import (
@@ -124,13 +131,18 @@ TABLE = (
     Kind("ticket.request", "worker", "Žádost o práci: ticket, který relace drží, jinak nejstarší vydaný v prostoru "
          "(nebere ho). Nic k práci = ticket null.", {}, lambda body: shaped(body, (), hint=_hint("ticket.request")),
          ticket.request),
-    Kind("ticket.claim", "worker", "Vezme vydaný ticket (issued → claimed); pak ho drží jen tato relace.",
-         {**WORK_MISSING, **WORK_STATE}, lambda body: ticket_model.ticket_id(body, _hint("ticket.claim")), ticket.claim),
+    Kind("ticket.claim", "worker", "Vezme vydaný ticket (issued → claimed); pak ho drží jen tato relace. S executionId "
+         "ho naváže na běžící exekuci karty ticketu; stav pak posouvá i exekuce (ověřeno, sloučeno, zrušeno).",
+         {**WORK_MISSING, **WORK_STATE, "ticket_execution": ticket_lifecycle.BIND_HINT}, ticket_model.claim_payload,
+         ticket.claim),
     Kind("ticket.feedback", "worker", "Zpětná vazba k drženému ticketu: bug, idea, improvement nebo question. "
          "Otázka přepne ticket na needs_answer, odpověď srdce je pak v ticket.request.", WORK_HELD,
          ticket_model.feedback_payload, ticket.feedback),
     Kind("ticket.deliver", "worker", "Odevzdání drženého ticketu se shrnutím (a sha) → delivered. S otevřenou "
          "otázkou nejde.", WORK_HELD, ticket_model.deliver_payload, ticket.deliver),
+    Kind("ticket.release", "worker", "Vrátí vzatý ticket do fronty (claimed → issued) bez držitele a bez exekuce, "
+         "když kancelář nedostala místo ani exekuci. Rozpracovaný ticket vrátit nejde.", WORK_HELD,
+         lambda body: ticket_model.ticket_id(body, _hint("ticket.release")), ticket.release),
     Kind("task.create", "heart", "Nový úkol ve frontě (ready) v projektu a prostoru tokenu srdce; nižší order jde "
          "dřív.", {**HEART_ONLY, "project_not_found": "ID projektu najdete v GET /api/bootstrap.",
          "files_held": "Soubor úkolu nesmí být zároveň v dontTouch; seřaď úkoly přes order."}, _task_create,

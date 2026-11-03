@@ -13,7 +13,7 @@ STATES = ("draft", "issued", "claimed", "in_progress", "needs_answer", "delivere
 TRANSITIONS = {
     "draft": ("issued", "cancelled"),
     "issued": ("claimed", "cancelled"),
-    "claimed": ("in_progress", "failed", "cancelled"),
+    "claimed": ("in_progress", "issued", "failed", "cancelled"),  # issued = ticket.release (kancelář bez exekuce)
     "in_progress": ("needs_answer", "delivered", "failed", "cancelled"),
     "needs_answer": ("in_progress", "failed", "cancelled"),
     "delivered": ("verified", "in_progress", "failed"),
@@ -81,6 +81,13 @@ def issue_payload(payload):
 
 def ticket_id(body, hint):
     return shaped(body, ("ticketId",), ids=("ticketId",), hint=hint)["ticketId"]
+
+
+def claim_payload(body):
+    """`ticket.claim` `{ticketId, executionId?}` → `(ticketId, executionId nebo None)`."""
+    hint = 'Například {"ticketId": "tk_…", "executionId": "…"}; executionId vrací start exekuce karty ticketu.'
+    shaped(body, ("ticketId",), ("executionId",), ids=("ticketId", "executionId"), hint=hint)
+    return body["ticketId"], body.get("executionId")
 
 
 def feedback_payload(body):

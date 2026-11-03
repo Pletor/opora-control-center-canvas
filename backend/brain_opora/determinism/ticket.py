@@ -6,14 +6,18 @@ vezme ji (`ticket.claim` → `claimed`), hlásí zpětnou vazbu (`ticket.feedbac
 `in_progress`, otázka na `needs_answer`) a odevzdá (`ticket.deliver` → `delivered`). Poslední odpověď na otázku
 vrátí `needs_answer` do `in_progress`. Přechody hlídá `ticket_model.advance`; audit každého požadavku zapíše brána
 do `gate_tickets` (událost `gate.ticket`). Nic tu nevolá model.
+`ticket.claim` s `executionId` naváže ticket na běžící exekuci karty (`ticket_lifecycle.bind`); odevzdaný ticket pak
+posouvají fakta exekuce (`ticket_lifecycle.follow`: ověřeno, sloučeno, zrušeno). `ticket.release` vrátí vzatý ticket
+(`claimed` → `issued`), když kancelář nedostala místo ani exekuci.
 """
 import uuid
 
-from backend.brain_opora.determinism import gate, tokens
+from backend.brain_opora.determinism import gate, ticket_lifecycle, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, shaped
 from backend.brain_opora.determinism.ticket_model import (
     STATES,
     advance,
+    claim_payload,
     deliver_payload,
     feedback_payload,
     issue_payload,
@@ -90,12 +94,31 @@ def request(service, session, body, now=None):
 
 
 def claim(service, session, body, now=None):
-    """`ticket.claim`: vydaný ticket připíše relaci (`issued` → `claimed`); vzatý nebo uzavřený je 409."""
+    """`ticket.claim`: vydaný ticket připíše relaci (`issued` → `claimed`); vzatý nebo uzavřený je 409.
+    S `executionId` ho naváže na běžící exekuci karty ticketu (jinak 409 `ticket_execution`)."""
+    wanted, execution_id = claim_payload(body)
+    at = tokens.stamp(now)
+
+    def work(store):
+        ticket = _found(store, session, wanted)
+        advance(ticket["status"], "claimed")  # nejdřív stav (409 ticket_state), pak vazba na exekuci
+        if execution_id:
+            ticket_lifecycle.bind(store.db, store.project, ticket, execution_id)
+        _walk(store, ticket, ("claimed",), at, session_id=session["id"], execution_id=execution_id)
+        return {"ticket": for_worker(store.get(wanted))}
+    return _write(service, session, work)
+
+
+def release(service, session, body, now=None):
+    """`ticket.release`: vzatý ticket se vrátí do fronty (`claimed` → `issued`) bez držitele a bez exekuce."""
     wanted, at = ticket_id(body, 'Například {"ticketId": "tk_…"}.'), tokens.stamp(now)
 
     def work(store):
-        _walk(store, _found(store, session, wanted), ("claimed",), at, session_id=session["id"])
-        return {"ticket": for_worker(store.get(wanted))}
+        ticket = _held(store, session, wanted)
+        advance(ticket["status"], "issued")
+        if not store.unclaim(wanted, at):
+            raise GateError(409, "ticket_state", "Ticket mezitím změnil stav.", "Načtěte ho znovu přes ticket.request.")
+        return {"ticket": {"ticketId": wanted, "status": "issued"}}
     return _write(service, session, work)
 
 
@@ -124,8 +147,10 @@ def deliver(service, session, body, now=None):
     def work(store):
         ticket = _held(store, session, wanted)
         targets = ("in_progress", "delivered") if ticket["status"] == "claimed" else ("delivered",)
-        return {"ticket": {"ticketId": wanted, "status": _walk(store, ticket, targets, at,
-                                                                delivery={**delivery, "at": at})}}
+        _walk(store, ticket, targets, at, delivery={**delivery, "at": at})
+        # Exekuce mohla být ověřená nebo sloučená dřív než odevzdání ticketu: stav ji dožene hned.
+        return {"ticket": {"ticketId": wanted, "status": ticket_lifecycle.follow(store.db, store.project,
+                                                                                 store.get(wanted), now)}}
     return _write(service, session, work)
 
 

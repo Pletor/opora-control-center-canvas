@@ -32,6 +32,8 @@ Kroky dávky (`trigger.heart_event`, `trigger.human_message`, `decision.jev`, `c
 - `wakes.py` (`Wakes`): zpráva člověka (`message`). Zprávu nejdřív zapíše vstupní brána, pak `brain/messages.jsonl`. Stejná věta (`duplicate`) srdce nebudí. Čtení outboxu (`poll_events`, po signálu nebo jednou za 10 s): lístky `ask` / `change`, `failed` úkol a `merge.done` dostanou okno 20 s. Spouštěče milníku, ruční změny plánu, karet (po události nejvýš jednou za minutu, plný průchod při prvním čtení a po `trigger.schedule`), prázdné fronty (jednou za 2 min, ne během dávky) a výslechu. Dohánění po startu (`inputs.backlog`).
 - `git_watch.py` (`GitWatch`): hlídač gitu jednou za 5 min ve vlastním vlákně. U zdroje `git` spustí synchronizaci aplikace a posune čisté prostory za `main`. Pohnutý HEAD přidá vstup `commits`. Před dávkou posune prostor za lokální `main` (uzel `context.snapshot`).
 - `inputs.py`: událost → vstup (`wake_input`), čerstvá data vstupu těsně před dávkou (`resolve`) a výpočty spouštěčů.
+  Ticket práce budí otázkou dělníka (`workQuestion`: text, `feedbackId`, stav; zodpovězená vypadne) a odevzdáním
+  (`workDelivered`: shrnutí, sha), obojí z auditní události `gate.ticket` (`feedbackKind` nese typ zpětné vazby).
 
 ## Řízení (`driver.py`)
 

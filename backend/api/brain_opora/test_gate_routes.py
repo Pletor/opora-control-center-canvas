@@ -146,6 +146,8 @@ def test_every_kind_example_runs_through_the_gate_and_answers_its_output_schema(
         assert run("ticket.request", auth)["answer"] == {"ticket": None, "held": False}
         ids["work"] = run("ticket.issue", heart)["answer"]["ticket"]["ticketId"]
         assert run("ticket.claim", auth, ticketId="work")["answer"]["ticket"]["status"] == "claimed"
+        assert run("ticket.release", auth, ticketId="work")["answer"]["ticket"]["status"] == "issued"
+        assert run("ticket.claim", auth, ticketId="work")["answer"]["ticket"]["status"] == "claimed"
         assert run("ticket.feedback", auth, ticketId="work")["answer"]["ticket"]["status"] == "needs_answer"
         ids["feedback"] = run("ticket.request", auth)["answer"]["ticket"]["feedback"][0]["feedbackId"]
         answered = request(client, heart, "ticket.answer", {"ticketId": ids["work"], "feedbackId": ids["feedback"],
@@ -169,7 +171,7 @@ def test_kinds_listing_follows_the_role(tmp_path):
             return body["role"], [kind["kind"] for kind in body["kinds"]]
 
         worker_kinds = ["next", "ask", "report", "change", "state", "inbox", "release", "ticket.request",
-                        "ticket.claim", "ticket.feedback", "ticket.deliver"]
+                        "ticket.claim", "ticket.feedback", "ticket.deliver", "ticket.release"]
         heart_kinds = ["task.create", "task.cancel", "ticket.issue", "ticket.answer", "escalate"]
         assert names(auth) == ("worker", worker_kinds)
         assert names(AGENT) == ("worker", worker_kinds)

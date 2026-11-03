@@ -346,6 +346,7 @@ CREATE TABLE IF NOT EXISTS tickets(
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS tickets_queue ON tickets(project_id, workspace_id, status, seq);
 CREATE INDEX IF NOT EXISTS tickets_holder ON tickets(session_id, status);
+CREATE INDEX IF NOT EXISTS tickets_execution ON tickets(execution_id);
 CREATE TABLE IF NOT EXISTS ticket_feedback(
     seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
     project_id TEXT NOT NULL, ticket_id TEXT NOT NULL,
