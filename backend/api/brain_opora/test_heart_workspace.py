@@ -121,10 +121,13 @@ def test_main_is_architecture_and_cards_live_in_the_domain_workspace(heart):
     assert state["heads"]["workingDiffers"] is False and ready[done["refs"]["hero"]]["status"] == "ready"
 
     # `--workspace` u task a decide míří do prostoru, ne do main z prostředí
-    task = tool("task", "--title", "Sonda", "--do", "Ověř build.", "--workspace", wid)
-    assert task["status"] == "ready"
-    listed = call("GET", "/api/brain/tasks", query={"project": pid, "workspace": wid})["tasks"]
-    assert [item["taskId"] for item in listed] == [task["taskId"]]
+    task = tool("task", "--title", "Sonda", "--do", "Ověř build.", "--done-when", "npm run build projde",
+                "--node", done["refs"]["hero"], "--workspace", wid)
+    assert task["status"] == "issued" and task["cardId"] == done["refs"]["hero"]
+    listed = call("GET", "/api/brain/tickets", query={"project": pid, "workspace": wid})["tickets"]
+    assert [item["ticketId"] for item in listed] == [task["ticketId"]]
+    assert call("GET", "/api/brain/tickets", query={"project": pid, "workspace": "main"})["tickets"] == []
+    assert tool("cancel", "--task", task["ticketId"]) == {"ticketId": task["ticketId"], "status": "cancelled"}
     decided = tool("decide", "--text", "Web má jednu doménu.", "--workspace", wid)
     assert decided["by"] == "agent"
 

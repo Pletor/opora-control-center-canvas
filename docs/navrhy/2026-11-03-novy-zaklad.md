@@ -78,7 +78,8 @@ Jádro brány zůstává: `gate.py`, `kinds.py`, `kind_schemas.py`, `tokens.py`,
   - kritérium hotovo.
 - **Strojová vrstva:** `card_id`, `execution_id`, `card_version`. Propisuje se do větve, commitu a traileru.
 - **Zpětná vazba:** položky `bug`, `idea`, `improvement`, `question`, každá s vlastním ID a odpovědí srdce. Nápady a vylepšení se zároveň sčítají do záložek projektu s body za duplicitu.
-- **Nové druhy brány:** `ticket.request` (orchestrátor žádá práci), `ticket.claim`, `ticket.feedback`, `ticket.deliver`, `ticket.answer`.
+- **Nové druhy brány:** `ticket.request` (orchestrátor žádá práci), `ticket.claim`, `ticket.feedback`, `ticket.deliver`, `ticket.answer`, `ticket.cancel` (srdce ruší práci, která už nedává smysl).
+- **Srdce vydává práci jen ticketem:** `opora_heart.py task` = `ticket.issue` s `cardId` karty (u git projektu s `workspace` prostoru karty), `cancel` = `ticket.cancel`; žádná paralelní fronta úkolů. Snímek srdce má sekci `TICKETY PRÁCE` místo `FRONTA ÚKOLŮ` a `DORUČENÍ`.
 - **Executions zůstávají** jako vnitřní mechanika: lease, kroky, výsledky, PR. Claim spouští ticket, ne `frontier`.
 
 ### 3.4 Brain (`backend/brain/`)

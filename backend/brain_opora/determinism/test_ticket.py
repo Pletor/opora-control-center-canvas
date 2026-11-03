@@ -93,3 +93,16 @@ def test_answer_without_feedback_id_still_answers_a_question_ticket(service):
     tid = send(service, brain, "ticket.issue", ISSUE)["ticket"]["ticketId"]
     missing = refused(service, brain, "ticket.answer", {"ticketId": tid, "feedbackId": "tf_x", "text": "Ano."})
     assert missing.status == 404 and missing.code == "feedback_not_found"
+
+
+def test_heart_cancels_work_that_no_longer_makes_sense_but_not_a_delivered_ticket(service):
+    brain, office = heart(service), worker(service)
+    tid = send(service, brain, "ticket.issue", ISSUE)["ticket"]["ticketId"]
+    assert refused(service, office, "ticket.cancel", {"ticketId": tid}).code == "heart_required"
+    assert send(service, brain, "ticket.cancel", {"ticketId": tid}) == {"ticket": {"ticketId": tid,
+                                                                                  "status": "cancelled"}}
+    assert send(service, office, "ticket.request") == {"ticket": None, "held": False}
+    done = send(service, brain, "ticket.issue", ISSUE)["ticket"]["ticketId"]
+    send(service, office, "ticket.claim", {"ticketId": done})
+    send(service, office, "ticket.deliver", {"ticketId": done, "summary": "Hotovo."})
+    assert refused(service, brain, "ticket.cancel", {"ticketId": done}).code == "ticket_state"

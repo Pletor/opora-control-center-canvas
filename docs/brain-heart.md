@@ -79,9 +79,9 @@ ZÁMĚR: <application site goal / feel, if any>
 ZPRÁVY ČLOVĚKA: <at text> (last 5 of the workspace, ≤ 400 chars each)
 PRAVIDLA: <project rules: approved, then "(návrh)"> (≤ 20)
 ROZHODNUTÍ: <decisions: pinned, then newest> (≤ 10)
-DORUČENÍ: cards|gate – <which command carries work: plan or task> (§3e)
 PLÁN: <pages: name, path, stage> (≤ 20)
-FRONTA ÚKOLŮ: ready n · assigned n (by whom) · done n · failed n; last 10 titles with status
+TICKETY PRÁCE: issued n · claimed n · in_progress n · needs_answer n · delivered n · verified n · failed n;
+  last 10 work tickets: [status] first line of build (tk_…) · karta <cardId> · drží <session> od <at>
 LÍSTKY ČEKAJÍCÍ: <id kind text> (≤ 10)
 POSLEDNÍ KONTROLY: <scope sha status> (≤ 10)
 DENÍK: <at [status] summary> (last 5 batches)
@@ -114,7 +114,7 @@ Nothing new is stored in a new table: the surroundings reuse what the applicatio
   rotation and the next batch sees it. Rules of the whole application go as `rule`; the human approves them in the
   memory panel. The heart repeats in `--rule` the approved rules and its own proposals (a rejected proposal is
   removed, so it drops out of the snapshot); without proposals the first plan would carry no rules at all.
-- **Order of the snapshot:** `PROJEKT`, `ZÁMĚR`, `ZPRÁVY ČLOVĚKA`, `PRAVIDLA`, `ROZHODNUTÍ`, `PLÁN`, `FRONTA ÚKOLŮ`,
+- **Order of the snapshot:** `PROJEKT`, `ZÁMĚR`, `ZPRÁVY ČLOVĚKA`, `PRAVIDLA`, `ROZHODNUTÍ`, `PLÁN`, `TICKETY PRÁCE`,
   `LÍSTKY ČEKAJÍCÍ`, `POSLEDNÍ KONTROLY`, `DENÍK`. Each section has its own line cap; the whole text keeps the
   12 000-character limit. An unreadable source is an empty section, never an error.
 - Steps: **K1** = durable messages and the four new snapshot sections (determinism + supervisor, no new tool);
@@ -318,6 +318,11 @@ rule above), and sources like "URL (section 2)" failed the check (code cuts the 
 split into several focused researches instead of a wider desk. V1s became `research`; the fan-out was deleted.
 
 ## 3e. Delivery channel: who takes the work (`determinism/delivery.py`)
+
+**Superseded (2026-11-03, docs/navrhy/2026-11-03-novy-zaklad.md §3.3):** the heart gives work only as work
+tickets (`opora_heart.py task` = `ticket.issue` with `cardId`; `cancel` = `ticket.cancel`). The snapshot no longer
+prints `DORUČENÍ`; `delivery.py` and the task queue stay until their removal (PR 5c) and no new code uses them.
+The text below records the old split.
 
 The heart cannot tell from the plan alone whether anyone will pick up a card. So the snapshot carries one line,
 `DORUČENÍ`, right before `PLÁN`, computed without a model from the project database:

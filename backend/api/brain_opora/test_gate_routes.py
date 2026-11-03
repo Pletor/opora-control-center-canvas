@@ -154,6 +154,8 @@ def test_every_kind_example_runs_through_the_gate_and_answers_its_output_schema(
                                                              "text": "Ano."}).json()["answer"]
         assert conforms(answered, listed["ticket.answer"]["output"]) == [] and answered["ticket"]["status"] == "in_progress"
         assert run("ticket.deliver", auth, ticketId="work")["answer"]["ticket"]["status"] == "delivered"
+        ids["work"] = run("ticket.issue", heart)["answer"]["ticket"]["ticketId"]
+        assert run("ticket.cancel", heart, ticketId="work")["answer"]["ticket"]["status"] == "cancelled"
         assert set(ran) == set(listed)
         # Synchronní druhy nechaly lístek pro audit.
         audit = client.app.state.service.db_for("draft").execute(
@@ -172,7 +174,7 @@ def test_kinds_listing_follows_the_role(tmp_path):
 
         worker_kinds = ["next", "ask", "report", "change", "state", "inbox", "release", "ticket.request",
                         "ticket.claim", "ticket.feedback", "ticket.deliver", "ticket.release"]
-        heart_kinds = ["task.create", "task.cancel", "ticket.issue", "ticket.answer", "escalate"]
+        heart_kinds = ["task.create", "task.cancel", "ticket.issue", "ticket.cancel", "ticket.answer", "escalate"]
         assert names(auth) == ("worker", worker_kinds)
         assert names(AGENT) == ("worker", worker_kinds)
         assert names({**AGENT, tokens.HEADER: token}) == ("heart", worker_kinds + heart_kinds)
@@ -184,7 +186,7 @@ def test_kinds_listing_follows_the_role(tmp_path):
 def test_worker_sending_a_heart_kind_gets_403_with_code_and_hint(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         auth = worker(open_session(client)["token"])
-        for kind in ("task.create", "task.cancel", "ticket.answer", "escalate"):
+        for kind in ("task.create", "task.cancel", "ticket.cancel", "ticket.answer", "escalate"):
             refused = request(client, auth, kind, {})
             assert refused.status_code == 403 and refused.json()["code"] == "heart_required", kind
             assert refused.json()["hint"]

@@ -80,17 +80,16 @@ class Handler(BaseHTTPRequestHandler):
                                      "summary": "1 karta", "warnings": [], "digest": "x", "revision": 3})
         if url.path == "/api/brain/heart/snapshot":
             return self._reply(200, {"snapshot": "PROJEKT p1\nPLÁN:"})
-        if url.path == "/api/brain/tasks":
-            return self._reply(201, {"taskId": "ht_1", "title": body["title"], "status": "ready", "order": 1})
         if url.path == "/api/gate/requests":
+            ticket = ({"ticketId": "tk_1", "status": "cancelled"} if body["kind"] == "ticket.cancel" else
+                      {"ticketId": "tk_1", "status": "issued", "machine": {"cardId": body["body"].get("cardId")}}
+                      if body["kind"] == "ticket.issue" else {"ticketId": "tk_1", "status": "issued"})
             return self._reply(201, {"ticketId": "gt_3", "kind": body["kind"], "status": "answered",
-                                     "answer": {"ticket": {"ticketId": "tk_1", "status": "issued"}}})
+                                     "answer": {"ticket": ticket}})
         if url.path.endswith("/answer"):
             return self._reply(200, {"ticketId": "gt_1", "status": "answered", "answeredBy": "heart"})
         if url.path.startswith("/api/desktop-v3/"):
             return self._reply(200, {"revision": 2, "item": {**body["item"], "by": "agent"}})
-        if url.path.endswith("/cancel"):
-            return self._reply(409, {"error": "uzavřený", "code": "task_closed", "hint": "Jen ready nebo assigned."})
         return self._reply(201, {"ticketId": "gt_2", "kind": "ask", "status": "queued"})
 
     def do_GET(self):
@@ -121,19 +120,35 @@ def run(capsys, *argv):
     return code, capsys.readouterr().out.strip()
 
 
-def test_task_sends_the_fixed_shape_with_the_heart_token(server, capsys):
+def test_task_issues_only_a_work_ticket_with_a_full_body_and_the_card(server, capsys):
     code, out = run(capsys, "task", "--title", "Hero", "--do", "Udělej hero.", "--why", "Proč", "--file", "a.tsx",
                     "--done-when", "npm test projde", "--dont-touch", "nav.tsx@úkol navigace", "--rule", "Česky",
-                    "--intent", "klid", "--order", "1", "--node", "home", "--model", "opus")
-    assert code == 0 and json.loads(out) == {"taskId": "ht_1", "title": "Hero", "status": "ready", "order": 1}
-    call = Handler.calls[0]
-    assert call["headers"]["X-Opora-Gate-Token"] == "tok-heart" and call["headers"]["Origin"] == server
-    assert call["headers"]["X-Opora-Actor"] == "agent; name=heart"
-    assert call["body"] == {"project": "p1", "workspace": "main", "title": "Hero", "nodeId": "home", "order": 1,
-                            "body": {"do": "Udělej hero.", "why": "Proč", "files": ["a.tsx"],
-                                     "doneWhen": ["npm test projde"], "commit": "", "model": "opus",
-                                     "dontTouch": [{"path": "nav.tsx", "heldBy": "úkol navigace"}],
-                                     "context": {"rules": ["Česky"], "intent": "klid"}}}
+                    "--intent", "klid", "--open-path", "Pod hero místo pro CTA", "--node", "home")
+    assert code == 0 and json.loads(out) == {"ticketId": "tk_1", "status": "issued", "title": "Hero", "cardId": "home"}
+    [call] = Handler.calls  # žádná fronta úkolů, jen ticket
+    assert call["path"] == "/api/gate/requests" and call["headers"]["X-Opora-Gate-Token"] == "tok-heart"
+    assert call["headers"]["Origin"] == server and call["headers"]["X-Opora-Actor"] == "agent; name=heart"
+    assert call["body"] == {"kind": "ticket.issue", "body": {"cardId": "home", "body": {
+        "essence": "Proč\nPocit: klid", "build": "Hero\nUdělej hero.\nSoubory: a.tsx",
+        "openPaths": ["Pod hero místo pro CTA"], "cautions": ["Nesahej na nav.tsx (drží úkol navigace)", "Česky"],
+        "doneCriteria": ["npm test projde"]}}}
+
+
+def test_task_body_carries_no_gate_ids_and_goes_to_the_named_workspace(server, capsys):
+    code, out = run(capsys, "task", "--title", "Hero", "--do", "Navaž na ht_0123456789ab.", "--done-when", "build",
+                    "--workspace", "w1")
+    assert code == 0 and json.loads(out)["cardId"] is None
+    sent = Handler.calls[0]["body"]["body"]
+    assert sent == {"workspace": "w1", "body": {"essence": "Hero", "build": "Hero\nNavaž na (ID).", "openPaths": [],
+                                                "cautions": [], "doneCriteria": ["build"]}}
+    code, out = run(capsys, "task", "--title", "Hero", "--do", "Bez kritéria.")
+    assert code == 1 and json.loads(out)["code"] == "ticket_done_criteria" and len(Handler.calls) == 1
+
+
+def test_cancel_cancels_the_work_ticket(server, capsys):
+    code, out = run(capsys, "cancel", "--task", "tk_1")
+    assert code == 0 and json.loads(out) == {"ticketId": "tk_1", "status": "cancelled"}
+    assert Handler.calls[0]["body"] == {"kind": "ticket.cancel", "body": {"ticketId": "tk_1"}}
 
 
 def test_plan_sends_the_file_with_a_fresh_digest_and_retries_stale_once(server, capsys, tmp_path):
@@ -221,8 +236,8 @@ def test_snapshot_answer_escalate_and_done(server, capsys, tmp_path):
 
 
 def test_errors_print_code_and_hint(server, capsys, monkeypatch):
-    code, out = run(capsys, "cancel", "--task", "ht_1")
-    assert code == 1 and json.loads(out)["code"] == "task_closed" and json.loads(out)["hint"]
+    code, out = run(capsys, "proposal", "--accept", "gp1")
+    assert code == 1 and json.loads(out)["code"] == "human_only" and json.loads(out)["hint"]
     monkeypatch.delenv("OPORA_HEART_TOKEN")
     code, out = run(capsys, "snapshot")
     assert code == 1 and json.loads(out)["code"] == "heart_env_missing"
@@ -475,7 +490,7 @@ def test_architecture_in_a_workspace_points_the_heart_to_main(server, capsys, tm
 
 
 def test_workspace_override_is_per_call_and_ctx_plan_of_reads_another_project(server, capsys, tmp_path):
-    code, _ = run(capsys, "task", "--title", "T", "--do", "D", "--workspace", "w1")
+    code, _ = run(capsys, "decide", "--text", "T", "--workspace", "w1")
     assert code == 0 and Handler.calls[-1]["body"]["workspace"] == "w1"
     run(capsys, "snapshot")  # další volání bez --workspace jde zase do prostoru z prostředí
     assert Handler.calls[-1]["query"]["workspace"] == ["main"]
@@ -820,7 +835,8 @@ def test_ticket_issue_and_answer_go_through_the_gate_with_the_heart_token(server
     (tmp_path / "ticket.json").write_text(json.dumps({"body": {"essence": "Proč.", "build": "Co.",
                                                                 "doneCriteria": ["npm test"]}}), encoding="utf-8")
     code, out = run(capsys, "ticket-issue", "--file", "@ticket.json")
-    assert code == 0 and json.loads(out) == {"ticket": {"ticketId": "tk_1", "status": "issued"}}
+    assert code == 0 and json.loads(out) == {"ticket": {"ticketId": "tk_1", "status": "issued",
+                                                        "machine": {"cardId": None}}}
     run(capsys, "ticket-answer", "--ticket", "tk_1", "--feedback", "tf_1", "--text", "Ano.")
     run(capsys, "ticket-answer", "--ticket", "gt_1", "--text", "Ne.")
     sent = [(call["path"], call["body"], call["headers"]["X-Opora-Gate-Token"]) for call in Handler.calls]

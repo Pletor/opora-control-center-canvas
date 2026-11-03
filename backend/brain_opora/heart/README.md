@@ -28,7 +28,8 @@ Modules (H2a):
   last main-thread turn (`context_tokens`: `usage` of the last `assistant` event without `parent_tool_use_id`), not the
   sum over the batch. A new session when it passes 60k or after a failed batch. Without stream events it is estimated
   from the cumulative `usage`: cache writes + fresh input + cache reads / `num_turns`.
-- `opora_heart.py`: the heart's only tool, stdlib (`snapshot`, `task`, `answer`, `ticket-issue`, `ticket-answer`, `cancel`, `escalate`, `intake`, `decide`, `rule`, `done`,
+- `opora_heart.py`: the heart's only tool, stdlib (`snapshot`, `task` = work only as a ticket via `ticket.issue`
+  with `cardId` (no task queue), `cancel` = `ticket.cancel`, `answer`, `ticket-issue`, `ticket-answer`, `cancel`, `escalate`, `intake`, `decide`, `rule`, `done`,
   and the workshop's `ctx`, `run`). `member --area <area>|none --nodes id1,id2 [--dry-run]` proposes area membership of
   existing cards and sectors as a graph proposal with `updateNodes` that change only `memberOf`; it never accepts it,
   the human does (`docs/brain-heart-orchestrator.md` O2d, test `backend/api/brain_opora/test_heart_member.py`). `steps --node ID --file F [--dry-run]` gives an existing

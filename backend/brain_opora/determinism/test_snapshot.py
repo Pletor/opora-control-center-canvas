@@ -4,7 +4,15 @@ import subprocess
 
 import pytest
 
-from backend.brain_opora.determinism import brain_files, gate, intake, kinds, snapshot, task_queue
+from backend.brain_opora.determinism import (
+    brain_files,
+    gate,
+    intake,
+    kinds,
+    snapshot,
+    task_queue,
+    tokens,
+)
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.canvas_service import CanvasService
 from backend.canvas.test_graph_card import node
@@ -16,6 +24,10 @@ FACTS = {"project": "p1", "name": "Zahrada", "workspace": "main", "goal": "",
          "tasks": [{"taskId": "ht_1", "seq": 1, "title": "Hero", "status": "done", "sessionId": "gs_1"},
                    {"taskId": "ht_2", "seq": 2, "title": "Formulář", "status": "assigned", "sessionId": "gs_2",
                     "updatedAt": "2026-10-29T08:00:00Z"}],
+         "workTickets": [{"ticketId": "tk_1", "seq": 1, "status": "delivered", "body": {"build": "Hero\nUdělej hero."},
+                          "machine": {"cardId": "home"}, "sessionId": "gs_1", "updatedAt": "2026-10-29T07:00:00Z"},
+                         {"ticketId": "tk_2", "seq": 2, "status": "issued", "body": {"build": "Formulář"},
+                          "machine": {"cardId": None}, "sessionId": None, "updatedAt": "2026-10-29T08:00:00Z"}],
          "tickets": [{"ticketId": "gt_1", "kind": "ask", "body": {"q": "Jaká barva?"}}],
          "checks": [("ht_1", "abcdef1234567890", "green")]}
 
@@ -30,14 +42,16 @@ def service(tmp_path):
 def test_render_has_the_fixed_sections_in_order():
     text = snapshot.render(FACTS)
     heads = ["PROJEKT Zahrada (p1) · workspace main", "ZÁMĚR: Uvěřit, že to zvládnu. · klidná", "PLÁN:",
-             "FRONTA ÚKOLŮ: ready 0 · assigned 1 (gs_2) · done 1 · failed 0", "LÍSTKY ČEKAJÍCÍ:", "POSLEDNÍ KONTROLY:"]
+             "TICKETY PRÁCE: issued 1 · claimed 0 · in_progress 0 · needs_answer 0 · delivered 1 · verified 0 · failed 0",
+             "LÍSTKY ČEKAJÍCÍ:", "POSLEDNÍ KONTROLY:"]
     positions = [text.index(head) for head in heads]
     assert positions == sorted(positions)
     assert "- Domů · home · / · ready · cíl: Uvěřit, že to zvládnu." in text
     assert "- Kontakt · kontakt · /kontakt · closed" in text
-    assert text.index("[assigned] Formulář") < text.index("[done] Hero")  # nejnovější úkoly první
-    assert "- [assigned] Formulář (ht_2) · drží gs_2 od 2026-10-29T08:00:00Z" in text  # od kdy úkol drží
-    assert "- [done] Hero (ht_1)\n" in text
+    assert text.index("[issued] Formulář") < text.index("[delivered] Hero")  # nejnovější tickety první
+    assert "- [issued] Formulář (tk_2)\n" in text
+    assert "- [delivered] Hero (tk_1) · karta home · drží gs_1 od 2026-10-29T07:00:00Z" in text  # titulek, karta, držitel
+    assert "FRONTA ÚKOLŮ" not in text and "DORUČENÍ" not in text and "ht_2" not in text  # staré úkoly snímek nečte
     assert '- gt_1 ask {"q": "Jaká barva?"}' in text and "- ht_1 abcdef123456 green" in text
     assert snapshot.render(FACTS) == text
 
@@ -51,20 +65,25 @@ def test_render_prefers_project_goal_and_falls_back_to_cards():
 
 
 def test_render_is_cut_at_the_hard_limit():
-    many = [{"taskId": f"ht_{i}", "seq": i, "title": "x" * 300, "status": "ready", "sessionId": None}
-            for i in range(200)]
-    text = snapshot.render({**FACTS, "tasks": many}, limit=500)
+    many = [{"ticketId": f"tk_{i}", "seq": i, "body": {"build": "x" * 300}, "status": "issued",
+             "machine": {"cardId": None}, "sessionId": None} for i in range(200)]
+    text = snapshot.render({**FACTS, "workTickets": many}, limit=500)
     assert len(text) <= 500 and text.endswith(snapshot.CUT)
-    assert len(snapshot.render({**FACTS, "tasks": many})) <= snapshot.LIMIT
+    assert len(snapshot.render({**FACTS, "workTickets": many})) <= snapshot.LIMIT
 
 
-def test_collect_reads_queue_tickets_and_unknown_project(service):
-    task_queue.create(service, {"project": "draft", "workspace": "draft", "title": "Stránka", "body": {"do": "x"}})
+def test_collect_reads_work_tickets_question_tickets_and_unknown_project(service):
+    _, token = tokens.issue_heart(service, "draft", "draft")
+    heart = gate.authenticate(service, token, roles=("heart",))
+    kinds.run(service, heart, {"kind": "ticket.issue", "body": {"body": {
+        "essence": "Proč.", "build": "Stránka\nPostav ji.", "doneCriteria": ["npm test projde"]}, "cardId": "home"}})
+    task_queue.create(service, {"project": "draft", "workspace": "draft", "title": "Starý úkol", "body": {"do": "x"}})
     session = gate.authenticate(service, gate.open_session(
         service, {"project": "draft", "workspace": "draft", "worker": {"name": "dev"}})["token"])
     kinds.run(service, session, {"kind": "ask", "body": {"question": "?"}})
     text = snapshot.snapshot(service, "draft", "draft")
-    assert "FRONTA ÚKOLŮ: ready 1" in text and "[ready] Stránka" in text and " ask " in text
+    assert "TICKETY PRÁCE: issued 1" in text and "[issued] Stránka (tk_" in text and " · karta home" in text
+    assert " ask " in text and "Starý úkol" not in text
     with pytest.raises(GateError) as caught:
         snapshot.collect(service, "nikde", "draft")
     assert caught.value.code == "project_not_found"
@@ -77,7 +96,7 @@ MEMORY = {"messages": [{"at": f"2026-10-29T10:0{i}:00Z", "workspace": "main", "t
                          "createdAt": f"2026-10-{10 + i}T00:00:00Z", "by": "human"} for i in range(14)],
           "journal": [{"at": "2026-10-29T09:00:00Z", "status": "ok", "summary": "Dva úkoly zadány."},
                       {"at": "2026-10-29T09:30:00Z", "status": "error", "summary": None}]}
-ORDER = ["PROJEKT", "ZÁMĚR:", "ZPRÁVY ČLOVĚKA:", "PRAVIDLA:", "ROZHODNUTÍ:", "PLÁN:", "FRONTA ÚKOLŮ:",
+ORDER = ["PROJEKT", "ZÁMĚR:", "ZPRÁVY ČLOVĚKA:", "PRAVIDLA:", "ROZHODNUTÍ:", "PLÁN:", "TICKETY PRÁCE:",
          "LÍSTKY ČEKAJÍCÍ:", "POSLEDNÍ KONTROLY:", "GIT:", "DENÍK:", "DÍLNA:"]
 
 
@@ -331,7 +350,7 @@ def test_plan_rows_carry_full_ids_of_pages_cards_areas_and_sectors():
              "areas": [{"id": "a_import", "name": "Import dat"}],
              "sectors": [{"id": "s_mvp", "name": "MVP", "memberOf": "a_import"}, {"id": "s_web", "name": "Web",
                                                                                   "memberOf": None}]}
-    plan = snapshot.render(facts).split("PLÁN:\n")[1].split("\nFRONTA ÚKOLŮ")[0].splitlines()
+    plan = snapshot.render(facts).split("PLÁN:\n")[1].split("\nTICKETY PRÁCE")[0].splitlines()
     assert plan == ["- Domů · home · / · ready · cíl: Uvěřit, že to zvládnu.", "- Kontakt · kontakt · /kontakt · closed",
                     "- [task] Nahrání souborů · n_upload · ready", "- oblast Import dat · a_import",
                     "- sektor MVP · s_mvp · oblast a_import", "- sektor Web · s_web"]
@@ -343,7 +362,7 @@ def test_plan_puts_cards_with_work_before_the_cap():
     cards += [{"id": "blk", "name": "Blokovaná", "stage": "ready"}, {"id": "run", "name": "Běží", "stage": "ready"}]
     facts = {**FACTS, "pages": [], "cards": cards, "work": {"run": "běží (agent:dev)"}, "blocked": {"blk": ["run"]},
              "names": {"run": "Běží"}}
-    plan = snapshot.render(facts).split("PLÁN:\n")[1].split("\nFRONTA ÚKOLŮ")[0].splitlines()
+    plan = snapshot.render(facts).split("PLÁN:\n")[1].split("\nTICKETY PRÁCE")[0].splitlines()
     assert len(plan) == snapshot.PAGES and plan[0].startswith("- Běží · run · ready · běží")
     assert plan[1].startswith("- Blokovaná · blk · ready · blokovaná") and plan[2].startswith("- Architektura 0 · c0")
 
