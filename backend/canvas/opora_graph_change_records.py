@@ -3,7 +3,7 @@ import json
 
 from backend.canvas.graph import digest, validate_graph
 from backend.canvas.opora_change_validation import identifier, scope
-from backend.canvas.opora_graph_build import PERSISTED_NODE_KEYS
+from backend.canvas.opora_graph_build import PERSISTED_NODE_KEYS, persisted_edge
 from backend.canvas.opora_graph_change_additions import validate_origin
 from backend.canvas.opora_graph_change_build import build
 from backend.canvas.opora_graph_change_safety import preflight
@@ -49,7 +49,7 @@ def _validate(record):
         if node["kind"] not in ("node", "sector", "area") or not set(node) <= PERSISTED_NODE_KEYS:
             raise ValueError("Invalid persisted node addition.")
     for edge in record["additions"]["edges"]:
-        if not set(edge) <= {"id", "source", "target", "port", "carries"} or edge.get("port", "next") != "next":
+        if not persisted_edge(edge):
             raise ValueError("Invalid persisted edge addition.")
     validate_review(record["stateEffects"])
     state = record["stateEffects"]

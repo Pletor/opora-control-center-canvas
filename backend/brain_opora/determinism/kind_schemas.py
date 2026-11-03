@@ -39,9 +39,12 @@ BRAIN_REF = {"type": "string", "pattern": "^opora:brain:(skill|tool|workflow|sub
                                          "{0,79}(@[0-9a-f]{12})?$"}  # artefakt Brainu (bez verze = aktivní)
 PIN = obj({"pin": {"type": "string"}, "plugin": {"type": "string"}, "version": {"type": "string"},
            "zip": {"type": "string"}}, ("pin", "plugin", "version", "zip"))  # jeden plugin = jeden zip
+NEIGHBORS = {"type": "array", "items": obj({"cardId": ID, "name": {"type": "string"}, "essence": TEXT},
+                                           ("cardId", "name"))}  # následníci / předchůdci karty z grafu (ticket.issue)
 MACHINE = obj({"cardId": nullable(ID), "executionId": nullable(ID), "cardVersion": nullable({"type": "integer"}),
-               "department": nullable(SLUG), "profile": nullable(SLUG), "pins": {"type": "array", "items": PIN}},
-              ("cardId", "executionId", "cardVersion", "department", "profile", "pins"))
+               "department": nullable(SLUG), "profile": nullable(SLUG), "successors": NEIGHBORS,
+               "predecessors": NEIGHBORS, "pins": {"type": "array", "items": PIN}},
+              ("cardId", "executionId", "cardVersion", "department", "profile", "successors", "predecessors", "pins"))
 FEEDBACK_KIND = {"type": "string", "enum": ["bug", "idea", "improvement", "question"]}
 FEEDBACK_ITEM = obj({"feedbackId": ID, "kind": FEEDBACK_KIND, "text": TEXT, "answer": ANY},
                     ("feedbackId", "kind", "text", "answer"))

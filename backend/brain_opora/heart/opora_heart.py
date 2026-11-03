@@ -545,14 +545,16 @@ def adopt_everywhere(warnings):
 
 
 # Přírůstek nad přijatým grafem (O2c): stejná cesta jako formulář „Rozšíření plánu“ v UI (frontend/hub/graph-proposals).
-# Návrh grafu nese tatáž pole karty jako první plán (`card` s effortem, `checks`, `goal_mode`, spec.steps), jen vazby `next`.
+# Návrh grafu nese tatáž pole karty jako první plán (`card` s effortem, `checks`, `goal_mode`, spec.steps), vazby `next`
+# a `block`; bloky s porty (stav karty, ne graf) dopíše po přijetí karet `extend` dávky plánu (docs/karta-pro-agenty.md).
 ADDITION_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf",
-                 "card", "checks", "goal_mode"}
-ADDITION_EDGE_KEYS = {"from", "to", "port", "carries"}
+                 "card", "checks", "goal_mode", "blocks"}
+ADDITION_EDGE_KEYS = {"from", "to", "port", "carries", "block", "blockPort"}
 ADDITION_SHAPE = ("Plán nad už přijatým grafem jde jako návrh grafu: uzel jen s poli ref, kind (node|sector|area), "
                   "name, parent, purpose, spec (i steps), card (i effort), checks, goal_mode, sourceRef, position, size, "
-                  "memberOf; vazby jen next (from, to); nic dalšího (text, bloky, pravidla, rozhodnutí). "
-                  "Existující uzel odkazuj \"@<id>\".")
+                  "memberOf a u karty blocks (ref, title, text, condition, ports [{ref, label}]); vazby next (from, to) "
+                  "a block (from, to, port \"block\", block = ref bloku zdroje nebo id bloku existující karty, "
+                  "blockPort = ref portu); nic dalšího (text, pravidla, rozhodnutí). Existující uzel odkazuj \"@<id>\".")
 ARCHITECTURE_HINT = ("Architekturu (sektor domény se site.kind application, stránky se site.kind page) pošli do main: "
                      "plan --file F --workspace main (nejdřív s --dry-run). Prostory s přijatým plánem ji převezmou "
                      "samy; karty pak plánuj v prostoru domény.")
@@ -578,33 +580,67 @@ def addition_plan(plan):
         nodes.append(node)
     edges = []
     for index, edge in enumerate(plan.get("edges") or []):
-        if not isinstance(edge, dict) or not set(edge) <= ADDITION_EDGE_KEYS or edge.get("port", "next") != "next":
-            raise Failure({"error": f"edges[{index}]: jen vazba next (from, to).", "code": "plan_shape",
-                           "hint": ADDITION_SHAPE})
+        if (not isinstance(edge, dict) or not set(edge) <= ADDITION_EDGE_KEYS
+                or edge.get("port", "next") not in ("next", "block")):
+            raise Failure({"error": f"edges[{index}]: jen vazba next (from, to) nebo block (i block, blockPort).",
+                           "code": "plan_shape", "hint": ADDITION_SHAPE})
         edges.append(edge)
     return {"nodes": nodes, "edges": edges}
 
 
 def submit_addition(args, plan, context):
     """Plán nad přijatým grafem: `POST /api/oporahub/graph-proposals` s přírůstkem, pak jeho přijetí tokenem srdce.
-    Karty vzniknou na plátně až přijetím, takže pracovní a přijatý graf se nerozejdou a claimy ostatních karet platí."""
-    addition, warnings = addition_plan(plan), []
+    Karty vzniknou na plátně až přijetím, takže pracovní a přijatý graf se nerozejdou a claimy ostatních karet platí.
+    Bloky s porty jsou stav karty: po přijetí karet je zapíše `extend` dávky plánu (`place_blocks`) a vazby `block`
+    z jejich portů jdou druhým návrhem grafu s přijetím."""
+    addition = addition_plan(plan)
+    blocks = {node["ref"]: node["blocks"] for node in addition["nodes"] if node.get("blocks")}
+    wired = [edge for edge in addition["edges"] if edge.get("port") == "block"]
+    if (blocks or wired) and args.no_accept and not args.dry_run:
+        raise Failure({"error": "Bloky a vazby block jdou jen na přijaté karty.", "code": "plan_shape",
+                       "hint": "Pošli plán bez --no-accept, nebo bloky a vazby block vynech."})
     adopted = []
     if not args.dry_run and not args.no_accept and stale_architecture(context):
         context, adopted = adopt_architecture(context), ["adopt_architecture", "accept"]
     if args.dry_run:
-        # Návrh grafu nemá dryRun: tvar ověří stejná validace dávky plánu bez zápisu.
+        # Návrh grafu nemá dryRun: tvar ověří stejná validace dávky plánu bez zápisu (bloky i vazby block).
         result = call("POST", "/api/canvas-plan", {**scope(), "digest": context["graphDigest"], "plan": addition,
                                                     "dryRun": True})
         return {"ok": result.get("ok"), "dryRun": True, "refs": result.get("refs"), "summary": result.get("summary"),
-                "warnings": [*warnings, *(result.get("warnings") or [])], "path": "graph-proposal"}
+                "warnings": result.get("warnings") or [], "path": "graph-proposal"}
+    cards = {"nodes": [{key: value for key, value in node.items() if key != "blocks"} for node in addition["nodes"]],
+             "edges": [edge for edge in addition["edges"] if edge.get("port") != "block"]}
+    out = propose_addition(cards, context, adopted, args.no_accept)
+    if not out["accepted"] or not (blocks or wired):
+        return out
+    refs, steps = out["refs"] or {}, list(out["acceptSteps"])
+    try:
+        ids = place_blocks(blocks, refs)
+        steps += ["blocks"] if blocks else []
+        if wired:
+            second = propose_addition({"nodes": [], "edges": [wire(edge, refs, ids) for edge in wired]},
+                                      call("GET", f"{GRAPH_PROPOSALS}/context", query=scope()), [], False)
+            steps += second["acceptSteps"]
+            if not second["accepted"]:
+                return {**out, "blocks": ids, "acceptSteps": steps, "wired": False,
+                        **{key: second[key] for key in ("code", "error", "hint")}}
+    except Failure as failure:
+        return {**out, "acceptSteps": steps, "blocksPlaced": False, "code": failure.payload.get("code"),
+                "error": failure.payload.get("error"),
+                "hint": "Karty jsou přijaté, bloky nebo vazby block ne; oprav je podle chyby serveru."}
+    return {**out, "blocks": ids, "acceptSteps": steps,
+            "summary": f"{out['summary']} Bloky u {len(blocks)} karet, {len(wired)} vazeb block."}
+
+
+def propose_addition(addition, context, adopted, no_accept):
+    """Návrh grafu s přírůstkem a (bez `no_accept`) jeho přijetí tokenem srdce."""
     proposal = call("POST", GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
                                               "expectedGraphDigest": context["graphDigest"],
                                               "subject": f"Plán srdce: {len(addition['nodes'])} uzlů", "plan": addition})
     out = {"ok": True, "dryRun": False, "refs": proposal.get("refs"), "proposalId": proposal["id"],
            "summary": f"Návrh grafu: {len(addition['nodes'])} uzlů, {len(addition['edges'])} vazeb.",
-           "warnings": warnings, "path": "graph-proposal"}
-    if args.no_accept:
+           "warnings": [], "path": "graph-proposal"}
+    if no_accept:
         return {**out, "accepted": False}
     try:
         call("POST", f"{GRAPH_PROPOSALS}/{quote(proposal['id'], safe='')}/accept",
@@ -616,6 +652,27 @@ def submit_addition(args, plan, context):
                 "hint": "Návrh grafu čeká na přijetí (plátno se mezitím změnilo, nebo chybí oprávnění); "
                         "přijme ho člověk v UI, nebo pošli plán znovu."}
     return {**out, "accepted": True, "acceptSteps": [*adopted, "graph_addition", "accept"]}
+
+
+def place_blocks(blocks, refs):
+    """Bloky s porty přijatých karet: `extend` dávky plánu nad čerstvým digestem a revizí stavu (graf se nemění).
+    Vrací `{"@<id>/<ref bloku>": blockId}` z odpovědi serveru."""
+    if not blocks:
+        return {}
+    revision = call("GET", "/api/desktop-v3/state", query=scope())["revision"]
+    extend = [{"node": f"@{refs.get(ref, ref)}", "expectedRevision": revision, "blocks": items}
+              for ref, items in blocks.items()]
+    result = call("POST", "/api/canvas-plan", {**scope(), "digest": call("GET", "/api/view", query=scope())["digest"],
+                                                "plan": {"extend": extend}})
+    return result.get("blocks") or {}
+
+
+def wire(edge, refs, ids):
+    """Vazba block nad přijatými kartami: ref → `@id`, ref bloku nové karty → jeho id (u existující karty zůstává)."""
+    def at(value):
+        return f"@{refs[value]}" if value in refs else value
+    source = at(edge["from"])
+    return {**edge, "from": source, "to": at(edge["to"]), "block": ids.get(f"{source}/{edge['block']}", edge["block"])}
 
 
 def submit_unlink(args):

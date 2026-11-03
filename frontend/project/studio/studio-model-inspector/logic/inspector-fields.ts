@@ -2,6 +2,7 @@
 // z tabulky `parameters` (u partitioned-store jeho vlastní tabulka), zadaná hodnota a výchozí hodnota jako nápověda.
 // Zápis pole se ověří stejnou kontrolou jako uložení (`validateModelConfig`: meze, celá čísla, profil), takže chyba
 // se ukáže hned u pole a do modelu se nedostane. Čistá logika bez Reactu.
+import { parseField } from "@/shared/flow-editor/node-inspector/logic/inspector-fields";
 import type { StudioModelNode } from "../../model/logic/model-types";
 import { cloudProfile } from "../../model/simulation/logic/cloud-profiles";
 import { partitionedParameters } from "../../model/simulation/logic/partitioned-model";
@@ -31,8 +32,9 @@ export type ParsedParameter = { value: number | string | undefined } | { error: 
 export function parseParameter(node: Pick<StudioModelNode, "type" | "config">, row: Pick<ParameterRow, "key" | "options">, raw: string): ParsedParameter {
   const text = raw.trim();
   if (!text) return { value: undefined };
-  const value = row.options ? text : Number(text.replace(",", "."));
-  if (typeof value === "number" && !Number.isFinite(value)) return { error: "Zadejte číslo." };
+  const parsed = row.options ? { value: text } : parseField("number", text);
+  if ("error" in parsed) return parsed;
+  const value = parsed.value as number | string;
   try {
     validateModelConfig({ ...(node.config.model as Record<string, unknown> | undefined ?? {}), [row.key]: value }, node.type);
     return { value };

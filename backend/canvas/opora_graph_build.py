@@ -13,6 +13,16 @@ CARD_FIELDS = {"card", "checks", "goal_mode"}
 NODE_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf", "order", *CARD_FIELDS}
 # Uložený přidaný uzel (záznam návrhu přírůstku i změn grafu).
 PERSISTED_NODE_KEYS = {"id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf", "order", *CARD_FIELDS}
+# Přidaná vazba: `next`, nebo `block` z portu bloku zdroje (docs/karta-pro-agenty.md); blok a port musí už stát
+# ve stavu zdrojové karty (`canvas_plan_links._source_port`), tvar hlídá `validate_graph`.
+ADDITION_PORTS = ("next", "block")
+EDGE_KEYS = {"from", "to", "port", "carries", "block", "blockPort"}
+PERSISTED_EDGE_KEYS = {"id", "source", "target", "port", "carries", "sourceBlockId", "sourcePortId"}
+
+
+def persisted_edge(edge):
+    """Uložená přidaná vazba záznamu návrhu: jen `next` nebo `block` se známými poli."""
+    return set(edge) <= PERSISTED_EDGE_KEYS and edge.get("port", "next") in ADDITION_PORTS
 
 
 def validate_plan(plan):
@@ -24,8 +34,8 @@ def validate_plan(plan):
         if not isinstance(node, dict) or not set(node) <= NODE_KEYS or node.get("kind") not in ("node", "sector", "area"):
             raise ValueError("Unsupported graph addition fields or kind.")
     for edge in plan.get("edges", []):
-        if not isinstance(edge, dict) or not set(edge) <= {"from", "to", "port", "carries"} or edge.get("port", "next") != "next":
-            raise ValueError("Only plain next edges (optionally with carries) are supported.")
+        if not isinstance(edge, dict) or not set(edge) <= EDGE_KEYS or edge.get("port", "next") not in ADDITION_PORTS:
+            raise ValueError("Only next edges (optionally with carries) and block edges from a block port are supported.")
 
 
 def place(additions, base, inside, positions):

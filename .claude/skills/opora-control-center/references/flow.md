@@ -4,6 +4,12 @@ Kdy mě číst: potřebuješ vytvořit, spustit nebo sledovat tok (`kind` `heart
 rozhodnout schválení uzlu. Kontrakt: `docs/navrhy/2026-11-03-novy-zaklad.md` §3.1, kód `backend/flow/`,
 router `flow_routes.py` ve složce flow v backend/api. Chyby: 404 neznámé ID, 409 nedovolený přechod, 422 neplatný graf.
 
+Typ uzlu `critic` (ChatGPT kritik přes `codex exec` pod předplatným, `backend/flow/critic.py`): vstup
+`{subject, criteria: [str], context?}` (chybějící klíče doplní `params` uzlu), výstup portem `main`
+`{verdict: ok|concerns|reject, findings: [{severity: high|medium|low, text}], raw?}`. Běží mimo zámek (`detached`),
+codex `read-only` s obsahem v promptu, limit `OPORA_CRITIC_TIMEOUT` (300 s). Chybějící codex, chyba nebo výstup bez
+JSON dají `verdict: concerns`, uzel neselže. Srdce v1 ho nepoužívá; do pipeline srdce jde až přes eval.
+
 Verze toku jde `draft` → `candidate` → `active`; vrátit se dá `rollback`em na předchozí aktivní.
 
 | Cesta | Co |

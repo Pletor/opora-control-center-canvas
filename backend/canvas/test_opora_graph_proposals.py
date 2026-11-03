@@ -103,3 +103,29 @@ def test_list_is_sparse_and_detail_scope_checked(graphs):
     assert summary["nodeCount"] == 1 and "baseGraph" not in summary and "specifications" not in summary
     with pytest.raises(ValueError):
         graphs.read("draft", "elsewhere", item["id"])
+
+
+def test_later_plan_wires_a_block_port_of_an_accepted_card(graphs, service):
+    """Druhá dávka nad přijatým grafem: blok s portem přijde `extend` dávky plánu, vazba `block` z něj návrhem grafu."""
+    from backend.canvas.canvas_plan import apply_plan
+    from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
+    first = proposal(graphs, "Decision")
+    accept(graphs, first)
+    card = first["refs"]["new"]
+    revision = DesktopV3State(service).read("draft", "draft")["revision"]
+    placed = apply_plan(service, {**SCOPE, "digest": service.view("draft", "draft")["digest"], "plan": {"extend": [
+        {"node": f"@{card}", "expectedRevision": revision,
+         "blocks": [{"ref": "pick", "title": "Varianta", "ports": [{"ref": "yes", "label": "Ano → další"}]}]}]}})
+    block = placed["blocks"][f"@{card}/pick"]
+    wired = proposal(graphs, "Follow-up", {"nodes": [{"ref": "next", "kind": "node", "name": "Follow-up"}],
+                                           "edges": [{"from": f"@{card}", "to": "next", "port": "block",
+                                                      "block": block, "blockPort": "yes"}]})
+    accept(graphs, wired)
+    edge = next(edge for edge in service.view("draft", "draft")["graph"]["edges"] if edge.get("port") == "block")
+    assert (edge["source"], edge["target"]) == (card, wired["refs"]["next"])
+    assert (edge["sourceBlockId"], edge["sourcePortId"]) == (block, "yes")
+    with pytest.raises(ValueError, match="nemá port"):
+        proposal(graphs, "Bad", {"edges": [{"from": f"@{card}", "to": f"@{card}", "port": "block", "block": block,
+                                            "blockPort": "no"}]})
+    with pytest.raises(ValueError, match="Only next edges"):
+        proposal(graphs, "Rule", {"edges": [{"from": f"@{card}", "to": f"@{card}", "port": "rule"}]})

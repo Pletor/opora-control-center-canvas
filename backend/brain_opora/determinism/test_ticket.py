@@ -46,7 +46,8 @@ def test_ticket_lifecycle_with_question_and_answer(service):
     issued = send(service, brain, "ticket.issue", ISSUE)["ticket"]
     assert issued["status"] == "issued" and issued["body"]["skills"] == ["ponytail@5.3.3"]
     assert issued["machine"] == {"cardId": "hero", "executionId": None, "cardVersion": 3, "department": "design",
-                                 "profile": "frontend", "pins": []}  # Brain bez ponytailu = bez výchozího pinu
+                                 "profile": "frontend", "successors": [], "predecessors": [],
+                                 "pins": []}  # Brain bez ponytailu = bez výchozího pinu
     offered = send(service, office, "ticket.request")
     assert offered["held"] is False and offered["ticket"]["ticketId"] == issued["ticketId"]
     tid = issued["ticketId"]
@@ -138,6 +139,31 @@ def test_new_session_takes_over_work_of_a_session_that_is_gone(service, gone):
     assert send(service, restarted, "ticket.request")["held"] is True
     assert send(service, restarted, "ticket.deliver", {"ticketId": tid, "summary": "Hotovo."})["ticket"][
         "status"] == "delivered"
+
+
+def test_issue_adds_successors_and_predecessors_of_the_card_from_its_workspace_graph(service, monkeypatch):
+    from backend.brain_opora.determinism.test_ticket_model import GRAPH
+    service.save_graph("draft", "draft", GRAPH, service.view("draft", "draft")["digest"])
+    brain, office = heart(service), worker(service)
+    issued = send(service, brain, "ticket.issue", {**ISSUE, "cardId": "a"})["ticket"]
+    assert issued["body"] == send(service, brain, "ticket.issue", ISSUE)["ticket"]["body"]  # tělo se nemění
+    assert issued["machine"]["successors"] == [{"cardId": "b", "name": "B", "essence": "Proč B."},
+                                               {"cardId": "c", "name": "C"}]
+    assert issued["machine"]["predecessors"] == [{"cardId": "d", "name": "D"}]
+    assert send(service, office, "ticket.request")["ticket"]["machine"]["successors"][1] == {"cardId": "c", "name": "C"}
+    lone = send(service, brain, "ticket.issue", {**ISSUE, "cardId": "lone"})["ticket"]["machine"]
+    assert (lone["successors"], lone["predecessors"]) == ([], [])
+    plain = send(service, brain, "ticket.issue", {"body": ISSUE["body"]})["ticket"]["machine"]
+    assert (plain["successors"], plain["predecessors"]) == ([], [])
+    # Karta v jiném prostoru (git projekt): sousedy dá graf prostoru ticketu, ne prostoru tokenu srdce.
+    read, view = [], service.view
+    monkeypatch.setattr(gate, "workspace_known", lambda *args: True)
+    monkeypatch.setattr(service, "view", lambda project, workspace: read.append(workspace) or (
+        {"graph": {"nodes": GRAPH["nodes"], "edges": [{"id": "x", "source": "c", "target": "lone"}]}}
+        if workspace == "w2" else view(project, workspace)))
+    other = send(service, brain, "ticket.issue", {**ISSUE, "cardId": "c", "workspace": "w2"})["ticket"]
+    assert read == ["w2"] and other["machine"]["successors"] == [{"cardId": "lone", "name": "LONE"}]
+    assert other["machine"]["predecessors"] == []
 
 
 def test_department_and_profile_ride_in_the_machine_layer_and_are_checked(service):

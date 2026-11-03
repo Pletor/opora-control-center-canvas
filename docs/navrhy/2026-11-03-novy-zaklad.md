@@ -76,7 +76,7 @@ Jádro brány zůstává: `gate.py`, `kinds.py`, `kind_schemas.py`, `tokens.py`,
   - na co si dát pozor,
   - skills s pinem (`/x@verze`),
   - kritérium hotovo.
-- **Strojová vrstva:** `card_id`, `execution_id`, `card_version`. Propisuje se do větve, commitu a traileru.
+- **Strojová vrstva:** `card_id`, `execution_id`, `card_version`. Propisuje se do větve, commitu a traileru. Při vydání s kartou server bez modelu doplní `successors` a `predecessors` (`[{cardId, name, essence?}]`): karty na vazbách `next` a `block` z karty a do ní v grafu prostoru ticketu. Je to fakt z grafu, ne text srdce.
 - **Zpětná vazba:** položky `bug`, `idea`, `improvement`, `question`, každá s vlastním ID a odpovědí srdce. Nápady a vylepšení se zároveň sčítají do záložek projektu s body za duplicitu.
 - **Nové druhy brány:** `ticket.request` (orchestrátor žádá práci), `ticket.claim`, `ticket.feedback`, `ticket.deliver`, `ticket.answer`, `ticket.cancel` (srdce ruší práci, která už nedává smysl).
 - **Srdce vydává práci jen ticketem:** `opora_heart.py task` = `ticket.issue` s `cardId` karty (u git projektu s `workspace` prostoru karty), `cancel` = `ticket.cancel`; žádná paralelní fronta úkolů. Snímek srdce má sekci `TICKETY PRÁCE` místo `FRONTA ÚKOLŮ` a `DORUČENÍ`.

@@ -8,7 +8,7 @@ const feedback = (seq: number, text: string, answeredAt: string | null = null): 
 const ticket = (seq: number, status: TicketStatus, extra: Partial<WorkTicket> = {}): WorkTicket => ({
   ticketId: "t" + seq, seq, workspaceId: "w", status,
   body: { essence: "E", build: "Postav login\ndruhý řádek", openPaths: [], cautions: [], skills: [], doneCriteria: [] },
-  machine: { cardId: null, executionId: null, cardVersion: null }, sessionId: null, delivery: null, feedback: [],
+  machine: { cardId: null, executionId: null, cardVersion: null, successors: [], predecessors: [] }, sessionId: null, delivery: null, feedback: [],
   createdAt: "2026-11-03T10:00:00Z", updatedAt: "2026-11-03T10:00:00Z", ...extra,
 });
 
