@@ -39,7 +39,7 @@ export function splitDomainHost(graph: Graph, appId: string, host: string, newId
   const selected = environments.find((environment) => environment.host === host);
   if (environments.length < 2 || !selected) throw new Error("Oddělit lze pouze uložený host ze skupiny více domén.");
   const detached: CanvasNode = {
-    id: newId, parentId: app.parentId, kind: "sector", name: selected.host, purpose: "",
+    id: newId, parentId: app.parentId, kind: "sector", name: host, purpose: "",
     x: app.x <= 999_600 ? app.x + 400 : app.x - 400, y: app.y,
     site: { kind: "application", environments: [{ ...selected }] },
   };

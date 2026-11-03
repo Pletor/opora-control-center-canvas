@@ -9,12 +9,25 @@ Generuje je jen server z normalizovaného dokumentu (`design_system.normalize`),
    (vlastní vlastnost s `var()` se počítá na prvku, kde je deklarovaná)
 4. `:root { --space-*; --radius-*; vlastní rodiny; --font-<klíč> }`
 5. třída `.<styl>` na každý typografický styl, `@font-face` na každý font (`url("fonts/<soubor>")` vedle `tokens.css`)
+
+`components.css` jde po `tokens.css`: `@layer base` (prvky stránky z tokenů Vzhledu, jen ty tokeny, které existují),
+`@layer components` (tlačítka `.ds-btn`, jen přes `var()`) a `@layer custom` (sanitizované vlastní CSS).
 """
 
 import json
 import re
 
+from backend.project.site_admin import buttons as button_css
+from backend.project.site_admin.custom_css import compile_button
 from backend.project.site_admin.tokens import ALIAS, FIXED
+
+PATTERNS = {  # vzorek pozadí → vrstvy background-image (velikost buňky násobí --bg-pattern-scale)
+    "dots": ["radial-gradient(var(--pattern, currentColor) 1px, transparent 1.5px)"],
+    "grid": ["linear-gradient(var(--pattern, currentColor) 1px, transparent 1px)",
+             "linear-gradient(90deg, var(--pattern, currentColor) 1px, transparent 1px)"],
+    "lines": ["linear-gradient(var(--pattern, currentColor) 1px, transparent 1px)"],
+    "diagonal": ["repeating-linear-gradient(45deg, var(--pattern, currentColor) 0 1px, transparent 1px 12px)"],
+}
 
 FONT_FORMATS = {"woff2": "woff2", "woff": "woff", "ttf": "truetype", "otf": "opentype", "ttc": "collection"}
 STYLE_CSS = (("fontSize", "font-size"), ("lineHeight", "line-height"), ("fontWeight", "font-weight"),
@@ -37,6 +50,15 @@ def _per_theme(token, theme, first):
 
 def _block(selector, lines):
     return [f"{selector} {{", *(f"  {line}" for line in lines), "}"] if lines else []
+
+
+def _style_lines(group, style):
+    family = style.get("family") or group.get("family")
+    lines = [f"font-family: var(--font-{_ident(family)});"] if family else []
+    lines += [f"{css}: {style[key]};" for key, css in STYLE_CSS if key in style]
+    if "opticalSize" in style:
+        lines.append(f"font-variation-settings: 'opsz' {style['opticalSize']:g};")
+    return lines
 
 
 def tokens_css(document):
@@ -62,12 +84,7 @@ def tokens_css(document):
     out += _block(":root", lines)
     for group in tokens["type"]["groups"]:
         for style in group["styles"]:
-            family = style.get("family") or group.get("family")
-            lines = [f"font-family: var(--font-{_ident(family)});"] if family else []
-            lines += [f"{css}: {style[key]};" for key, css in STYLE_CSS if key in style]
-            if "opticalSize" in style:
-                lines.append(f"font-variation-settings: 'opsz' {style['opticalSize']:g};")
-            out += _block(f".{_ident(style['name'])}", lines)
+            out += _block(f".{_ident(style['name'])}", _style_lines(group, style))
     for font in tokens["type"]["fonts"]:
         extension = font["file"].rsplit(".", 1)[-1].lower()
         out += _block("@font-face", [f'font-family: "{font["family"]}";',
@@ -99,7 +116,10 @@ def readme(document):
             "- Načti `tokens.css` jako první stylesheet. Hodnoty nikdy nepiš natvrdo, jen `var(--jméno)`.",
             f"- Témata: {themes}. Přepíná je atribut `data-theme` na `<html>`; první je výchozí.",
             "- Typografii dávej třídou stylu (`.jméno`), ne vlastním `font-size`.",
-            "- Zdroj pravdy je dokument Správy webu v OPOŘE. `tokens.css`, `tokens.json` a tento README generuje server."]
+            ("- Po něm načti `components.css`: prvky stránky z Vzhledu (`body`, `h1`–`h6`, `a`, seznamy, kontejner "
+             "`.ds-container`, inverzní text `.ds-inverse`), tlačítka `.ds-btn` a sanitizované vlastní CSS."),
+            ("- Zdroj pravdy je dokument Správy webu v OPOŘE. `tokens.css`, `components.css`, `tokens.json` a tento "
+             "README generuje server.")]
     families = [f"- `{family}`: {len(tokens[family]['tokens'])} tokenů" for family in tokens
                 if family != "type" and tokens[family].get("tokens")]
     if families:
@@ -118,9 +138,84 @@ def readme(document):
             summary = component.get("summary") or _first_sentence(component["readme"])
             group = f" ({component['group']})" if component.get("group") else ""
             out.append(f"- **{component['name']}**{group}" + (f": {summary}" if summary else ""))
+    variants = document["settings"]["buttons"]["variants"]
+    if variants:
+        out += ["", "### Tlačítka", "", ("Třída `ds-btn`, varianta `ds-btn--<varianta>` a volitelně velikost "
+                "`ds-btn--sm|md|lg` (výchozí md). Stavy hover, active, focus-visible a disabled (`disabled` nebo "
+                "`aria-disabled=\"true\"`) řeší `components.css`, nepiš je znovu."), ""]
+        for name, variant in variants.items():
+            label = variant.get("label") or name.capitalize()
+            tag = (f'<a class="ds-btn ds-btn--{name}" href="…">{label}</a>' if variant["preset"] == "link"
+                   else f'<button class="ds-btn ds-btn--{name}" type="button">{label}</button>')
+            out.append(f"- **{name}** ({variant['preset']}): `{tag}`")
     if design["assetGroups"]:
         out += ["", "### Assety", "", "Assety kopíruj, nikdy je nekresli znovu.", ""]
         for group in design["assetGroups"]:
             files = ", ".join(f"`{file['blob']}`" for file in group["files"]) or "zatím prázdná"
             out.append(f"- {group['name']}: {files}")
     return "\n\n".join(out[:out.index("---")]) + "\n\n" + "\n".join(out[out.index("---"):]) + "\n"
+
+
+def _base(tokens):
+    """Prvky stránky z tokenů Vzhledu (`appearance.py`): pozadí, text, odkazy, nadpisy, seznamy, kontejner."""
+    names = {t["name"] for key, family in tokens.items() if key != "type" for t in family.get("tokens", [])}
+    plain = {t["name"]: t["value"] for key, family in tokens.items() if key not in FIXED
+             for t in family.get("tokens", [])}
+    families = tokens["type"]["families"]
+    has = lambda *wanted: all(name in names for name in wanted)
+    styles = {style["name"]: (group, style) for group in tokens["type"]["groups"] for style in group["styles"]}
+    text = _style_lines(*styles["body"]) if "body" in styles else []
+    if "body" in families and not any(line.startswith("font-family") for line in text):
+        text.insert(0, "font-family: var(--font-body);")
+    body = [*(["background-color: var(--surface);"] if has("surface") else []),
+            *(["color: var(--ink);"] if has("ink") else []), *text]
+    layers = []
+    if has("overlay"):
+        overlay = "color-mix(in srgb, var(--overlay) calc(var(--bg-overlay-opacity, 1) * 100%), transparent)"
+        layers.append((f"linear-gradient({overlay}, {overlay})", "auto", "no-repeat", "0 0"))
+    cell = "calc(16px * var(--bg-pattern-scale, 1))"
+    layers += [(layer, f"{cell} {cell}", "repeat", "0 0") for layer in PATTERNS.get(plain.get("bg-pattern"), [])]
+    if "bg-image" in plain:
+        layers.append((f'url("{plain["bg-image"]}")', "var(--bg-size, cover)", "var(--bg-repeat, no-repeat)",
+                       "var(--bg-position, center)"))
+    if layers:
+        body += [f"background-image: {', '.join(layer[0] for layer in layers)};",
+                 f"background-size: {', '.join(layer[1] for layer in layers)};",
+                 f"background-repeat: {', '.join(layer[2] for layer in layers)};",
+                 f"background-position: {', '.join(layer[3] for layer in layers)};",
+                 "background-attachment: var(--bg-attachment, scroll);"]
+    out = _block("body", body)
+    for level in range(1, 7):
+        if f"h{level}" in styles:
+            out += _block(f"h{level}", _style_lines(*styles[f"h{level}"]))
+    out += _block("a", ["color: var(--link);"] if has("link") else [])
+    out += _block("a:hover", ["color: var(--link-hover);"] if has("link-hover") else [])
+    out += _block(":focus-visible", ["outline: 2px solid var(--focus);", "outline-offset: 2px;"] if has("focus") else [])
+    out += _block(".ds-inverse", ["color: var(--ink-inverse);"] if has("ink-inverse") else [])
+    out += _block("ul", ["list-style-type: var(--list-style);"] if has("list-style") else [])
+    out += _block("ul, ol", ["padding-inline-start: var(--list-indent);"] if has("list-indent") else [])
+    out += _block("li::marker", ["color: var(--list-marker);"] if has("list-marker") else [])
+    container = [*(["max-width: var(--layout-content);"] if has("layout-content") else []),
+                 *(["padding-inline: var(--layout-gutter);"] if has("layout-gutter") else [])]
+    out += _block(".ds-container", ["box-sizing: border-box;", "margin-inline: auto;", *container] if container else [])
+    out += _block(".ds-container--wide", ["max-width: var(--layout-wide);"] if has("layout-wide") else [])
+    return out
+
+
+def _layer(name, lines):
+    return [f"@layer {name} {{", *(f"  {line}" for line in lines), "}"] if lines else []
+
+
+def components_css(document):
+    """Vrstvy `base`, `components` a `custom` nad proměnnými z `tokens.css`."""
+    title = (document.get("title") or "Design system").replace("*/", "* /")
+    settings = document["settings"]
+    custom = [compile_button(variant, text, []) for variant, text in settings["customCss"]["button"].items()]
+    out = [f"/* {title} — components.css, generated from design-system.json; load after tokens.css */",
+           "@layer base, components, custom;"]
+    out += _layer("base", _base(document["design"]["tokens"]))
+    out += ["@layer components {", *button_css.css(settings["buttons"]), "}"]
+    custom = [block for block in custom if block]
+    if custom:
+        out += ["@layer custom {", *custom, "}"]
+    return "\n".join(out) + "\n"

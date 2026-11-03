@@ -46,8 +46,12 @@ export type JourneyStep = { id: string; page: string; label?: string; shift?: st
 /** Cesta zákazníka jako trychtýř stránek a proměna zákazníka: kdo (`actor`, 1–80), kde je na začátku (`pointA`, 1–200) a kým se stane
  * (`pointB`, 1–200). Zadává člověk, 2–30 kroků; vazby mezi kroky po mapě odvodí stroj (§6). Prázdné texty se neukládají. */
 export type CustomerJourney = { id: string; name: string; purpose?: string; actor?: string; pointA?: string; pointB?: string; steps: JourneyStep[] };
-/** Aplikace (doména): prostředí, volitelná cesta zdraví a cesty zákazníka; prázdné cesty se neukládají. */
-export type ApplicationSite = { kind: "application"; environments: { name: string; host: string }[]; healthPath?: string; journeys?: CustomerJourney[] };
+/** Platforma aplikace: web (výchozí, bez pole) nebo mobilní aplikace Android / iOS. */
+export type SitePlatform = "web" | "android" | "ios";
+/** Prostředí aplikace: web má `host`, mobilní aplikace místo něj `bundleId` (reverzní doménová notace, unikátní v grafu). */
+export type SiteEnvironment = { name: string; host?: string; bundleId?: string };
+/** Aplikace (doména): platforma, prostředí, volitelná cesta zdraví (jen web) a cesty zákazníka; prázdné cesty se neukládají. */
+export type ApplicationSite = { kind: "application"; platform?: SitePlatform; environments: SiteEnvironment[]; healthPath?: string; journeys?: CustomerJourney[] };
 /** Role sekce stránky (`docs/architektura-pro-agenty.md` §3.1). */
 export type PageSectionRole = "hero" | "cta" | "form" | "content" | "gallery" | "proof" | "faq" | "footer" | "custom";
 /** Sekce stránky: navrhuje ji agent v dávce, skládá a upravuje člověk. `intent` smí být prázdný; `moves` (1–120) říká,
@@ -145,17 +149,7 @@ export type Architecture = "monolith" | "modular" | "microservices" | "serverles
 /** Kolik zákazníků aplikace obsluhuje; "" v nastavení = nenastaveno. */
 export type Tenancy = "single" | "multi";
 /** Nastavení projektu tak, jak ho vrací a přijímá `/api/project-settings`. Zápis nese vždy všechny klíče. */
-export type ProjectSettings = { goal: string; platform: Platform; architecture: Architecture | ""; tenancy: Tenancy | ""; site: SiteSettings };
-/** Globální nastavení a design webu (`backend/canvas/site_settings.py`): všechna pole vždy, nevyplněné = "". Bez tajemství. */
-export type SiteSettings = {
-  seo: { titleTemplate: string; description: string; ogImage: string };
-  legal: { gdprContact: string; cookies: string };
-  email: { from: string; replyTo: string };
-  design: {
-    header: string; footer: string; buttons: string;
-    typography: { h1: string; h2: string; h3: string; h4: string; h5: string; body: string; fonts: string };
-  };
-};
+export type ProjectSettings = { goal: string; platform: Platform; architecture: Architecture | ""; tenancy: Tenancy | "" };
 export type SettingsSnapshot = { project: Project; revision: number; settings: ProjectSettings };
 export type Job = {
   id: string;

@@ -1,5 +1,5 @@
 import type { CanvasNode } from "@/shared/types/logic/types";
-import { DOMAIN_KIND_LABEL, domainKindOf } from "../logic/domain-kind";
+import { DOMAIN_KIND_LABEL, domainKindOf, environmentAddress, isMobileDomain } from "../logic/domain-kind";
 import DomainKindIcon from "./DomainKindIcon";
 import DomainWork from "./DomainWork";
 import CopyIdButton from "@/ui-kit/copy-id/components/CopyIdButton";
@@ -24,17 +24,19 @@ export default function DomainCard({ node, tone, disabled, live, onOpen, onManag
   const environments = node.site?.kind === "application" ? node.site.environments : [];
   const kind = domainKindOf(node);
   const shared = environments.length > 1;
+  const address = environmentAddress(environments[0]) || node.name;
+  const web = live && !isMobileDomain(node) ? live.web : null;
   return <article className={"arch-landing__card arch-landing__card--" + tone} data-testid={"architecture-domain-" + node.id}>
     <div className="arch-landing__card-top"><DomainKindIcon kind={kind}/><CopyIdButton id={node.id} label="ID domény"/></div>
-    <h3 className="arch-landing__host">{environments[0]?.host || node.name}</h3>
-    {live && <WebStatusBadge host={live.web.host} stale={live.web.stale}/>}
-    {live?.web.stale && <small className="arch-landing__stale">{live.web.stale}</small>}
+    <h3 className="arch-landing__host">{address}</h3>
+    {web && <WebStatusBadge host={web.host} stale={web.stale}/>}
+    {web?.stale && <small className="arch-landing__stale">{web.stale}</small>}
     <p className="arch-landing__meta">{DOMAIN_KIND_LABEL[kind]} · {node.purpose || node.name}</p>
-    {live?.worktrees && live.work && <DomainWork counts={live.work.counts} worktrees={live.work.worktrees} label={"Worktree domény " + (environments[0]?.host || node.name)}
+    {live?.worktrees && live.work && <DomainWork counts={live.work.counts} worktrees={live.work.worktrees} label={"Worktree domény " + address}
       stale={live.workStale} nav={live.nav} onCreateWorktree={live.onCreateWorktree}/>}
-    {shared && environments.map((env) => <div className="arch-landing__env" key={env.host}>
-      <code>{env.host}</code>
-      <button type="button" className="arch-landing__quiet" disabled={disabled} onClick={() => onSplit(env.host)}>Oddělit doménu</button>
+    {shared && environments.map((env) => <div className="arch-landing__env" key={environmentAddress(env)}>
+      <code>{environmentAddress(env)}</code>
+      {env.host && <button type="button" className="arch-landing__quiet" disabled={disabled} onClick={() => onSplit(env.host!)}>Oddělit doménu</button>}
     </div>)}
     <div className="arch-landing__actions">
       <button type="button" className="arch-landing__open" data-testid={"architecture-open-domain-" + node.id} onClick={onOpen}>Otevřít mapu domény</button>

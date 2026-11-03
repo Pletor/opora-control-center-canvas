@@ -1,6 +1,6 @@
 import json
 
-from backend.project.site_admin.compile import readme, tokens_css, tokens_json
+from backend.project.site_admin.compile import components_css, readme, tokens_css, tokens_json
 from backend.project.site_admin.design_system import empty, normalize
 from backend.project.site_admin.fixture import ember
 
@@ -48,3 +48,28 @@ def test_readme_carries_brand_book_and_generated_usage():
     assert "- **Button** (Actions): Jedna primární akce na pohled." in generated
     assert "- Logos: `assets/Logos/mark.svg`" in generated
     assert "`.display`, `.body`, `.code`" in generated and "fonts/inter.woff2" in generated
+
+
+def test_components_css_layers_buttons_and_custom_css():
+    document, _ = normalize({**ember(), "settings": {**ember()["settings"], "appearance": {"colors": {"link": "{ember}"}}}})
+    css = components_css(document)
+    assert css.splitlines()[:2] == ["/* Ember — components.css, generated from design-system.json; load after tokens.css */",
+                                    "@layer base, components, custom;"]
+    base = css.split("@layer components {")[0]
+    assert "body {\n    background-color: var(--surface);\n    color: var(--ink);" in base
+    assert "a {\n    color: var(--link);" in base and "a:hover" not in base  # link-hover neexistuje
+    assert ".ds-btn--primary {\n    --btn-bg: var(--ember);\n    --btn-color: #120e0c;\n    --btn-radius: 8px;" in css
+    assert '.ds-btn--primary:hover:not(:disabled):not([aria-disabled="true"]) {\n    --btn-shadow: var(--shadow-sm);' in css
+    custom = css.split("@layer custom {")[1]
+    assert "animation: ds-btn-primary-glow 1s ease-out;" in custom and "prefers-reduced-motion: reduce" in custom
+
+
+def test_empty_components_css_still_defines_the_button_base():
+    css = components_css(empty())
+    assert "@layer base {" not in css and "@layer custom {" not in css and ".ds-btn {" in css
+
+
+def test_readme_lists_button_variants_with_html():
+    text = readme(sample())
+    assert "### Tlačítka" in text and "`components.css`" in text
+    assert '- **primary** (solid): `<button class="ds-btn ds-btn--primary" type="button">Objednat</button>`' in text

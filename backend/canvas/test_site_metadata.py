@@ -18,6 +18,49 @@ def page(identifier="page", parent="app", path="/"):
     return node(identifier, parent_id=parent, site={"kind": "page", "path": path})
 
 
+def mobile(identifier="android", platform="android", bundle="cz.example.app"):
+    return node(identifier, kind="sector", site={"kind": "application", "platform": platform, "environments": [
+        {"name": "Produkce", "bundleId": bundle}, {"name": "Vývoj", "bundleId": bundle + ".dev"},
+    ]})
+
+
+def test_mobile_application_uses_bundle_id_instead_of_host():
+    graph = {"nodes": [application(), mobile(), mobile("ios", "ios", "cz.example.ios")], "edges": []}
+    assert validate_graph(graph) == graph
+    web = application("web2", "www.example.cz")
+    web["site"]["platform"] = "web"
+    validate_graph({"nodes": [web], "edges": []})
+
+
+@pytest.mark.parametrize("environment", [{"name": "Produkce", "host": "app.example.cz"},
+                                         {"name": "Produkce", "bundleId": "cz.example.app", "host": "app.example.cz"},
+                                         {"name": "Produkce", "bundleId": "app"}, {"name": "Produkce", "bundleId": "1cz.app"},
+                                         {"name": "Produkce", "bundleId": "cz..app"}, {"name": "Produkce", "bundleId": 5}])
+def test_mobile_environment_requires_valid_bundle_id_and_no_host(environment):
+    app = mobile()
+    app["site"]["environments"] = [environment]
+    with pytest.raises(ValueError):
+        validate_graph({"nodes": [app], "edges": []})
+
+
+def test_web_environment_rejects_bundle_id_and_unknown_platform_is_rejected():
+    app = application()
+    app["site"]["environments"][0] = {"name": "Produkce", "bundleId": "cz.example.app"}
+    with pytest.raises(ValueError, match="host"):
+        validate_graph({"nodes": [app], "edges": []})
+    with pytest.raises(ValueError, match="platforma"):
+        validate_graph({"nodes": [mobile(platform="windows")], "edges": []})
+
+
+def test_bundle_id_is_unique_in_graph_and_mobile_has_no_health_path():
+    with pytest.raises(ValueError, match="bundleId"):
+        validate_graph({"nodes": [mobile(), mobile("ios", "ios", "CZ.Example.App")], "edges": []})
+    app = mobile()
+    app["site"]["healthPath"] = "/api/health"
+    with pytest.raises(ValueError, match="healthPath"):
+        validate_graph({"nodes": [app], "edges": []})
+
+
 def test_legacy_graph_and_application_with_no_hosts_are_valid():
     validate_graph({"nodes": [node()], "edges": []})
     app = application()
@@ -107,18 +150,6 @@ def test_page_text_length_bounds(key, limit):
     for value in ("", "   ", "x" * (limit + 1), "a\0b", "a\nb", 4, None):
         with pytest.raises(ValueError, match=key):
             validate_graph({"nodes": [application(), page_with(**{key: value})], "edges": []})
-
-
-def test_page_overrides_site_seo_and_header_footer_only():
-    candidate = page_with(seo={"titleTemplate": "%s · Příběh"}, design={"header": "bez menu"})
-    validate_graph({"nodes": [application(), candidate], "edges": []})
-    assert candidate["site"]["design"] == {"header": "bez menu"}
-    for change, field in ((dict(design={"buttons": "zelená"}), "site.design"),
-                          (dict(seo={"description": ""}), "site.seo.description"),
-                          (dict(seo={"ogPassword": "x"}), "site.seo.ogPassword"),
-                          (dict(legal={"cookies": "x"}), "legal")):
-        with pytest.raises(ValueError, match=field):
-            validate_graph({"nodes": [application(), page_with(**change)], "edges": []})
 
 
 def test_section_bounds_and_count():

@@ -9,8 +9,11 @@ def ember():
             "seo": {"titleTemplate": "%s · Ember", "sitemap": True},
             "email": {"provider": "smtp", "host": "smtp.example.cz", "port": 587, "secure": True,
                       "from": "kavarna@example.cz", "secretRef": "env:SMTP_PASSWORD"},
-            "buttons": [{"name": "primary", "component": "Button", "variant": "primary",
-                         "tokens": {"background": "{ember}"}}],
+            "buttons": {"variants": {"primary": {"label": "Objednat", "preset": "solid", "states": {
+                "default": {"background": "{ember}", "color": "#120e0c", "radius": "md"},
+                "hover": {"shadow": "{shadow-sm}"}}}}},
+            "customCss": {"button": {"primary": ":scope:hover { animation: glow 1s ease-out; }\n"
+                                                "@keyframes glow { to { opacity: 0.9; } }"}},
             "gdpr": {"cookieBar": {"enabled": True, "position": "bottom",
                                    "categories": ["necessary", "analytics"], "consentDays": 180}},
         },

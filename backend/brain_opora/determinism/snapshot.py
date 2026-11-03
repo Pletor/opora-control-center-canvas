@@ -1,6 +1,6 @@
 """Snímek projektu pro srdce (docs/brain-heart.md §3): deterministický text bez modelu, s pevným stropem znaků.
 
-`collect` přečte fakta (identita projektu, vyplněné nastavení webu a přebití stránek (sekce WEB, `snapshot_web.py`), zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky,
+`collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky,
 oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu), stav záměru každé stránky z registru
 (sekce ZÁMĚRY STRÁNEK, `backend/flow/page_intents.py`, docs/navrhy/2026-11-03-platno-2-zamer-stranky.md §4),
 tickety práce (sekce TICKETY PRÁCE, docs/navrhy/2026-11-03-novy-zaklad.md §3.3), čekající lístky, otevřené eskalace srdce pro člověka (sekce OTÁZKY U ČLOVĚKA), poslední vstupy vstupní brány (sekce VSTUPY), aktivní milníky s kritérii (hotovo/celkem a karty) a splněné
@@ -20,7 +20,6 @@ import re
 import sqlite3
 
 from backend.brain_opora.determinism import brain_files, git_log, intake, milestones
-from backend.brain_opora.determinism import snapshot_web
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.ticket import for_worker
 from backend.brain_opora.determinism.ticket_model import STATES
@@ -132,9 +131,6 @@ def _pages(service, project, workspace):
         if site.get("kind") == "page":
             pages.append({"id": node["id"], "name": name, "path": site.get("path") or "",
                           "goal": site.get("goal") or "", "feel": site.get("feel") or ""})
-            overrides = {key: site[key] for key in ("seo", "design") if key in site}
-            if overrides:  # přebití nastavení webu (sekce WEB); stránka bez něj klíč nemá
-                pages[-1]["overrides"] = overrides
         elif node.get("kind") == "area":
             areas.append({"id": node["id"], "name": name})
         elif node.get("kind") == "sector":
@@ -376,8 +372,7 @@ def collect(service, project, workspace):
     return {"workTickets": work_tickets, "conflicts": conflicts, "conflictsTotal": conflicts_total, "runs": runs, "intake": entries, "milestones": reached, "active_milestones": active, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
             "tickets": tickets, "escalations": escalations, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
-            "research": _research(service, project, workspace), "vault": _vault(service, project, workspace),
-            "site": service.project_hub.site_settings(project)}
+            "research": _research(service, project, workspace), "vault": _vault(service, project, workspace)}
 
 
 def _intent(facts):
@@ -658,7 +653,7 @@ def _space_lines(facts):
 def render(facts, limit=LIMIT):
     """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
-             f"ZÁMĚR: {_intent(facts) or '—'}", *snapshot_web.lines(facts.get("site"), facts["pages"]), *_memory_lines(facts), *_escalation_lines(facts),
+             f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts), *_escalation_lines(facts),
              "PLÁN:", *_plan(facts), *_intent_lines(facts), *_work_ticket_lines(facts), *_vault_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]

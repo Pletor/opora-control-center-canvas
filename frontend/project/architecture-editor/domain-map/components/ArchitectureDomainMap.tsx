@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { environmentAddress } from "@/project/architecture-editor/landing/logic/domain-kind";
 import type { CanvasNode } from "@/shared/types/logic/types";
 import { productFingerprint, type ProductBranch, type ProductDraft } from "@/project/product-tree/logic/product-tree";
 import ArchitectureProductForm from "./ArchitectureProductForm";
@@ -49,7 +50,7 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
   // One-shot request from the parent: open the new-page form once, then tell the parent it was consumed.
   useEffect(() => { if (initialDraftParentId) { add(initialDraftParentId); onDraftOpened?.(); } }, [initialDraftParentId]);
   const actions = { disabled, onOpen, onAdd: add, onEdit: edit, onReorder, onMove: setMoving, onRemove };
-  const host = domain.site?.kind === "application" ? domain.site.environments[0]?.host : "";
+  const host = domain.site?.kind === "application" ? environmentAddress(domain.site.environments[0]) : "";
   // Stránka zná své cesty: role každé stránky v cestách domény, hotová data pro karty i formulář stránky.
   const appSite = domain.site?.kind === "application" ? domain.site : undefined;
   const journeyRoles = new Map<string, PageJourneyRole[]>(flatten(pages).map((node) => [node.id, journeysOfPage(appSite, node.id)]));
