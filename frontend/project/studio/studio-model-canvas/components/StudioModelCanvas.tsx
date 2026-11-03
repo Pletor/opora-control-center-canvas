@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useState, type DragEvent, type PointerEvent } from "react";
-import { Background, BackgroundVariant, Controls, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, type NodeChange } from "@xyflow/react";
+import { useCallback, useMemo, useState, type PointerEvent } from "react";
+import { ReactFlowProvider, useReactFlow, type NodeChange } from "@xyflow/react";
+import FlowSurface, { type SurfaceView } from "@/shared/flow-editor/components/FlowSurface";
 import type { Point } from "../../model/logic/model-types";
 import type { EditModel, Selection } from "../../studio-model/logic/model-edit";
 import type { BindingCard } from "../../studio-layer/logic/studio-layer";
-import { PALETTE_DRAG_TYPE } from "../../studio-model-palette/logic/palette-groups";
 import { modelCards, modelFlowNodes, modelLayout, modelLinks } from "../logic/model-flow";
 import { orient, portKey, portTargets, type Link, type PendingPort } from "../logic/connect-gesture";
 import { useConnectDrag } from "../logic/use-connect-drag";
@@ -16,6 +16,8 @@ import ModelLinks from "./ModelLinks";
 import "../styles/studio-model-canvas.css";
 
 const nodeTypes = { "model-card": ModelCard };
+const VIEW: SurfaceView = { minZoom: 0.1, maxZoom: 3, fitPadding: 0.2, dotGap: 24, dotColor: "var(--studio-model-dot)", controls: "top-right", minimapLabel: "Minimapa modelu",
+  minimapClass: "studio-model-canvas__minimap", controlsClass: "studio-model-canvas__controls", minimapNode: "var(--studio-model-accent)", minimapMask: "#100e1fcc" };
 
 type Props = {
   model: EditModel; bindings: ReadonlyMap<string, BindingCard>; selection: Selection; pending: PendingPort | null;
@@ -71,29 +73,20 @@ function ModelFlow({ model, bindings, selection, pending, onSelect, onMove, onAd
     for (const change of changes) if (change.type === "position" && change.position && change.dragging) next.set(change.id, change.position);
     if (next.size !== moving.size || [...next].some(([id, at]) => moving.get(id) !== at)) setMoving(next);
   };
-  const drop = (event: DragEvent) => {
-    const typeId = event.dataTransfer.getData(PALETTE_DRAG_TYPE);
-    if (!typeId) return;
-    event.preventDefault();
-    onAdd(typeId, toFlow({ x: event.clientX, y: event.clientY }));
-  };
   const dragColor = drag ? cards.find((card) => card.id === drag.start.nodeId)?.ports.find((port) => port.id === drag.start.portId)?.color ?? "#fff" : "#fff";
-  return <div className={"studio-model-canvas" + (frame.running ? "" : " studio-model-canvas--paused")} data-testid="studio-model-canvas" data-run-tick={frame.tick}
-    onDragOver={(event) => { if (event.dataTransfer.types.includes(PALETTE_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }} onDrop={drop}>
-    <FlowAnimatorContext.Provider value={animator}><CardActionsContext.Provider value={actions}>
-      <ReactFlow nodes={nodes} edges={[]} nodeTypes={nodeTypes} onNodesChange={onNodesChange} fitView fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
-        minZoom={0.1} maxZoom={3} nodesConnectable={false} elementsSelectable panOnScroll={false} zoomOnDoubleClick={false}
-        deleteKeyCode={null} selectionKeyCode={null} multiSelectionKeyCode={null} colorMode="dark"
-        onNodeClick={(_, node) => onSelect({ kind: "node", id: node.id })} onPaneClick={() => onSelect(null)}
-        onNodeDragStop={(_, node) => { onMove(node.id, node.position); setMoving(new Map()); }}>
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} color="var(--studio-model-dot)"/>
-        <ModelLinks links={links} flows={flows} drag={drag} dragColor={dragColor} onSelect={(id) => onSelect({ kind: "edge", id })}/>
-        <MiniMap position="bottom-right" pannable zoomable ariaLabel="Minimapa modelu" className="studio-model-canvas__minimap"
-          nodeColor={() => "var(--studio-model-accent)"} nodeBorderRadius={6} maskColor="#100e1fcc"/>
-        <Controls position="top-right" showInteractive={false} className="studio-model-canvas__controls" fitViewOptions={{ padding: 0.2, maxZoom: 1 }}/>
-      </ReactFlow>
-    </CardActionsContext.Provider></FlowAnimatorContext.Provider>
-    <span className="studio-model-canvas__label" data-testid="studio-model-label" title="Vrstva MODEL: čísla jsou výpočet modelu, ne měření projektu">MODEL – výpočet, ne měření</span>
-    {!model.nodes.length && <p className="studio-model-canvas__empty">Model je prázdný: přidejte komponentu z katalogu vlevo.</p>}
-  </div>;
+  return <FlowAnimatorContext.Provider value={animator}><CardActionsContext.Provider value={actions}>
+    <FlowSurface nodes={nodes} edges={[]} nodeTypes={nodeTypes} view={VIEW} onNodesChange={onNodesChange} onDropType={onAdd}
+      rootProps={{ className: "studio-model-canvas" + (frame.running ? "" : " studio-model-canvas--paused"), "data-testid": "studio-model-canvas", "data-run-tick": frame.tick }}
+      flowProps={{
+        nodesConnectable: false, elementsSelectable: true, panOnScroll: false, selectionKeyCode: null, multiSelectionKeyCode: null,
+        onNodeClick: (_, node) => onSelect({ kind: "node", id: node.id }), onPaneClick: () => onSelect(null),
+        onNodeDragStop: (_, node) => { onMove(node.id, node.position); setMoving(new Map()); },
+      }}
+      overlay={<>
+        <span className="studio-model-canvas__label" data-testid="studio-model-label" title="Vrstva MODEL: čísla jsou výpočet modelu, ne měření projektu">MODEL – výpočet, ne měření</span>
+        {!model.nodes.length && <p className="studio-model-canvas__empty">Model je prázdný: přidejte komponentu z katalogu vlevo.</p>}
+      </>}>
+      <ModelLinks links={links} flows={flows} drag={drag} dragColor={dragColor} onSelect={(id) => onSelect({ kind: "edge", id })}/>
+    </FlowSurface>
+  </CardActionsContext.Provider></FlowAnimatorContext.Provider>;
 }

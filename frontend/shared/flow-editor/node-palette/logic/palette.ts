@@ -2,6 +2,7 @@
 // port, ze kterého člověk kliknul na „+“ (n8n to dělá u sub-portů). Zobecněno z katalogu Studia MODEL (`paletteGroups`).
 import { compatiblePort } from "../../logic/connection-policy";
 import type { NodeTypeSpec, PortSpec } from "../../logic/flow-types";
+import { matchesWords, searchWords } from "./palette-search";
 import { KIND_LABEL, nodeGlyph, nodeRole, typeLabel } from "../../logic/node-role";
 
 export const PALETTE_DRAG_TYPE = "application/x-opora-flow-type";
@@ -27,9 +28,9 @@ function summary(spec: NodeTypeSpec): string {
 }
 
 export function paletteGroups(types: readonly NodeTypeSpec[], query = "", port: PortFilter | null = null): PaletteGroup[] {
-  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const hay = (spec: NodeTypeSpec) => [spec.type, ...spec.ports.flatMap((p) => [p.name, p.kind, KIND_LABEL[p.kind]])].join(" ").toLowerCase();
-  const shown = types.filter((spec) => words.every((word) => hay(spec).includes(word)) && (!port || compatiblePort(spec, port)));
+  const words = searchWords(query);
+  const hay = (spec: NodeTypeSpec) => [spec.type, ...spec.ports.flatMap((p) => [p.name, p.kind, KIND_LABEL[p.kind]])].join(" ");
+  const shown = types.filter((spec) => matchesWords(hay(spec), words) && (!port || compatiblePort(spec, port)));
   const groups = new Map<string, PaletteGroup>();
   for (const spec of shown) {
     const { id, label } = category(spec);

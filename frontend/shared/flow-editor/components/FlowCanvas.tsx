@@ -1,10 +1,10 @@
-import { useEffect, type DragEvent } from "react";
-import { Background, BackgroundVariant, Controls, MiniMap, ReactFlow, ReactFlowProvider, useNodesState, useReactFlow, type Connection, type Edge } from "@xyflow/react";
+import { useEffect } from "react";
+import { ReactFlowProvider, useNodesState, type Connection, type Edge } from "@xyflow/react";
 import type { Point, PortRef } from "../logic/flow-types";
 import { parseHandle, type FlowCardNode } from "../logic/flow-view";
 import { PortActionsContext, type PlusRequest } from "../flow-node/logic/port-actions";
-import { PALETTE_DRAG_TYPE } from "../node-palette/logic/palette";
 import FlowNodeCard from "../flow-node/components/FlowNodeCard";
+import FlowSurface, { type SurfaceView } from "./FlowSurface";
 
 const nodeTypes = { "flow-card": FlowNodeCard };
 
@@ -26,31 +26,22 @@ export default function FlowCanvas(props: Props) {
   return <ReactFlowProvider><Canvas {...props}/></ReactFlowProvider>;
 }
 
+const VIEW: SurfaceView = { minZoom: 0.2, maxZoom: 2, fitPadding: 0.25, dotGap: 20, dotColor: "var(--canvas-dot)", controls: "top-left", minimapLabel: "Minimapa toku", minimapClass: "flow-editor__minimap" };
+
 function Canvas({ nodes: next, edges, readOnly, canConnect, onSelectNode, onSelectEdge, onMove, onConnect, onDropType, onPlus }: Props) {
-  const flow = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowCardNode>(next);
   // Přestavba uzlů nesmí zahodit změřený rozměr, jinak React Flow schová hrany, než uzly znovu změří.
   useEffect(() => setNodes((prev) => next.map((node) => ({ ...node, measured: prev.find((item) => item.id === node.id)?.measured }))), [next, setNodes]);
-  const drop = (event: DragEvent) => {
-    const type = event.dataTransfer.getData(PALETTE_DRAG_TYPE);
-    if (!type || readOnly) return;
-    event.preventDefault();
-    onDropType(type, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
-  };
-  return <div className={`flow-editor__canvas${readOnly ? " flow-editor__canvas--past" : ""}`} data-testid="flow-canvas"
-    onDragOver={(event) => { if (!readOnly && event.dataTransfer.types.includes(PALETTE_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }} onDrop={drop}>
-    <PortActionsContext.Provider value={{ onPlus }}>
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} fitView fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
-        minZoom={0.2} maxZoom={2} nodesConnectable={!readOnly} deleteKeyCode={null} colorMode="dark" zoomOnDoubleClick={false}
-        isValidConnection={(c) => { const pair = ends(c); return !!pair && canConnect(pair[0], pair[1]); }}
-        onConnect={(c) => { const pair = ends(c); if (pair) onConnect(pair[0], pair[1]); }}
-        onNodeClick={(_, node) => { if (!node.data.ghost) onSelectNode(node.data.nodeId); }}
-        onEdgeClick={(_, edge) => onSelectEdge(edge.id)} onPaneClick={() => { onSelectNode(null); onSelectEdge(null); }}
-        onNodeDragStop={(_, node) => onMove(node.id, node.position)}>
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="var(--canvas-dot)"/>
-        <MiniMap position="bottom-right" pannable zoomable ariaLabel="Minimapa toku" className="flow-editor__minimap" nodeBorderRadius={8}/>
-        <Controls position="top-left" showInteractive={false}/>
-      </ReactFlow>
-    </PortActionsContext.Provider>
-  </div>;
+  return <PortActionsContext.Provider value={{ onPlus }}>
+    <FlowSurface nodes={nodes} edges={edges} nodeTypes={nodeTypes} view={VIEW} onNodesChange={onNodesChange} onDropType={readOnly ? undefined : onDropType}
+      rootProps={{ className: `flow-editor__canvas${readOnly ? " flow-editor__canvas--past" : ""}`, "data-testid": "flow-canvas" }}
+      flowProps={{
+        nodesConnectable: !readOnly,
+        isValidConnection: (c) => { const pair = ends(c); return !!pair && canConnect(pair[0], pair[1]); },
+        onConnect: (c) => { const pair = ends(c); if (pair) onConnect(pair[0], pair[1]); },
+        onNodeClick: (_, node) => { if (!node.data.ghost) onSelectNode(node.data.nodeId); },
+        onEdgeClick: (_, edge) => onSelectEdge(edge.id), onPaneClick: () => { onSelectNode(null); onSelectEdge(null); },
+        onNodeDragStop: (_, node) => onMove(node.id, node.position),
+      }}/>
+  </PortActionsContext.Provider>;
 }

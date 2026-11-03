@@ -3,7 +3,7 @@
 Plátno vrstvy MODEL (`docs/studio.md` §1, §3, §4; etapa S6a). Design karet, portů a propojování z vlastního prototypu
 `04.Architektura-projektu/prototype` (`component-visuals.mjs`, `ports.mjs`, `connection-gesture.mjs`, `reference-theme.css`).
 
-- `components/StudioModelCanvas.tsx` – React Flow plátno: karty modelu, tah karty (poloha do modelu po puštění, vazby jdou
+- `components/StudioModelCanvas.tsx` – plátno nad sdílenou kostrou `shared/flow-editor/components/FlowSurface.tsx` (mřížka, zoom, minimapa, puštění z palety): karty modelu, tah karty (poloha do modelu po puštění, vazby jdou
   s kartou už během tahu), puštění typu z katalogu, výběr karty i vazby, zoom 0,1–3, fit, minimapa, trvalý štítek
   „MODEL – výpočet, ne měření“ a fialovější tón pozadí (`--studio-model-*`). Všechny změny hlásí rodiči.
 - `components/ModelCard.tsx`, `ModelPort.tsx` – karta podle typu (ikona, název, typ, tři stupně fungování, vazba na kartu
