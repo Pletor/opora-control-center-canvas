@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from backend.brain import seed as brain_seed
 from backend.brain_opora.decision import intake
 from backend.brain_opora.determinism import gate_setting, snapshot
 from backend.brain_opora.heart import batch
@@ -32,7 +33,8 @@ def heart_env(db, monkeypatch, tmp_path):
         return {"status": spec.inputs[0].get("status", "ok"), "costUsd": 0.05, "summary": "hotovo"}
 
     monkeypatch.setattr(batch, "run", run)
-    service = SimpleNamespace(db=db, registry_lock=threading.RLock())
+    monkeypatch.setattr(brain_seed, "PONYTAIL_CACHE", tmp_path / "bez-ponytailu")
+    service = SimpleNamespace(db=db, registry_lock=threading.RLock(), root=tmp_path / "data")
     heart = Heart(service, base_url="http://127.0.0.1:1", clock=lambda: clock[0], find=lambda: "claude")
     for name, value in {"collect": lambda now: None, "_token": lambda p, w: "tok", "_source": lambda p, w: None,
                         "brain": lambda p: tmp_path, "_advance_before_batch": lambda p, w: None}.items():
@@ -72,6 +74,8 @@ def test_message_runs_the_whole_batch_and_frees_the_project(heart_env):
     [spec] = env.specs
     assert spec.snapshot == "SNÍMEK p1" and spec.inputs[0]["jev"] is True
     assert (spec.model, spec.advisor_model, spec.subcommands) == ("haiku", "opus", None)
+    assert spec.skills.prompt.startswith("# Srdce projektu OPORA")  # skilly srdce z aktivní verze v Brainu
+    assert set(spec.skills.pins) == {"heart", "vyslech"} and "vyslech" in spec.skills.modes
     assert env.heart.running == set() and not env.heart.starts.get("p1")  # zpráva člověka strop nepočítá
 
 

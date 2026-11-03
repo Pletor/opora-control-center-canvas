@@ -3,22 +3,27 @@ validací `/api/canvas-plan`, odmítnutí nese text serveru a ostrý `plan` sám
 karta je pro orchestrátora `claim` ready. Plánovač srdce ani model neběží."""
 import json
 import re
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app.factory import create_app
 from backend.api.brain_opora import test_heart_workspace as spaces
+from backend.app.factory import create_app
+from backend.brain.seed import SEED_DIR
 from backend.brain_opora.determinism import tokens
 from backend.brain_opora.heart import command, opora_heart
 from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, SCOPE, seed
 from backend.editor.agent_packet.specification_context import capture_specification
 
 
+def heart_prompt():
+    """Systémový prompt srdce ze seedu Brainu (skill `heart`, výchozí aktivní verze)."""
+    return command.skill_body((SEED_DIR / "opora-heart" / "skills" / "heart" / "SKILL.md").read_text(encoding="utf-8"))
+
+
 def prompt_example():
     """První blok ```json v části Plán promptu srdce."""
-    prompt = command.PROMPT_FILE.read_text(encoding="utf-8")
+    prompt = heart_prompt()
     part = prompt.split("## Plán", 1)[1].split("\n## ", 1)[0]
     return json.loads(re.search(r"```json\n(.*?)\n```", part, re.DOTALL).group(1))
 
@@ -68,7 +73,7 @@ def test_prompt_example_is_the_tool_example_and_passes_the_real_dry_run(heart):
 def test_plan_example_carries_card_effort_and_the_prompt_explains_it():
     efforts = [node["card"]["effort"] for node in opora_heart.PLAN_EXAMPLE["nodes"] if "effort" in node.get("card", {})]
     assert "medium" in efforts and set(efforts) <= {"low", "medium", "high", "max"}
-    prompt = (Path(opora_heart.__file__).parent / "prompt.md").read_text(encoding="utf-8")
+    prompt = heart_prompt()
     assert "card.effort" in prompt and "low|medium|high|max" in prompt
 
 

@@ -1,3 +1,7 @@
+---
+name: vyslech
+description: Postup výslechu srdce. Čti, když dávka nese řádek VÝSLECH (python opora_heart.py skill vyslech).
+---
 # Výslech: pochopit, dohledat, vyslechnout, teprve pak plánovat
 
 Čteš to, protože dávka má řádek `VÝSLECH`. Požadavek není dotaz k odpovězení, ale záměr k pochopení.

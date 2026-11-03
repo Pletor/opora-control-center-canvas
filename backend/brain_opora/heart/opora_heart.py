@@ -50,7 +50,7 @@ v textu tělo nenese (nahradí je „(ID)“). Ticket vzniká v prostoru `--work
 pořadí práce = pořadí vydání.
 `plan` (docs/brain-heart-orchestrator.md §3) pošle dávku plánu ze souboru F na `/api/canvas-plan` s čerstvým digestem
 a ostrou dávku hned přijme (návrh grafu + přijetí, §3 O2b; `--no-accept` nechá přijetí člověku); `--example` vypíše
-platný vzor dávky (tentýž je v prompt.md, část Plán).
+platný vzor dávky (tentýž je v promptu srdce, skill `heart` v Brainu, část Plán).
 Git projekt (docs/brain-heart-orchestrator.md §9 O7): `main` nese jen architekturu (prostředí › doména › stránka) a nic
 se v něm nepřijímá; ostrý plán architektury ještě převezme změnu architektury do pracovních prostorů s přijatým plánem
 (`adoptArchitectureContext`), jinak by jejich karty nešly převzít. `workspace --domain` založí (s `--reuse` nejdřív
@@ -319,8 +319,8 @@ def read_plan(path):
     return value
 
 
-# Vzor dávky pro srdce: sektor, dvě karty se spec.steps a checks, vazba `next`. Tentýž JSON stojí v prompt.md (část
-# Plán); test ho z promptu vytáhne, porovná s tímto a pošle skutečnému `/api/canvas-plan` s dryRun, aby nezastaral.
+# Vzor dávky pro srdce: sektor, dvě karty se spec.steps a checks, vazba `next`. Tentýž JSON stojí v promptu srdce
+# (skill `heart` v Brainu, část Plán); test ho z promptu vytáhne, porovná s tímto a pošle skutečnému `/api/canvas-plan` s dryRun, aby nezastaral.
 PLAN_EXAMPLE = {
     "nodes": [
         {"ref": "mvp", "kind": "sector", "parent": None, "name": "MVP seznam úkolů",
@@ -830,7 +830,7 @@ def submit_order(args):
     return {**out, "accepted": False, "hint": "Návrh pořadí čeká na přijetí člověkem v UI (změny grafu)."}
 
 
-# Realizační karta (prompt.md část Plán, docs/navrhy/2026-10-30-metriky-a-spoustece.md): 2–8 kroků s `kind` a `files`.
+# Realizační karta (prompt srdce, část Plán, docs/navrhy/2026-10-30-metriky-a-spoustece.md): 2–8 kroků s `kind` a `files`.
 STEP_KINDS = ("code", "test", "docs", "design", "research")  # kopie opora_plan_steps, nástroj je jen stdlib
 STEPS_MIN, STEPS_MAX = 2, 8
 STEPS_SHAPE = ('Soubor: {"steps": [{"title": "…", "kind": "code|test|docs|design|research", "files": ["cesta"], '
@@ -1060,7 +1060,7 @@ def research_module(name="opora_research"):
 
 
 def read_skill(name):
-    """`skill NAME`: text postupu `skills/NAME.md` vedle nástroje (v `brain/` kopie, v testech složka balíčku)."""
+    """`skill NAME`: text postupu `skills/NAME.md` vedle nástroje (skill Brainu, který do `brain/` zapíše dávka)."""
     path = Path(__file__).resolve().parent / SKILLS / f"{name}.md"
     if not SCRIPT.match(name) or not path.is_file():
         raise Failure({"error": f"Postup {name!r} neexistuje.", "code": "skill_missing",

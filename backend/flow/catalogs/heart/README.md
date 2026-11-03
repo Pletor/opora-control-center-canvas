@@ -11,7 +11,7 @@ Uzly, kterými engine toků (`backend/flow/`) spouští srdce mozku OPORY. Kontr
 | `trigger.schedule` | Rozvrh `interval_seconds` (výchozí 600) místo 10min pojistky karet (`CARD_POLL`). Příští čtení outboxu projde karty všech prostorů. | out `main` |
 | `decision.jev` | `decision/intake.classify_pending`: zařazení vstupů brány `pending` přes Jev. Je na cestě každé dávky. | in/out `main` |
 | `context.snapshot` | Posun prostoru za `main`, pak `determinism/snapshot.snapshot` (`collect` + `render`, parametr `limit`). | in/out `main` |
-| `agent.claude` | Dávka `claude -p` stávajícím exekutorem (`heart/batch.run`, `command.py`, `session.py`, `process.py`). Parametry `per_hour` (6), `per_project` (1) a `rate_sleep_seconds` (900). | in/out `main`; in `model` (jedna), `tool` (víc), `memory` (jedna, zatím nic nedělá) |
+| `agent.claude` | Dávka `claude -p` stávajícím exekutorem (`heart/batch.run`, `command.py`, `session.py`, `process.py`). Parametry `per_hour` (6), `per_project` (1) a `rate_sleep_seconds` (900). Prompt a postupy režimů bere z aktivní verze skillů v Brainu (`command.heart_skills`), piny vrací ve výstupu `brainPins`. | in/out `main`; in `model` (jedna), `tool` (víc), `memory` (jedna, zatím nic nedělá) |
 | `model.claude` | Model a poradce dávky (`model`: `haiku`, `advisor`: `opus`). | out `model` |
 | `tool.opora_heart` | Nástroj `opora_heart.py`. `subcommands`: seznam povolených podpříkazů, nebo `null` = všechny (dnešní stav). Dávka bez nástroje dostane jen Read, Grep a Glob. | out `tool` |
 | `tool.ticket_issue`, `tool.ticket_answer` | Registrované nástroje ticketu (§3.2 „Ticket“): povolí agentovi jen podpříkaz `opora_heart.py ticket-issue` / `ticket-answer` (druhy brány `ticket.issue` / `ticket.answer`). Do Srdce v1 zatím nejsou zapojené. | out `tool` |
@@ -22,7 +22,7 @@ Kroky dávky (`trigger.heart_event`, `trigger.human_message`, `decision.jev`, `c
 
 `trigger.heart_event` a `trigger.human_message` → `decision.jev` → `context.snapshot` → `agent.claude`. K agentovi vede `model.claude` (Haiku, poradce Opus) a `tool.opora_heart` (všechny podpříkazy). Vedle stojí `trigger.schedule` po 600 s. Graf opakuje pořadí kroků dřívější dávky supervisoru.
 
-**Sdílené workflow** (`project_id` NULL, jméno „Srdce v1“). Důvod: srdce má jedno chování pro všechny projekty se zapnutou bránou a pravidlo „jedno rozhraní pro všechny projekty“ platí i pro proces srdce. Workflow pro konkrétní projekt by zavedlo rozdíl, který dnes nikdo nepotřebuje. Seed vznikne při startu idempotentně: aktivní verzi, i upravenou přes API, nechá být.
+**Sdílené workflow** (`project_id` NULL, jméno „Srdce v1“). Důvod: srdce má jedno chování pro všechny projekty se zapnutou bránou a pravidlo „jedno rozhraní pro všechny projekty“ platí i pro proces srdce. Workflow pro konkrétní projekt by zavedlo rozdíl, který dnes nikdo nepotřebuje. Seed vznikne při startu idempotentně: aktivní verzi, i upravenou přes API, nechá být. Před ním `HeartDriver.start` idempotentně naplní Brain (`backend/brain/seed.py`: skilly srdce `heart` a `vyslech`, `ponytail`).
 
 ## Stav a vstupy srdce (`heart.py`)
 
