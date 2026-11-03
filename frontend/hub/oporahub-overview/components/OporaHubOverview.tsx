@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { mirrorJson } from "@/hub/oporahub-agent-state/logic/agent-state";
 import type { AgentStateView } from "@/hub/oporahub-agent-state/logic/use-agent-state";
-import LoopOverview from "@/hub/oporahub-loop/components/LoopOverview";
 import AgentsView from "@/hub/oporahub-agents/components/AgentsView";
 import type { DetailTarget } from "../logic/overview";
 import LegacyLinks from "./LegacyLinks";
@@ -10,7 +9,8 @@ import "../styles/oporahub-overview.css";
 /** Lens plánu celého projektu: hlavní akce v hlavičce, ne položka v patě. */
 export const PLAN_LENS_TARGET: DetailTarget = { kind: "plan-lens", title: "Lens plánu" };
 
-export type HubTab = "overview" | "process" | "agents";
+/** Přehled se smyčkou etap je smazaný (PR 6); výchozí je Živý proces. */
+export type HubTab = "process" | "agents";
 type Props = {
   agent: Pick<AgentStateView, "state" | "etag" | "error" | "loadedAt">; tab: HubTab; onTab: (tab: HubTab) => void;
   onOpenCard: () => void; open: (target: DetailTarget) => void; onRefresh: () => void;
@@ -35,7 +35,6 @@ export default function OporaHubOverview({ agent, tab, onTab, onOpenCard, open, 
       <button type="button" className="oporahub-overview__lens" data-oh-detail="plan-lens" data-oh-plan-lens-open="project"
         title="Oblasti a předávky celého plánu jako diagram" onClick={() => open(PLAN_LENS_TARGET)}>◫ Lens plánu</button>
       <nav className="oporahub-overview__tabs" aria-label="Pohled OporaHubu">
-        <button type="button" className="oporahub-overview__tab" aria-pressed={tab === "overview"} onClick={() => onTab("overview")}>Přehled</button>
         <button type="button" className="oporahub-overview__tab" aria-pressed={tab === "process"} onClick={() => onTab("process")}>Živý proces</button>
         <button type="button" className="oporahub-overview__tab" aria-pressed={false} onClick={onOpenCard}>Karta</button>
         <button type="button" className="oporahub-overview__tab" aria-pressed={tab === "agents"} onClick={() => onTab("agents")}>Pro agenty</button>
@@ -43,7 +42,7 @@ export default function OporaHubOverview({ agent, tab, onTab, onOpenCard, open, 
     </header>
     {agent.error && <p className="oporahub-overview__warning" role="status">{agent.error}{state ? " Zobrazený snímek může být neaktuální." : ""}</p>}
     {!state && !agent.error && tab !== "process" && <p className="oporahub-overview__empty" role="status">Načítám stav OporaHubu…</p>}
-    {tab === "process" ? process : state && (tab === "agents" ? <AgentsView state={state} open={open} /> : <LoopOverview state={state} open={open} />)}
+    {tab === "process" ? process : state && <AgentsView state={state} open={open} />}
     <LegacyLinks open={open} onRefresh={onRefresh} />
   </div>;
 }

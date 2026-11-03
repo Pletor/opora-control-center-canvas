@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from backend.flow import interpreter, workflows
 from backend.flow.graph_check import FlowInvalid
+from backend.flow.node_types import NODE_TYPES
 from backend.flow.run_log import read_log
 from backend.flow.stalls import list_stalls
 from backend.flow.workflows import FlowConflict, FlowNotFound
@@ -54,6 +55,16 @@ def create_flow_router(service):
             raise HTTPException(409, str(error)) from error
         except FlowInvalid as error:
             raise HTTPException(422, str(error)) from error
+
+    @router.get("/node-types")
+    def node_type_list():
+        """Registr typů uzlů pro editor: porty s `kind` a `cardinality` (pravidla vazeb, paleta podle portu)."""
+        return {"node_types": [
+            {"type": t.type, "version": t.version, "trigger": t.trigger,
+             "ports": [{"name": p.name, "direction": p.direction, "kind": p.kind, "cardinality": p.cardinality,
+                        "schema": p.schema} for p in t.ports]}
+            for t in NODE_TYPES.values()
+        ]}
 
     @router.get("/workflows")
     def workflow_list(project: str | None = Query(default=None, max_length=64)):

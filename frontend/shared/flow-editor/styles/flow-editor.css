@@ -1,0 +1,26 @@
+/* EDITOR TOKU (blok `flow-editor`)
+   Editor je řádek: vlevo plátno přes celou zbylou šířku, vpravo inspektor vybraného uzlu, který se objeví, jen když je
+   něco vybráno. Nad plátnem je tenký pás nástrojů (přidat uzel, odebrat vybranou vazbu, hláška proč vazba nevznikla),
+   pod ním pás „Připraveno ke spuštění“, když verzi něco chybí. Paleta vyjíždí přes pravý okraj plátna. */
+.flow-editor { display: flex; min-width: 0; min-height: 0; height: 100%; background: var(--bg); color: var(--ink); }
+.flow-editor__main { position: relative; display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.flow-editor__tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.flow-editor__tool { padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; }
+.flow-editor__tool:hover { border-color: var(--accent); }
+.flow-editor__edge { display: flex; gap: 8px; align-items: center; color: var(--ink-2); font-family: var(--mono, monospace); }
+.flow-editor__message { color: var(--danger); }
+.flow-editor__readiness { margin: 0; padding: 6px 10px; border-top: 1px solid var(--warn-line); background: var(--warn-soft); color: var(--ink); font-size: 12px; }
+
+/* Plátno má tečkovanou mřížku jako n8n. Když se člověk dívá do minulosti (vybraný běh, jen ke čtení), dostane plátno
+   jemné šikmé šrafování: na první pohled je jasné, že úprava tady nevznikne a že stavy uzlů patří tomu běhu. */
+.flow-editor__canvas { position: relative; flex: 1; min-height: 320px; }
+.flow-editor__canvas--past { --xy-background-color: transparent; background: repeating-linear-gradient(135deg, transparent 0 14px, var(--surface-2) 14px 16px); }
+.flow-editor__minimap { background: var(--surface); }
+
+/* Vazby: hlavní tok je plná křivka, sub-vazby (model, nástroj, paměť) čárkovaná svislá čára, jako v n8n. Nová vazba
+   v rozdílu verzí je zelená, odebraná červená čárkovaná a průhledná, aby ladila s duchy odebraných uzlů. Popisek
+   vazby nese tokeny, cenu a dobu výstupního uzlu, proto je malý a neproporcionální. */
+.flow-edge--sub .react-flow__edge-path { stroke-dasharray: 5 4; }
+.flow-edge--added .react-flow__edge-path { stroke: var(--ok); }
+.flow-edge--removed .react-flow__edge-path { stroke: var(--danger); stroke-dasharray: 3 4; opacity: .5; }
+.flow-edge .react-flow__edge-text { font: 10px var(--mono, monospace); }

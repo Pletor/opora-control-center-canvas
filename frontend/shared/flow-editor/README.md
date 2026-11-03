@@ -1,0 +1,12 @@
+# Editor toků (`shared/flow-editor`)
+
+Generický editor grafu verze workflow engine toků (kontrakt `docs/navrhy/2026-11-03-novy-zaklad.md` §3.1 a §3.5). Neví nic o srdci ani o API: typy uzlů a porty dostává z registru (`GET /api/flow/node-types`), stav běhu a rozdíl verzí hotové v props a každou úpravu hlásí `onChange(graph)`. Ukládá rodič (u srdce `project/heart-canvas`), a to vždy jako nový `draft`.
+
+- `components/FlowEditor.tsx` — rodič: skládá plátno, paletu, inspektor a pás „Připraveno ke spuštění“; drží jen UI stav (otevřená paleta, port u „+“, vybraná vazba, hláška).
+- `components/FlowCanvas.tsx` — React Flow (`@xyflow/react`): mřížka, zoom, minimapa, tah uzlů a vazeb, puštění typu z palety, šrafované pozadí jen ke čtení (pohled do minulosti).
+- `flow-node/` — karta uzlu a porty. `node-palette/` — šuplík typů s hledáním a předfiltrem na port. `node-inspector/` — parametry, vstup a výstup uzlu v běhu.
+- `logic/flow-types.ts` — tvar dat `/api/flow/*`. `connection-policy.ts` — pravidla vazeb podle `kind` portu (výstup → vstup, stejný kind, `cardinality: one`, bez duplicit; stejná jako `backend/flow/graph_check.py`). `graph-edit.ts` — úpravy grafu jako čisté funkce. `node-role.ts` — role uzlu (spouštěč, agent, sub-uzel, krok) a poloha portů z registru. `run-overlay.ts` — stav uzlů z `node_runs` a prostojů, popisky hran (tokeny · cena · doba). `graph-diff.ts` — rozdíl dvou verzí (duchové odebraných uzlů). `readiness.ts` — co verzi chybí ke spuštění. `flow-view.ts` — graf → uzly a hrany React Flow (handle `in:<port>` / `out:<port>`). `flow-fixtures.ts` — výřez registru a grafu srdce pro testy.
+
+Testy: `logic/*.test.ts`, `node-palette/logic/palette.test.ts`, `node-inspector/logic/inspector-fields.test.ts` (`npm test`).
+
+Převzato z n8n (`.claude/hillclimb/studie/n8n-studie.md`): typované sub-porty jako kosočtverce na spodní hraně agenta a kulaté sub-uzly, „+“ s paletou předfiltrovanou na kind portu, stavy na uzlech, inspektor jako postranní panel, běh jen ke čtení se šrafováním. Přidáno: čekání s důvodem, prostoj, tokeny a cena na hranách, rozdíl verzí. Zobecněno ze Studia MODEL (`project/studio/model`): pravidla vazeb, paleta s hledáním, pole inspektoru. Studio zatím zůstává na vlastním katalogu a vlastním plátně (datové typy portů, simulace, směrování vazeb); přepojení je samostatný krok.

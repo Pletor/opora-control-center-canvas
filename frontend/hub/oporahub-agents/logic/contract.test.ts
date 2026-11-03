@@ -10,7 +10,7 @@ describe("data-oh contract table", () => {
   });
   it("covers the attributes the design requires", () => {
     const all = CONTRACT.map(row => row.attribute).join(" ");
-    for (const name of ["data-oh-stage", "data-oh-health", "data-oh-action-id", "data-oh-action-status", "data-oh-accepted-head", "data-oh-execution", "data-oh-epoch", "data-oh-gap"])
+    for (const name of ["data-oh-stage", "data-oh-health", "data-oh-action-id", "data-oh-action-status", "data-oh-accepted-head", "data-oh-execution", "data-oh-epoch"])
       expect(all).toContain(name);
   });
   it("never exposes the identity nonce through data-oh or a mirror", () => {

@@ -1,0 +1,26 @@
+/* PALETA UZLŮ (blok `node-palette`)
+   Pravý šuplík 280 px přes okraj plátna, jako „What happens next?“ v n8n: graf zůstává vidět a člověk vybírá další
+   krok vedle místa, kde ho potřebuje. Nahoře otázka a křížek, pod ní případný štítek portu, ke kterému se přidává,
+   a hledání; kategorie jdou pod sebou, aby se celá nabídka dala přelétnout jedním posunem. */
+.node-palette { position: absolute; top: 0; right: 0; bottom: 0; z-index: 5; box-sizing: border-box; width: 280px; overflow: auto; padding: 12px;
+  border-left: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow-pop); }
+.node-palette__head { display: flex; align-items: center; justify-content: space-between; }
+.node-palette__title { margin: 0; font-size: 14px; }
+.node-palette__close { border: 0; background: none; color: var(--ink-muted); font-size: 18px; cursor: pointer; }
+.node-palette__port { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 0; padding: 6px 8px; border-radius: 6px; background: var(--accent-soft); font-size: 12px; }
+.node-palette__port-clear { margin-left: auto; border: 0; background: none; color: var(--accent); font-size: 11px; text-decoration: underline; cursor: pointer; }
+.node-palette__search { box-sizing: border-box; width: 100%; margin: 10px 0; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--field); color: var(--ink); font: inherit; font-size: 12px; }
+.node-palette__empty { color: var(--ink-muted); font-size: 12px; }
+
+/* Skupina je nadpis kategorie z registru (Spouštěče, Agent, Tok, Schválení, Sub-uzly podle kindu) a pod ním řádky
+   typů. Řádek má znak tvaru uzlu, jméno a souhrn portů „vstupy → výstupy“, aby šlo vybrat podle toho, co uzel
+   přijímá, bez otevírání dokumentace. */
+.node-palette__group { margin-top: 10px; }
+.node-palette__group-title { margin: 0 0 4px; color: var(--ink-muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.node-palette__item { display: flex; gap: 10px; align-items: center; width: 100%; padding: 7px 6px; border: 1px solid transparent; border-radius: 6px;
+  background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.node-palette__item:hover { border-color: var(--line); background: var(--surface-2); }
+.node-palette__glyph { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 14px; }
+.node-palette__text { display: grid; min-width: 0; }
+.node-palette__name { font-size: 12px; }
+.node-palette__summary { overflow: hidden; color: var(--ink-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }

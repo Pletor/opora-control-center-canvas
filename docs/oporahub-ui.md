@@ -7,10 +7,11 @@ z `frontend/design-tokens`). Ukázková čísla návrhu se nepřebírají; vše 
 
 ## Pohledy
 
+Přehled se smyčkou deseti etap, horním pásem a pásem mezer (`hub/oporahub-loop`) byl smazán v PR 6 nového základu (docs/navrhy/2026-11-03-novy-zaklad.md §4); proces srdce ukazuje plátno srdce na stránce Projekt (`frontend/project/heart-canvas/`).
+
 | Pohled | Kde | Co ukazuje |
 |---|---|---|
-| **Přehled** (výchozí) | záložka Přehled | Horní pás: přijatá hlava, drift pracovní verze (a počet návrhů na starém základu), mix rizika čekajících návrhů, nejvýše 3 rozhodnutí člověka. Pod ním smyčka deseti etap `plan → … → plan_writeback` jako „had“ (1–5 zleva doprava, 6–10 zpět) se spojkami a pata se známými mezerami. |
-| **Živý proces** | záložka Živý proces, nebo `?ohView=process` | Zdroje, blokace, mapa toku sedmi fází, proud událostí a inspektor karty nad sdíleným tokem událostí ([živý proces §8](zivy-proces.md#8-pohled-záložka-živý-proces-v-oporahubu)). |
+| **Živý proces** (výchozí) | záložka Živý proces, nebo `?ohView=process` | Zdroje, blokace, mapa toku sedmi fází, proud událostí a inspektor karty nad sdíleným tokem událostí ([živý proces §8](zivy-proces.md#8-pohled-záložka-živý-proces-v-oporahubu)). |
 | **Karta** | záložka Karta, klik na cíl `claim`, nebo `?ohCard=<nodeId>&ohTab=<záložka>` | Otevře [jednotný detail karty](#jednotný-detail-karty) (stejný drawer jako na plátně a ve Velínu). |
 | **Pro agenty** | záložka Pro agenty, nebo `?ohView=agents` | Protokol (GET → preconditions → zápis s requestId → 409 znovu GET), hlavy pro CAS, fronta akcí (id, sloveso, metoda, cesta, preconditions, rozpočet, stav), přesný JSON s tlačítkem „kopírovat JSON“ a tabulka kontraktu `data-oh-*`. |
 
@@ -76,8 +77,6 @@ uzlu. Starší server bez endpointu (404) dostane klidný stav „Lens plánu ne
 
 | Kde | Co ukazuje | Zdroj |
 |---|---|---|
-| Přehled · etapa **Review** | Stav brány merge (`✕ blokuje` / `◷ čeká` / `✓ žádná brána nedrží` / `◌ automatické review vypnuto`) a kód pravidla, které ji drží; lidské znění je důvod etapy | `stages[review]` + `gaps` |
-| Přehled · etapa **Návrh změny** | Počet otevřených konfliktů auto-rebase; klik otevře drawer konfliktů | `actions[verb=proposal.resolve_conflict]` |
 | Pro agenty · fronta | Skupina slovesa (`brána review`, `ověření`, `auto-rebase`, `smyčka`) a `◷ pozornost`; česká jména pro `review.claim`, `review.self_checks`, `pr.update_branch`, `review.promote_to_check`, `verification.*`, `proposal.resolve_conflict` | `actions[]` |
 | Detail karty · **Review & PR** (dřív krok Review · brána merge) | Na ose etapa karty (`cards[]`); pod osou panel brány: stav, pravidlo, které drží, všechny důvody, otevřené důležité nálezy, bezpečnostní review, požadovaná schválení proti **různým ověřeným lidem na hlavě** (`reviewGate.humans`), neověřená schválení, vlastní kontroly, `stale_against_main` (o kolik commitů), `template_incomplete` (chybějící sekce) a související akce | `GET /api/oporahub/review-jobs/gates` |
 | Karta · **Formální důkazy** | Lean, TLC a shoda s implementací (`formal/conformance`, vždy `nahlášeno agentem`; bez záznamu `◌ bez záznamu`), výsledek, důvěra `nahlášeno agentem` / `ověřeno CI`, historický podklad; rozhodnutí `verification.fix` jako tlačítko „Založit návrh opravy“ (přijímá člověk) | `GET …/verifications?nodeId=` + `actions[]` |
@@ -151,15 +150,11 @@ document.querySelectorAll('[data-oh-action-status="ready"]')      // připraven�
 
 | Prvek | Atributy | JSON cesta |
 |---|---|---|
-| Kořen | `data-oh-view` (`overview`/`agent`), `data-oh-accepted-head`, `data-oh-etag`, `data-oh-generated-at`, `data-oh-schema-version` | `heads.acceptedHead`, `generatedAt` |
+| Kořen | `data-oh-view` (`process`/`agent`), `data-oh-accepted-head`, `data-oh-etag`, `data-oh-generated-at`, `data-oh-schema-version` | `heads.acceptedHead`, `generatedAt` |
 | Zrcadlo | `<script type="application/json" id="oh-agent-state">` (`<` escapováno jako `<`) | celý dokument |
-| Dlaždice | `data-oh-field` (`acceptedHead`, `drift`, `staleProposals`, `riskMix`, `decisions`) + `data-oh-value` | `heads.*`, `riskMix`, `decisions.length` |
-| Etapa | `data-oh-stage`, `data-oh-health`, `data-oh-reason`, `data-oh-count` | `stages[]` |
-| Spojka | `data-oh-link="from->to"`, `data-oh-link-state` (`plain`/`warn`/`broken`) | odvozeno |
 | Rozhodnutí | `data-oh-decision`, `data-oh-action-id` | `decisions[]` |
 | Akce | `data-oh-action-id`, `data-oh-action-status`, `data-oh-verb`, `data-oh-method`, `data-oh-path`, `data-oh-target`, `data-oh-block-reason` | `actions[]` |
 | Fakt CAS | `data-oh-field` + `data-oh-value` (`acceptedHead`, `graphDigest`, `contextVersion`, `workingDiffers`, `budgetPolicyHead`) | `heads.*` |
-| Mezera | `data-oh-gap`, `data-oh-health="not_connected"` | `gaps[]` |
 | Detail karty | kořen `data-oh-view="card-drawer"`, `data-oh-node-id`, `data-oh-tab`, `data-oh-stage`, `data-oh-health`, `data-oh-accepted-head`, `data-oh-execution`; ✕ `data-oh-close="card-drawer"`; záložky `data-oh-tab`; stav `data-oh-field="status"` + `data-oh-reason`; dílky hotovo `data-oh-dod` + `data-oh-dod-state` (`done`/`active`/`todo`/`unknown`), `data-oh-dod-source` (`backend`/`computed`); patička `data-oh-next-action`, `data-oh-verb`, `data-oh-action-status`, `data-oh-actor`, `data-oh-block-reason`; zrcadlo `script#oh-card-drawer` (karta, stav, hotovo, další akce, kroky, běh, brána) | `cards[]`, `actions[]` |
 | Detail · Zadání | `data-oh-view="card-spec"`, `data-oh-spec-mode`, `data-oh-spec-field` + `data-oh-diff`, `data-oh-line`, `data-oh-step-diff`, `data-oh-changeset` + `data-oh-parent` + `data-oh-stale` + `data-oh-risk`, `data-oh-conflicts`, `data-oh-propose`, `data-oh-working-changes` | `…/changesets/context`, `…/changesets` |
 | Detail · Kroky | `data-oh-view="card-steps"`, `data-oh-steps-total`/`-done`/`-current`/`-source`; krok `data-oh-plan-step`, `data-oh-step-status`, `data-oh-step-current`, `data-oh-depends-on`, `data-oh-order`, `data-oh-step-acceptance` + `data-oh-met`, `data-oh-step-evidence` | `fields.steps`, `stepResults` |
@@ -185,7 +180,7 @@ Atributy jsou jen ke čtení; každý zápis dál ověří původní API a akce 
 
 ## Kód
 
-`frontend/hub/oporahub-agent-state` (čtení a mapování, testy), `oporahub-loop` (Přehled),
+`frontend/hub/oporahub-agent-state` (čtení a mapování, testy),
 `oporahub-card-drawer` (jednotný detail karty, testy view-modelů vedle `logic/`), `oporahub-agents` (Pro agenty),
 `oporahub-health` (značky), `oporahub-overview` (rám, záložky, zrcadlo, pata, drawer),
 `oporahub-workspace` (skládání, přímý odkaz `?ohView=agents`; `?ohCard=` čte detail karty sám).

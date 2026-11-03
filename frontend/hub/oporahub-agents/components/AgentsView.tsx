@@ -1,6 +1,6 @@
 import { agentStateEndpoint, type AgentState } from "@/hub/oporahub-agent-state/logic/agent-state";
 import { actionRows, headFacts, PROTOCOL, type ActionRow } from "@/hub/oporahub-agent-state/logic/actions-model";
-import { actionTarget } from "@/hub/oporahub-agent-state/logic/strip-model";
+import { actionTarget } from "@/hub/oporahub-agent-state/logic/action-target";
 import type { DetailTarget } from "@/hub/oporahub-overview/logic/overview";
 import ActionQueue from "./ActionQueue";
 import StateJson from "./StateJson";

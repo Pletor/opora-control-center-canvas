@@ -1,0 +1,25 @@
+/* LIŠTA VERZÍ (blok `version-bar`)
+   Jeden řádek pod hlavičkou: vlevo štítky verzí od nejnovější, uprostřed srovnání a jeho souhrn („+1 uzlů · −0 …“),
+   vpravo akce úpravy. Verze jsou neměnné, proto lišta mluví v pojmech „nový draft“ a „kandidát“, nikdy „uložit“. */
+.version-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--surface); font-size: 12px; }
+.version-bar__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* Štítek verze má číslo a pod ním stav. Aktivní verze má zelený rám (ta běží), kandidát zlatý (čeká na eval), draft
+   čárkovaný (rozpracovaná) a vyřazená je ztlumená. Zobrazená verze je vyplněná akcentem. */
+.version-bar__chip { display: grid; justify-items: center; min-width: 52px; padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 6px;
+  background: var(--surface-2); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.version-bar__chip--active { border-color: var(--ok); }
+.version-bar__chip--candidate { border-color: var(--gold); }
+.version-bar__chip--draft { border-style: dashed; }
+.version-bar__chip--retired { opacity: .6; }
+.version-bar__chip--current { background: var(--accent-soft); outline: 2px solid var(--accent); }
+.version-bar__status { color: var(--ink-muted); font-size: 9px; font-weight: 400; }
+.version-bar__compare { display: flex; gap: 6px; align-items: center; color: var(--ink-muted); }
+.version-bar__diff { padding: 2px 8px; border-radius: 4px; background: var(--surface-2); font-family: var(--mono, monospace); font-size: 11px; }
+
+/* Akce úpravy stojí vpravo: hláška „neuložená úprava“ ve zlaté, hlavní tlačítko „Uložit jako draft“ v akcentu a vedle
+   něj zahození. „Navrhnout ke evalu“ se objeví jen u uloženého draftu. */
+.version-bar__actions { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.version-bar__dirty { color: var(--gold); }
+.version-bar__button { padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; }
+.version-bar__button--primary { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }

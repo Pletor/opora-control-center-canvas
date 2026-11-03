@@ -2,6 +2,7 @@ Router engine toků (`backend/flow/`, kontrakt `docs/navrhy/2026-11-03-novy-zakl
 
 | Metoda a cesta | Co dělá |
 |---|---|
+| `GET /api/flow/node-types` | registr typů uzlů s porty (`name`, `direction`, `kind`, `cardinality`, `schema`) pro editor toků |
 | `GET /api/flow/workflows?project=` | sdílená workflow a workflow projektu, u každého aktivní verze |
 | `POST /api/flow/workflows` `{kind, name, project_id?}` | nové workflow |
 | `GET /api/flow/workflows/{id}/versions` | verze podle `n` |

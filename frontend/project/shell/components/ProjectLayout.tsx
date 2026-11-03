@@ -19,6 +19,7 @@ export function ProjectMapNavigation({value,onChange}:{value:ProjectMapKind;onCh
   return <div className="project-map-navigation" role="group" aria-label="Výstup mapy">
     <button type="button" aria-pressed={value==='architecture'} data-testid="project-view-architecture" onClick={()=>onChange('architecture')}>Architektura projektu</button>
     <button type="button" aria-pressed={value==='studio'} data-testid="project-view-studio" title="Studio: co stojí a jak teče data, od projektu po komponentu" onClick={()=>onChange('studio')}>Studio</button>
+    <button type="button" aria-pressed={value==='heart'} data-testid="project-view-heart" title="Srdce: graf workflow srdce, jeho běhy, prostoje a verze" onClick={()=>onChange('heart')}>Srdce</button>
     <button type="button" aria-pressed={value==='graphify'} title="Původní Graphify: načíst nebo vytvořit graf hlavního projektu" onClick={()=>onChange('graphify')}>Graphify-out</button>
   </div>;
 }

@@ -1,0 +1,87 @@
+/* UZEL TOKU (blok `flow-node`)
+   Krok toku je zaoblený čtverec 76 × 76 s velkým znakem uprostřed a jménem pod sebou, jako v n8n: oko čte tok zleva
+   doprava po tvarech, ne po textu. Agent je širší obdélník 220 × 80 se jménem uvnitř, protože pod ním visí jeho
+   sub-uzly a popisky sub-portů by jinak kolidovaly se jménem. Sub-uzel (model, nástroj, paměť) je kruh 64, aby bylo
+   na první pohled vidět, že se nevykonává, jen konfiguruje agenta. */
+.flow-node { position: relative; box-sizing: border-box; width: 76px; height: 76px; color: var(--ink); }
+.flow-node--agent { width: 220px; height: 80px; }
+.flow-node--sub { width: 64px; height: 64px; }
+.flow-node__body { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; box-sizing: border-box; width: 100%; height: 100%;
+  border: 2px solid var(--line-strong); border-radius: 12px; background: var(--surface-2); box-shadow: 0 1px 0 var(--line); }
+.flow-node--sub .flow-node__body { border-radius: 50%; }
+.flow-node--trigger .flow-node__body { border-radius: 30px 12px 12px 30px; }
+.flow-node--agent .flow-node__body { justify-content: flex-start; padding: 0 14px; border-color: var(--cat-agents); }
+.flow-node__glyph { font-size: 26px; line-height: 1; color: var(--ink-2); }
+.flow-node--sub .flow-node__glyph { font: 700 20px var(--mono, monospace); }
+.flow-node__inside { display: grid; min-width: 0; }
+
+/* Jméno uzlu je jeho stálé id (to se objeví v logu i v rozdílu verzí), typ je pod ním menším písmem. U agenta stojí
+   uvnitř, u ostatních pod kartou na střed, s pevnou šířkou, aby dlouhé id nehýbalo sousedy. */
+.flow-node__caption { position: absolute; top: calc(100% + 6px); left: 50%; display: grid; width: 150px; transform: translateX(-50%); text-align: center; }
+.flow-node__name { overflow: hidden; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.flow-node__type { overflow: hidden; color: var(--ink-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Stav běhu je rámeček a odznak v pravém horním rohu: zelená fajfka hotovo, červený křížek chyba, modré kolečko běží
+   (točí se), přesýpací hodiny čekání. Prostoj je oranžová záře kolem celé karty, protože právě ten má člověk najít
+   mezi desítkami uzlů jako první. */
+.flow-node--succeeded .flow-node__body { border-color: var(--ok); }
+.flow-node--failed .flow-node__body { border-color: var(--danger); }
+.flow-node--running .flow-node__body { border-color: var(--info); }
+.flow-node--waiting .flow-node__body { border-color: var(--gold); border-style: dashed; }
+.flow-node--queued .flow-node__body { border-style: dashed; }
+.flow-node--stall .flow-node__body { border-color: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); }
+.flow-node--selected .flow-node__body { outline: 2px solid var(--accent); outline-offset: 3px; }
+.flow-node--pinned .flow-node__body { border-color: var(--cat-agents); }
+.flow-node__status { position: absolute; top: -9px; right: -9px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--line-strong); font-size: 12px; }
+.flow-node__status--succeeded { color: var(--ok); }
+.flow-node__status--failed { color: var(--danger); }
+.flow-node__status--running { color: var(--info); animation: flow-node-spin 1.2s linear infinite; }
+.flow-node__status--waiting { color: var(--gold); }
+.flow-node__issue { position: absolute; right: -8px; bottom: -8px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; background: var(--danger); color: var(--surface); font-size: 12px; font-weight: 700; }
+.flow-node__pin { position: absolute; top: -9px; left: -6px; padding: 0 4px; border-radius: 4px; background: var(--cat-agents); color: var(--surface); font-size: 9px; }
+@keyframes flow-node-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .flow-node__status--running { animation: none; } }
+
+/* Čekání a prostoj mají důvod hned u uzlu nad kartou, ne až v logu: „čeká na human do 4. 11.“, „prostoj · heartbeat
+   chybí 12 min“. Cena a model visí vpravo dole menším písmem, aby šlo očima sečíst, kde běh stál peníze. */
+.flow-node__waiting, .flow-node__stall { position: absolute; bottom: calc(100% + 8px); left: 50%; width: 180px; margin: 0; transform: translateX(-50%);
+  font-size: 10px; text-align: center; }
+.flow-node__waiting { color: var(--gold); }
+.flow-node__stall { color: var(--warn); font-weight: 600; }
+.flow-node__cost { position: absolute; top: calc(100% + 36px); left: 50%; transform: translateX(-50%); color: var(--ink-muted); font: 10px var(--mono, monospace); white-space: nowrap; }
+.flow-node--agent .flow-node__cost { top: auto; bottom: calc(100% + 4px); }
+
+/* Rozdíl verzí: nový uzel má zelený štítek, změněný žlutý a odebraný je průhledný duch s čárkovaným rámem, aby bylo
+   vidět, kde dřív stál, a přitom nešel splést s živým uzlem. */
+.flow-node--added .flow-node__body { box-shadow: 0 0 0 4px var(--ok-soft); }
+.flow-node--changed .flow-node__body { box-shadow: 0 0 0 4px var(--warn-soft); }
+.flow-node--removed { opacity: .45; }
+.flow-node--removed .flow-node__body { border-style: dashed; border-color: var(--danger); }
+.flow-node__mark { position: absolute; top: -20px; left: 0; padding: 0 5px; border-radius: 4px; font-size: 9px; color: var(--surface); }
+.flow-node__mark--added { background: var(--ok); }
+.flow-node__mark--changed { background: var(--warn); }
+.flow-node__mark--removed { background: var(--danger); }
+
+/* Porty: hlavní tok jsou kruhy na levé a pravé hraně, sub-porty kosočtverce na spodní hraně agenta, ze kterých vede
+   čárkovaná svislá vazba do sub-uzlu. Povinný port bez vazby svítí červeně, dokud ho člověk nepřipojí. Popisek stojí
+   pod kosočtvercem, pojmenovaný výstup (approved, timeout) vpravo od kruhu. */
+.flow-node__port { width: 10px; height: 10px; border: 2px solid var(--line-strong); background: var(--surface); }
+.flow-node__port--sub { width: 10px; height: 10px; border-radius: 1px; transform: translate(-50%, 50%) rotate(45deg); }
+.flow-node__port--top.flow-node__port--sub { transform: translate(-50%, -50%) rotate(45deg); }
+.flow-node__port--missing { border-color: var(--danger); }
+.flow-node__port-label { position: absolute; color: var(--ink-muted); font-size: 10px; white-space: nowrap; pointer-events: none; }
+.flow-node__port-label--bottom { top: calc(100% + 8px); transform: translateX(-50%); }
+.flow-node__port-label--top { bottom: calc(100% + 8px); transform: translateX(-50%); }
+.flow-node__port-label--right { left: calc(100% + 8px); transform: translateY(-120%); }
+.flow-node__port-label--left { right: calc(100% + 8px); transform: translateY(-120%); }
+.flow-node__required { color: var(--danger); }
+
+/* „+“ u prázdného portu je malé čtvercové tlačítko kousek od něj: pod sub-portem otevře paletu modelů či nástrojů,
+   za volným výstupem paletu dalších kroků. Je mimo tah karty (`nodrag`), aby klik nepohnul uzlem. */
+.flow-node__plus { position: absolute; display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 1px solid var(--line-strong);
+  border-radius: 4px; background: var(--surface); color: var(--ink-2); font-size: 13px; line-height: 1; cursor: pointer; }
+.flow-node__plus:hover { border-color: var(--accent); color: var(--accent); }
+.flow-node__plus--bottom { top: calc(100% + 26px); transform: translateX(-50%); }
+.flow-node__plus--right { left: calc(100% + 20px); transform: translateY(-50%); }
+.flow-node__plus--labelled { left: calc(100% + 56px); }

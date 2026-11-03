@@ -5,13 +5,9 @@ export type ContractRow = { element: string; attribute: string; jsonPath: string
 export const CONTRACT: ContractRow[] = [
   { element: "Kořen pohledu", attribute: "data-oh-view · data-oh-accepted-head · data-oh-etag", jsonPath: "heads.acceptedHead", source: "GET …/agent-state" },
   { element: "Zrcadlo dokumentu", attribute: "script#oh-agent-state (application/json)", jsonPath: "(celý dokument)", source: "GET …/agent-state" },
-  { element: "Dlaždice horního pásu", attribute: "data-oh-field · data-oh-value", jsonPath: "heads.* · riskMix · decisions.length", source: "GET …/agent-state" },
-  { element: "Etapa smyčky", attribute: "data-oh-stage · data-oh-health · data-oh-reason · data-oh-count", jsonPath: "stages[]", source: "GET …/agent-state" },
-  { element: "Spojka etap", attribute: "data-oh-link · data-oh-link-state", jsonPath: "odvozeno ze stages[].health", source: "UI (odvozené)" },
   { element: "Rozhodnutí člověka", attribute: "data-oh-decision · data-oh-action-id", jsonPath: "decisions[].id · .actionId", source: "GET …/agent-state" },
   { element: "Řádek fronty akcí", attribute: "data-oh-action-id · data-oh-action-status · data-oh-verb · data-oh-method · data-oh-path · data-oh-target · data-oh-block-reason", jsonPath: "actions[]", source: "GET …/agent-state" },
   { element: "Fakt pro CAS", attribute: "data-oh-field · data-oh-value", jsonPath: "heads.*", source: "GET …/agent-state" },
-  { element: "Mezera", attribute: "data-oh-gap · data-oh-health=\"not_connected\"", jsonPath: "gaps[].id", source: "GET …/agent-state" },
   { element: "Detail karty (jednotný drawer)", attribute: "data-oh-view=\"card-drawer\" · data-oh-node-id · data-oh-tab · data-oh-stage · data-oh-health · data-oh-dod · data-oh-dod-state · data-oh-dod-source · data-oh-next-action · data-oh-actor · script#oh-card-drawer", jsonPath: "cards[] · cards[].nextActionId → actions[] · cards[].dod", source: "GET …/agent-state (+ ?ohCard=&ohTab=)" },
   { element: "Detail karty · záložky", attribute: "data-oh-view=\"card-spec|card-steps|card-run|card-review|card-events\" · data-oh-spec-field · data-oh-diff · data-oh-changeset · data-oh-risk · data-oh-plan-step · data-oh-step-status · data-oh-execution · data-oh-epoch · data-oh-lease-remaining · data-oh-budget · data-oh-step-result · data-oh-self-check · data-oh-pr-number · data-oh-head-sha · data-oh-gate-reason · data-oh-finding · data-oh-event · data-oh-event-kind", jsonPath: "fields.steps · stepResults · reviewGate.reasons · findings[] · events[]", source: "GET …/changesets(/context) · …/executions · …/review-jobs(/gates) · …/events" },
   { element: "Změnová sada karty", attribute: "data-oh-changeset · data-oh-parent · data-oh-stale · data-oh-accepted", jsonPath: "—", source: "GET …/changesets" },
