@@ -5,7 +5,7 @@ import json
 from backend.canvas.architecture_graph import split
 from backend.canvas.graph import digest, valid_id, validate_graph
 from backend.canvas.opora_change_validation import identifier, scope
-from backend.canvas.opora_graph_build import PERSISTED_NODE_KEYS
+from backend.canvas.opora_graph_build import PERSISTED_NODE_KEYS, persisted_edge
 from backend.editor.node.node_specs import validate_payload
 
 
@@ -55,7 +55,7 @@ def validate_record(record, *, manifest=False):
                 or not set(node) <= PERSISTED_NODE_KEYS):
             raise ValueError("Unsupported persisted graph addition.")
     for edge in record["additions"]["edges"]:
-        if not set(edge) <= {"id", "source", "target", "port", "carries"} or edge.get("port", "next") != "next":
+        if not persisted_edge(edge):
             raise ValueError("Unsupported persisted edge addition.")
     if type(record["requiresBaseAdoption"]) is not bool or record["requiresBaseAdoption"] != (record["parentGraphManifestId"] is None):
         raise ValueError("Invalid graph adoption declaration.")

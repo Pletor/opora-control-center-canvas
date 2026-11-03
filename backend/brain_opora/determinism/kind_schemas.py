@@ -35,9 +35,12 @@ WORK_BODY_IN = obj({"essence": TEXT, "build": TEXT, "openPaths": TEXTS, "caution
                     "doneCriteria": {**TEXTS, "minItems": 1}}, ("essence", "build", "doneCriteria"))
 WORK_BODY = {**WORK_BODY_IN, "required": ["essence", "build", "openPaths", "cautions", "skills", "doneCriteria"]}
 SLUG = {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"}  # oddělení a profil kanceláře
+NEIGHBORS = {"type": "array", "items": obj({"cardId": ID, "name": {"type": "string"}, "essence": TEXT},
+                                           ("cardId", "name"))}  # následníci / předchůdci karty z grafu (ticket.issue)
 MACHINE = obj({"cardId": nullable(ID), "executionId": nullable(ID), "cardVersion": nullable({"type": "integer"}),
-               "department": nullable(SLUG), "profile": nullable(SLUG)},
-              ("cardId", "executionId", "cardVersion", "department", "profile"))
+               "department": nullable(SLUG), "profile": nullable(SLUG), "successors": NEIGHBORS,
+               "predecessors": NEIGHBORS},
+              ("cardId", "executionId", "cardVersion", "department", "profile", "successors", "predecessors"))
 FEEDBACK_KIND = {"type": "string", "enum": ["bug", "idea", "improvement", "question"]}
 FEEDBACK_ITEM = obj({"feedbackId": ID, "kind": FEEDBACK_KIND, "text": TEXT, "answer": ANY},
                     ("feedbackId", "kind", "text", "answer"))

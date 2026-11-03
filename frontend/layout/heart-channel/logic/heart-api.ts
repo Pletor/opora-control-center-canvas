@@ -14,11 +14,17 @@ export type TicketFeedback = {
   sessionId: string; answer: unknown; answeredAt: string | null; createdAt: string;
 };
 
+/** Následník nebo předchůdce karty ticketu, fakt z grafu (vazba `next` nebo `block`). */
+export type TicketNeighbor = { cardId: string; name: string; essence?: string | null };
+
 /** Ticket práce z `GET /api/brain/tickets` (od nejstaršího). Relaci drží ve stavech claimed … delivered. */
 export type WorkTicket = {
   ticketId: string; seq: number; workspaceId: string; status: TicketStatus;
   body: { essence: string; build: string; openPaths: string[]; cautions: string[]; skills: string[]; doneCriteria: string[] };
-  machine: { cardId: string | null; executionId: string | null; cardVersion: number | null };
+  machine: {
+    cardId: string | null; executionId: string | null; cardVersion: number | null;
+    successors: TicketNeighbor[]; predecessors: TicketNeighbor[];
+  };
   sessionId: string | null;
   delivery: { summary: string; sha?: string; at: string } | null;
   feedback: TicketFeedback[];

@@ -24,6 +24,7 @@ from backend.brain_opora.determinism.ticket_model import (
     deliver_payload,
     feedback_payload,
     issue_payload,
+    neighbors,
     ticket_id,
 )
 from backend.canvas.opora_events import emit_event
@@ -79,13 +80,16 @@ def _write(service, session, work):
 
 def issue(service, session, body, now=None):
     """`ticket.issue` (jen srdce): nový ticket ve stavu `issued` v prostoru karty (`workspace`, git projekt má
-    karty v prostoru domény), jinak v prostoru tokenu srdce."""
+    karty v prostoru domény), jinak v prostoru tokenu srdce. S `cardId` doplní do strojové vrstvy následníky
+    a předchůdce karty z grafu toho prostoru (`ticket_model.neighbors`); tělo pro dělníka se nemění."""
     worker_body, machine = issue_payload(body)
     workspace = body.get("workspace") or session["workspace_id"]
     if not gate.workspace_known(service, session["project_id"], workspace):
         raise GateError(404, "workspace_not_found", "Pracovní prostor v projektu neexistuje.",
                         "Použijte main, draft nebo ID pracovního prostoru projektu.")
     new_id, at = "tk_" + uuid.uuid4().hex, tokens.stamp(now)
+    if machine["cardId"]:
+        machine |= neighbors(service.view(session["project_id"], workspace)["graph"], machine["cardId"])
 
     def work(store):
         store.insert(new_id, workspace, "issued", worker_body, machine, at)
