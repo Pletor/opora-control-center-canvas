@@ -76,6 +76,22 @@ python "<SKILL_DIR>/scripts/opora_gate.py" tell "Záměr člověka doslova, s fo
 
 Orchestrátor z nich jen čte `status` a `snapshot`; ostatní patří člověku a srdci.
 
+## Schránka jako nástroj srdce
+
+Srdce staví plán z ověřených faktů Schránky (briefy, brány, výzkumy), ne z hlavy. Snímek nese řádek
+`SCHRÁNKA: N briefů, M bran, K výzkumů` (M = platné brány všech briefů); v main počítá prostor posledního
+přijatého plánu srdce, jinde prostor snímku. Příkazy nástroje srdce (`opora_heart.py`, token srdce, `--workspace W`
+přepíše prostor, v main jde jako `research` do prostoru posledního plánu):
+
+| Příkaz | Cesta | Co vrátí |
+|---|---|---|
+| `vault ls [--kind brief\|gate\|research] [--q TEXT]` | `GET /api/brief-vault?project&workspace` | řádek na položku `id · druh · titulek · stav` (brief: etapa, disciplína, platné brány; výzkum: verdikt, jistota, stav); `gate` = briefy s aspoň jednou platnou bránou; nejvýš 80 řádků / 8000 znaků, zkrácení hlásí poslední řádek |
+| `vault show ID` | `GET /api/brief-vault/fragment?project&workspace&id` | plné znění položky (text, cesta, `gateDetail` s payloady, děti, karty, podrobnosti) bez řádků historie (`historyCount`) |
+| `vault plan [--node ID]…` | `POST /api/brief-vault/plan {project, workspace, fragmentIds}` | generátor plánu Schránky (jen čtení, dávka ověřená dryRun) pro vybrané briefy, bez `--node` pro všechny kořeny; dávku zapíše do `dilna/out/vault-plan.json` pro `plan --file`, na plátno nic nepíše; 409 vrátí `fragments` (nejvýš 20, `blockedTotal`) s důvodem `no-discipline`, `no-synthesized`, … |
+
+Čtení Schránky je volné jako každé čtení; generátor (`POST`) pustí zeď v projektu se zapnutou bránou jen srdci
+téhož projektu (cizí token 403 `gate_scope`).
+
 ## Vstupní brána a výslech (rozhodují člověk, při plné autonomii i agent)
 
 | Cesta | Kdo | Co |

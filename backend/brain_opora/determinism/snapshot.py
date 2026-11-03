@@ -5,7 +5,8 @@ oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu),
 tickety práce (sekce TICKETY PRÁCE, docs/navrhy/2026-11-03-novy-zaklad.md §3.3), čekající lístky, otevřené eskalace srdce pro člověka (sekce OTÁZKY U ČLOVĚKA), poslední vstupy vstupní brány (sekce VSTUPY), aktivní milníky s kritérii (hotovo/celkem a karty) a splněné
 milníky s odloženými požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY),
 otevřené konflikty auto-rebase (sekce KONFLIKTY NÁVRHŮ, docs/oporahub-auto-rebase.md), poslední kontroly, deník dávek;
-okolí srdce §3a; skripty dílny §3b; výzkumy a duely srdce ze schránky zadání §3c; stav práce karet z executions
+okolí srdce §3a; skripty dílny §3b; výzkumy a duely srdce ze schránky zadání §3c; řádek SCHRÁNKA s počty briefů,
+platných bran a výzkumů (PR 8b, v main z prostoru posledního plánu srdce jako `opora_heart.py vault`); stav práce karet z executions
 a vazeb PR, docs/brain-heart-orchestrator.md §3, včetně blokace nehotovým předchůdcem z grafu karet agent-state),
 `snapshot` k nim přidá posledních 10 commitů zdroje (sekce GIT, §4) a u git projektu pracovní prostory (sekce
 PROSTORY, §9 O7: doména, větev, karty volné/běží/hotové), `render` z nich bez dalšího čtení
@@ -29,7 +30,8 @@ from backend.canvas.opora_process_sync import ProcessSync
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault.brief_vault_details import latest_details
 from backend.editor.brief_vault.brief_vault_duel_shape import summary as duel_summary
-from backend.editor.brief_vault.brief_vault_model import latest_rows
+from backend.editor.brief_vault.brief_vault_gate_rules import gate_state
+from backend.editor.brief_vault.brief_vault_model import effective_disciplines, latest_rows
 from backend.editor.brief_vault.brief_vault_tree import live_ids
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories.gate_tickets import GateTicketStore
@@ -180,6 +182,23 @@ def _research(service, project, workspace):
                         next=research_next(research.get("approach")))
         items.append(item)
     return items
+
+
+def _vault(service, project, workspace):
+    """Počty Schránky `{workspace, briefs, gates, research}`: živé briefy, jejich platné brány celkem a výzkumy.
+    V main (Schránka tam nežije) prostor posledního plánu srdce, stejně jako nástroj `vault`; nečitelné = None."""
+    try:
+        if workspace == "main":
+            workspace = brain_files.active_workspace(brain_files.brain_dir(service, project)) or workspace
+        with service.reading(project):
+            rows = latest_rows(service.db_for(project), project, workspace)
+    except UNREADABLE:
+        return None
+    live, disciplines = live_ids(rows), effective_disciplines(rows)
+    briefs = [rows[fid] for fid in live if rows[fid]["kind"] == "brief"]
+    return {"workspace": workspace, "briefs": len(briefs),
+            "gates": sum(len(gate_state(row, disciplines.get(row["fragment_id"]))["on"]) for row in briefs),
+            "research": sum(rows[fid]["kind"] == "research" for fid in live)}
 
 
 def _link_work(link):
@@ -338,7 +357,7 @@ def collect(service, project, workspace):
     return {"workTickets": work_tickets, "conflicts": conflicts, "conflictsTotal": conflicts_total, "runs": runs, "intake": entries, "milestones": reached, "active_milestones": active, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
             "tickets": tickets, "escalations": escalations, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
-            "research": _research(service, project, workspace)}
+            "research": _research(service, project, workspace), "vault": _vault(service, project, workspace)}
 
 
 def _intent(facts):
@@ -417,6 +436,16 @@ def _work_ticket_lines(facts):
                        if item["machine"].get("pins") else "")
                     + (f" · drží {item['sessionId']} od {item['updatedAt']}" if item["sessionId"] else "")
                     for item in last)]
+
+
+def _vault_lines(facts):
+    """SCHRÁNKA: jeden řádek s počty a nápovědou `vault ls`; prázdná nebo nečitelná Schránka = řádek chybí."""
+    vault = facts.get("vault")
+    if not vault or not (vault["briefs"] or vault["research"]):
+        return []
+    where = f" (prostor {vault['workspace']})" if vault["workspace"] != facts["workspace"] else ""
+    return [(f"SCHRÁNKA{where}: {vault['briefs']} briefů, {vault['gates']} bran, {vault['research']} výzkumů"
+             " · plánuj z ní: python opora_heart.py vault ls | vault show ID | vault plan")]
 
 
 def _approved(rule):
@@ -587,7 +616,7 @@ def render(facts, limit=LIMIT):
     """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
              f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts), *_escalation_lines(facts),
-             "PLÁN:", *_plan(facts), *_work_ticket_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
+             "PLÁN:", *_plan(facts), *_work_ticket_lines(facts), *_vault_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
     lines += _intake_lines(facts) + _requirement_lines(facts) + _milestone_lines(facts) + _conflict_lines(facts)
