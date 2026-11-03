@@ -3,6 +3,7 @@ import type { CanvasNode } from "@/shared/types/logic/types";
 import type { ProductBranch } from "@/project/product-tree/logic/product-tree";
 import CopyIdButton from "@/ui-kit/copy-id/components/CopyIdButton";
 import PageSections from "./PageSections";
+import { environmentAddress } from "@/project/architecture-editor/landing/logic/domain-kind";
 
 function rows(branches: ProductBranch[], onOpen: (id: string) => void, depth: number) {
   return branches.map(({ node, children }) => <li key={node.id} data-testid={"architecture-tree-" + node.id}>
@@ -23,7 +24,7 @@ export default function DomainPanel({ domain, pages, disabled, badge, onOpen, on
   const environment = domain.site?.kind === "application" ? domain.site.environments[0] : undefined;
   return <aside className="ae-sidebar domain-map__panel">
     <p className="domain-map__env">{(environment?.name ?? "Sdílená struktura").toUpperCase()} · DOMÉNA</p>
-    <div className="domain-map__host-row"><h3 className="domain-map__host">{environment?.host || domain.name}</h3><CopyIdButton id={domain.id} label="ID domény"/></div>
+    <div className="domain-map__host-row"><h3 className="domain-map__host">{environmentAddress(environment) || domain.name}</h3><CopyIdButton id={domain.id} label="ID domény"/></div>
     {badge}
     <p className="domain-map__purpose">{domain.purpose}</p>
     <button type="button" className="domain-map__add" disabled={disabled} data-testid={"architecture-add-page-" + domain.id} onClick={onAdd}>+ Přidat stránku</button>

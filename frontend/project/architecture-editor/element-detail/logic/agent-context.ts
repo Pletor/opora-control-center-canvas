@@ -59,7 +59,7 @@ export function agentContext(graph: Graph, nodeId: string, domainId: string): Ag
     : null;
   return {
     environment: env?.name.trim() || null,
-    host: env?.host.trim() || domain?.name.trim() || null,
+    host: env?.host?.trim() || domain?.name.trim() || null,
     page: pageNode ? {
       id: pageNode.id, name: label(pageNode),
       ...(pageSite?.goal ? { goal: pageSite.goal } : {}),

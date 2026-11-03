@@ -1,7 +1,7 @@
 import type { IconName } from "../logic/library-families";
 import type { Tone } from "../logic/canvas-model";
 
-export type PageIconName = IconName | Tone | "web" | "app" | "admin" | "page" | "area" | "tree" | "library";
+export type PageIconName = IconName | Tone | "web" | "app" | "admin" | "android" | "ios" | "page" | "area" | "tree" | "library";
 
 /** Outline pictograms (currentColor, 24 grid). Meaning is always carried by the adjacent label. */
 const PATHS: Record<PageIconName, string> = {
@@ -19,6 +19,8 @@ const PATHS: Record<PageIconName, string> = {
   area: "M12 2l9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10",
   web: "M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18",
   app: "M4 4h16v16H4zM9 9h6v6H9z",
+  android: "M6 6h12v15H6zM9 6L7.5 3.5M15 6l1.5-2.5M10 10h.01M14 10h.01",
+  ios: "M7 2.5h10v19H7zM10.5 5h3M11 18.5h2",
   admin: "M12 9a3 3 0 100 6 3 3 0 000-6zM12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2",
   page: "M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5",
   tree: "M5 4v16M5 8h6M5 16h6M11 6h8v4h-8zM11 14h8v4h-8z",
