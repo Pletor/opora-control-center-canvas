@@ -4,10 +4,10 @@
 eskalaci srdce), úkol `failed` a sloučení karty `merge.done` (docs/brain-heart-orchestrator.md §4). `resolve` těsně před dávkou doplní k vstupům aktuální data z databáze (u selhaného úkolu
 zadání i report, aby srdce nové zadání psalo z původního), k lístku zkratku vstupu brány (`intake`: ID, stanovisko,
 podobné vstupy) a zahodí ty, které mezitím vyřešil někdo jiný (lístek už zodpovězený). Zpráva člověka projde vždy.
-`backlog` po startu supervisoru dohání to, co outbox už nepřinese (událost vznikla před prvním čtením kurzoru,
+`backlog` po startu srdce dohání to, co outbox už nepřinese (událost vznikla před prvním čtením kurzoru,
 třeba při restartu serveru): čekající lístky a nedávné zprávy člověka, které žádná dávka `ok` ještě neviděla.
 `milestone_wakes` je deterministický vstup bez vlastní události outboxu (spouštěč `milestone.done`,
-docs/navrhy/2026-10-30-metriky-a-spoustece.md §4): supervisor ho spočítá po události `card.closed` a při prvním
+docs/navrhy/2026-10-30-metriky-a-spoustece.md §4): srdce (`wakes.py`) ho spočítá po události `card.closed` a při prvním
 čtení projektu; splněný aktivní milník budí srdce jednou (`heart_triggers`) s odloženými požadavky k otevření.
 Stejnou cestou jdou spouštěče karet (`card_wakes`, `determinism/triggers.py`: too_big, retry, step_failed, stalled,
 over_budget) po událostech běhu a plánu (`TRIGGER_EVENTS`) a ruční změna plánu (`human_changes`: `changeset.accepted`,
@@ -21,7 +21,15 @@ srdce vstupem `idle` jednou na revizi plánu a počet sloučených karet, aby na
 """
 from datetime import UTC, datetime, timedelta
 
-from backend.brain_opora.determinism import brain_files, brief, brief_setting, idle, intake, milestones, triggers
+from backend.brain_opora.determinism import (
+    brain_files,
+    brief,
+    brief_setting,
+    idle,
+    intake,
+    milestones,
+    triggers,
+)
 from backend.brain_opora.determinism import brief_vault_link as vault_link
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore

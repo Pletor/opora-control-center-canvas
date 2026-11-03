@@ -52,22 +52,17 @@ def test_unknown_api_path_is_not_found_for_every_method(tmp_path):
         assert post.json()["error"] == "Neznámá cesta API."
 
 
-def test_flow_heart_switch_runs_the_engine_instead_of_the_supervisor(tmp_path, monkeypatch):
+def test_enabled_heart_runs_only_through_the_flow_engine(tmp_path, monkeypatch):
     monkeypatch.setenv("OPORA_HEART", "on")
-    monkeypatch.setenv("OPORA_FLOW_HEART", "on")
     app = create_app(tmp_path / "data")
     with TestClient(app, base_url="http://127.0.0.1:8740") as client:
-        assert app.state.heart.thread is None and app.state.heart.flow
         assert app.state.flow.thread.is_alive() and len(app.state.flow.hooks) == 1
+        assert app.state.flow.wakeup is app.state.heart.wakeup
         heart = [w for w in client.get("/api/flow/workflows").json()["workflows"] if w["kind"] == "heart"]
         assert [(w["name"], w["project_id"], w["active_n"]) for w in heart] == [("Srdce v1", None, 1)]
 
 
-def test_flow_heart_is_off_by_default(tmp_path, monkeypatch):
-    monkeypatch.setenv("OPORA_HEART", "on")
-    monkeypatch.delenv("OPORA_FLOW_HEART", raising=False)
-    monkeypatch.setattr("backend.brain_opora.heart.supervisor.HeartSupervisor._loop", lambda self: None)
-    app = create_app(tmp_path / "data")
+def test_disabled_heart_leaves_the_engine_without_the_heart_hook(tmp_path):
+    app = create_app(tmp_path / "data")  # OPORA_HEART=off (backend/conftest.py)
     with TestClient(app, base_url="http://127.0.0.1:8740"):
-        assert app.state.heart.thread is not None and not app.state.heart.flow
         assert app.state.flow.hooks == []

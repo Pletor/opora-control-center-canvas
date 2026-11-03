@@ -3,7 +3,7 @@
 Pevný tvar digestu destilace (`shape_digest`), pravidlo kódu nad verdiktem (`fix_verdict`), text `approach`
 pro schránku (`render_approach`; první řádek `Další krok: <next>` čte snímek) a společné kusy výzkumu i duelu:
 hledání `claude`, prostředí bez tokenu srdce a klíčů API, řádka pod-volání, výsledek a poslední objekt JSON.
-Odpovědi modelů jsou data: berou se z nich jen pole pevného tvaru. Supervisor soubor kopíruje do `brain/`.
+Odpovědi modelů jsou data: berou se z nich jen pole pevného tvaru. Dávka srdce (`command.py`) soubor kopíruje do `brain/`.
 """
 import json
 import os

@@ -33,7 +33,7 @@ def test_idle_reads_the_real_agent_state_and_a_ready_card_is_not_an_empty_fronti
     """Skutečná aplikace (OPORA-002): fakta prázdné fronty jdou z dokumentu agent-state; přijatý plán s kartou
     `ready` frontu prázdnou nemá, takže `idle_wakes` nebudí a důvod je None."""
     from backend.brain_opora.determinism import idle
-    from backend.brain_opora.heart.inputs import idle_wakes
+    from backend.flow.catalogs.heart.inputs import idle_wakes
 
     client, _, tmp_path = heart
     plan(tmp_path, opora_heart.PLAN_EXAMPLE)

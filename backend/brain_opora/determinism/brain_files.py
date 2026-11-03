@@ -1,7 +1,7 @@
 """Soubory složky `brain/` projektu, které čte snímek (docs/brain-heart.md §3a, §3b): zprávy, deník a skripty dílny.
 
 `messages.jsonl` drží zprávy člověka `{at, workspace, text}` a u předaných relé navíc `via` (jméno relace
-pracovníka, docs/brain-heart-orchestrator.md §8; supervisor je připíše dřív, než vstup zařadí) a u stejné věty
+pracovníka, docs/brain-heart-orchestrator.md §8; srdce (`flow/catalogs/heart/wakes.py`) je připíše dřív, než vstup zařadí) a u stejné věty
 jako dřívější `duplicate` (ID vstupu vstupní brány; taková zpráva srdce nebudí ani po restartu),
 `batches.jsonl` píše dávka srdce (`heart/batch.py`). Leží tu, ne v `heart/`, protože je čte i determinismus
 (snímek) a ten srdce importovat nesmí. Nečitelný soubor nebo poškozený řádek = nic, nikdy výjimka.
@@ -67,7 +67,7 @@ def _last(found, last):
 
 def messages(brain, workspace, last=5):
     """Posledních `last` zpráv člověka v pracovním prostoru (nejnovější poslední); `None` = všechny.
-    `workspace` None = zprávy všech prostorů (dohánění po startu supervisoru)."""
+    `workspace` None = zprávy všech prostorů (dohánění po startu srdce)."""
     found = [entry for entry in _entries(Path(brain) / MESSAGES)
              if workspace in (None, entry.get("workspace")) and isinstance(entry.get("text"), str)]
     return _last(found, last)

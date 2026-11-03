@@ -1,4 +1,4 @@
-"""Srdce v1: sdílené workflow `kind=heart`, které věrně opakuje dnešní supervisor (§3.2, §5 bod 2).
+"""Srdce v1: sdílené workflow `kind=heart`, které věrně opakuje dřívější napevno zadrátovaný plánovač dávek (§3.2, §5).
 
 Spouštěče → Jev → snímek → agent s modelem (Haiku + poradce Opus) a celým nástrojem `opora_heart.py`.
 Stropy dávek jsou parametry agenta (6 za hodinu, 1 na projekt, spánek 15 min po limitu předplatného),

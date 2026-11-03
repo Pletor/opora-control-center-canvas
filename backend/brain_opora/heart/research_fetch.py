@@ -4,7 +4,7 @@
 - `html_text`, `normalize`, `check_quote`: text stránky bez `script`/`style` a kontrola doslovné citace
   (podřetězec, nebo ≥ 80 % pětislovných šindelů; stránka pod 500 znaků textu je `unreachable`).
 - `clean_source`, `is_url`: zdroj zjištění od modelu. Ověření zjištění proti zdrojům je v `research_verify.py`.
-Supervisor soubor kopíruje do `brain/` vedle `opora_heart.py`.
+Dávka srdce (`command.py`) soubor kopíruje do `brain/` vedle `opora_heart.py`.
 """
 import json
 import re

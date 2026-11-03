@@ -7,11 +7,12 @@ import pytest
 
 from backend.brain_opora.decision import intake
 from backend.brain_opora.determinism import gate_setting, snapshot
-from backend.brain_opora.heart import batch, inputs
-from backend.brain_opora.heart.supervisor import HeartSupervisor, enabled
+from backend.brain_opora.heart import batch
 from backend.flow import workflows
-from backend.flow.catalogs.heart import seed
-from backend.flow.catalogs.heart.driver import HeartDriver, flow_heart_on
+from backend.flow.catalogs.heart import inputs, seed
+from backend.flow.catalogs.heart.driver import HeartDriver
+from backend.flow.catalogs.heart.heart import Heart
+from backend.flow.catalogs.heart.state import enabled
 from backend.flow.catalogs.heart.runtime import bind
 from backend.flow.graph_check import graph_errors
 from backend.flow.interpreter import get_run
@@ -32,7 +33,7 @@ def heart_env(db, monkeypatch, tmp_path):
 
     monkeypatch.setattr(batch, "run", run)
     service = SimpleNamespace(db=db, registry_lock=threading.RLock())
-    heart = HeartSupervisor(service, base_url="http://127.0.0.1:1", clock=lambda: clock[0], find=lambda: "claude")
+    heart = Heart(service, base_url="http://127.0.0.1:1", clock=lambda: clock[0], find=lambda: "claude")
     for name, value in {"collect": lambda now: None, "_token": lambda p, w: "tok", "_source": lambda p, w: None,
                         "brain": lambda p: tmp_path, "_advance_before_batch": lambda p, w: None}.items():
         setattr(heart, name, value)
@@ -47,8 +48,7 @@ def drain(env):
         env.jobs.pop(0)()
 
 
-def test_flag_and_seed_are_idempotent(db):
-    assert not flow_heart_on({}) and flow_heart_on({"OPORA_FLOW_HEART": " ON "})
+def test_seed_is_idempotent(db):
     assert graph_errors(seed.GRAPH) == []
     first, second = seed.ensure_active(db), seed.ensure_active(db)
     assert first == second
@@ -57,7 +57,7 @@ def test_flag_and_seed_are_idempotent(db):
 
 def test_message_runs_the_whole_batch_and_frees_the_project(heart_env):
     env = heart_env
-    assert env.heart.flow and env.heart.status("p1")["enabled"] == enabled()  # bez vlákna supervisoru
+    assert env.heart.status("p1")["enabled"] == enabled()
     env.heart.message("p1", "draft", "Postav stránku", now=1000.0, record_intake=False)
     [run_id] = env.driver.tick()
     assert env.heart.running == {"p1"}
@@ -114,7 +114,7 @@ def test_schedule_trigger_forces_full_card_scan(heart_env):
     env = heart_env
     env.heart.card_at["p1"] = 1000.0
     env.driver.tick()
-    assert env.heart.card_at and env.heart.card_poll == float("inf")
+    assert env.heart.card_at  # první průchod rozvrh nespustí
     env.clock[0] += 600
     env.driver.tick()
     assert env.heart.card_at == {} and env.heart.polled_at == float("-inf")

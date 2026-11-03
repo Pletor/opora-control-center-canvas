@@ -3,7 +3,7 @@
 Logika je v `backend/brain_opora/determinism/`: druhy požadavků v `kinds.py`, lístky a schránka v `gate.py`.
 Pracovník i srdce se prokazují hlavičkou `X-Opora-Gate-Token`; druhy srdce projdou jen s tokenem srdce.
 Na lístek odpovídá člověk (doklad UI) nebo srdce téhož projektu (`answeredBy = "heart"`, docs/brain-heart.md §5).
-Odpověď člověka na eskalaci srdce srdce hned budí (`supervisor.message`, docs/brain-heart-channel.md §2);
+Odpověď člověka na eskalaci srdce srdce hned budí (`heart.message`, docs/brain-heart-channel.md §2);
 odpověď na lístek pracovníka srdce nebudí.
 Každé odmítnutí je JSON s `error`, `code` a `hint`.
 """
@@ -33,17 +33,17 @@ def _human_project(service, request):
     return project
 
 
-def _wake_heart(service, supervisor, project, ticket):
+def _wake_heart(service, heart, project, ticket):
     """Odpověď člověka na eskalaci srdce = zpráva člověka srdci (obchází hodinový strop, #149)."""
     workspace = gate.heart_escalation_workspace(service, project, ticket["ticketId"])
-    if supervisor is None or workspace is None or not gate_setting.is_on(service, project):
+    if heart is None or workspace is None or not gate_setting.is_on(service, project):
         return
-    supervisor.message(project, workspace,
-                       f"ODPOVĚĎ ČLOVĚKA na {ticket['ticketId']}: {gate.answer_text(ticket['answer'])}",
-                       record_intake=False)  # odpověď na otázku srdce není nový požadavek pro vstupní bránu
+    heart.message(project, workspace,
+                  f"ODPOVĚĎ ČLOVĚKA na {ticket['ticketId']}: {gate.answer_text(ticket['answer'])}",
+                  record_intake=False)  # odpověď na otázku srdce není nový požadavek pro vstupní bránu
 
 
-def create_gate_router(service, supervisor=None):
+def create_gate_router(service, heart=None):
     router = APIRouter(prefix="/api/gate", tags=["gate"])
 
     def session_of(request, roles=ROLES):
@@ -109,8 +109,8 @@ def create_gate_router(service, supervisor=None):
     async def answer(ticket_id: str, request: Request):
         try:
             project = request.query_params.get("project") or ""
-            heart = bool(project) and heart_project(request) == project
-            by = "human" if request.state.actor == "human" else "heart" if heart else None
+            by_heart = bool(project) and heart_project(request) == project
+            by = "human" if request.state.actor == "human" else "heart" if by_heart else None
             if by is None:
                 raise GateError(403, "human_required", "Na lístek smí odpovědět jen člověk nebo srdce projektu.",
                                 HUMAN_HINT)
@@ -118,7 +118,7 @@ def create_gate_router(service, supervisor=None):
             payload = parse_body(await request.body())
             ticket = await run_in_threadpool(gate.answer, service, project, ticket_id, payload, by)
             if by == "human":
-                await run_in_threadpool(_wake_heart, service, supervisor, project, ticket)
+                await run_in_threadpool(_wake_heart, service, heart, project, ticket)
             return ticket
         except GateError as error:
             return _refused(error)

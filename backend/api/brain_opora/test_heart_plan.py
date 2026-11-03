@@ -1,6 +1,6 @@
 """Dávka plánu srdce přes skutečnou aplikaci (docs/brain-heart-orchestrator.md §3 O2, O2b): vzor z promptu projde
 validací `/api/canvas-plan`, odmítnutí nese text serveru a ostrý `plan` sám přijme graf tokenem srdce, takže první
-karta je pro orchestrátora `claim` ready. Supervisor ani model neběží."""
+karta je pro orchestrátora `claim` ready. Plánovač srdce ani model neběží."""
 import json
 import re
 from pathlib import Path

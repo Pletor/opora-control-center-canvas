@@ -1,7 +1,7 @@
 """Plánovač enginu toků na pozadí: vlákno z lifespan aplikace (`backend/app/factory.py`).
 
 Každý průchod (`TICK`, nebo hned po `wakeup`):
-- zavolá `tick()` háčků (dnes `HeartDriver` v režimu `OPORA_FLOW_HEART=on`: rozvrh, události a zprávy srdce),
+- zavolá `tick()` háčků (dnes `HeartDriver`, když je srdce povolené: rozvrh, události a zprávy srdce),
 - posune běhy, které na něco čekají: vypršelý deadline (větev `timeout`), uzel bez heartbeatu (navázání pokusem
   `attempt + 1`) a zařazené uzly, které nikdo nevykonal (pád mezi zápisy).
 Zámek registru drží jen kolem jednotlivých volání enginu, uzly mimo zámek si ho berou samy.

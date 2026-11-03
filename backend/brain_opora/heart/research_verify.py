@@ -4,7 +4,7 @@
   uloženému souboru; `cesta:řádek` jen uvnitř kořene zdroje, ± 20 řádků). Fakt je `verified` nebo `observed`.
 - `prefetched_urls`: zdroj ukazující na stažený soubor nahradí původní URL.
 - `observed_text`: výstupy nástrojů REA ze `stream-json` výzkumníka (chování stránky v prohlížeči).
-Supervisor soubor kopíruje do `brain/` vedle `opora_heart.py`.
+Dávka srdce (`command.py`) soubor kopíruje do `brain/` vedle `opora_heart.py`.
 """
 import hashlib
 import json
