@@ -44,7 +44,7 @@ export function editProductNode(node: CanvasNode, draft: ProductDraft): CanvasNo
 export function productFingerprint(node: Pick<CanvasNode, "name" | "purpose" | "site">): string {
   const site = node.site;
   return JSON.stringify([node.name, node.purpose, site?.kind,
-    site?.kind === "application" ? site.environments.map((env) => [env.name, env.host]) : site?.path,
+    site?.kind === "application" ? [site.platform ?? "web", site.environments.map((env) => [env.name, env.host ?? env.bundleId ?? ""])] : site?.path,
     ...(site?.kind === "application" ? [(site.journeys ?? []).map((journey) => [journey.id, journey.name, journey.purpose ?? null,
       journey.actor ?? null, journey.pointA ?? null, journey.pointB ?? null,
       journey.steps.map((step) => [step.id, step.page, step.label ?? null, step.shift ?? null, step.objection ?? null,

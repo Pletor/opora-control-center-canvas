@@ -10,5 +10,6 @@ První obrazovka editoru architektury: řádek Produkce a řádek Vývoj, v kaž
 - `components/UnassignedWorktrees.tsx` + `AssignDomainRow.tsx`: skupina Nepřiřazené se stromem a u každého worktree „Přiřadit k doméně“ (výběr z `logic/domain-choices.ts`). Chyba backendu (i 404/405, když endpoint ještě neběží) se ukáže u řádku.
 - `components/ArchiveShelf.tsx`: sbalené **Skladiště** na konci přehledu (aktér · krátké ID, doména, důvod, datum; větev v bublině), jen ke čtení, načte se při prvním rozbalení.
 - `logic/domain-choices.ts`: domény s jedním hostem pro výběr („Produkce · www.example.cz“) a popisek domény ve skladišti, test vedle.
-- `logic/domain-kind.ts` odvozuje druh z hostu (`app.` / `admin*` / jinak web), test vedle.
-- `styles/architecture-landing.css`, předpona `arch-landing`.
+- `logic/domain-kind.ts` odvozuje druh nejdřív z `site.platform` (Aplikace Android / Aplikace iOS), pak z hostu (`app.` / `admin*` / jinak web), test vedle. Mobilní doména nemá host: karta ukáže `bundleId` a žeton webu ani `healthPath` nemá (`isMobileDomain`, `environmentAddress`).
+- Vpravo od domén je panel **Komponenty** (`components/ComponentShelf.tsx`, na úzkém okně pod doménami): mřížka karet knihoven ze statického seznamu `logic/component-shelf.ts` (test vedle). Katalogové karty ukazují počet předloh z Knihovny (`library-catalog`) a „Vstup do editoru“ otevře jen čtecí `CatalogFamilyViewer`; Skills a Tools čtou registr Brainu (`BrainArtifactList`), Harness přehled čtení dokumentace (`HarnessReadsOverview`). Data načte `logic/use-component-shelf.ts`, volá ho `ArchitectureLanding`. „+ Vytvořit“ je v tomto milníku vypnuté.
+- `styles/architecture-landing.css`, předpona `arch-landing`; `styles/component-shelf.css`, předpona `component-shelf`.

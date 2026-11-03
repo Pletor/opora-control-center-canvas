@@ -12,6 +12,8 @@ import { domainChoices } from "../logic/domain-choices";
 import SplitConfirm from "./SplitConfirm";
 import UnassignedWorktrees from "./UnassignedWorktrees";
 import ArchiveShelf from "./ArchiveShelf";
+import ComponentShelf from "./ComponentShelf";
+import { useComponentShelf } from "../logic/use-component-shelf";
 import "../styles/architecture-landing.css";
 
 const LEGACY = "Původní sdílená struktura";
@@ -29,15 +31,17 @@ export type LandingLive = {
 };
 const newDomain = (): ProductDraft => ({ parentId: null, name: "", purpose: "", site: { kind: "application", environments: [{ name: "Produkce", host: "" }] } });
 
-/** Step 1: pick an environment and a domain; Production and Development rows, one card per domain. */
+/** Step 1: pick an environment and a domain; Production and Development rows, one card per domain, and the Components
+ *  library to the right (read-only, its data are read by `useComponentShelf`). */
 /** `lockReason` = proč jsou úpravy domén zakázané (věta stojí v `DomainLockNote` pod hlavičkou editoru, tady jde do `title`). */
-export default function ArchitectureLanding({ graph, disabled, lockReason = "", live, onOpen, onSave, onSplit }: {
-  graph: Graph; disabled: boolean; lockReason?: string; live?: LandingLive; onOpen: (id: string) => void;
+export default function ArchitectureLanding({ project, workspace, graph, disabled, lockReason = "", live, onOpen, onSave, onSplit }: {
+  project: string; workspace: string; graph: Graph; disabled: boolean; lockReason?: string; live?: LandingLive; onOpen: (id: string) => void;
   onSave: (draft: ProductDraft) => Promise<void>; onSplit: (id: string, host: string) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<ProductDraft | null>(null);
   const [split, setSplit] = useState<{ id: string; host: string } | null>(null);
   const [error, setError] = useState("");
+  const shelf = useComponentShelf(project, workspace);
   const apps = graph.nodes.filter((node) => node.site?.kind === "application");
   const group = (node: CanvasNode) => node.site?.kind === "application" && node.site.environments.length === 1 ? node.site.environments[0].name : LEGACY;
   const groups = [...new Set(["Produkce", "Vývoj", ...apps.map(group)])];
@@ -68,6 +72,8 @@ export default function ArchitectureLanding({ graph, disabled, lockReason = "", 
     </header>
     {notices.map((text) => <p key={text} className="arch-landing__alert" role="alert">{text}</p>)}
     {draft && <ArchitectureProductForm key={draft.id ?? "new"} initial={draft} disabled={disabled} onSave={onSave} onClose={() => setDraft(null)}/>}
+    <div className="arch-landing__layout">
+    <div className="arch-landing__domains">
     {groups.map((name) => {
       const items = apps.filter((node) => group(node) === name);
       return <section className="arch-landing__group" key={name}>
@@ -81,6 +87,9 @@ export default function ArchitectureLanding({ graph, disabled, lockReason = "", 
     })}
     {!!work?.unassigned.length && <UnassignedWorktrees worktrees={work.unassigned} choices={choices} stale={workStale} nav={live?.nav} onAssign={live?.onAssign}/>}
     {live?.worktreeLive && <ArchiveShelf shelf={live.shelf} choices={choices} onLoad={live.onLoadShelf}/>}
+    </div>
+    <ComponentShelf data={shelf}/>
+    </div>
     {split && <SplitConfirm host={split.host} error={error} disabled={disabled} onConfirm={confirmSplit} onCancel={() => setSplit(null)}/>}
   </main>;
 }

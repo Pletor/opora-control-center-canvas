@@ -46,8 +46,12 @@ export type JourneyStep = { id: string; page: string; label?: string; shift?: st
 /** Cesta zákazníka jako trychtýř stránek a proměna zákazníka: kdo (`actor`, 1–80), kde je na začátku (`pointA`, 1–200) a kým se stane
  * (`pointB`, 1–200). Zadává člověk, 2–30 kroků; vazby mezi kroky po mapě odvodí stroj (§6). Prázdné texty se neukládají. */
 export type CustomerJourney = { id: string; name: string; purpose?: string; actor?: string; pointA?: string; pointB?: string; steps: JourneyStep[] };
-/** Aplikace (doména): prostředí, volitelná cesta zdraví a cesty zákazníka; prázdné cesty se neukládají. */
-export type ApplicationSite = { kind: "application"; environments: { name: string; host: string }[]; healthPath?: string; journeys?: CustomerJourney[] };
+/** Platforma aplikace: web (výchozí, bez pole) nebo mobilní aplikace Android / iOS. */
+export type SitePlatform = "web" | "android" | "ios";
+/** Prostředí aplikace: web má `host`, mobilní aplikace místo něj `bundleId` (reverzní doménová notace, unikátní v grafu). */
+export type SiteEnvironment = { name: string; host?: string; bundleId?: string };
+/** Aplikace (doména): platforma, prostředí, volitelná cesta zdraví (jen web) a cesty zákazníka; prázdné cesty se neukládají. */
+export type ApplicationSite = { kind: "application"; platform?: SitePlatform; environments: SiteEnvironment[]; healthPath?: string; journeys?: CustomerJourney[] };
 /** Role sekce stránky (`docs/architektura-pro-agenty.md` §3.1). */
 export type PageSectionRole = "hero" | "cta" | "form" | "content" | "gallery" | "proof" | "faq" | "footer" | "custom";
 /** Sekce stránky: navrhuje ji agent v dávce, skládá a upravuje člověk. `intent` smí být prázdný; `moves` (1–120) říká,

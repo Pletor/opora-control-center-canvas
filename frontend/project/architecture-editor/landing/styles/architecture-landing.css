@@ -22,6 +22,12 @@
 .arch-landing__alert{margin:18px 0 0;padding:8px 12px;border-radius:8px;border:1px solid var(--danger);background:var(--danger-soft);color:var(--ae-text);font-size:12px}
 .arch-landing__stale{color:var(--gold);font-size:11px}
 
+/* Pod hlavičkou dva sloupce: vlevo domény (Produkce, Vývoj a práce na nich), vpravo užší panel Komponenty.
+   Domény dostanou víc místa, protože se na nich pracuje; knihovna je regál vedle, ze kterého se bere.
+   Pod 1180 px se panel zalomí pod domény, aby karty domén nebyly stěsnané. */
+.arch-landing__layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:clamp(20px,4vw,64px);align-items:start}
+.arch-landing__domains{min-width:0}
+
 /* Pruh prostředí: barevný štítek a krátká věta, aby bylo hned jasné, kde se kdo pohybuje. */
 .arch-landing__group{margin:34px 0 0}
 .arch-landing__group-title{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:14px;font-weight:400}
@@ -89,4 +95,5 @@
 .arch-landing__shelf-date{color:var(--ae-muted);white-space:nowrap}
 .arch-landing__retry{margin-left:8px}
 
+@media(max-width:1180px){.arch-landing__layout{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:760px){.arch-landing{padding:20px 12px calc(var(--account-corner-safe) + 36px) var(--account-corner-gutter)}.arch-landing__title{font-size:22px}.arch-landing__grid{grid-template-columns:1fr}.arch-landing__shelf-item{grid-template-columns:1fr}}
