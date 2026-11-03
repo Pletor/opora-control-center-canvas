@@ -819,6 +819,7 @@ export default function App() {
       selectWorkspace(request.workspace);
     },
     onOpenIntent: (pageId) => { setIntentPage(pageId); setProjectMapKind("intent"); },
+    onOpenSite: () => setProjectMapKind("site"),
   };
   // Modal „Nový worktree“: worktree vždy patří doméně (uzlu `site.kind = "application"`). Předvolí se
   // doména z živého panelu, jinak doména vybraného uzlu nebo vrstvy; bez domény nejde worktree založit.
@@ -1036,7 +1037,7 @@ export default function App() {
   // Úvodní obrazovka má týž rám jako zbytek aplikace, ale bez menu Editoru: nemá plátno ani vybranou kartu.
   if (screen === "home") return <>
     <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
-      <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} autonomy={agentAutonomy} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onOpenHeart={() => setScreen("heart")} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
+      <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} autonomy={agentAutonomy} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onOpenHeart={() => setScreen("heart")} onOpenSite={() => { setProjectMapKind("site"); changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
     </div>
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
     <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
@@ -1151,7 +1152,7 @@ export default function App() {
           z levého okraje rámu vyjíždí menu (Struktura, Schránka, Nastavení) nad plátnem, ne vedle
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
-      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} mapKind={projectMapKind} intentPage={intentPage} onCloseIntent={() => setProjectMapKind("architecture")} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} onOpenArchitecture={openStudioInArchitecture} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} mapKind={projectMapKind} intentPage={intentPage} onCloseIntent={() => setProjectMapKind("architecture")} onCloseSite={() => setProjectMapKind("architecture")} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} onOpenArchitecture={openStudioInArchitecture} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
       environment === "hub" ? <OporaHubWorkspace onDetailOpenChange={setHubDetailOpen} view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">

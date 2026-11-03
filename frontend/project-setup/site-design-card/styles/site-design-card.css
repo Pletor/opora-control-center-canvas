@@ -1,0 +1,10 @@
+/* DESIGN SYSTÉM WEBU (blok `site-design-card`)
+   Pod pipeline srdce stojí stejně stavěný rozcestník: vlevo nadpis a jedna věta, co design systém webu je a proč
+   ho AI potřebuje, vpravo jediné tlačítko do Správy webu. Nic se tu neukládá, proto nemá kartu jako nastavení,
+   jen linku nahoře; se srdcem tak tvoří řadu „kam dál z projektu“. */
+.site-design-card { display: flex; gap: var(--sp-5); align-items: center; justify-content: space-between; margin: var(--sp-5) 0; padding-top: var(--sp-5); border-top: 1px solid var(--line-strong); }
+.site-design-card__text { min-width: 0; }
+.site-design-card__title { margin: 0 0 var(--sp-2); font-size: var(--fs-4); }
+.site-design-card__lead { margin: 0; color: var(--ink-muted); max-width: 64ch; }
+.site-design-card__open { flex-shrink: 0; }
+@media (max-width: 800px) { .site-design-card { flex-direction: column; align-items: flex-start; } }

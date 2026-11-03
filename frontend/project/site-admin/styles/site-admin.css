@@ -1,0 +1,38 @@
+/* SPRÁVA WEBU (blok `site-admin`)
+   Celá plocha pod lištou projektu. Nahoře hlavička jako u plátna záměru: zpět do architektury, velký nadpis
+   „Nastavení webové stránky“ s jednou větou, co to je, a vpravo téma náhledu a Uložit. Pod ní dva sloupce z
+   `image9.png`: úzké menu částí vlevo a široký obsah vpravo, který se posouvá sám, aby menu i Uložit zůstaly na místě. */
+.site-admin { display: flex; flex: 1; flex-direction: column; width: 100%; min-width: 0; height: 100%; min-height: 0; background: var(--bg); color: var(--ink); }
+.site-admin__head { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-3) var(--sp-5); border-bottom: 1px solid var(--line); background: var(--surface); }
+.site-admin__back { padding: 4px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; color: var(--ink-2); font: inherit; font-size: var(--fs-2); cursor: pointer; }
+.site-admin__back:hover { color: var(--ink); border-color: var(--line-strong); }
+.site-admin__title { display: flex; flex-direction: column; gap: 2px; margin: 0; flex: 1; min-width: 0; font-size: var(--fs-4); }
+.site-admin__subtitle { font-size: var(--fs-1); font-weight: 400; color: var(--ink-muted); }
+.site-admin__theme { display: flex; align-items: center; gap: 6px; font-size: var(--fs-1); color: var(--ink-muted); }
+.site-admin__theme-select { padding: 3px 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font-size: var(--fs-2); }
+
+/* Uložit je jediná akce, která zapisuje; stav vedle ní říká revizi, a když je co uložit, svítí výstražnou barvou. */
+.site-admin__save { display: flex; align-items: center; gap: var(--sp-3); }
+.site-admin__status { font-size: var(--fs-1); color: var(--ink-muted); }
+.site-admin__status--dirty { color: var(--warn); }
+
+/* Konflikt, chyba a poznámky serveru jsou pruhy pod hlavičkou: konflikt a chyba výstražné, poznámky klidné.
+   Konflikt nikdy nic nezahodí sám, nabízí dvě cesty a rozhodne člověk. */
+.site-admin__alert, .site-admin__notes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-5); font-size: var(--fs-2); }
+.site-admin__alert { background: var(--danger-soft); color: var(--danger); border-bottom: 1px solid var(--danger-line); }
+.site-admin__notes { background: var(--info-soft); color: var(--ink-2); border-bottom: 1px solid var(--line); }
+.site-admin__notes-list { flex-basis: 100%; margin: 0; padding-left: 1.2em; font-size: var(--fs-1); }
+.site-admin__alert-action { padding: 3px 10px; border: 1px solid currentColor; border-radius: var(--radius); background: transparent; color: inherit; font: inherit; font-size: var(--fs-1); cursor: pointer; }
+
+.site-admin__body { display: grid; grid-template-columns: 240px 1fr; flex: 1; min-height: 0; }
+.site-admin__main { min-width: 0; overflow: auto; padding: var(--sp-5); }
+.site-admin__loading { color: var(--ink-muted); }
+
+/* Panel části: nadpis a jedna věta, proč ta část je, pak editor. Šířka je omezená, aby se dlouhé řádky
+   tokenů daly číst; tabulky barev se uvnitř posouvají vodorovně. Část bez editoru má tichý řádek „v dalším kroku“. */
+.site-admin__panel { display: flex; flex-direction: column; gap: var(--sp-4); max-width: 1400px; }
+.site-admin__panel-head { display: flex; flex-direction: column; gap: 4px; }
+.site-admin__panel-title { margin: 0; font-size: 20px; }
+.site-admin__panel-lead { margin: 0; color: var(--ink-muted); max-width: 80ch; }
+.site-admin__later { margin: 0; padding: var(--sp-4); border: 1px dashed var(--line-strong); border-radius: var(--radius); color: var(--ink-muted); }
+@media (max-width: 800px) { .site-admin__body { grid-template-columns: 1fr; } .site-admin__head { flex-wrap: wrap; } }

@@ -1,0 +1,54 @@
+/* BARVY DESIGN SYSTÉMU (blok `ds-colors`)
+   Nahoře řada témat jako štítky (první je výchozí a ostatní z něj dědí), pod ní pole na novou barvu a pak barvy po
+   skupinách podle kmene jména. Každá barva je jeden řádek: jméno s proměnnou, jeden sloupec na každé téma a usage.
+   Sloupce témat jdou vedle sebe, aby člověk viděl světlou a tmavou verzi téže barvy najednou a hned poznal, kde
+   kontrast neprojde. Řádky skupiny sdílejí šablonu mřížky, takže témata stojí v jednom sloupci pod sebou. */
+.ds-colors { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+
+/* Témata: štítek s přepisovatelným názvem, technickým id a malými tlačítky pořadí. Výchozí téma má akcentní linku. */
+.ds-colors__themes { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.ds-colors__theme { display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px 4px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.ds-colors__theme--first { border-color: var(--accent-line); }
+.ds-colors__theme-name { width: 120px; padding: 3px 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font: inherit; font-size: var(--fs-2); }
+.ds-colors__theme-id { font-size: 11px; color: var(--ink-muted); }
+.ds-colors__theme-add { display: inline-flex; gap: 4px; }
+
+/* Malá tlačítka (pořadí, odebrat) jsou tichá, ať nepřehluší hodnoty; přidání je akcentní, protože je to krok dál. */
+.ds-colors__icon { width: 24px; height: 24px; padding: 0; border: 1px solid transparent; border-radius: var(--radius); background: transparent; color: var(--ink-muted); cursor: pointer; }
+.ds-colors__icon:hover:not(:disabled) { border-color: var(--line); color: var(--ink); }
+.ds-colors__icon:disabled { opacity: 0.35; cursor: default; }
+.ds-colors__add { padding: 4px 10px; border: 1px solid var(--accent-line); border-radius: var(--radius); background: var(--accent-soft); color: var(--ink); font: inherit; font-size: var(--fs-2); cursor: pointer; }
+.ds-colors__add:disabled { opacity: 0.5; cursor: default; }
+.ds-colors__add-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.ds-colors__problem { color: var(--danger); }
+.ds-colors__empty { margin: 0; color: var(--ink-muted); }
+
+/* Skupina: tichý nadpis kmene a pod ním řádky. Řádek je mřížka; na úzké obrazovce se posouvá vodorovně, sloupce
+   témat se nikdy nezalamují pod sebe, protože by se ztratilo srovnání témat. */
+/* Hlavička sloupců nad skupinami: názvy témat přesně nad svými buňkami, tichým písmem jako popisky tabulky. */
+.ds-colors__header { display: grid; gap: var(--sp-3); padding: 0 calc(var(--sp-3) + 1px); font-size: 11px; color: var(--ink-muted); }
+.ds-colors__group { display: flex; flex-direction: column; gap: 6px; overflow-x: auto; }
+.ds-colors__group-title { margin: 0; font-size: var(--fs-1); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-muted); }
+.ds-colors__row { display: grid; gap: var(--sp-3); align-items: start; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.ds-colors__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ds-colors__name-input { padding: 4px 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font-family: var(--mono, ui-monospace, monospace); font-size: var(--fs-2); }
+.ds-colors__name-input--problem { border-color: var(--danger); }
+.ds-colors__var { font-size: 11px; color: var(--ink-muted); overflow-wrap: anywhere; }
+.ds-colors__usage { min-height: 52px; padding: 4px 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font: inherit; font-size: var(--fs-1); resize: vertical; }
+
+/* Buňka tématu: velký vzorek vlevo (barva po rozbalení aliasu), vpravo zdroj a hodnota, pod tím odznak kontrastu.
+   Rozbitý alias zčervená celou buňku, protože server by takovou hodnotu zahodil. */
+.ds-colors__cell { display: grid; grid-template-columns: 40px 1fr; gap: 4px var(--sp-2); align-items: center; }
+.ds-colors__cell--problem { color: var(--danger); }
+.ds-colors__swatch { width: 40px; height: 40px; border: 1px solid var(--line-strong); border-radius: var(--radius); background-image: linear-gradient(45deg, var(--surface-3) 25%, transparent 25%); }
+.ds-colors__cell-edit { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ds-colors__mode { padding: 2px 4px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font-size: var(--fs-1); }
+.ds-colors__value { display: flex; gap: 4px; align-items: center; }
+.ds-colors__picker { width: 28px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: none; cursor: pointer; }
+.ds-colors__text { flex: 1; min-width: 0; padding: 3px 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font-family: var(--mono, ui-monospace, monospace); font-size: var(--fs-1); }
+.ds-colors__resolved { font-family: var(--mono, ui-monospace, monospace); font-size: 11px; color: var(--ink-muted); }
+
+/* Odznak kontrastu podle WCAG: AAA a AA zeleně, nevyhovující červeně; číslo poměru a dvojice, proti které se měřilo. */
+.ds-colors__badge { grid-column: 1 / -1; justify-self: start; padding: 1px 6px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.ds-colors__badge--AAA, .ds-colors__badge--AA { background: var(--ok-soft); color: var(--ok); }
+.ds-colors__badge--fail { background: var(--danger-soft); color: var(--danger); }

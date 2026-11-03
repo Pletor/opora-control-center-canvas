@@ -9,6 +9,7 @@ import { loadNotice, staleNote, type LiveSlot } from "@/project/architecture-edi
 import { webLoadNotice, webView, type WebLive } from "@/project/architecture-editor/live-status/logic/web-slots";
 import type { ArchiveShelfState } from "@/project/architecture-editor/live-status/logic/worktree-archive";
 import { domainChoices } from "../logic/domain-choices";
+import { domainKindOf } from "../logic/domain-kind";
 import SplitConfirm from "./SplitConfirm";
 import UnassignedWorktrees from "./UnassignedWorktrees";
 import ArchiveShelf from "./ArchiveShelf";
@@ -34,8 +35,10 @@ const newDomain = (): ProductDraft => ({ parentId: null, name: "", purpose: "", 
 /** Step 1: pick an environment and a domain; Production and Development rows, one card per domain, and the Components
  *  library to the right (read-only, its data are read by `useComponentShelf`). */
 /** `lockReason` = proč jsou úpravy domén zakázané (věta stojí v `DomainLockNote` pod hlavičkou editoru, tady jde do `title`). */
-export default function ArchitectureLanding({ project, workspace, graph, disabled, lockReason = "", live, onOpen, onSave, onSplit }: {
+export default function ArchitectureLanding({ project, workspace, graph, disabled, lockReason = "", live, onOpen, onManageSite, onSave, onSplit }: {
   project: string; workspace: string; graph: Graph; disabled: boolean; lockReason?: string; live?: LandingLive; onOpen: (id: string) => void;
+  /** Správa webu projektu; na kartě se nabídne jen webové doméně. */
+  onManageSite?: () => void;
   onSave: (draft: ProductDraft) => Promise<void>; onSplit: (id: string, host: string) => Promise<void>;
 }) {
   const [draft, setDraft] = useState<ProductDraft | null>(null);
@@ -80,7 +83,7 @@ export default function ArchitectureLanding({ project, workspace, graph, disable
         <h3 className="arch-landing__group-title"><span className={"arch-landing__tag arch-landing__tag--" + toneOf(name)}>{name}</span>{GROUP_NOTE[name] && <span className="arch-landing__note">{GROUP_NOTE[name]}</span>}</h3>
         {name === LEGACY && <p className="arch-landing__note">Tyto starší aplikace mají více hostů nebo zatím žádný. Jejich uložené stránky zůstávají společné.</p>}
         <div className="arch-landing__grid">
-          {items.map((node) => <DomainCard key={node.id} node={node} tone={toneOf(name)} disabled={disabled} live={cardLive(node)} onOpen={() => onOpen(node.id)} onEdit={() => edit(node)} onSplit={(host) => { setError(""); setSplit({ id: node.id, host }); }}/>)}
+          {items.map((node) => <DomainCard key={node.id} node={node} tone={toneOf(name)} disabled={disabled} live={cardLive(node)} onOpen={() => onOpen(node.id)} onManageSite={domainKindOf(node) === "web" ? onManageSite : undefined} onEdit={() => edit(node)} onSplit={(host) => { setError(""); setSplit({ id: node.id, host }); }}/>)}
         </div>
         {!items.length && <p className="arch-landing__empty">Zatím žádná doména.</p>}
       </section>;
