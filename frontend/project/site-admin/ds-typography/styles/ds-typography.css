@@ -1,0 +1,42 @@
+/* TYPOGRAFIE DESIGN SYSTÉMU (blok `ds-type`)
+   Nahoře vedle sebe dvě krátké tabulky, ze kterých styly berou písmo: rodiny (stacky) a nahrané fonty. Pod nimi
+   skupiny stylů. Každý styl začíná velkou živou ukázkou v podkladu a textu webu, protože typografii člověk posuzuje
+   okem; pole s čísly jsou pod ukázkou drobná a v jedné řadě, aby se dalo ladit a hned vidět výsledek. */
+.ds-type { display: flex; flex-direction: column; gap: var(--sp-4); }
+.ds-type__columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: var(--sp-4); }
+.ds-type__block { display: flex; flex-direction: column; gap: 6px; padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.ds-type__title { margin: 0; font-size: var(--fs-1); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-muted); }
+.ds-type__empty { margin: 0; font-size: var(--fs-2); color: var(--ink-muted); }
+.ds-type__error { margin: 0; color: var(--danger); font-size: var(--fs-1); }
+.ds-type__var { font-size: 11px; color: var(--ink-muted); overflow-wrap: anywhere; }
+
+/* Pole jsou tichá a malá, mono písmo nesou jen technické hodnoty (klíče, jména stylů). */
+.ds-type__input { min-width: 0; padding: 3px 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font: inherit; font-size: var(--fs-2); }
+.ds-type__input--mono { font-family: var(--mono, ui-monospace, monospace); }
+.ds-type__input--short { width: 92px; }
+.ds-type__input--wide { flex: 1; }
+.ds-type__input--problem { border-color: var(--danger); }
+.ds-type__family, .ds-type__font { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.ds-type__font-sample { width: 36px; font-size: 20px; text-align: center; color: var(--ink); }
+.ds-type__remove { width: 24px; height: 24px; padding: 0; border: 1px solid transparent; border-radius: var(--radius); background: transparent; color: var(--ink-muted); cursor: pointer; }
+.ds-type__remove:hover { border-color: var(--line); color: var(--ink); }
+
+/* Přidání je akcentní štítek; nahrání fontu je tentýž štítek kolem skrytého výběru souboru. */
+.ds-type__add { align-self: flex-start; display: inline-flex; align-items: center; padding: 4px 10px; border: 1px solid var(--accent-line); border-radius: var(--radius); background: var(--accent-soft); color: var(--ink); font: inherit; font-size: var(--fs-2); cursor: pointer; }
+.ds-type__add:disabled { opacity: 0.5; cursor: default; }
+.ds-type__upload--busy { opacity: 0.6; cursor: progress; }
+.ds-type__file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* Skupina: hlavička s názvem, rodinou a poznámkou, pod ní styly jako karty s ukázkou. */
+.ds-type__group { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.ds-type__group-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.ds-type__group-name { width: 160px; font-weight: 600; }
+.ds-type__style { display: flex; flex-direction: column; gap: 6px; padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+
+/* Ukázka stojí v náhledu tokenů webu: podklad `surface` a text `ink` webu (když je systém má), písmo ze stylu.
+   Dlouhá ukázka se zalomí, nikdy nevyteče mimo kartu. */
+.ds-type__preview { padding: var(--sp-3); border-radius: var(--radius); background: var(--surface); color: var(--ink); overflow: hidden; }
+.ds-type__sample { margin: 0; overflow-wrap: anywhere; }
+.ds-type__fields { display: flex; flex-wrap: wrap; gap: 6px var(--sp-3); align-items: flex-end; }
+.ds-type__field { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--ink-muted); }
+.ds-type__field--wide { flex: 1 1 220px; }

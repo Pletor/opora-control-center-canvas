@@ -49,6 +49,8 @@ export type ArchitectureLiveProps = {
   onOpenCard: (request: CardRequest) => void;
   /** Otevře plátno záměru stránky (`projectView=intent&page=<id>`, vyřizuje App). */
   onOpenIntent?: (pageId: string) => void;
+  /** Otevře Správu webu projektu (`projectView=site`, vyřizuje App). */
+  onOpenSite?: () => void;
 };
 
 const EMPTY_GRAPH: Graph = { nodes: [], edges: [] };
@@ -194,7 +196,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
     {scopeError ? <div className="ae-route-error"><p role="alert">{scopeError}</p><button onClick={() => navigate(null)}>Zpět na domény</button></div> : !ready || !store.view ? <p className="ae-loading">Načítám architekturu…</p> : !domain ? <ArchitectureLanding graph={graph} disabled={structureDisabled} lockReason={locks.structure?.text}
       live={{ web: live.web, work: live.work, worktreeLive: live.worktreeLive, nav, onCreateWorktree: liveProps.onCreateWorktree,
         onAssign: admin.assign, shelf: admin.shelf, onLoadShelf: admin.loadShelf }}
-      onOpen={(id) => navigate(id)} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
+      onOpen={(id) => navigate(id)} onManageSite={liveProps.onOpenSite} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
     : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} initialJourneyId={journeyEdit} onJourneyOpened={() => setJourneyEdit(undefined)} pages={pages} disabled={structureDisabled} onOpen={openScope}
       work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys} cardStates={cards.states} mapCheck={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding} decompose={decompose}
       intent={liveProps.onOpenIntent && { intents, onOpen: liveProps.onOpenIntent }}

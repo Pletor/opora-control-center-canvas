@@ -1,0 +1,32 @@
+/* ŠKÁLY DESIGN SYSTÉMU (blok `ds-scale`): Spacing, Corner radius, Shadows
+   Nahoře jedna věta o rodině (poznámka, např. „4px base“), pod ní tokeny jako řádky: jméno s proměnnou, hodnota,
+   usage a vedle hodnoty ukázka. Ukázka je to podstatné: mezera je pruh své šířky, zaoblení čtverec se svým rohem,
+   stín karta, která se zvedá z podkladu. Člověk tak škálu čte očima, ne čísly. */
+.ds-scale { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ds-scale__note { display: flex; flex-direction: column; gap: 4px; max-width: 520px; font-size: var(--fs-1); color: var(--ink-muted); }
+.ds-scale__empty { margin: 0; color: var(--ink-muted); }
+.ds-scale__input { padding: 4px 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font: inherit; font-size: var(--fs-2); }
+.ds-scale__input--mono { font-family: var(--mono, ui-monospace, monospace); }
+.ds-scale__input--problem { border-color: var(--danger); }
+
+/* Řádek: jméno, hodnoty s ukázkou, usage a odebrání. Stín má hodnotu pro každé téma, proto se hodnoty skládají
+   vedle sebe a každá má svou ukázku v tom tématu. */
+.ds-scale__row { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(260px, 2.4fr) minmax(180px, 1.4fr) auto; gap: var(--sp-3); align-items: start; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.ds-scale__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ds-scale__var { font-size: 11px; color: var(--ink-muted); overflow-wrap: anywhere; }
+.ds-scale__values { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.ds-scale__value { display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; min-width: 0; }
+.ds-scale__usage { min-height: 52px; font-size: var(--fs-1); resize: vertical; }
+.ds-scale__remove { width: 24px; height: 24px; padding: 0; border: 1px solid transparent; border-radius: var(--radius); background: transparent; color: var(--ink-muted); cursor: pointer; }
+.ds-scale__remove:hover { border-color: var(--line); color: var(--ink); }
+.ds-scale__add { align-self: flex-start; padding: 4px 10px; border: 1px solid var(--accent-line); border-radius: var(--radius); background: var(--accent-soft); color: var(--ink); font: inherit; font-size: var(--fs-2); cursor: pointer; }
+
+/* Ukázka stojí v náhledu tokenů projektu: podklad je `surface` webu (když ho systém má), aby stín i roh vypadaly
+   jako na webu. Mezera je akcentní pruh, roh a stín jsou karty 56 × 40. */
+.ds-scale__preview { display: flex; align-items: center; gap: var(--sp-2); min-height: 56px; padding: var(--sp-2) var(--sp-3); border-radius: var(--radius); background: var(--surface-2); }
+.ds-scale__preview--shadow { background: var(--surface, #fff); }
+.ds-scale__swatch { display: block; flex-shrink: 0; }
+.ds-scale__swatch--spacing { height: 12px; min-width: 1px; border-radius: 2px; background: var(--accent); }
+.ds-scale__swatch--radius { width: 56px; height: 40px; border: 2px solid var(--accent); background: var(--accent-soft); }
+.ds-scale__swatch--shadow { width: 56px; height: 40px; border-radius: 6px; background: var(--surface-raised, var(--surface, #fff)); }
+.ds-scale__theme { font-size: 11px; color: var(--ink-muted); }

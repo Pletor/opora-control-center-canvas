@@ -15,8 +15,10 @@ export type DomainCardLive = {
 };
 
 /** One domain: icon of its kind with a quiet ID chip, host, web badge, "kind · purpose", work on it, link to its page map and a quiet Edit. */
-export default function DomainCard({ node, tone, disabled, live, onOpen, onEdit, onSplit }: {
+export default function DomainCard({ node, tone, disabled, live, onOpen, onManageSite, onEdit, onSplit }: {
   node: CanvasNode; tone: "prod" | "dev" | "legacy"; disabled: boolean; live?: DomainCardLive;
+  /** Správa webu (design systém a nastavení webu); rodič ji dá jen webové doméně. */
+  onManageSite?: () => void;
   onOpen: () => void; onEdit: () => void; onSplit: (host: string) => void;
 }) {
   const environments = node.site?.kind === "application" ? node.site.environments : [];
@@ -36,6 +38,7 @@ export default function DomainCard({ node, tone, disabled, live, onOpen, onEdit,
     </div>)}
     <div className="arch-landing__actions">
       <button type="button" className="arch-landing__open" data-testid={"architecture-open-domain-" + node.id} onClick={onOpen}>Otevřít mapu domény</button>
+      {onManageSite && <button type="button" className="arch-landing__quiet" data-testid={"architecture-manage-site-" + node.id} onClick={onManageSite}>Správa webu</button>}
       <button type="button" className="arch-landing__quiet" disabled={disabled} onClick={onEdit}>Upravit</button>
     </div>
   </article>;

@@ -2,15 +2,18 @@ import type {ProjectMapKind} from '@/project/shell/logic/project-view';
 import ArchitectureEditor, {type ArchitectureLiveProps} from '@/project/architecture-editor/components/ArchitectureEditor';
 import Studio from '@/project/studio/components/Studio';
 import IntentCanvas from '@/project/intent-canvas/components/IntentCanvas';
+import SiteAdmin from '@/project/site-admin/components/SiteAdmin';
 
 /** Hlavní stránka skládá hotové komponenty; kontext a dokumentový editor zůstávají v Editoru. */
-export default function ProjectWorkspace({project,workspace,mapKind,intentPage,onCloseIntent,projectName,onGraphChanged,onOpenEditor,onOpenArchitecture,architectureLive}:{
+export default function ProjectWorkspace({project,workspace,mapKind,intentPage,onCloseIntent,onCloseSite,projectName,onGraphChanged,onOpenEditor,onOpenArchitecture,architectureLive}:{
   projectName?:string;
   mapKind:ProjectMapKind;
   /** Stránka plátna záměru (`page` v adrese); bez ní se záměr neotevře. */
   intentPage?:string;
   /** Zpět ze záměru do Architektury projektu; rozsah editoru (doména, stránka) zůstal v adrese. */
   onCloseIntent?:()=>void;
+  /** Zpět ze Správy webu (`projectView=site`) do Architektury projektu. */
+  onCloseSite?:()=>void;
   project:string;workspace:string;
   onGraphChanged:()=>void;
   onOpenEditor:(id:string)=>void;
@@ -23,6 +26,8 @@ export default function ProjectWorkspace({project,workspace,mapKind,intentPage,o
   if (mapKind === 'studio') return <Studio key={JSON.stringify([project,workspace])} project={project} workspace={workspace} worktreeLive={architectureLive.worktreeLive} onOpenArchitecture={onOpenArchitecture}/>;
   // Záměr stránky (plátno 2) patří jedné stránce projektu; zpět vede do Architektury s jejím zachovaným rozsahem.
   if (mapKind === 'intent' && intentPage) return <IntentCanvas key={project+':'+intentPage} project={project} page={intentPage} onBack={()=>onCloseIntent?.()}/>;
+  // Správa webu: jeden dokument na projekt (design systém a nastavení webu), sdílený všemi doménami.
+  if (mapKind === 'site') return <SiteAdmin key={project} project={project} onBack={()=>onCloseSite?.()}/>;
   // Editor architektury se klíčuje jen projektem: přepnutí worktree nechá otevřenou doménu i stránku a jen znovu načte obsah (docs/domeny-a-worktree.md §10).
   return <ArchitectureEditor key={JSON.stringify([project])} project={project} workspace={workspace} projectName={projectName} onGraphChanged={onGraphChanged} onOpenEditor={onOpenEditor} live={architectureLive}/>;
 }

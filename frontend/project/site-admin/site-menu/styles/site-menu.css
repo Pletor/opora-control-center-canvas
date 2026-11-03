@@ -1,0 +1,16 @@
+/* MENU SPRÁVY WEBU (blok `site-menu`)
+   Levý sloupec jako v `image9.png`: čtyři skupiny pod sebou, každá s tichým nadpisem a odsazenými položkami, takže
+   oko nejdřív najde skupinu (Nastavení, Vzhled, GDPR, Design System) a pak část. Design System je oddělený linkou,
+   protože to je jiný druh práce: ostatní skupiny říkají, jak web funguje, Design System, jak vypadá. */
+.site-menu { display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-4) var(--sp-3); overflow: auto; border-right: 1px solid var(--line); background: var(--surface); }
+.site-menu__group { display: flex; flex-direction: column; gap: 2px; }
+.site-menu__group--design { padding-top: var(--sp-4); border-top: 1px solid var(--line-strong); }
+.site-menu__label { margin: 0 0 var(--sp-1); padding: 0 var(--sp-2); font-size: var(--fs-1); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-muted); }
+
+/* Položka je celý řádek, aby se na ni dobře mířilo; vybraná má měkký akcent jako aktivní karta jinde v aplikaci.
+   Části, které přijdou v dalším kroku, jsou vidět (člověk ví, co web bude umět), ale ztlumené a se štítkem „brzy“. */
+.site-menu__item { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: 6px var(--sp-3); border: 0; border-radius: var(--radius); background: transparent; color: var(--ink-2); font: inherit; font-size: var(--fs-2); text-align: left; cursor: pointer; }
+.site-menu__item:hover { background: var(--surface-2); color: var(--ink); }
+.site-menu__item--active { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.site-menu__item--later { color: var(--ink-muted); }
+.site-menu__soon { font-size: 10px; color: var(--ink-muted); }

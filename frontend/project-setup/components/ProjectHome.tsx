@@ -8,18 +8,21 @@ import type { AgentAutonomyApi } from "@/shared/agent-autonomy/logic/use-agent-a
 import HeartPipelineCard from "@/project-setup/heart-pipeline/components/HeartPipelineCard";
 import { heartPipelineSummary } from "@/project-setup/heart-pipeline/logic/heart-pipeline";
 import { useHeartData } from "@/project/heart-canvas/logic/use-heart-data";
+import SiteDesignCard from "@/project-setup/site-design-card/components/SiteDesignCard";
 import "@/project-setup/styles/project-home.css";
 
 type Draft = SettingsSnapshot & { dirty: boolean };
 const drafts = new Map<string, Draft>();
 
-export default function ProjectHome({ projects, draftProject, projectId, jobs, autonomy, onChoose, onRefresh, onOpen, onOpenHeart, onRemove, onConnected }: {
+export default function ProjectHome({ projects, draftProject, projectId, jobs, autonomy, onChoose, onRefresh, onOpen, onOpenHeart, onOpenSite, onRemove, onConnected }: {
   projects: Project[]; draftProject?: Project; projectId: string; jobs: Job[];
   /** Plná autonomie agentů otevřeného projektu (drží a ukládá App přes useAgentAutonomy). */
   autonomy: AgentAutonomyApi;
   onChoose: (id: string, kind?: string) => void; onRefresh: () => Promise<void>; onOpen: () => void; onRemove: () => void;
   /** Otevře samostatnou obrazovku srdce projektu (`screen=heart`, vyřizuje App). */
   onOpenHeart: () => void;
+  /** Otevře Správu webu projektu (`projectView=site`, vyřizuje App). */
+  onOpenSite: () => void;
   onConnected?: () => void;
 }) {
   const [form, setForm] = useState<Draft | null>(null);
@@ -126,6 +129,7 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, a
         <AgentAutonomySwitch autonomy={autonomy.autonomy} disabled={autonomy.loading || busy} saving={autonomy.saving} error={autonomy.error} onChange={(full) => { void autonomy.setFull(full); }} />
       </section>
       <HeartPipelineCard summary={heartPipelineSummary(heart.workflow, heart.versions, heart.runs, heart.stalls)} loading={heart.loading} error={heart.error} onOpen={onOpenHeart} />
+      <SiteDesignCard onOpen={onOpenSite} />
     </main>
   </div>;
 }
