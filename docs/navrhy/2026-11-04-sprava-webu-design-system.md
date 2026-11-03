@@ -62,7 +62,9 @@ Jeden dokument JSON na projekt: `<projekt>/site/design-system.json`, s revizí (
     "email": {"provider", "host", "port", "secure", "from", "replyTo", "secretRef"},   // heslo nikdy, jen odkaz na tajemství
     "header": {"logoAsset", "nav": "source:pages|manual", "items": [...], "cta": {"label", "pageId"}, "sticky", "variant"},
     "footer": {"columns": [{"title", "links": [...]}], "legal", "social": [...], "variant"},
-    "buttons": [{"name", "component": "Button", "variant", "tokens": {...}}],
+    "appearance": "pohled na design.tokens, počítá server, neukládá se",
+    "buttons": {"sizes": {"sm|md|lg": {...}}, "variants": {"<slug>": {"label", "preset": "solid|outline|ghost|link", "states": {"default", "hover", "active", "focusVisible", "disabled"}}}},
+    "customCss": {"button": {"<varianta>": "css relativně k :scope, sanitizuje tinycss2 do components.css"}},
     "fonts": "→ design.type.fonts",
     "gdpr": {"cookieBar": {"enabled", "position", "text", "categories": ["necessary", "analytics", "marketing"], "policyPageId", "consentDays"}, "contact"}
   },

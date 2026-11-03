@@ -1,6 +1,8 @@
 """Dokument Správy webu projektu: normalizace a validace (`docs/navrhy/2026-11-04-sprava-webu-design-system.md` §2).
 
-Jeden dokument na projekt `{v, revision, title, lastChange, settings, design}`. `revision` a `lastChange` píše
+Jeden dokument na projekt `{v, revision, title, lastChange, settings, design}`. `settings.appearance` je pohled
+na tokeny (`appearance.py`), `settings.buttons` tlačítka (`buttons.py`), `settings.customCss` jejich vlastní CSS
+(`custom_css.py`). `revision` a `lastChange` píše
 jen server (`store.py`), z těla se zahodí. Chyba tvaru (neznámý klíč, špatný typ, překročený počet) =
 `SiteAdminInvalid` (HTTP 422). Neplatná hodnota tokenu se zahodí s poznámkou (`tokens.py`).
 
@@ -10,6 +12,7 @@ Tajemství do dokumentu nepatří: klíč, který zní jako heslo, token nebo AP
 
 import re
 
+from backend.project.site_admin import appearance, buttons, custom_css
 from backend.project.site_admin.tokens import SiteAdminInvalid, clamp, normalize_tokens, shape
 
 SECRET = re.compile(r"pass|heslo|secret|token|api.?key|credential", re.IGNORECASE)
@@ -63,8 +66,6 @@ SETTINGS = {
     "footer": record({"columns": items(12, record({"title": text(200), "links": items(50, LINK)})),
                       "legal": text(2000), "social": items(20, record({"name": text(64), "url": text(2000)})),
                       "variant": text(64)}),
-    "buttons": items(40, record({"name": text(64), "component": text(64), "variant": text(64),
-                                 "tokens": ("map", 40, text(200))})),
     "gdpr": record({"cookieBar": record({"enabled": boolean,
                                          "position": one_of("bottom", "top", "bottom-left", "bottom-right"),
                                          "text": text(2000),
@@ -81,7 +82,7 @@ def _check(value, rule, path):
     elif rule[0] == "record":
         shape(isinstance(value, dict), f"{path} musí být objekt.")
         for key, inner in value.items():
-            # Pole schématu (`secretRef`, `tokens` tlačítka) projdou; jiný klíč, který zní jako tajemství, má vlastní zprávu.
+            # Pole schématu (`secretRef`) projdou; jiný klíč, který zní jako tajemství, má vlastní zprávu.
             shape(key in rule[1] or not SECRET.search(str(key)),
                   f"{path}.{key}: tajemství do dokumentu nepatří, ulož ho mimo a dej jen secretRef.")
             shape(key in rule[1], f"{path}: neznámé pole {key}.")
@@ -97,13 +98,19 @@ def _check(value, rule, path):
     return value
 
 
-def _settings(raw):
+def _settings(raw, tokens, base_tokens, notes):
+    """Pevné části podle `SETTINGS`, Vzhled jako pohled na tokeny, tlačítka a vlastní CSS; vrací (settings, tokeny)."""
     raw = {} if raw is None else raw
     shape(isinstance(raw, dict), "settings musí být objekt.")
-    unknown = sorted(set(raw) - set(SETTINGS))
+    unknown = sorted(set(raw) - set(SETTINGS) - {"appearance", "buttons", "customCss"})
     shape(not unknown, f"settings: neznámá část {', '.join(unknown)}.")
-    return {key: _check(raw.get(key, [] if key == "buttons" else {}), rule, f"settings.{key}")
-            for key, rule in SETTINGS.items()}
+    settings = {key: _check(raw.get(key, {}), rule, f"settings.{key}") for key, rule in SETTINGS.items()}
+    if raw.get("appearance") is not None:
+        tokens = normalize_tokens(appearance.project(raw["appearance"], tokens, base_tokens or tokens, notes), notes)
+    settings["appearance"] = appearance.view(tokens)
+    settings["buttons"] = buttons.normalize(raw.get("buttons"), tokens, notes)
+    settings["customCss"] = custom_css.normalize(raw.get("customCss"), settings["buttons"]["variants"], notes)
+    return settings, tokens
 
 
 def _text_field(value, limit, path):
@@ -172,9 +179,7 @@ def _asset_groups(raw):
     return out
 
 
-def _design(raw, notes):
-    raw = {} if raw is None else raw
-    shape(isinstance(raw, dict), "design musí být objekt.")
+def _design(raw, tokens, notes):
     unknown = sorted(set(raw) - {"readme", "sections", "tokens", "components", "assetGroups", "cover"})
     shape(not unknown, f"design: neznámé pole {', '.join(unknown)}.")
     cover = raw.get("cover")
@@ -182,15 +187,18 @@ def _design(raw, notes):
     return {
         "readme": _text_field(raw.get("readme"), MAX_README, "design.readme"),
         "sections": _sections(raw.get("sections")),
-        "tokens": normalize_tokens(raw.get("tokens"), notes),
+        "tokens": tokens,
         "components": _components(raw.get("components"), notes),
         "assetGroups": _asset_groups(raw.get("assetGroups")),
         "cover": {"preview": _text_field(cover.get("preview"), MAX_PREVIEW, "design.cover.preview")} if cover else None,
     }
 
 
-def normalize(document):
-    """Tělo od klienta → `(dokument bez revision/lastChange, poznámky o zahozených hodnotách)`."""
+def normalize(document, base=None):
+    """Tělo od klienta → `(dokument bez revision/lastChange, poznámky)`.
+
+    `base` je uložený dokument: Vzhled zapíše jen pole, která se liší od pohledu na jeho tokeny (`appearance.py`).
+    """
     shape(isinstance(document, dict), "Dokument musí být objekt.")
     unknown = sorted(set(document) - {"v", "revision", "title", "lastChange", "settings", "design"})
     shape(not unknown, f"Dokument: neznámé pole {', '.join(unknown)}.")
@@ -198,8 +206,11 @@ def normalize(document):
     title = document.get("title", "")
     shape(isinstance(title, str) and len(title) <= 200, "title musí být text do 200 znaků.")
     notes = []
-    return {"v": 1, "title": title, "settings": _settings(document.get("settings")),
-            "design": _design(document.get("design"), notes)}, notes
+    design = {} if document.get("design") is None else document["design"]
+    shape(isinstance(design, dict), "design musí být objekt.")
+    tokens = normalize_tokens(design.get("tokens"), notes)
+    settings, tokens = _settings(document.get("settings"), tokens, base and base["design"]["tokens"], notes)
+    return {"v": 1, "title": title, "settings": settings, "design": _design(design, tokens, notes)}, notes
 
 
 def empty():

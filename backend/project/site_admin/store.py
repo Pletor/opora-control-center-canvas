@@ -71,11 +71,12 @@ def write(service, project, expected_revision, document, note=None):
         raise SiteAdminInvalid("expectedRevision musí být celé číslo ≥ 0.")
     if note is not None and (not isinstance(note, str) or len(note) > 280):
         raise SiteAdminInvalid("note je jeden řádek do 280 znaků.")
-    normalized, notes = normalize(document)
     with service.lock_for(project):
-        current = read(service, project)["revision"]
+        stored = read(service, project)
+        current = stored["revision"]
         if expected_revision != current:
             raise SiteAdminConflict(f"Dokument mezitím uložil někdo jiný (revize {current}, zápis nad {expected_revision}).")
+        normalized, notes = normalize(document, stored)
         change = {"by": "human", "via": "page", "at": datetime.now(UTC).isoformat(timespec="seconds")}
         saved = {**normalized, "revision": current + 1, "lastChange": change | ({"note": note} if note else {})}
         _atomic(_document_path(service, project), json.dumps(saved, ensure_ascii=False, indent=2).encode("utf-8"))
