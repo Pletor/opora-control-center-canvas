@@ -13,10 +13,9 @@
   display: flex;
   align-items: stretch;
 }
-/* Obsah prostředí bere celý rám, ať je to shell Editoru, plocha Projektu, nebo rozcestník
+/* Obsah prostředí bere celý rám, ať je to shell Editoru, nebo rozcestník
    projektů na úvodní obrazovce; `min-width: 0` mu dovolí se zúžit, místo aby rám přetekl. */
 .editor-frame > .workspace-shell,
-.editor-frame > .project-layout,
 .editor-frame > .project-home {
   flex: 1;
   min-width: 0;

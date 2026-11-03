@@ -1,0 +1,13 @@
+/* OBRAZOVKA SRDCE (blok `heart-screen`)
+   Srdce je plátno nejvyšší úrovně, ne záložka architektury: zabírá celé okno, nahoře jen tenká vlastní hlavička
+   (návrat na projekt, jméno projektu, štítek plátna 1) a pod ní celé plátno srdce. Hlavička je nízká, aby graf
+   workflow dostal skoro všechnu výšku, a návrat stojí vlevo jako první věc, kterou oko najde. */
+.heart-screen { display: flex; flex-direction: column; height: 100dvh; min-height: 0; background: var(--bg); color: var(--ink); }
+.heart-screen__head { display: flex; gap: var(--sp-4); align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.heart-screen__back { padding: 4px 10px; font-size: 12px; }
+.heart-screen__title { display: flex; gap: 8px; align-items: baseline; margin: 0; font-size: 14px; font-weight: 600; }
+.heart-screen__project { color: var(--ink-muted); font-size: 11px; font-weight: 400; }
+
+/* Štítek vpravo připomíná, kde člověk je: plátno 1 patří LLM, které projekt řídí, ne kódu projektu. */
+.heart-screen__tag { margin-left: auto; color: var(--ink-muted); font-size: 11px; }
+.heart-screen__canvas { display: flex; flex: 1; min-height: 0; }
