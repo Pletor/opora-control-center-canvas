@@ -14,6 +14,8 @@ os.environ['OPORA_HARNESS_MEMORY_WORKER'] = '0'
 os.environ['OPORA_GUARDS_WORKER'] = '0'
 # Srdce mozku (docs/brain-heart.md) testy nikdy nespouští: žádný proces `claude`, plánovač srdce řídí test ručně.
 os.environ['OPORA_HEART'] = 'off'
+# Generované skilly Brainu (`.claude/skills/` v repu, backend/brain/local_skills.py) testy nepřepisují.
+os.environ['OPORA_BRAIN_LOCAL_SKILLS'] = '0'
 # Sdílené hodnoty cache čtení (karta P3) se nesmí měnit na místě: v testech to hlídá otisk
 # hodnoty při každém čtení z cache (backend/canvas/read_cache.py).
 os.environ['OPORA_READ_CACHE_GUARD'] = '1'

@@ -1,6 +1,8 @@
-"""Idempotentní naplnění Brainu při startu (§3.4): plugin `opora-heart` z repa a `ponytail` z instalace.
+"""Idempotentní naplnění Brainu při startu (§3.4): pluginy `opora-heart` a `opora-control-center` z repa a `ponytail`
+z instalace.
 
-`opora-heart` leží v `seed/opora-heart/` (skilly `heart` = systémový prompt srdce, `vyslech` = postup výslechu).
+`opora-heart` leží v `seed/opora-heart/` (skilly `heart` = systémový prompt srdce, `vyslech` = postup výslechu),
+`opora-control-center` v `seed/opora-control-center/` (skill práce s plátnem přes OporaHub, se skripty a jejich testy).
 `ponytail` (MIT) se bere z nainstalovaného pluginu Claude Code (nejvyšší verze v cache), do Brainu jdou jeho skilly
 a licence; když na stroji není, seed ho přeskočí a zaloguje. Plugin, který už v Brainu je, seed nepřepisuje, a artefakt
 s aktivní verzí nechá být: další verze přicházejí přes registr (kandidát → eval → aktivace), ne ze seedu. Jedinou
@@ -18,11 +20,13 @@ LOGGER = logging.getLogger(__name__)
 SEED_DIR = Path(__file__).resolve().parent / "seed"
 PONYTAIL_CACHE = Path.home() / ".claude" / "plugins" / "cache" / "ponytail" / "ponytail"
 MESSAGE = "seed: {plugin}"
+REPO_PLUGINS = ("opora-heart", "opora-control-center")
+SKIP = {"__pycache__", ".pytest_cache"}  # stopy běhu testů skriptů, ne obsah pluginu
 
 
 def _files(folder):
     return {path.relative_to(folder).as_posix(): path.read_text(encoding="utf-8")
-            for path in sorted(folder.rglob("*")) if path.is_file()}
+            for path in sorted(folder.rglob("*")) if path.is_file() and not SKIP & set(path.parts)}
 
 
 def _version_key(path):
@@ -70,9 +74,10 @@ def _register(db, store, plugin, files):
 
 
 def ensure(db, data_root, ponytail_cache=None):
-    """Plugin `opora-heart` a `ponytail` v Brainu s artefakty skillů a první verzí `active`; podruhé nic nemění."""
+    """Pluginy z repa a `ponytail` v Brainu s artefakty skillů a první verzí `active`; podruhé nic nemění."""
     store = Store(data_root)
-    _register(db, store, "opora-heart", _files(SEED_DIR / "opora-heart"))
+    for plugin in REPO_PLUGINS:
+        _register(db, store, plugin, _files(SEED_DIR / plugin))
     ponytail = ponytail_files(ponytail_cache)
     if ponytail is None:
         LOGGER.info("Brain: ponytail není nainstalovaný (%s), seed ho přeskočil.", ponytail_cache or PONYTAIL_CACHE)

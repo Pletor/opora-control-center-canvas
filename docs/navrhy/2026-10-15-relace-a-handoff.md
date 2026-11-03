@@ -50,7 +50,7 @@ Všechno níže je **necommitnuté a nestageované**. K16 jako celek **není akc
 
 - HEAD `416fc2f`. Necommitnuté cizí: `docs/navrhy/2026-10-14-vyvoj-tajemstvi-opory-v-platne.md`, `docs/navrhy/2026-10-15-relace-b-handoff.md` (nesahat).
 - Vlastněné cesty: `backend/editor/brief_vault/`, `backend/api/editor/` jen router Schránky, `frontend/editor/brief-vault-dock/`,
-  `frontend/editor/node-detail/brief-vault/`, `.claude/skills/opora-control-center/` (cycle nástroje), `docs/schranka-*`, tento handoff.
+  `frontend/editor/node-detail/brief-vault/`, `backend/brain/seed/opora-control-center/skills/opora-control-center/` (cycle nástroje), `docs/schranka-*`, tento handoff.
 - Nesahám: node-card, board, control-tower, area, project/maps, `App.tsx`, `CLAUDE.md`, shared types, `database/schema`, cizí návrhy.
 - První ověřitelný krok: mapa princip → implementace → mezera (subagent čte 00–09 a kód Schránky), pak kontrakt řezu v `docs/schranka-bunka.md`.
 
@@ -621,7 +621,7 @@ Diff: `%TEMP%\opora-a-final\diff.txt`.
   | Příkaz | Výsledek | Exit |
   |---|---|---|
   | `npx vitest run …/duel` | 28 passed (4 soubory) | **0** |
-  | `uv run pytest .claude/skills/opora-control-center/scripts` | 134 passed | **0** |
+  | `uv run pytest backend/brain/seed/opora-control-center/skills/opora-control-center/scripts` | 134 passed | **0** |
   | `npm test` | 184 souborů / 1 270 testů | **0** |
   | `npm run build` | v pořádku | **0** |
   | `uv run pytest backend` | 2 219 passed, 4 skipped, 2 failed (jen známé testy graphify: `test_generate_uses_official_graphify_and_persists_output`, `test_real_graphify_refresh_publishes_only_selected_project`, `assert 'failed' == 'succeeded'`), dokončeno 17:34 | **1** |

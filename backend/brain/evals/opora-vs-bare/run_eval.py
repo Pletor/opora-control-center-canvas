@@ -41,7 +41,7 @@ from pathlib import Path
 
 FLOW = Path(__file__).resolve().parent
 REPO = FLOW.parents[3]
-SKILL_SRC = REPO / ".claude" / "skills" / "opora-control-center"
+SKILL_SRC = REPO / "backend" / "brain" / "seed" / "opora-control-center" / "skills" / "opora-control-center"
 JOURNEY_TOOLS = ["journey_run.py", "journey_run_logic.py", "journey_run_browser.py"]
 sys.dont_write_bytecode = True  # žádné __pycache__ ve složce evalu
 sys.path.insert(0, str(FLOW))

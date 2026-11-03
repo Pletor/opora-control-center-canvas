@@ -421,7 +421,7 @@ a `healthPath` **nejsou** mrtvé a zůstávají.
 `specification_context.py` `_navigation` (navigace v node-briefu, přidat `navLabel`); `frontend/shared/types/logic/types.ts` `NodeSite`;
 `ArchitectureProductForm.tsx` (oprava: změna cesty dnes zahodí ostatní klíče `site`); `ArchitectureDomainMap.tsx`;
 `PageCard.tsx`, `DomainPanel.tsx`; `product-tree.ts` `productFingerprint`; `frontend/project/architecture-editor/element-detail/logic/agent-context.ts`;
-docs `architektura-projektu.md`, `domeny-a-worktree.md`; skill `.claude/skills/opora-control-center/references/api.md`.
+docs `architektura-projektu.md`, `domeny-a-worktree.md`; skill `backend/brain/seed/opora-control-center/skills/opora-control-center/references/api.md`.
 
 **Hrana `carries` a komponenta `section`:** backend `graph.py` (`EDGE_KEY_SETS`, kontrola hodnot; klíč karty
 `card.section`), `canvas_plan_links.py`, OporaHub `opora_graph_build.py`, `opora_graph_records.py`,
@@ -431,15 +431,15 @@ docs `architektura-projektu.md`, `domeny-a-worktree.md`; skill `.claude/skills/o
 `frontend/hub/oporahub-overview/logic/overview.ts` (otisk grafu), `frontend/hub/graph-proposals/logic/graph-edits.ts`
 (dnes natvrdo `port: "next"`), `GraphProposalDetails.tsx`, `GraphChangeReview.tsx`; testy podle hlášení
 dopadů (grafové porty, plán, návrhy a změny grafu, node-brief, specifikace); docs `karta-pro-agenty.md`,
-`oporahub-graph-proposals.md`; skill `.claude/skills/opora-control-center/references/canvas-plan.md`, `workflow.md`, `planner.md`, `rozklad.md`,
-`.claude/skills/opora-control-center/assets/task-brief.md` (příklady ověřuje `.claude/skills/opora-control-center/scripts/test_skill_docs.py`). Změna `carries` na existující hraně
+`oporahub-graph-proposals.md`; skill `backend/brain/seed/opora-control-center/skills/opora-control-center/references/canvas-plan.md`, `workflow.md`, `planner.md`, `rozklad.md`,
+`backend/brain/seed/opora-control-center/skills/opora-control-center/assets/task-brief.md` (příklady ověřuje `backend/brain/seed/opora-control-center/skills/opora-control-center/scripts/test_skill_docs.py`). Změna `carries` na existující hraně
 mění digest pohledu a zneplatní rozpracovaný výstup obou koncových karet; to je správně.
 
 **`node-brief.architecture` (hotovo v etapě 7):** `node_brief.py` (+ `test_node_brief.py`), výřez
 `backend/project/architecture/node_architecture.py` a cesty `journeys.py` (+ testy), `journey.broken`
 a `journey.via-unknown` v `map_check.py`,
 čtení `GET /api/project-architecture/journeys`, projekce zadání bez `site.journeys` (`assignment_scope.py`,
-`specification_context.py`), skill `.claude/skills/opora-control-center/scripts/opora_read.py`
+`specification_context.py`), skill `backend/brain/seed/opora-control-center/skills/opora-control-center/scripts/opora_read.py`
 (souhrn) + `test_opora_read.py`, `references/api.md`, `karta-pro-agenty.md`; v mapě domény trychtýř cesty
 (`CustomerJourneys.tsx`, `JourneyFunnel.tsx`, `JourneyFunnelEditor.tsx`, `JourneyStepCard.tsx`, `JourneyStepVia.tsx`,
 logika `journeys.ts` a `journey-via.ts`) se signálem `via` a štítkem „chybí vazba“ u nerealizovaného přechodu

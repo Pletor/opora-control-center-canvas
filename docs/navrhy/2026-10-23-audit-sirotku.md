@@ -237,7 +237,7 @@ Každá dávka je samostatné PR z čerstvého `origin/main`; ověření `uv run
 - `backend/agent_control/` (celý), `backend/api/editor/hook_routes.py`, `hook_install_routes.py`,
   `backend/agent_installation/vscode_installer.py(+test)`, `tools/opora_hook.py(+test)`, registrace v
   `backend/app/factory.py`, výjimka loopback v `backend/app/remote_access.py`,
-  `.claude/skills/opora-control-center/references/hooks.md`, řádek v `docs/workflow-opora.md:35`,
+  `backend/brain/seed/opora-control-center/skills/opora-control-center/references/hooks.md`, řádek v `docs/workflow-opora.md:35`,
   zmínky v `docs/asistent.md:208`, `docs/vzdaleny-pristup.md`.
 - Proč bezpečné: UI smazáno 2026-10-14 (`eafc410`), `hooks.sqlite` 0 vazeb a 0 událostí, `clients/` prázdné.
 - Data: `P:/opora-data/agent-control/` nechat, smaže vlastník ručně po nasazení.

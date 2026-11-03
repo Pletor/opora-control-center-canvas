@@ -8,7 +8,7 @@ nebo se vyměnit, a má vzniknout postup, jak tvořit detail karet a řídit vý
 Souběžně běží relace A (Schránka řízená agenty, `docs/navrhy/2026-10-15-nocni-smena.md`). Tahle relace
 **nesahá** na: `brief-vault*` (frontend i backend), `brief_vault_mirror`, `integrations/mirror_client`,
 `tools/opora.py`, `docs/asistent.md`, `docs/schranka-*`, `CLAUDE.md`, `canvas_versions`, `database/schema`,
-`.claude/skills/opora-control-center/scripts/opora_cycle.py`.
+`backend/brain/seed/opora-control-center/skills/opora-control-center/scripts/opora_cycle.py`.
 
 Claude Design (MCP) je nedostupný (HTTP 403), design se dělá přes existující tokeny a zásady `frontend-design`.
 

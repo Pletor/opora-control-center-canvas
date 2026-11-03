@@ -1,4 +1,4 @@
-"""Piny Brainu v ticketu: výchozí ponytail, přidané ID artefaktu, po pluginech, neznámé ID 422, dělník je vidí."""
+"""Piny Brainu v ticketu: výchozí ponytail a opora-control-center, přidané ID artefaktu, po pluginech, neznámé ID 422, dělník je vidí."""
 from backend.brain import registry, seed
 from backend.brain.test_seed import fake_ponytail
 from backend.brain_opora.determinism.test_ticket import ISSUE, heart, refused, send, service, worker  # noqa: F401
@@ -10,12 +10,13 @@ def test_issue_adds_default_ponytail_and_requested_pins_by_plugin(service, tmp_p
     brain = heart(service)
     plain = send(service, brain, "ticket.issue", ISSUE)["ticket"]["machine"]["pins"]
     ponytail = registry.active(service.db, "opora:brain:skill:ponytail")
-    assert plain == [{"pin": ponytail["pin"], "plugin": "ponytail", "version": ponytail["version"],
-                      "zip": f"/api/brain-registry/pins/ponytail@{ponytail['version'][:12]}.zip"}]
+    assert plain[0] == {"pin": ponytail["pin"], "plugin": "ponytail", "version": ponytail["version"],
+                        "zip": f"/api/brain-registry/pins/ponytail@{ponytail['version'][:12]}.zip"}
+    assert [pin["plugin"] for pin in plain] == ["ponytail", "opora-control-center"]
     heart_pin = registry.active(service.db, "opora:brain:skill:heart")["pin"]
     issued = send(service, brain, "ticket.issue",
                   {**ISSUE, "pins": ["opora:brain:skill:vyslech", heart_pin]})["ticket"]
-    assert [pin["plugin"] for pin in issued["machine"]["pins"]] == ["ponytail", "opora-heart"]
+    assert [pin["plugin"] for pin in issued["machine"]["pins"]] == ["ponytail", "opora-control-center", "opora-heart"]
     stored = TicketStore(service.db_for("draft"), "draft").get(issued["ticketId"])
     assert stored["machine"]["pins"] == issued["machine"]["pins"]
     claimed = send(service, worker(service), "ticket.claim", {"ticketId": issued["ticketId"]})["ticket"]

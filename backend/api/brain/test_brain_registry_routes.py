@@ -26,8 +26,9 @@ def client_for(tmp_path):
 def test_artifacts_list_and_detail_with_versions(tmp_path):
     _, client = client_for(tmp_path)
     artifacts = client.get("/api/brain-registry/artifacts").json()["artifacts"]
-    assert [item["id"] for item in artifacts] == ["opora:brain:skill:heart", "opora:brain:skill:vyslech"]
-    pin = artifacts[0]["active"]["pin"]
+    assert [item["id"] for item in artifacts] == ["opora:brain:skill:opora-control-center", "opora:brain:skill:heart",
+                                                  "opora:brain:skill:vyslech"]
+    pin = artifacts[1]["active"]["pin"]
     assert pin.startswith("opora:brain:skill:heart@") and len(pin.split("@")[1]) == 12
     detail = client.get("/api/brain-registry/artifacts/opora:brain:skill:heart").json()
     assert detail["active"]["pin"] == pin and [v["status"] for v in detail["versions"]] == ["active"]
