@@ -1,0 +1,6 @@
+/* Přepínač pohledu Projektu sedí v horní liště jako dvojice tichých tlačítek vedle sebe: Architektura projektu
+   a Studio jsou dva pohledy na tutéž architekturu, proto vypadají stejně a liší se jen akcentem vybraného. */
+.project-map-navigation{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.project-map-navigation>span,.project-map-navigation>button{padding:5px 8px;border:1px solid var(--line);border-radius:4px;font-size:11px;white-space:nowrap}
+.project-map-navigation>button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+.project-map-navigation>button:disabled{opacity:.5;cursor:not-allowed}
