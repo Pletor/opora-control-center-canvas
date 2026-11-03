@@ -22,7 +22,8 @@ na žádnou doménu architektury, je v `unassigned`. Čisté funkce berou `now`;
 s obsahem `main`, bez Gitu `draft`; čte ho `work_status.architecture_graph`). Bez modelu, deterministicky: pořadí
 pravidel, pak id. Pravidla `journey.broken`, `journey.unrealized`, `journey.via-unknown` (sekce signálu přechodu,
 kterou stránka předchozího kroku nemá), `journey.unverified` (cesta bez prošlého a aktuálního dokladu přehrání;
-jen při čtení, doklady načte `map_check`), `page.no-goal`, `section.unrealized`, `section.unknown`,
+jen při čtení, doklady načte `map_check`), `page.no-goal`, `page.no-intent` (varování) a `page.intent-stale`
+(chyba; stav záměru stránky z `backend/flow/page_intents.py`, jen při čtení, načte ho `map_check`), `section.unrealized`, `section.unknown`,
 `command.no-receiver`, `state.no-error`, `edge.carries-unset`; komponenta je uzel pod nejbližší stránkou v řetězu
 `parentId`. Nová pole kontraktu se čtou jako nepovinná, nic se nedoplňuje.
 

@@ -207,3 +207,13 @@ def test_locate_names_the_card_where_each_finding_is_solved():
                        ("journey.unverified", "app"), ("journey.unverified", "a"),
                        ("journey.unverified", "app"), ("page.no-goal", "b"), ("edge.carries-unset", "c")]
     assert all("solverId" not in f for f in check_map(graph, runs)["findings"])
+
+
+def test_page_intent_rules_only_when_intents_are_given():
+    graph = {"nodes": [{"id": "a", "site": {"kind": "page", "goal": "Cíl"}}, {"id": "b", "site": {"kind": "page", "goal": "Cíl"}},
+                       {"id": "c", "site": {"kind": "page", "goal": "Cíl"}}], "edges": []}
+    assert check_map(graph)["findings"] == []
+    report = check_map(graph, intents={"a": "approved", "b": "stale"})  # stránka mimo `intents` je bez záměru
+    assert [(f["rule"], f["nodeId"]) for f in report["findings"]] == [("page.no-intent", "c"), ("page.intent-stale", "b")]
+    assert report["summary"]["page.no-intent"] == 1 and report["summary"]["page.intent-stale"] == 1
+    assert check_map(graph, intents={"a": "pending", "b": "pending", "c": "approved"})["findings"] == []

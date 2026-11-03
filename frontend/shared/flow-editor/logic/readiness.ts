@@ -8,7 +8,9 @@ export type ReadinessIssue = { nodeId: string | null; text: string };
 
 export function readinessIssues(graph: FlowGraph, types: NodeTypes): ReadinessIssue[] {
   const issues: ReadinessIssue[] = [];
-  if (!graph.nodes.some((node) => types.get(node.type)?.trigger)) issues.push({ nodeId: null, text: "Workflow nemá spouštěč." });
+  // Katalog bez spouštěčů (záměr stránky) se nespouští, spouštěč mu tedy nechybí.
+  const runnable = [...types.values()].some((spec) => spec.trigger);
+  if (runnable && !graph.nodes.some((node) => types.get(node.type)?.trigger)) issues.push({ nodeId: null, text: "Workflow nemá spouštěč." });
   for (const node of graph.nodes) {
     const spec = types.get(node.type);
     if (!spec) { issues.push({ nodeId: node.id, text: `${node.id}: neznámý typ ${node.type}.` }); continue; }

@@ -173,6 +173,8 @@ export default function App() {
     () => initialModeEnvironment.environment,
   );
   const [projectMapKind,setProjectMapKind] = useState<ProjectMapKind>(() => readProjectView(initial.get("projectView")));
+  /** Stránka otevřená na plátně záměru (`projectView=intent&page=<nodeId>`). */
+  const [intentPage,setIntentPage] = useState(() => initial.get("page") ?? "");
   function setMode(next: WorkspaceMode) {
     // Jiný mód = jiný pohled na vrstvu; šuplík z minulého pohledu by jen zakrýval plátno.
     dock.close();
@@ -424,6 +426,7 @@ export default function App() {
     if (selected) q.set("node", selected);
     if (wireframeMode) q.set("wireframe", "1");
     q.set("projectView", projectMapKind);
+    if (projectMapKind === "intent" && intentPage) q.set("page", intentPage);
     const currentRoute = new URLSearchParams(location.search);
     const switchedScope = (currentRoute.has("project") && currentRoute.get("project") !== project) || (currentRoute.has("workspace") && currentRoute.get("workspace") !== workspace);
     // The standalone editor owns these fields. Preserve invalid explicit IDs for its validation.
@@ -437,7 +440,7 @@ export default function App() {
     // Zanoření Studia (`studioFocus`, docs/studio.md §2) drží Studio samo; platí jen v jeho záložce a v tomtéž prostoru.
     if (!switchedScope && projectMapKind === "studio" && currentRoute.has("studioFocus")) q.set("studioFocus", currentRoute.get("studioFocus")!);
     history.replaceState(null, "", "/?" + q);
-  }, [project, workspace, parent, selected, mode, screen, wireframeMode, environment, projectMapKind]);
+  }, [project, workspace, parent, selected, mode, screen, wireframeMode, environment, projectMapKind, intentPage]);
   const completed = jobs
     .filter((j) => j.status === "complete" && j.project_id === project)
     .map((j) => j.id)
@@ -815,6 +818,7 @@ export default function App() {
       setPendingCard(request);
       selectWorkspace(request.workspace);
     },
+    onOpenIntent: (pageId) => { setIntentPage(pageId); setProjectMapKind("intent"); },
   };
   // Modal „Nový worktree“: worktree vždy patří doméně (uzlu `site.kind = "application"`). Předvolí se
   // doména z živého panelu, jinak doména vybraného uzlu nebo vrstvy; bez domény nejde worktree založit.
@@ -1146,7 +1150,7 @@ export default function App() {
           z levého okraje rámu vyjíždí menu (Struktura, Schránka, Nastavení) nad plátnem, ne vedle
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
-      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} onOpenArchitecture={openStudioInArchitecture} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} intentPage={intentPage} onCloseIntent={() => setProjectMapKind("architecture")} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} onOpenArchitecture={openStudioInArchitecture} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
       environment === "hub" ? <OporaHubWorkspace onDetailOpenChange={setHubDetailOpen} view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">

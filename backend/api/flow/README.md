@@ -3,13 +3,15 @@ Router engine toků (`backend/flow/`, kontrakt `docs/navrhy/2026-11-03-novy-zakl
 | Metoda a cesta | Co dělá |
 |---|---|
 | `GET /api/flow/node-types?kind=` | registr typů uzlů s `params` a porty (`name`, `direction`, `kind`, `cardinality`, `schema`) pro editor toků; `kind=page_intent` vrátí katalog záměru stránky |
+| `POST /api/flow/graph-check` `{kind, graph}` | ověření grafu bez zápisu podle katalogu druhu → `{ok, errors}` (srdce `intent propose --dry-run`) |
+| `GET /api/flow/page-intents?project=` | `{pages: [{pageId, state, workflowId?, activeN?, candidateN?, doneCount}]}` pro každou stránku přijatého grafu projektu (`site.kind = page`), `state` ∈ `none` / `pending` / `approved` / `stale` (`backend/flow/page_intents.py`); neznámý projekt 404 |
 | `GET /api/flow/workflows?project=&kind=&owner_ref=` | sdílená workflow a workflow projektu, u každého aktivní verze |
 | `POST /api/flow/workflows` `{kind, name, project_id?, owner_ref?}` | nové workflow; `page_intent` chce `project_id` a `owner_ref` `opora:page:<nodeId>`, duplicita 409 `owner_taken` |
 | `GET /api/flow/workflows/{id}/versions` | verze podle `n` |
 | `POST /api/flow/workflows/{id}/versions` `{graph, parent_version_id?}` | nový draft (graf se validuje) |
 | `POST /api/flow/versions/{id}/candidate` `{eval_run_id?}` | draft → candidate |
 | `POST /api/flow/versions/{id}/activate` | candidate nebo retired → active; `page_intent` 409 `approval_required` |
-| `POST /api/flow/versions/{id}/approve` | jen člověk: kandidát záměru stránky → active, log `version.approved` (canvas 2) |
+| `POST /api/flow/versions/{id}/approve` | jen člověk: kandidát záměru stránky → active, log `version.approved` (canvas 2) s `pageDigest` stránky v přijatém grafu |
 | `POST /api/flow/versions/{id}/reject` `{reason}` | jen člověk: kandidát záměru stránky → retired, log `version.rejected` s důvodem (canvas 2) |
 | `POST /api/flow/workflows/{id}/rollback` | návrat na předchozí verzi |
 | `POST /api/flow/versions/{id}/runs` `{payload?, node_id?}` | ruční spuštění; `page_intent` 409 `not_runnable` |

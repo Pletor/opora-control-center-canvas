@@ -4,7 +4,7 @@
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
 
 /** Pořadí pravidel jako `RULES` v `backend/project/architecture/map_check.py`. */
-export const MAP_CHECK_RULES = ["journey.broken", "journey.unrealized", "journey.via-unknown", "journey.unverified", "page.no-goal", "section.unrealized", "section.unknown",
+export const MAP_CHECK_RULES = ["journey.broken", "journey.unrealized", "journey.via-unknown", "journey.unverified", "page.no-goal", "page.no-intent", "page.intent-stale", "section.unrealized", "section.unknown",
   "command.no-receiver", "state.no-error", "edge.carries-unset"] as const;
 export type MapCheckRule = typeof MAP_CHECK_RULES[number];
 /** `solverId` = místo řešení (karta, zdroj hrany, stránka zdroje přechodu cesty, jinak aplikace; backend §5.1), jen při `locate`. */
@@ -23,6 +23,8 @@ export const MAP_CHECK_TEXT: Record<MapCheckRule, { label: string; advice: strin
   "journey.via-unknown": { label: "Signál přechodu míří na neznámou sekci", advice: "V kroku cesty vyberte sekci, kterou předchozí stránka má." },
   "journey.unverified": { label: "Cesta není ověřená", advice: "Přehrajte cestu harnessem (plán: journey-plan) a odevzdejte doklad." },
   "page.no-goal": { label: "Stránka nemá cíl", advice: "Doplňte cíl stránky ve formuláři stránky." },
+  "page.no-intent": { label: "Stránka nemá záměr", advice: "Otevřete Záměr stránky a nakreslete, co stránka dělá." },
+  "page.intent-stale": { label: "Záměr stránky je zastaralý", advice: "Stránka se změnila po schválení záměru. Projděte záměr a schvalte novou verzi." },
   "section.unrealized": { label: "Sekce nemá komponentu", advice: "Přiřaďte sekci aspoň jednu komponentu stránky." },
   "section.unknown": { label: "Karta odkazuje na neznámou sekci", advice: "Vyberte kartě sekci, kterou stránka má, nebo odkaz zrušte." },
   "command.no-receiver": { label: "Příkaz nikam nevede", advice: "Napojte vazbu příkazu na komponentu, která ho přijme." },

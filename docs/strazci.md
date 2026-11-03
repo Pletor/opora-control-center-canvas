@@ -38,7 +38,7 @@ zadání, kroky ani obsah karet a nikdy nepřijímají ani nezamítají návrhy 
 
 | id | každých | Co hlídá | Pravidla |
 |---|---|---|---|
-| `mapa` | 60 s, jen při změně hlavy architektury | kontrola mapy (`map_check`) nad přijatou architekturou | každý nález = finding (`severity warn`, `page.no-goal` a `journey.broken` `block` pro člověka) |
+| `mapa` | 60 s, jen při změně hlavy architektury | kontrola mapy (`map_check`) nad přijatou architekturou | každý nález = finding (`severity warn`, `page.no-goal` a `journey.broken` `block` pro člověka, `page.intent-stale` `block`) |
 | `prace` | 30 s | executions a nároky karet | `work.lease-expired` (nárok po termínu, karta dál „staví se“), `work.no-heartbeat` (běh bez zprávy déle než 10 min), `work.step-stalled` (krok `running` déle než 30 min) |
 | `cesty` | 120 s | `lastRun` cest | `journey.failed`, `journey.stale`, `journey.blocks-card` (karta čeká na uzavření a brání jí brána `journeys`) |
 | `pravda` | 300 s | synchronizace | `truth.worktree-behind` (worktree karty za `main` víc než 20 commitů), `truth.proposal-stale` (návrh grafu / změny čeká na člověka déle než 24 h) |

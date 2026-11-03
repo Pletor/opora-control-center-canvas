@@ -49,3 +49,5 @@ def test_page_intent_needs_entry_done_and_matching_edge_kinds():
         "Záměr stránky potřebuje aspoň jeden uzel intent.entry.",
         "Záměr stránky potřebuje aspoň jeden uzel intent.done."]
     assert graph_errors(lonely, INTENT_TYPES) == []  # pravidlo platí jen pro kind page_intent
+    no_done = {"nodes": nodes[:2], "edges": [edge("1", "in", "d")]}  # s hranami (dřív je kind hrany přepsal)
+    assert graph_errors(no_done, INTENT_TYPES, "page_intent") == ["Záměr stránky potřebuje aspoň jeden uzel intent.done."]

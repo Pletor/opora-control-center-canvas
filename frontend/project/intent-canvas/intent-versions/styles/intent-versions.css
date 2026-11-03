@@ -1,0 +1,30 @@
+/* LIŠTA VERZÍ ZÁMĚRU (blok `intent-versions`)
+   Jeden řádek pod hlavičkou plátna záměru. Vlevo vedle sebe tři místa: aktivní záměr (podle něj srdce plánuje karty),
+   kandidát (čeká na člověka) a rozpracovaný draft, když nějaký je. Prázdné místo zůstává jako pomlčka, aby člověk
+   viděl, že záměr zatím schválený nemá. Uprostřed rozdíl zobrazené verze proti aktivní, vpravo akce. */
+.intent-versions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--surface); font-size: 12px; }
+.intent-versions__chips { display: flex; gap: 4px; }
+
+/* Štítek verze nese číslo a pod ním roli. Aktivní má zelený rám (platí), kandidát zlatý (čeká na rozhodnutí), draft
+   čárkovaný (rozpracovaný). Zobrazená verze je vyplněná akcentem; prázdné místo je ztlumené a neklikatelné. */
+.intent-versions__chip { display: grid; justify-items: center; min-width: 58px; padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 6px;
+  background: var(--surface-2); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.intent-versions__chip--active { border-color: var(--ok); }
+.intent-versions__chip--candidate { border-color: var(--gold); }
+.intent-versions__chip--draft { border-style: dashed; }
+.intent-versions__chip--empty { color: var(--ink-muted); opacity: .6; cursor: default; }
+.intent-versions__chip--current { background: var(--accent-soft); outline: 2px solid var(--accent); }
+.intent-versions__status { color: var(--ink-muted); font-size: 9px; font-weight: 400; }
+.intent-versions__diff { padding: 2px 8px; border-radius: 4px; background: var(--surface-2); font-family: var(--mono, monospace); font-size: 11px; }
+
+/* Akce stojí vpravo. Neuložená úprava svítí zlatě a hlavní tlačítko je „Uložit draft“. U kandidáta je Schválit zelené
+   a Zamítnout červené; zamítnutí se rozbalí do řádku s povinným důvodem, protože důvod jde do logu a srdce z něj čte,
+   co příště navrhnout jinak. */
+.intent-versions__actions { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.intent-versions__dirty { color: var(--gold); }
+.intent-versions__button { padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; }
+.intent-versions__button--primary { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.intent-versions__button--approve { border-color: var(--ok); color: var(--ok); }
+.intent-versions__button--reject { border-color: var(--danger); color: var(--danger); }
+.intent-versions__reject { display: flex; gap: 6px; align-items: center; }
+.intent-versions__reason { width: 280px; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--bg); color: var(--ink); font: inherit; }

@@ -14,9 +14,12 @@ export function nextNodeId(graph: FlowGraph, type: string): string {
 export function addNode(graph: FlowGraph, types: NodeTypes, type: string, position: Point): { graph: FlowGraph; node: FlowNode } {
   const spec = types.get(type);
   if (!spec) throw new Error(`Neznámý typ uzlu ${type}.`);
-  const node: FlowNode = { id: nextNodeId(graph, type), type, type_version: spec.version, params: {}, position: { ...position } };
+  const node: FlowNode = { id: nextNodeId(graph, type), type, type_version: spec.version, params: seedParams(spec.params), position: { ...position } };
   return { graph: { ...graph, nodes: [...graph.nodes, node] }, node };
 }
+
+/** Parametry, které katalog typu popisuje, dostane nový uzel prázdné, aby je člověk v inspektoru jen vyplnil. */
+const seedParams = (described?: Record<string, string> | null) => Object.fromEntries(Object.keys(described ?? {}).map((key) => [key, ""]));
 
 /** Nový uzel z „+“ u portu: postaví se vedle (hlavní tok vpravo, sub-uzel pod agenta) a rovnou se připojí. */
 export function addConnected(graph: FlowGraph, types: NodeTypes, type: string, from: PortRef): FlowGraph {

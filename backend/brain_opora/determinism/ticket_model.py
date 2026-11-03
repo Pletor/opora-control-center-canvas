@@ -2,11 +2,12 @@
 
 Přechody hlídá jediná funkce `advance`; nepovolený přechod je 409 `ticket_state`. Tělo pro dělníka nenese ID
 (podstata, co postavit, otevřené cesty, na co si dát pozor, skills s pinem, kritérium hotovo), strojová vrstva
-(`cardId`, `executionId`, `cardVersion`, `department`, `profile`, `pins`) jde vedle. Pole jsou v camelCase jako ostatní druhy brány.
+(`cardId`, `executionId`, `cardVersion`, `department`, `profile`, `pins`, volitelně `intent`) jde vedle. Pole jsou v camelCase jako ostatní druhy brány.
 """
 import re
 
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid, shaped
+from backend.canvas.graph import valid_id
 
 STATES = ("draft", "issued", "claimed", "in_progress", "needs_answer", "delivered", "verified", "closed", "failed",
           "cancelled")
@@ -71,12 +72,25 @@ def body_payload(body):
             "doneCriteria": _texts(body["doneCriteria"], "doneCriteria", ISSUE_HINT, required=True)}
 
 
+def _intent(value):
+    """`machine.intent` `{workflowVersionId, nodeIds}`: kritéria `intent.done` schváleného záměru stránky, která ticket
+    naplňuje (docs/navrhy/2026-11-03-platno-2-zamer-stranky.md §4). Verzi a uzly ověří obsluha proti registru."""
+    hint = 'Například "intent": {"workflowVersionId": "<id aktivní verze>", "nodeIds": ["odeslano"]}.'
+    shaped(value, ("workflowVersionId", "nodeIds"), ids=("workflowVersionId",), hint=hint)
+    nodes = value["nodeIds"]
+    if not isinstance(nodes, list) or not nodes or len(nodes) > LIST_LIMIT or not all(map(valid_id, nodes)):
+        raise invalid(f"intent.nodeIds je 1–{LIST_LIMIT} ID uzlů intent.done.", hint)
+    return {"workflowVersionId": value["workflowVersionId"], "nodeIds": list(dict.fromkeys(nodes))}
+
+
 def issue_payload(payload):
-    """`ticket.issue` `{body, cardId?, executionId?, cardVersion?, department?, profile?, pins?, workspace?}` →
+    """`ticket.issue` `{body, cardId?, executionId?, cardVersion?, department?, profile?, pins?, intent?, workspace?}` →
     `(tělo, strojová vrstva)`; `department` / `profile` (oddělení a profil kanceláře) jsou krátké slugy nebo null.
     `pins` jsou ID artefaktů Brainu (`opora:brain:skill:<name>[@sha12]`); na piny s verzí a zipem je přeloží obsluha
-    (`backend/brain/pins.py`). `workspace` (prostor karty, jinak prostor tokenu srdce) čte obsluha zvlášť."""
-    shaped(payload, ("body",), ("cardId", "executionId", "cardVersion", "department", "profile", "pins", "workspace"),
+    (`backend/brain/pins.py`). `intent` (`_intent`) jde do strojové vrstvy jen zadaný. `workspace` (prostor karty, jinak
+    prostor tokenu srdce) čte obsluha zvlášť."""
+    shaped(payload, ("body",), ("cardId", "executionId", "cardVersion", "department", "profile", "pins", "intent",
+                                "workspace"),
            ids=("cardId", "executionId", "workspace"), hint=ISSUE_HINT)
     version = payload.get("cardVersion")
     if version is not None and (type(version) is not int or version < 0):
@@ -91,7 +105,8 @@ def issue_payload(payload):
         raise invalid("pins je seznam ID artefaktů Brainu (případně s @sha12).",
                       'Například "pins": ["opora:brain:skill:vyslech"].')
     machine = {key: payload.get(key) for key in ("cardId", "executionId", "cardVersion", "department", "profile")}
-    return body_payload(payload["body"]), {**machine, "pins": pins}
+    intent = {"intent": _intent(payload["intent"])} if "intent" in payload else {}
+    return body_payload(payload["body"]), {**machine, "pins": pins, **intent}
 
 
 WORK_PORTS = ("next", "block")  # vazby práce: pořadí (`next`) a výsledek bloku karty (`block`, docs/karta-pro-agenty.md)

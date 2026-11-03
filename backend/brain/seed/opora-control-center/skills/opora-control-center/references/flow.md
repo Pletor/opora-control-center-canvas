@@ -27,10 +27,17 @@ porty `data`. Záměr se nespouští (`runs` → 409 `not_runnable`). Srdce ulo�
 vrátí 409 `approval_required`: kandidáta schválí nebo zamítne jen člověk v UI (`approve` / `reject`, jinak 403/428).
 Běžící aplikaci proti aktivní verzi ověří `tools/journey_run.py --intent <nodeId>` (plán `intent-plan`, doklad
 `intent-runs`, [api.md](api.md)); neprošlý uzel jde do logu `intent.failed` přes stejný vstup jako `POST /api/flow/log`.
+Stav záměru každé stránky vrací `GET /api/flow/page-intents?project=`: `none` (bez záměru), `pending` (kandidát čeká),
+`approved`, `stale` (stránka, tedy `site.path`, `goal`, `feel` nebo `sections`, se změnila po schválení; otisk
+`pageDigest` zapíše schválení do logu). Kontrola mapy to hlásí jako `page.no-intent` a `page.intent-stale`.
+Ticket práce smí v `ticket.issue` nést `intent: {workflowVersionId, nodeIds}` (kritéria `intent.done` aktivní verze):
+server ověří verzi a uzly a jejich `claim` doplní do `doneCriteria`.
 
 | Cesta | Co |
 |---|---|
 | `/api/flow/node-types` | `GET ?kind=` → `{node_types}` registr typů uzlů: `type`, `version`, `trigger`, `params`, porty (`name`, `direction`, `kind`, `cardinality`, `schema`); `kind=page_intent` vrátí katalog záměru |
+| `/api/flow/graph-check` | `POST {kind, graph}` → `{ok, errors}` ověří graf podle katalogu druhu, nic nezapíše |
+| `/api/flow/page-intents` | `GET ?project=` → `{pages: [{pageId, state, workflowId?, activeN?, candidateN?, doneCount}]}` stav záměru každé stránky |
 | `/api/flow/workflows` | `GET ?project=&kind=&owner_ref=` seznam; `POST {kind, name, project_id?, owner_ref?}` založí tok |
 | `/api/flow/workflows/{workflow_id}/versions` | `GET` verze toku; `POST {graph, parent_version_id?}` nový draft (graf se ověřuje, 422) |
 | `/api/flow/versions/{version_id}/candidate` | `POST {eval_run_id?}` draft → candidate |

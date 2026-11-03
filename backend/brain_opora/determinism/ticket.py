@@ -19,7 +19,9 @@ from backend.brain import pins
 from backend.brain_opora.determinism import gate, ticket_lifecycle, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, shaped
 from backend.brain_opora.determinism.ticket_model import (
+    LIST_LIMIT,
     STATES,
+    TEXT_LIMIT,
     advance,
     claim_payload,
     deliver_payload,
@@ -29,6 +31,9 @@ from backend.brain_opora.determinism.ticket_model import (
     ticket_id,
 )
 from backend.canvas.opora_events import emit_event
+from backend.flow.graph_check import FlowInvalid
+from backend.flow.page_intents import intent_claims
+from backend.flow.workflows import FlowNotFound
 from database.repositories.gate_sessions import GateSessionStore
 from database.repositories.tickets import HELD, TicketStore
 
@@ -82,10 +87,15 @@ def _write(service, session, work):
 def issue(service, session, body, now=None):
     """`ticket.issue` (jen srdce): nový ticket ve stavu `issued` v prostoru karty (`workspace`, git projekt má
     karty v prostoru domény), jinak v prostoru tokenu srdce. S `cardId` doplní do strojové vrstvy následníky
-    a předchůdce karty z grafu toho prostoru (`ticket_model.neighbors`); tělo pro dělníka se nemění. Piny Brainu
-    přeloží `pins.for_ticket` (neznámé ID 422)."""
+    a předchůdce karty z grafu toho prostoru (`ticket_model.neighbors`). Piny Brainu přeloží `pins.for_ticket`
+    (neznámé ID 422). S `intent` ověří, že verze je aktivní záměr stránky projektu a uzly jsou `intent.done`, a jejich
+    `claim` doplní na konec `doneCriteria` (kritérium je fakt z grafu, srdce ho do těla nepíše)."""
     worker_body, machine = issue_payload(body)
     machine["pins"] = _pins(service, machine["pins"])
+    if "intent" in machine:
+        claims = _claims(service, session["project_id"], machine["intent"])
+        done = worker_body["doneCriteria"]
+        worker_body["doneCriteria"] = (done + [claim for claim in claims if claim not in done])[:LIST_LIMIT]
     workspace = body.get("workspace") or session["workspace_id"]
     if not gate.workspace_known(service, session["project_id"], workspace):
         raise GateError(404, "workspace_not_found", "Pracovní prostor v projektu neexistuje.",
@@ -98,6 +108,17 @@ def issue(service, session, body, now=None):
         store.insert(new_id, workspace, "issued", worker_body, machine, at)
         return {"ticket": store.get(new_id)}
     return _write(service, session, work)
+
+
+def _claims(service, project, intent):
+    """Tvrzení `claim` kritérií záměru stránky (`page_intents.intent_claims`); neplatná verze či uzel = 422."""
+    try:
+        with service.registry_lock:
+            claims = intent_claims(service.db, project, intent["workflowVersionId"], intent["nodeIds"])
+    except (FlowInvalid, FlowNotFound) as error:
+        raise GateError(422, "ticket_intent", str(error),
+                        "Verzi a uzly intent.done ukáže opora_heart.py intent show PAGE (aktivní verze).") from None
+    return [claim[:TEXT_LIMIT] for claim in claims]
 
 
 def _pins(service, requested):

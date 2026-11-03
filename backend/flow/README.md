@@ -17,7 +17,15 @@ Tenký engine workflow pro plátno 1 (spouští se) a plátno 2 (záměr stránk
   - Přechody jsou draft → candidate → active. Dosavadní aktivní verze jde do `retired`. Na jedno workflow je vždy nejvýš jedna `active` (unikátní index).
   - `rollback` přepne `active` na nejnovější vyřazenou verzi s nižším `n`; zamítnutého kandidáta přeskočí.
   - `owner_ref` je vlastník workflow: `page_intent` ho má povinně (`opora:page:<nodeId>`, s `project_id`), `heart` nikdy. Na `(project_id, kind, owner_ref)` je nejvýš jedno workflow (unikátní index, starší registr ho dostane přes `ensure_flow_owner_ref`). `list_workflows` filtruje podle projektu, druhu a vlastníka.
-  - Záměr stránky schvaluje člověk: `activate` vrátí `FlowConflict` s kódem `approval_required`, `approve` udělá z kandidáta aktivní verzi a `reject` ho vyřadí do `retired`. Obojí zapíše do `flow_log_events` událost `version.approved` / `version.rejected` s `canvas = 2`, autorem a u zamítnutí důvodem. Kdo je člověk, hlídá router.
+  - Záměr stránky schvaluje člověk: `activate` vrátí `FlowConflict` s kódem `approval_required`, `approve` udělá z kandidáta aktivní verzi a `reject` ho vyřadí do `retired`. Obojí zapíše do `flow_log_events` událost `version.approved` / `version.rejected` s `canvas = 2`, autorem a u zamítnutí důvodem; schválení nese `pageDigest` (otisk stránky, který spočítá router). Kdo je člověk, hlídá router.
+- `page_intents.py`: stav záměru stránky (plátno 2 §4–§5), jediné místo, které ho počítá. `status(db, project_id, pages)`
+  vrátí pro stránky `[{id, site}]` `{pageId, state, workflowId?, activeN?, candidateN?, doneCount}`, `state` ∈ `none`
+  (bez workflow, aktivní verze i kandidáta) / `pending` (kandidát čeká na člověka) / `approved` / `stale` (stránka se
+  změnila po schválení). `approve` zapíše do `version.approved` `pageDigest`: sha256 kanonického JSON `site` polí
+  `path`, `goal`, `feel`, `sections` (`page_digest`); `stale` = otisk stránky teď ≠ otisk schválení. `doneCount` počítá
+  uzly `intent.done` aktivní verze, bez ní kandidáta. `intent_claims` dá rozkladu (`ticket.issue` s `machine.intent`)
+  `claim` uzlů `intent.done` aktivní verze projektu, jinak `FlowInvalid`. Čte ho snímek srdce (`ZÁMĚRY STRÁNEK`),
+  `map_check` (`page.no-intent`, `page.intent-stale`) a `GET /api/flow/page-intents`.
 - `run_log.py`: append-only log `flow_log_events` (`canvas` 1–4) je zdroj pravdy. `append` zapíše událost a ve stejné transakci ji promítne do `flow_runs` / `flow_node_runs`. Tyto tabulky jsou projekce logu. Typy událostí jsou `run.created`, `run.status`, `node.queued`, `node.started`, `node.heartbeat`, `node.waiting`, `node.succeeded` (volitelně s `provider`, `model`, `cost_usd`) a `node.failed`.
 - `interpreter.py`: deterministický plánovač.
   - `start_run` vytvoří běh z verze a spouštěče. Záměr stránky se nespouští (`FlowConflict` s kódem `not_runnable`). `advance` vykonává frontu po hranách `main` v pořadí zařazení.
