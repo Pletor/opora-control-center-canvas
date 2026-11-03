@@ -45,8 +45,9 @@ def service(tmp_path):
 
 
 def test_every_kind_is_complete_and_its_example_passes_check_and_schema():
-    assert list(kinds.KINDS) == ["next", "ask", "report", "change", "state", "inbox", "release", "task.create",
-                                 "task.cancel", "ticket.answer", "escalate"]
+    assert list(kinds.KINDS) == ["next", "ask", "report", "change", "state", "inbox", "release", "ticket.request",
+                                 "ticket.claim", "ticket.feedback", "ticket.deliver", "task.create", "task.cancel",
+                                 "ticket.issue", "ticket.answer", "escalate"]
     assert set(SCHEMAS) == set(kinds.KINDS)
     for name, kind in kinds.KINDS.items():
         public = kind.public()
@@ -56,12 +57,13 @@ def test_every_kind_is_complete_and_its_example_passes_check_and_schema():
         assert conforms(public["example"], public["input"]) == [], name
         kind.check(public["example"])
     assert {kind.name for kind in kinds.TABLE if kind.role == "heart"} == {"task.create", "task.cancel",
-                                                                            "ticket.answer", "escalate"}
+                                                                            "ticket.issue", "ticket.answer", "escalate"}
 
 
 def test_role_decides_the_visible_kinds():
     worker = [kind["kind"] for kind in kinds.visible("worker")]
-    assert worker == ["next", "ask", "report", "change", "state", "inbox", "release"]
+    assert worker == ["next", "ask", "report", "change", "state", "inbox", "release", "ticket.request",
+                      "ticket.claim", "ticket.feedback", "ticket.deliver"]
     assert [kind["kind"] for kind in kinds.visible("heart")] == list(kinds.KINDS)
     assert kinds.visible("human") == kinds.visible("heart")
 

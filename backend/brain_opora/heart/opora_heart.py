@@ -7,6 +7,8 @@
     python opora_heart.py plan --example
     python opora_heart.py workspace --domain NODE [--reuse]
     python opora_heart.py answer --ticket ID --text T
+    python opora_heart.py ticket-issue --file @ticket.json|JSON   (vydá ticket práce, druh brány ticket.issue)
+    python opora_heart.py ticket-answer --ticket ID --text T [--feedback FEEDBACK_ID]   (druh brány ticket.answer)
     python opora_heart.py cancel --task ID
     python opora_heart.py escalate --text T
     python opora_heart.py escalate --withdraw TICKET_ID --reason R   (stáhne zastaralou otázku)
@@ -203,6 +205,18 @@ def criteria(values):
     return result
 
 
+def read_json(value, code, hint):
+    """JSON objekt z `@cesta` k souboru, jinak přímo z argumentu; chyba je `Failure` s `code` a `hint`."""
+    try:
+        text = Path(value[1:]).read_text(encoding="utf-8") if value.startswith("@") else value
+        found = json.loads(text)
+    except (OSError, ValueError) as error:
+        raise Failure({"error": f"JSON nejde přečíst: {error}", "code": code, "hint": hint}) from None
+    if not isinstance(found, dict):
+        raise Failure({"error": "Čekám JSON objekt.", "code": code, "hint": hint})
+    return found
+
+
 def read_synthesis(value):
     """Syntéza výslechu: `@cesta` k JSON souboru, jinak JSON přímo v argumentu."""
     try:
@@ -215,6 +229,17 @@ def read_synthesis(value):
         raise Failure({"error": "Syntéza musí být JSON objekt.", "code": "brief_file",
                        "hint": "Objekt {goal, users, parts, acceptance, outOfScope, dependencies, questions…}."})
     return synthesis
+
+
+def gate_ticket(args):
+    """Ticket práce přes bránu tokenem srdce (docs/navrhy/2026-11-03-novy-zaklad.md §3.3): vydání nebo odpověď."""
+    if args.command == "ticket-issue":
+        kind, body = "ticket.issue", read_json(args.file, "ticket_file", "Soubor {body, cardId?, executionId?, "
+                                                "cardVersion?}; vzor je v GET /api/gate/kinds u ticket.issue.")
+    else:
+        kind = "ticket.answer"
+        body = {"ticketId": args.ticket, "text": args.text} | ({"feedbackId": args.feedback} if args.feedback else {})
+    return call("POST", "/api/gate/requests", {"kind": kind, "body": body})["answer"]
 
 
 def now():
@@ -1094,6 +1119,8 @@ def run(args):
         ticket = call("POST", f"/api/gate/tickets/{quote(args.ticket, safe='')}/answer",
                       {"answer": {"text": args.text}}, {"project": project})
         return {key: ticket[key] for key in ("ticketId", "status", "answeredBy")}
+    if args.command in ("ticket-issue", "ticket-answer"):
+        return gate_ticket(args)
     if args.command == "cancel":
         task = call("POST", f"/api/brain/tasks/{quote(args.task, safe='')}/cancel", {}, {"project": project})
         return {key: task[key] for key in ("taskId", "status")}
@@ -1194,6 +1221,11 @@ def parser():
     answer = commands.add_parser("answer")
     answer.add_argument("--ticket", required=True)
     answer.add_argument("--text", required=True)
+    commands.add_parser("ticket-issue").add_argument("--file", required=True, help="@cesta k JSON, nebo JSON")
+    work = commands.add_parser("ticket-answer")
+    work.add_argument("--ticket", required=True)
+    work.add_argument("--text", required=True)
+    work.add_argument("--feedback", help="ID položky zpětné vazby ticketu práce (tf_…)")
     commands.add_parser("cancel").add_argument("--task", required=True)
     escalation = commands.add_parser("escalate")  # otázka pro člověka, nebo stažení zastaralé (§6 kanálu)
     asked = escalation.add_mutually_exclusive_group(required=True)

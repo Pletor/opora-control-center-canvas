@@ -46,7 +46,31 @@ CARD = obj({"id": ID, "name": {"type": "string"}, "stage": {"type": "string"}}, 
 PLAN_ITEM = obj({**CARD["properties"], "path": {"type": "string"}, "goal": {"type": "string"}}, ("id", "name", "stage"))
 CHECK = obj({"name": TEXT, "status": {"type": "string", "enum": ["green", "red"]}, "output": {"type": "string"}},
             ("name", "status"))
-LATER = {"description": "Odpověď člověka nebo srdce přijde později do schránky (druh inbox), obvykle {text}."}
+STATES = ["draft", "issued", "claimed", "in_progress", "needs_answer", "delivered", "verified", "closed", "failed",
+          "cancelled"]  # kopie ticket_model.STATES (test hlídá shodu), schémata jsou jen data
+WORK_BODY_IN = obj({"essence": TEXT, "build": TEXT, "openPaths": TEXTS, "cautions": TEXTS,
+                    "skills": {"type": "array", "items": {"type": "string", "pattern": "^/?[A-Za-z0-9][A-Za-z0-9_.:-]*@.+$"}},
+                    "doneCriteria": {**TEXTS, "minItems": 1}}, ("essence", "build", "doneCriteria"))
+WORK_BODY = {**WORK_BODY_IN, "required": ["essence", "build", "openPaths", "cautions", "skills", "doneCriteria"]}
+MACHINE = obj({"cardId": nullable(ID), "executionId": nullable(ID), "cardVersion": nullable({"type": "integer"})},
+              ("cardId", "executionId", "cardVersion"))
+FEEDBACK_KIND = {"type": "string", "enum": ["bug", "idea", "improvement", "question"]}
+FEEDBACK_ITEM = obj({"feedbackId": ID, "kind": FEEDBACK_KIND, "text": TEXT, "answer": ANY},
+                    ("feedbackId", "kind", "text", "answer"))
+WORK_STATUS = obj({"ticketId": ID, "status": {"type": "string", "enum": STATES}}, ("ticketId", "status"))
+WORKER_TICKET = obj({**WORK_STATUS["properties"], "body": WORK_BODY, "machine": MACHINE,
+                     "feedback": {"type": "array", "items": FEEDBACK_ITEM}},
+                    ("ticketId", "status", "body", "machine", "feedback"))
+WORK_TICKET = obj({**WORKER_TICKET["properties"], "seq": {"type": "integer"}, "workspaceId": ID,
+                   "sessionId": nullable({"type": "string"}), "delivery": ANY, "createdAt": {"type": "string"},
+                   "updatedAt": {"type": "string"},
+                   "feedback": {"type": "array", "items": obj({**FEEDBACK_ITEM["properties"], "seq": {"type": "integer"},
+                                                               "sessionId": {"type": "string"},
+                                                               "answeredAt": nullable({"type": "string"}),
+                                                               "createdAt": {"type": "string"}})}},
+                  ("ticketId", "seq", "workspaceId", "status", "body", "machine", "sessionId", "delivery", "feedback",
+                   "createdAt", "updatedAt"))
+LATER = {"description":"Odpověď člověka nebo srdce přijde později do schránky (druh inbox), obvykle {text}."}
 
 # Druh → (vstup, výstup, příklad). Příklad je úplné tělo `body` požadavku `{kind, body}`.
 SCHEMAS = {
@@ -84,7 +108,29 @@ SCHEMAS = {
                      "body": {"why": "Modul X nemá test.", "do": "Doplňte test pro modul X.", "files": ["src/x.test.ts"],
                               "doneWhen": ["npm test je zelený"], "context": {"rules": ["Komentáře česky."]}}}),
     "task.cancel": (obj({"taskId": ID}, ("taskId",)), obj({"task": TASK}, ("task",)), {"taskId": "ht_example"}),
-    "ticket.answer": (obj({"ticketId": ID, "text": TEXT}, ("ticketId", "text")), obj({"ticket": TICKET}, ("ticket",)),
+    "ticket.request": (EMPTY, obj({"ticket": nullable(WORKER_TICKET), "held": {"type": "boolean"}},
+                                  ("ticket", "held")), {}),
+    "ticket.claim": (obj({"ticketId": ID}, ("ticketId",)), obj({"ticket": WORKER_TICKET}, ("ticket",)),
+                     {"ticketId": "tk_example"}),
+    "ticket.feedback": (obj({"ticketId": ID, "kind": FEEDBACK_KIND, "text": TEXT}, ("ticketId", "kind", "text")),
+                        obj({"feedback": FEEDBACK_ITEM, "ticket": WORK_STATUS}, ("feedback", "ticket")),
+                        {"ticketId": "tk_example", "kind": "question", "text": "Smím změnit sdílený styl tlačítka?"}),
+    "ticket.deliver": (obj({"ticketId": ID, "summary": TEXT, "sha": {"type": "string", "pattern": "^[0-9a-fA-F]{7,40}$"}},
+                           ("ticketId", "summary")), obj({"ticket": WORK_STATUS}, ("ticket",)),
+                       {"ticketId": "tk_example", "summary": "Hero je hotový, npm test zelený.", "sha": "abc1234"}),
+    "ticket.issue": (obj({"body": WORK_BODY_IN, "cardId": ID, "executionId": ID,
+                          "cardVersion": {"type": "integer", "minimum": 0}}, ("body",)),
+                     obj({"ticket": WORK_TICKET}, ("ticket",)),
+                     {"body": {"essence": "Návštěvník musí do pěti vteřin poznat, co produkt dělá.",
+                               "build": "Hero sekci úvodní stránky s nadpisem, podnadpisem a jedním tlačítkem.",
+                               "openPaths": ["Tlačítko později povede na registraci."],
+                               "cautions": ["Neměň sdílenou navigaci."], "skills": ["ponytail@5.3.3"],
+                               "doneCriteria": ["npm test projde", "hero je vidět bez posunu"]},
+                      "cardId": "hero", "cardVersion": 3}),
+    "ticket.answer": (obj({"ticketId": ID, "text": TEXT, "feedbackId": ID}, ("ticketId", "text")),
+                      obj({"ticket": {"description": "Bez feedbackId zodpovězený lístek otázky (TICKET), s ním "
+                                                     "{ticketId, status} ticketu práce."},
+                           "feedback": FEEDBACK_ITEM}, ("ticket",)),
                       {"ticketId": "gt_example", "text": "Ano, pokračujte."}),
     "escalate": (obj({"text": TEXT}, ("text",)), obj({"ticket": TICKET}, ("ticket",)),
                  {"text": "Požadavek chce třetí stránku, záměr mluví o dvou. Rozhodněte prosím."}),

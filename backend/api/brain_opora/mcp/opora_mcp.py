@@ -3,7 +3,8 @@
     python <abs>/opora_mcp.py
 
 JSON-RPC 2.0 přes stdio, jedna zpráva na řádek. Nástroje jsou druhy brány pro roli (`GET /api/gate/kinds`),
-volání jde na `POST /api/gate/requests`. Server nemá vlastní logiku, jen překládá.
+volání jde na `POST /api/gate/requests`. Server nemá vlastní logiku, jen překládá: nové druhy (tickety práce
+`ticket.request|claim|feedback|deliver` pro dělníka, `ticket.issue|answer` pro srdce) se objeví jako nástroje samy.
 Prostředí: OPORA_BASE_URL (výchozí http://127.0.0.1:8740), OPORA_PROJECT, OPORA_WORKSPACE a buď token srdce
 (OPORA_GATE_TOKEN / OPORA_HEART_TOKEN), nebo OPORA_WORKER_NAME (pracovník: relaci brány založí server při prvním
 volání a token drží jen v paměti, nikam ho nezapisuje). Na stdout jde jen JSON-RPC, záznam jde na stderr.

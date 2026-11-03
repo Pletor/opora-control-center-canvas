@@ -55,11 +55,16 @@ def _snapshot(ctx, runtime):
                                                           limit)}, None
 
 
+# Registrované nástroje srdce s pevným podpříkazem `opora_heart.py` (§3.2 „Ticket“); druhy brány ticket.issue/answer.
+TOOL_SUBCOMMANDS = {"tool.ticket_issue": ("ticket-issue",), "tool.ticket_answer": ("ticket-answer",)}
+
+
 def _subcommands(tools):
-    """Povolené podpříkazy z uzlů `tool.opora_heart`; uzel bez výčtu = celý nástroj (None), bez nástroje = žádný."""
+    """Povolené podpříkazy z nástrojových uzlů: `tool.opora_heart` bez výčtu = celý nástroj (None), registrovaný
+    nástroj (`TOOL_SUBCOMMANDS`) přidá svůj podpříkaz, bez nástroje = žádný."""
     names = []
     for tool in tools:
-        allowed = tool["params"].get("subcommands")
+        allowed = TOOL_SUBCOMMANDS.get(tool.get("type")) or tool["params"].get("subcommands")
         if allowed is None:
             return None
         names += [name for name in allowed if name not in names]
@@ -127,4 +132,5 @@ HEART_TYPES = (
              detached(_agent), detached=True),
     NodeType("model.claude", 1, (Port("model", "out", "model"),), _sub_node),
     NodeType("tool.opora_heart", 1, (Port("tool", "out", "tool"),), _sub_node),
+    *(NodeType(name, 1, (Port("tool", "out", "tool"),), _sub_node) for name in TOOL_SUBCOMMANDS),
 )

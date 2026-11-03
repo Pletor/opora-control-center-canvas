@@ -82,6 +82,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._reply(200, {"snapshot": "PROJEKT p1\nPLÁN:"})
         if url.path == "/api/brain/tasks":
             return self._reply(201, {"taskId": "ht_1", "title": body["title"], "status": "ready", "order": 1})
+        if url.path == "/api/gate/requests":
+            return self._reply(201, {"ticketId": "gt_3", "kind": body["kind"], "status": "answered",
+                                     "answer": {"ticket": {"ticketId": "tk_1", "status": "issued"}}})
         if url.path.endswith("/answer"):
             return self._reply(200, {"ticketId": "gt_1", "status": "answered", "answeredBy": "heart"})
         if url.path.startswith("/api/desktop-v3/"):
@@ -811,3 +814,21 @@ def test_steps_file_keeps_the_card_rule_and_fills_ids_linearly(tmp_path):
         with pytest.raises(opora_heart.Failure) as failure:
             opora_heart.read_steps(steps_file(tmp_path, bad))
         assert failure.value.payload["code"] == code and "kind" in failure.value.payload["hint"]
+
+
+def test_ticket_issue_and_answer_go_through_the_gate_with_the_heart_token(server, capsys, tmp_path):
+    (tmp_path / "ticket.json").write_text(json.dumps({"body": {"essence": "Proč.", "build": "Co.",
+                                                                "doneCriteria": ["npm test"]}}), encoding="utf-8")
+    code, out = run(capsys, "ticket-issue", "--file", "@ticket.json")
+    assert code == 0 and json.loads(out) == {"ticket": {"ticketId": "tk_1", "status": "issued"}}
+    run(capsys, "ticket-answer", "--ticket", "tk_1", "--feedback", "tf_1", "--text", "Ano.")
+    run(capsys, "ticket-answer", "--ticket", "gt_1", "--text", "Ne.")
+    sent = [(call["path"], call["body"], call["headers"]["X-Opora-Gate-Token"]) for call in Handler.calls]
+    assert sent == [
+        ("/api/gate/requests", {"kind": "ticket.issue", "body": {"body": {"essence": "Proč.", "build": "Co.",
+                                                                          "doneCriteria": ["npm test"]}}}, "tok-heart"),
+        ("/api/gate/requests", {"kind": "ticket.answer", "body": {"ticketId": "tk_1", "text": "Ano.",
+                                                                  "feedbackId": "tf_1"}}, "tok-heart"),
+        ("/api/gate/requests", {"kind": "ticket.answer", "body": {"ticketId": "gt_1", "text": "Ne."}}, "tok-heart")]
+    code, out = run(capsys, "ticket-issue", "--file", "@chybi.json")
+    assert code == 1 and json.loads(out)["code"] == "ticket_file"

@@ -36,12 +36,28 @@ Modules (H1b):
 - Worker client: `.claude/skills/opora-control-center/scripts/opora_gate.py` (reference `references/gate.md`).
 
 Modules (H1c, contract `docs/brain-control-api.md`):
-- `kinds.py`: the single table of request kinds (`next`, `ask`, `report`, `change`, `state`, `inbox` for workers;
-  `task.create`, `task.cancel`, `ticket.answer`, `escalate` for the heart). Each kind has role, description,
+- `kinds.py`: the single table of request kinds (`next`, `ask`, `report`, `change`, `state`, `inbox`, `release`,
+  `ticket.request|claim|feedback|deliver` for workers; `task.create`, `task.cancel`, `ticket.issue`, `ticket.answer`,
+  `escalate` for the heart). Each kind has role, description,
   input/output schema, example, error codes with `hint`, a body check and a handler (`ask` / `change` have none and
   stay queued). `run` serves `POST /api/gate/requests`: a worker sending a heart kind gets 403 `heart_required`, a
   refused body leaves no ticket. `visible(role)` serves `GET /api/gate/kinds`.
 - `kind_schemas.py`: the JSON schemas and examples of the kinds (data only).
+
+Modules (PR 4 of the new base, contract `docs/navrhy/2026-11-03-novy-zaklad.md` §3.3, ticket as the unit of work):
+- `ticket_model.py` (pure): states `draft → issued → claimed → in_progress ↔ needs_answer → delivered → verified →
+  closed` (+ `failed`, `cancelled`); `advance(current, target)` is the only transition guard (forbidden = 409
+  `ticket_state` naming the allowed targets). Body checks: the worker body has no IDs (`essence`, `build`,
+  `openPaths`, `cautions`, `skills` pins `/name@version`, default `ponytail@5.3.3`, `doneCriteria`); the machine
+  layer `cardId`, `executionId`, `cardVersion` sits beside it.
+- `ticket.py`: handlers of the kinds `ticket.issue` (heart only → `issued`), `ticket.request` (the held ticket again,
+  else the oldest `issued`, not taken), `ticket.claim` (`issued → claimed`, held by the session),
+  `ticket.feedback` (`bug|idea|improvement|question`, own ID `tf_…`; the first item moves `claimed → in_progress`,
+  a question → `needs_answer`), `ticket.deliver` (`→ delivered`, not with an open question) and `ticket.answer`
+  with `feedbackId` (heart; the last answer moves `needs_answer → in_progress`). `ticket.answer` without
+  `feedbackId` still answers a question ticket in `gate_tickets`. Repository `database/repositories/tickets.py`
+  (tables `tickets`, `ticket_feedback`; additive, the old `gate_tickets` rows stay question tickets). Reading:
+  `GET /api/brain/tickets`, `GET /api/brain/tickets/{id}`.
 - `snapshot.py` also builds `view`, the JSON of the `state` kind; `rules` are the approved project rules of the
   Desktop v3 memory, then the `context.rules` of the tasks (no repeats).
 

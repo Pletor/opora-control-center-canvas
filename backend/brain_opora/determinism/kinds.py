@@ -9,10 +9,15 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from backend.brain_opora.determinism import gate, snapshot, task_queue
+from backend.brain_opora.determinism import gate, snapshot, task_queue, ticket, ticket_model
 from backend.brain_opora.determinism.gate_payloads import GateError, inbox_body, invalid, shaped
 from backend.brain_opora.determinism.kind_schemas import SCHEMAS
-from backend.brain_opora.determinism.task_payloads import empty_body, release_payload, report_payload, task_fields
+from backend.brain_opora.determinism.task_payloads import (
+    empty_body,
+    release_payload,
+    report_payload,
+    task_fields,
+)
 
 ROLES = {"worker": ("worker",), "heart": ("worker", "heart"), "human": ("worker", "heart")}
 ESCALATE_LIMIT = 8000
@@ -25,6 +30,9 @@ COMMON = {
 HEART_ONLY = {"heart_required": "Tento druh posílá jen srdce projektu; své druhy najdete v GET /api/gate/kinds."}
 TASK_MISSING = {"task_not_found": "ID úkolu vrací next, task.create nebo GET /api/brain/tasks."}
 TICKET_MISSING = {"ticket_not_found": "ID lístku najdete v události gate.ticket nebo ve snímku srdce."}
+WORK_MISSING = {"ticket_not_found": ticket.MISSING_HINT}
+WORK_STATE = {"ticket_state": "Přechod stavu ticketu není povolený; hint chyby vypíše povolené cíle."}
+WORK_HELD = {**WORK_MISSING, **WORK_STATE, "ticket_not_held": ticket.HELD_HINT}
 
 
 @dataclass(frozen=True)
@@ -61,6 +69,19 @@ def _ask(body):
 def _change(body):
     shaped(body, ("proposal", "reason"), ("taskId",), texts=("proposal", "reason"), ids=("taskId",),
            hint=_hint("change"))
+
+
+def _ticket_answer(body):
+    shaped(body, ("ticketId", "text"), ("feedbackId",), ids=("ticketId", "feedbackId"), texts=("text",),
+           hint=_hint("ticket.answer"))
+
+
+def _answer(service, session, body, now):
+    """Bez `feedbackId` odpověď na čekající lístek (otázka v `gate_tickets`), s ním odpověď na zpětnou vazbu ticketu."""
+    if "feedbackId" in body:
+        return ticket.answer(service, session, body, now)
+    return {"ticket": gate.answer(service, session["project_id"], body["ticketId"], {"answer": {"text": body["text"]}},
+                                  "heart", now)}
 
 
 def _task_create(body):
@@ -100,6 +121,16 @@ TABLE = (
          "když úkol nedokončíte, místo čekání na vypršení tokenu.",
          {**TASK_MISSING, "task_not_assigned": "Vrátit jde jen úkol, který držíte (vrátil vám ho next)."},
          release_payload, task_queue.release),
+    Kind("ticket.request", "worker", "Žádost o práci: ticket, který relace drží, jinak nejstarší vydaný v prostoru "
+         "(nebere ho). Nic k práci = ticket null.", {}, lambda body: shaped(body, (), hint=_hint("ticket.request")),
+         ticket.request),
+    Kind("ticket.claim", "worker", "Vezme vydaný ticket (issued → claimed); pak ho drží jen tato relace.",
+         {**WORK_MISSING, **WORK_STATE}, lambda body: ticket_model.ticket_id(body, _hint("ticket.claim")), ticket.claim),
+    Kind("ticket.feedback", "worker", "Zpětná vazba k drženému ticketu: bug, idea, improvement nebo question. "
+         "Otázka přepne ticket na needs_answer, odpověď srdce je pak v ticket.request.", WORK_HELD,
+         ticket_model.feedback_payload, ticket.feedback),
+    Kind("ticket.deliver", "worker", "Odevzdání drženého ticketu se shrnutím (a sha) → delivered. S otevřenou "
+         "otázkou nejde.", WORK_HELD, ticket_model.deliver_payload, ticket.deliver),
     Kind("task.create", "heart", "Nový úkol ve frontě (ready) v projektu a prostoru tokenu srdce; nižší order jde "
          "dřív.", {**HEART_ONLY, "project_not_found": "ID projektu najdete v GET /api/bootstrap.",
          "files_held": "Soubor úkolu nesmí být zároveň v dontTouch; seřaď úkoly přes order."}, _task_create,
@@ -110,13 +141,14 @@ TABLE = (
          lambda body: shaped(body, ("taskId",), ids=("taskId",), hint=_hint("task.cancel")),
          lambda service, session, body, now: {"task": task_queue.cancel(service, session["project_id"],
                                                                          body["taskId"], now, by="heart")}),
-    Kind("ticket.answer", "heart", "Odpověď srdce na čekající lístek (answer = {text}); pracovník ji dostane do "
-         "schránky.", {**HEART_ONLY, **TICKET_MISSING, "ticket_answered": "Lístek už má odpověď; načtěte ho."},
-         lambda body: shaped(body, ("ticketId", "text"), ids=("ticketId",), texts=("text",),
-                             hint=_hint("ticket.answer")),
-         lambda service, session, body, now: {"ticket": gate.answer(service, session["project_id"], body["ticketId"],
-                                                                     {"answer": {"text": body["text"]}}, "heart",
-                                                                     now)}),
+    Kind("ticket.issue", "heart", "Vydá ticket práce (issued) v prostoru tokenu srdce: tělo pro dělníka bez ID "
+         "(essence, build, openPaths, cautions, skills, doneCriteria) a strojová vrstva (cardId, executionId, "
+         "cardVersion).", HEART_ONLY, ticket_model.issue_payload, ticket.issue),
+    Kind("ticket.answer", "heart", "Odpověď srdce (text): bez feedbackId na čekající lístek otázky (pracovník ji "
+         "dostane do schránky), s feedbackId na položku zpětné vazby ticketu práce.",
+         {**HEART_ONLY, **TICKET_MISSING, "ticket_answered": "Lístek už má odpověď; načtěte ho.",
+          "feedback_not_found": "ID položek jsou v GET /api/brain/tickets/{id} v poli feedback.",
+          "feedback_answered": "Položka už má odpověď; načtěte ticket znovu."}, _ticket_answer, _answer),
     Kind("escalate", "heart", "Otázka srdce pro člověka (konflikt se záměrem): čekající lístek ask ve velínu.",
          HEART_ONLY, lambda body: shaped(body, ("text",), texts=("text",), limit=ESCALATE_LIMIT,
                                          hint=_hint("escalate")),

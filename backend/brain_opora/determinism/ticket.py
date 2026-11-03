@@ -1,0 +1,174 @@
+"""Ticket jako jednotka práce v bráně (docs/navrhy/2026-11-03-novy-zaklad.md §3.3): obsluhy druhů `ticket.*`.
+
+Srdce ticket vydá (`ticket.issue` → `issued`) a odpovídá na zpětnou vazbu (`ticket.answer` s `feedbackId`).
+Dělník (orchestrátor kanceláře) si řekne o práci (`ticket.request`: držený ticket znovu, jinak nejstarší vydaný),
+vezme ji (`ticket.claim` → `claimed`), hlásí zpětnou vazbu (`ticket.feedback`; první položka posune `claimed` na
+`in_progress`, otázka na `needs_answer`) a odevzdá (`ticket.deliver` → `delivered`). Poslední odpověď na otázku
+vrátí `needs_answer` do `in_progress`. Přechody hlídá `ticket_model.advance`; audit každého požadavku zapíše brána
+do `gate_tickets` (událost `gate.ticket`). Nic tu nevolá model.
+"""
+import uuid
+
+from backend.brain_opora.determinism import gate, tokens
+from backend.brain_opora.determinism.gate_payloads import GateError, shaped
+from backend.brain_opora.determinism.ticket_model import (
+    STATES,
+    advance,
+    deliver_payload,
+    feedback_payload,
+    issue_payload,
+    ticket_id,
+)
+from database.repositories.tickets import TicketStore
+
+MISSING_HINT = "ID ticketu vrací ticket.request nebo GET /api/brain/tickets."
+HELD_HINT = "Pracujte jen s ticketem, který jste vzali přes ticket.claim; svůj vrátí ticket.request."
+
+
+def for_worker(ticket):
+    """Ticket pro dělníka: tělo bez ID, strojová vrstva vedle a zpětná vazba s odpověďmi srdce."""
+    return {"ticketId": ticket["ticketId"], "status": ticket["status"], "body": ticket["body"],
+            "machine": ticket["machine"],
+            "feedback": [{key: item[key] for key in ("feedbackId", "kind", "text", "answer")}
+                         for item in ticket["feedback"]]}
+
+
+def _found(store, session, ticket_id_):
+    ticket = store.get(ticket_id_)
+    if ticket is None:
+        raise GateError(404, "ticket_not_found", "Ticket v projektu neexistuje.", MISSING_HINT)
+    if ticket["workspaceId"] != session["workspace_id"]:
+        raise GateError(403, "gate_scope", "Ticket patří jinému pracovnímu prostoru.", MISSING_HINT)
+    return ticket
+
+
+def _held(store, session, ticket_id_):
+    ticket = _found(store, session, ticket_id_)
+    if ticket["sessionId"] != session["id"]:
+        raise GateError(409, "ticket_not_held", "Ticket nedrží tato relace.", HELD_HINT)
+    return ticket
+
+
+def _walk(store, ticket, targets, at, **fields):
+    """Projde přechody `targets` po jednom (každý přes `advance`) a zapíše výsledný stav compare-and-set."""
+    status = ticket["status"]
+    for target in targets:
+        status = advance(status, target)
+    if status != ticket["status"] and not store.move(ticket["ticketId"], ticket["status"], status, at, **fields):
+        raise GateError(409, "ticket_state", "Ticket mezitím změnil stav.", "Načtěte ho znovu přes ticket.request.")
+    return status
+
+
+def _write(service, session, work):
+    project = session["project_id"]
+    with service.lock_for(project):
+        db = service.db_for(project)
+        with db:
+            return work(TicketStore(db, project))
+
+
+def issue(service, session, body, now=None):
+    """`ticket.issue` (jen srdce): nový ticket ve stavu `issued` v prostoru tokenu srdce."""
+    worker_body, machine = issue_payload(body)
+    new_id, at = "tk_" + uuid.uuid4().hex, tokens.stamp(now)
+
+    def work(store):
+        store.insert(new_id, session["workspace_id"], "issued", worker_body, machine, at)
+        return {"ticket": store.get(new_id)}
+    return _write(service, session, work)
+
+
+def request(service, session, body, now=None):
+    """`ticket.request`: ticket, který relace drží, jinak nejstarší vydaný v prostoru (nebere ho); nic = null."""
+    shaped(body, (), hint='Tělo je {}: {"kind": "ticket.request"}.')
+    project = session["project_id"]
+    with service.reading(project):
+        store = TicketStore(service.db_for(project), project)
+        held = store.held_by(session["id"])
+        ticket = held or store.oldest_issued(session["workspace_id"])
+    return {"ticket": for_worker(ticket) if ticket else None, "held": held is not None}
+
+
+def claim(service, session, body, now=None):
+    """`ticket.claim`: vydaný ticket připíše relaci (`issued` → `claimed`); vzatý nebo uzavřený je 409."""
+    wanted, at = ticket_id(body, 'Například {"ticketId": "tk_…"}.'), tokens.stamp(now)
+
+    def work(store):
+        _walk(store, _found(store, session, wanted), ("claimed",), at, session_id=session["id"])
+        return {"ticket": for_worker(store.get(wanted))}
+    return _write(service, session, work)
+
+
+def feedback(service, session, body, now=None):
+    """`ticket.feedback`: položka `bug|idea|improvement|question` s vlastním ID; otázka čeká na odpověď srdce."""
+    wanted, kind, text = feedback_payload(body)
+    item_id, at = "tf_" + uuid.uuid4().hex, tokens.stamp(now)
+
+    def work(store):
+        ticket = _held(store, session, wanted)
+        targets = ("in_progress",) if ticket["status"] == "claimed" else ()
+        if kind == "question" and ticket["status"] != "needs_answer":
+            targets += ("needs_answer",)
+        status = _walk(store, ticket, targets, at)
+        store.add_feedback(item_id, wanted, kind, text, session["id"], at)
+        return {"feedback": {"feedbackId": item_id, "kind": kind, "text": text, "answer": None},
+                "ticket": {"ticketId": wanted, "status": status}}
+    return _write(service, session, work)
+
+
+def deliver(service, session, body, now=None):
+    """`ticket.deliver`: odevzdání (`summary`, `sha?`) → `delivered`; s otevřenou otázkou 409 `ticket_state`."""
+    wanted, delivery = deliver_payload(body)
+    at = tokens.stamp(now)
+
+    def work(store):
+        ticket = _held(store, session, wanted)
+        targets = ("in_progress", "delivered") if ticket["status"] == "claimed" else ("delivered",)
+        return {"ticket": {"ticketId": wanted, "status": _walk(store, ticket, targets, at,
+                                                                delivery={**delivery, "at": at})}}
+    return _write(service, session, work)
+
+
+def answer(service, session, body, now=None):
+    """`ticket.answer` s `feedbackId` (srdce): odpověď na položku; poslední otázka vrátí ticket do `in_progress`."""
+    wanted, item_id, text, at = body["ticketId"], body["feedbackId"], body["text"].strip(), tokens.stamp(now)
+
+    def work(store):
+        ticket = _found(store, session, wanted)
+        item = store.feedback(item_id)
+        if item is None or item["ticketId"] != wanted:
+            raise GateError(404, "feedback_not_found", "Položka zpětné vazby u ticketu neexistuje.",
+                            "ID položek jsou v GET /api/brain/tickets/{id} v poli feedback.")
+        if not store.answer_feedback(item_id, {"text": text}, at):
+            raise GateError(409, "feedback_answered", "Položka už má odpověď.", "Načtěte ticket znovu.")
+        status = ticket["status"]
+        if status == "needs_answer" and store.open_questions(wanted) == 0:
+            status = _walk(store, ticket, ("in_progress",), at)
+        return {"feedback": {"feedbackId": item_id, "kind": item["kind"], "text": item["text"],
+                             "answer": {"text": text}},
+                "ticket": {"ticketId": wanted, "status": status}}
+    return _write(service, session, work)
+
+
+def get(service, project, ticket_id_):
+    """Celý ticket (tělo, strojová vrstva, držitel, odevzdání, zpětná vazba) pro čtení API; jinak 404."""
+    if not service.project_exists(project):
+        raise GateError(404, "project_not_found", "Projekt neexistuje.", "ID projektu najdete v GET /api/bootstrap.")
+    with service.reading(project):
+        ticket = TicketStore(service.db_for(project), project).get(ticket_id_)
+    if ticket is None:
+        raise GateError(404, "ticket_not_found", "Ticket v projektu neexistuje.", MISSING_HINT)
+    return ticket
+
+
+def list_tickets(service, project, workspace, status=None):
+    """`{tickets}` pracovního prostoru od nejstaršího; neznámý stav je 422."""
+    if status and status not in STATES:
+        raise GateError(422, "invalid_payload", "Neznámý stav ticketu.", "Povolené stavy: " + ", ".join(STATES) + ".")
+    if not service.project_exists(project):
+        raise GateError(404, "project_not_found", "Projekt neexistuje.", "ID projektu najdete v GET /api/bootstrap.")
+    if not gate.workspace_known(service, project, workspace):
+        raise GateError(404, "workspace_not_found", "Pracovní prostor v projektu neexistuje.",
+                        "Použijte main, draft nebo ID pracovního prostoru projektu.")
+    with service.reading(project):
+        return {"tickets": TicketStore(service.db_for(project), project).list(workspace, status or None)}

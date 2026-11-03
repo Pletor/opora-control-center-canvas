@@ -143,6 +143,15 @@ def test_every_kind_example_runs_through_the_gate_and_answers_its_output_schema(
         assert run("task.cancel", heart, taskId="task")["answer"]["task"]["status"] == "cancelled"
         escalated = run("escalate", heart)["answer"]["ticket"]
         assert (escalated["kind"], escalated["status"], escalated["body"]["for"]) == ("ask", "queued", "human")
+        assert run("ticket.request", auth)["answer"] == {"ticket": None, "held": False}
+        ids["work"] = run("ticket.issue", heart)["answer"]["ticket"]["ticketId"]
+        assert run("ticket.claim", auth, ticketId="work")["answer"]["ticket"]["status"] == "claimed"
+        assert run("ticket.feedback", auth, ticketId="work")["answer"]["ticket"]["status"] == "needs_answer"
+        ids["feedback"] = run("ticket.request", auth)["answer"]["ticket"]["feedback"][0]["feedbackId"]
+        answered = request(client, heart, "ticket.answer", {"ticketId": ids["work"], "feedbackId": ids["feedback"],
+                                                             "text": "Ano."}).json()["answer"]
+        assert conforms(answered, listed["ticket.answer"]["output"]) == [] and answered["ticket"]["status"] == "in_progress"
+        assert run("ticket.deliver", auth, ticketId="work")["answer"]["ticket"]["status"] == "delivered"
         assert set(ran) == set(listed)
         # Synchronní druhy nechaly lístek pro audit.
         audit = client.app.state.service.db_for("draft").execute(
@@ -159,8 +168,9 @@ def test_kinds_listing_follows_the_role(tmp_path):
             body = client.get("/api/gate/kinds", headers=headers).json()
             return body["role"], [kind["kind"] for kind in body["kinds"]]
 
-        worker_kinds = ["next", "ask", "report", "change", "state", "inbox", "release"]
-        heart_kinds = ["task.create", "task.cancel", "ticket.answer", "escalate"]
+        worker_kinds = ["next", "ask", "report", "change", "state", "inbox", "release", "ticket.request",
+                        "ticket.claim", "ticket.feedback", "ticket.deliver"]
+        heart_kinds = ["task.create", "task.cancel", "ticket.issue", "ticket.answer", "escalate"]
         assert names(auth) == ("worker", worker_kinds)
         assert names(AGENT) == ("worker", worker_kinds)
         assert names({**AGENT, tokens.HEADER: token}) == ("heart", worker_kinds + heart_kinds)
@@ -189,3 +199,29 @@ def test_openapi_documents_gate_and_brain_routes(tmp_path):
                              ("/api/gate/tickets/{ticket_id}/answer", "post"), ("/api/brain/heart/escalate", "post")):
             assert spec["paths"][path][method]["responses"], (path, method)
         assert {"Task", "Ticket", "KindsOut", "Refusal"} <= set(spec["components"]["schemas"])
+
+
+def test_ticket_issued_by_heart_claimed_over_http_and_read_for_the_office(tmp_path):
+    from backend.brain_opora.determinism.kind_schemas import SCHEMAS
+
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        _, heart_token = tokens.issue_heart(client.app.state.service, "draft", "draft")
+        auth = worker(open_session(client)["token"])
+        denied = client.post("/api/gate/requests", headers=auth,
+                             json={"kind": "ticket.issue", "body": SCHEMAS["ticket.issue"][2]})
+        assert denied.status_code == 403 and denied.json()["code"] == "heart_required"
+        issued = client.post("/api/gate/requests", headers={**AGENT, tokens.HEADER: heart_token},
+                             json={"kind": "ticket.issue", "body": SCHEMAS["ticket.issue"][2]})
+        assert issued.status_code == 201, issued.text
+        ticket_id = issued.json()["answer"]["ticket"]["ticketId"]
+        claimed = client.post("/api/gate/requests", headers=auth, json={"kind": "ticket.claim",
+                                                                         "body": {"ticketId": ticket_id}})
+        assert claimed.json()["answer"]["ticket"]["status"] == "claimed"
+        listed = client.get("/api/brain/tickets", params={"project": "draft", "workspace": "draft"})
+        assert [t["ticketId"] for t in listed.json()["tickets"]] == [ticket_id]
+        one = client.get(f"/api/brain/tickets/{ticket_id}", params={"project": "draft"}).json()
+        assert conforms(one, SCHEMAS["ticket.issue"][1]["properties"]["ticket"]) == []
+        assert one["status"] == "claimed" and one["body"]["skills"] == ["ponytail@5.3.3"]
+        assert client.get("/api/brain/tickets/tk_none", params={"project": "draft"}).status_code == 404
+        bad = client.get("/api/brain/tickets", params={"project": "draft", "workspace": "draft", "status": "x"})
+        assert bad.status_code == 422 and bad.json()["hint"]
