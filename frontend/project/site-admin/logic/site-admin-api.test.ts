@@ -10,7 +10,7 @@ it("builds the site admin addresses for one project", () => {
   expect(siteAdminUrls.file("p1", "tokens.css")).toBe("/api/site-admin/tokens.css?project=p1");
   expect(siteAdminUrls.font("p1", "Inter Var.woff2")).toBe("/api/site-admin/fonts/Inter%20Var.woff2?project=p1");
   expect(siteAdminUrls.file("p1", "components.css")).toBe("/api/site-admin/components.css?project=p1");
-  expect(siteAdminUrls.asset("p1", "pozadí", "a b.png")).toBe("/api/site-admin/assets/poz%C3%A1d%C3%AD/a%20b.png?project=p1");
+  expect(siteAdminUrls.asset("p1", "pozadí", "a b.png")).toBe("/api/site-admin/assets/pozad%C3%AD/a%20b.png?project=p1");
 });
 
 it("reads a rejected custom CSS from the 422 detail and keeps other failures as text", () => {

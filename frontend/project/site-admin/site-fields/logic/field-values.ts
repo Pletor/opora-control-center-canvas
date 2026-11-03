@@ -14,10 +14,8 @@ export function safeCss(value: unknown): string | null {
 
 /** Hodnota pro CSS: alias `{token}` → `var(--token)` (tečka escapovaná jako v serveru), jinak beze změny. */
 export function cssValue(value: unknown): string | null {
-  const text = safeCss(value);
-  if (!text) return null;
-  const alias = text.match(ALIAS);
-  return alias ? `var(--${alias[1].replace(/\./g, "\\.")})` : text;
+  const alias = String(value ?? "").trim().match(ALIAS);
+  return alias ? `var(--${alias[1].replace(/\./g, "\\.")})` : safeCss(value);
 }
 
 /** Barva pro `<input type="color">`: jen literál, který jde přečíst; alias a průhledná nemají výběr. */
