@@ -67,8 +67,25 @@ python "<SKILL_DIR>/scripts/opora_gate.py" tell "Záměr člověka doslova, s fo
 | `/api/brain/heart/escalations` | jen člověk | `GET ?project&workspace` → otázky srdce na člověka |
 | `/api/brain/heart/context` | token srdce | `GET ?project&workspace&name=` → podklady dávky srdce |
 | `/api/brain/heart/escalate` | token srdce | `POST {project, workspace, text}` → otázka srdce člověku |
+| `/api/brain/heart/escalations/{ticket_id}/withdraw` | token srdce | `POST {project, workspace, reason}` → `{ticketId, status, reason}`; stáhne otevřenou eskalaci, kterou už zodpověděla fakta (404 neznámý, 403 cizí, 409 už ne otevřený) |
+| `/api/brain/heart/intake` | token srdce | `POST {project, workspace, entry, verdict, reason?, requirement?, title?, openCondition?}` → potvrdí nebo opraví stanovisko vstupu brány; `requirement` = `new` s `title`, nebo `rq_…` |
+| `/api/brain/heart/milestone` | token srdce | `POST {project, workspace, area, title, criteria}` → `201` návrh milníku oblasti (`proposed`) |
+| `/api/brain/heart/brief` | token srdce | `POST {project, workspace, requirement, synthesis}` → `{requirement, status, missing}`; `clear` jen bez `missing` |
+| `/api/brain/heart/ask` | token srdce | `POST {project, workspace, requirement, question, recommended, why}` → otázka výslechu pro člověka (nejvýš 3 otevřené a 3 kola) |
+| `/api/brain/heart/brief/research` | token srdce | `POST {project, workspace, requirement, costUsd?, fragmentId?, digest?, sources?}`; bez `costUsd` kontrola stropu před rešerší (409 `brief_research_spent`), s `costUsd` přičtení ceny |
 
 Orchestrátor z nich jen čte `status` a `snapshot`; ostatní patří člověku a srdci.
+
+## Vstupní brána a výslech (rozhodují člověk, při plné autonomii i agent)
+
+| Cesta | Kdo | Co |
+|---|---|---|
+| `/api/intake` | čtení kdokoli | `GET ?project&workspace` → pohled „Požadavky a plán“: oblasti s aktivním milníkem, návrhy milníků, otevřené a odložené požadavky, posledních 50 vstupů |
+| `/api/intake/milestone` | člověk, nebo agent při plné autonomii | `POST {project, workspace, milestoneId, action: activate\|reject}` → rozhodne o návrhu milníku |
+| `/api/intake/brief/start` | člověk, nebo agent při plné autonomii | `POST {project, workspace, requirement}` → `201`, založí spis výslechu a probudí srdce |
+| `/api/intake/brief/answer` | jen člověk | `POST {project, workspace, requirement, question, answer \| accept: true}` → odpověď na otázku výslechu (srdce si neodpovídá samo) |
+| `/api/oporahub/card-trail` | agent i člověk (428 bez identity) | `GET ?project&workspace&node` → stopa práce jedné karty (shrnutí a důkazy běhů) |
+| `/api/activity-log/latest-by-node` | čtení kdokoli | `GET ?project&workspace` → `{nodeId: {at, actor, agent, label, path}}`, poslední úspěšná změna každé karty |
 
 ## Po sloučení
 
