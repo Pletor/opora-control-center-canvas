@@ -37,8 +37,8 @@ Modules (H1b):
 
 Modules (H1c, contract `docs/brain-control-api.md`):
 - `kinds.py`: the single table of request kinds (`next`, `ask`, `report`, `change`, `state`, `inbox`, `release`,
-  `ticket.request|claim|feedback|deliver` for workers; `task.create`, `task.cancel`, `ticket.issue`, `ticket.answer`,
-  `escalate` for the heart). Each kind has role, description,
+  `ticket.request|claim|feedback|deliver` for workers; `task.create`, `task.cancel`, `ticket.issue`, `ticket.cancel`,
+  `ticket.answer`, `escalate` for the heart). Each kind has role, description,
   input/output schema, example, error codes with `hint`, a body check and a handler (`ask` / `change` have none and
   stay queued). `run` serves `POST /api/gate/requests`: a worker sending a heart kind gets 403 `heart_required`, a
   refused body leaves no ticket. `visible(role)` serves `GET /api/gate/kinds`.
@@ -50,7 +50,8 @@ Modules (PR 4 of the new base, contract `docs/navrhy/2026-11-03-novy-zaklad.md` 
   `ticket_state` naming the allowed targets). Body checks: the worker body has no IDs (`essence`, `build`,
   `openPaths`, `cautions`, `skills` pins `/name@version`, default `ponytail@5.3.3`, `doneCriteria`); the machine
   layer `cardId`, `executionId`, `cardVersion` sits beside it.
-- `ticket.py`: handlers of the kinds `ticket.issue` (heart only → `issued`), `ticket.request` (the held ticket again,
+- `ticket.py`: handlers of the kinds `ticket.issue` (heart only → `issued`, in `workspace` of the card or of the
+  heart token), `ticket.cancel` (heart only, open ticket → `cancelled`; delivered is 409), `ticket.request` (the held ticket again,
   else the oldest `issued`, not taken), `ticket.claim` (`issued → claimed`, held by the session),
   `ticket.feedback` (`bug|idea|improvement|question`, own ID `tf_…`; the first item moves `claimed → in_progress`,
   a question → `needs_answer`), `ticket.deliver` (`→ delivered`, not with an open question) and `ticket.answer`

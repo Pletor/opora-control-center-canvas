@@ -41,7 +41,8 @@ def _found(store, session, ticket_id_):
     ticket = store.get(ticket_id_)
     if ticket is None:
         raise GateError(404, "ticket_not_found", "Ticket v projektu neexistuje.", MISSING_HINT)
-    if ticket["workspaceId"] != session["workspace_id"]:
+    # Srdce vydává tickety i do prostorů karet (git projekt), takže na ně odpovídá a ruší je v celém projektu.
+    if ticket["workspaceId"] != session["workspace_id"] and session.get("role") != "heart":
         raise GateError(403, "gate_scope", "Ticket patří jinému pracovnímu prostoru.", MISSING_HINT)
     return ticket
 
@@ -72,12 +73,17 @@ def _write(service, session, work):
 
 
 def issue(service, session, body, now=None):
-    """`ticket.issue` (jen srdce): nový ticket ve stavu `issued` v prostoru tokenu srdce."""
+    """`ticket.issue` (jen srdce): nový ticket ve stavu `issued` v prostoru karty (`workspace`, git projekt má
+    karty v prostoru domény), jinak v prostoru tokenu srdce."""
     worker_body, machine = issue_payload(body)
+    workspace = body.get("workspace") or session["workspace_id"]
+    if not gate.workspace_known(service, session["project_id"], workspace):
+        raise GateError(404, "workspace_not_found", "Pracovní prostor v projektu neexistuje.",
+                        "Použijte main, draft nebo ID pracovního prostoru projektu.")
     new_id, at = "tk_" + uuid.uuid4().hex, tokens.stamp(now)
 
     def work(store):
-        store.insert(new_id, session["workspace_id"], "issued", worker_body, machine, at)
+        store.insert(new_id, workspace, "issued", worker_body, machine, at)
         return {"ticket": store.get(new_id)}
     return _write(service, session, work)
 
@@ -119,6 +125,16 @@ def release(service, session, body, now=None):
         if not store.unclaim(wanted, at):
             raise GateError(409, "ticket_state", "Ticket mezitím změnil stav.", "Načtěte ho znovu přes ticket.request.")
         return {"ticket": {"ticketId": wanted, "status": "issued"}}
+    return _write(service, session, work)
+
+
+def cancel(service, session, body, now=None):
+    """`ticket.cancel` (jen srdce): práce, která už nedává smysl, skončí `cancelled`; odevzdaný ticket ne (409)."""
+    wanted, at = ticket_id(body, 'Například {"ticketId": "tk_…"}.'), tokens.stamp(now)
+
+    def work(store):
+        ticket = _found(store, session, wanted)
+        return {"ticket": {"ticketId": wanted, "status": _walk(store, ticket, ("cancelled",), at)}}
     return _write(service, session, work)
 
 

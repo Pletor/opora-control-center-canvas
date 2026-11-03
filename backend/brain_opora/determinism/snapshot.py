@@ -2,12 +2,11 @@
 
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky,
 oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu),
-fronta úkolů, čekající lístky, otevřené eskalace srdce pro člověka (sekce OTÁZKY U ČLOVĚKA), poslední vstupy vstupní brány (sekce VSTUPY), aktivní milníky s kritérii (hotovo/celkem a karty) a splněné
+tickety práce (sekce TICKETY PRÁCE, docs/navrhy/2026-11-03-novy-zaklad.md §3.3), čekající lístky, otevřené eskalace srdce pro člověka (sekce OTÁZKY U ČLOVĚKA), poslední vstupy vstupní brány (sekce VSTUPY), aktivní milníky s kritérii (hotovo/celkem a karty) a splněné
 milníky s odloženými požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY),
 otevřené konflikty auto-rebase (sekce KONFLIKTY NÁVRHŮ, docs/oporahub-auto-rebase.md), poslední kontroly, deník dávek;
 okolí srdce §3a; skripty dílny §3b; výzkumy a duely srdce ze schránky zadání §3c; stav práce karet z executions
-a vazeb PR, docs/brain-heart-orchestrator.md §3, včetně blokace nehotovým předchůdcem z grafu karet agent-state;
-kanál doručení práce cards/gate před sekcí PLÁN, řádek DORUČENÍ, §3e),
+a vazeb PR, docs/brain-heart-orchestrator.md §3, včetně blokace nehotovým předchůdcem z grafu karet agent-state),
 `snapshot` k nim přidá posledních 10 commitů zdroje (sekce GIT, §4) a u git projektu pracovní prostory (sekce
 PROSTORY, §9 O7: doména, větev, karty volné/běží/hotové), `render` z nich bez dalšího čtení
 složí text. Stejná fakta = stejný text; nic tu nezávisí na čase ani náhodě.
@@ -18,15 +17,13 @@ import json
 import re
 import sqlite3
 
-from backend.brain_opora.determinism import brain_files, delivery, git_log, intake, milestones
-from database.repositories.intake_milestones import IntakeMilestones
-from database.repositories.intake_requirements import IntakeRequirements
+from backend.brain_opora.determinism import brain_files, git_log, intake, milestones
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.task_queue import for_worker, open_cards
 from backend.canvas import card_gauge
-from backend.canvas.opora_auto_rebase import SOURCES as PROPOSAL_SOURCES
 from backend.canvas import opora_agent_state_dag as dag_state
 from backend.canvas.architecture_graph import split
+from backend.canvas.opora_auto_rebase import SOURCES as PROPOSAL_SOURCES
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 from backend.editor.brief_vault.brief_vault_details import latest_details
 from backend.editor.brief_vault.brief_vault_duel_shape import summary as duel_summary
@@ -35,9 +32,15 @@ from backend.editor.brief_vault.brief_vault_tree import live_ids
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.heart_tasks import HeartTaskStore
+from database.repositories.intake_milestones import IntakeMilestones
+from database.repositories.intake_requirements import IntakeRequirements
 from database.repositories.opora_auto_rebase import AutoRebaseStore
-from database.repositories.opora_execution_pull_requests import ExecutionPullRequests, list_execution_pull_requests
+from database.repositories.opora_execution_pull_requests import (
+    ExecutionPullRequests,
+    list_execution_pull_requests,
+)
 from database.repositories.opora_executions import Executions
+from database.repositories.tickets import TicketStore
 
 LIMIT = 12_000  # zhruba 4k tokenů
 PAGES = 20
@@ -46,7 +49,7 @@ TASKS = 10
 TICKETS = 10
 CHECKS = 10
 TEXT = 160
-STATUSES = ("ready", "assigned", "done", "failed", "cancelled")
+WORK_STATUSES = ("issued", "claimed", "in_progress", "needs_answer", "delivered", "verified", "failed")
 QUEUE = ("ready", "assigned", "done", "failed")
 RULES = 20
 MESSAGES = 5
@@ -318,10 +321,10 @@ def collect(service, project, workspace):
         active = [item for item in (milestones.evaluate(db, project, found) for found in
                                     IntakeMilestones(db).list(workspace, ("active",))) if not item["done"]]
         wanted = IntakeRequirements(db).list(workspace, ("open", "deferred"))[-REQUIREMENTS:]
-        channel = delivery.channel(db, project)
+        work_tickets = TicketStore(db, project).list(workspace)
         conflicts, conflicts_total = _conflicts(db, project, workspace)
     runs = _runs(service, project, workspace, [card["id"] for card in cards])  # jen otevřené karty
-    return {"delivery": channel, "conflicts": conflicts, "conflictsTotal": conflicts_total, "runs": runs, "intake": entries, "milestones": reached, "active_milestones": active, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
+    return {"workTickets": work_tickets, "conflicts": conflicts, "conflictsTotal": conflicts_total, "runs": runs, "intake": entries, "milestones": reached, "active_milestones": active, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
             "tasks": tasks, "tickets": tickets, "escalations": escalations, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace)}
@@ -388,23 +391,17 @@ def _doing(facts, node):
     return "blokovaná – čeká na " + "; ".join(parts) + more
 
 
-def _queue(facts):
-    tasks = facts["tasks"]
-    counts = {status: sum(task["status"] == status for task in tasks) for status in STATUSES}
-    holders = sorted({task["sessionId"] for task in tasks if task["status"] == "assigned" and task["sessionId"]})
-    head = (f"ready {counts['ready']} · assigned {counts['assigned']}"
-            + (f" ({', '.join(holders)})" if holders else "")
-            + f" · done {counts['done']} · failed {counts['failed']}")
-    last = sorted(tasks, key=lambda task: task["seq"], reverse=True)[:TASKS]
-    return [head, *(f"- [{task['status']}] {_short(task['title'], 100)} ({task['taskId']})" + _held_since(task)
-                    for task in last)]
-
-
-def _held_since(task):
-    """U drženého úkolu kdo a od kdy (`updatedAt` nastaví přidělení); čas jako údaj, ne délka, ať je snímek stálý."""
-    if task["status"] != "assigned":
-        return ""
-    return f" · drží {task.get('sessionId') or '?'} od {task.get('updatedAt') or '?'}"
+def _work_ticket_lines(facts):
+    """Sekce TICKETY PRÁCE: počty podle stavu a nejnovější tickety (titulek = první řádek „co postavit“, karta,
+    u drženého kdo a od kdy). Srdce podle ní nevydává stejnou práci dvakrát a ruší, co už nedává smysl."""
+    tickets = facts.get("workTickets") or []
+    counts = {status: sum(item["status"] == status for item in tickets) for status in WORK_STATUSES}
+    head = "TICKETY PRÁCE: " + " · ".join(f"{status} {count}" for status, count in counts.items())
+    last = sorted(tickets, key=lambda item: item["seq"], reverse=True)[:TASKS]
+    return [head, *(f"- [{item['status']}] {_short(item['body']['build'].splitlines()[0], 100)} ({item['ticketId']})"
+                    + (f" · karta {item['machine']['cardId']}" if item["machine"]["cardId"] else "")
+                    + (f" · drží {item['sessionId']} od {item['updatedAt']}" if item["sessionId"] else "")
+                    for item in last)]
 
 
 def _approved(rule):
@@ -575,8 +572,7 @@ def render(facts, limit=LIMIT):
     """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
              f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts), *_escalation_lines(facts),
-             *([delivery.line(facts["delivery"])] if facts.get("delivery") else []), "PLÁN:", *_plan(facts),
-             "FRONTA ÚKOLŮ: " + _queue(facts)[0], *_queue(facts)[1:], "LÍSTKY ČEKAJÍCÍ:"]
+             "PLÁN:", *_plan(facts), *_work_ticket_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
     lines += _intake_lines(facts) + _requirement_lines(facts) + _milestone_lines(facts) + _conflict_lines(facts)

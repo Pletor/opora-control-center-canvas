@@ -1,4 +1,4 @@
-"""Kanál doručení: projekt bez exekuce karty je `gate`, s exekucí kdekoli v projektu `cards`; řádek DORUČENÍ ve snímku."""
+"""Kanál doručení: projekt bez exekuce karty je `gate`, s exekucí kdekoli v projektu `cards`; snímek srdce ho už neukazuje (práce = ticket)."""
 import sqlite3
 
 import pytest
@@ -53,15 +53,11 @@ def test_line_names_the_command_for_each_channel():
         "DORUČENÍ: cards – orchestrátor bere karty (exekucí 3); práci zadávej kartami (plan)")
 
 
-def test_snapshot_shows_the_channel_before_the_plan(service):
-    text = snapshot.snapshot(service, "draft", "draft")
-    assert "DORUČENÍ: gate – žádný orchestrátor karet;" in text
-    assert text.index("DORUČENÍ:") < text.index("PLÁN:")
+def test_snapshot_no_longer_splits_work_by_channel(service):
+    # Srdce vydává práci jen jako ticket (docs/navrhy/2026-11-03-novy-zaklad.md §3.3); kanál do snímku nejde.
     gate.open_session(service, {"project": "draft", "workspace": "draft", "worker": {"name": "dev"}})
-    assert "(relací pracovníků brány 1)" in snapshot.snapshot(service, "draft", "draft")
     with service.lock_for("draft"):
         connection = service.db_for("draft")
         with connection:
             _claim(connection, "draft", "draft")
-    assert "DORUČENÍ: cards – orchestrátor bere karty (exekucí 1); práci zadávej kartami (plan)" in (
-        snapshot.snapshot(service, "draft", "draft"))
+    assert "DORUČENÍ" not in snapshot.snapshot(service, "draft", "draft")

@@ -1,15 +1,16 @@
 """Jediný nástroj srdce (docs/brain-heart.md §4), jen standardní knihovna. Jedno volání = jeden záměr.
 
     python opora_heart.py snapshot
-    python opora_heart.py task --title T --do D [--why W] [--file F]… [--done-when C]… [--dont-touch P[@kdo]]…
-                               [--rule R]… [--intent I] [--node N] [--order N] [--commit C] [--model M] [--workspace W]
+    python opora_heart.py task --title T --do D [--why W] [--file F]… --done-when C [--done-when C]…
+                               [--dont-touch P[@kdo]]… [--rule R]… [--open-path O]… [--intent I] [--node N]
+                               [--workspace W]
     python opora_heart.py plan --file F [--dry-run] [--no-accept] [--workspace W]
     python opora_heart.py plan --example
     python opora_heart.py workspace --domain NODE [--reuse]
     python opora_heart.py answer --ticket ID --text T
     python opora_heart.py ticket-issue --file @ticket.json|JSON   (vydá ticket práce, druh brány ticket.issue)
     python opora_heart.py ticket-answer --ticket ID --text T [--feedback FEEDBACK_ID]   (druh brány ticket.answer)
-    python opora_heart.py cancel --task ID
+    python opora_heart.py cancel --task TICKET_ID   (zruší ticket práce, druh brány ticket.cancel)
     python opora_heart.py escalate --text T
     python opora_heart.py escalate --withdraw TICKET_ID --reason R   (stáhne zastaralou otázku)
     python opora_heart.py intake --entry ie_… --verdict V [--reason R] [--requirement rq_…|new [--title T]
@@ -41,6 +42,11 @@ Dílna (§3b, cwd = `brain/`): `ctx` zapíše data do `dilna/data/<name>.json` (
 po řádcích a Grep vrací položky) a vypíše jen cestu, počet a velikost;
 `run` spustí `dilna/scripts/<SCRIPT>.py` (`python -I`, cwd `dilna/`, 120 s) bez tokenu srdce a klíčů API
 ve vlastní skupině procesů (po vypršení zemře celý strom i s pod-voláními `claude`) a zapíše řádek do `dilna/runs.jsonl`.
+`task` vydá práci jen jako ticket (`ticket.issue`, docs/navrhy/2026-11-03-novy-zaklad.md §3.3) s `cardId` = `--node`:
+podstata = `--why` (jinak titulek, `--intent` jako pocit), co postavit = titulek, `--do` a soubory, otevřené cesty =
+`--open-path`, na co si dát pozor = `--dont-touch` a `--rule`, kritérium hotovo = `--done-when` (povinné); ID brány
+v textu tělo nenese (nahradí je „(ID)“). Ticket vzniká v prostoru `--workspace` (jinak v prostoru tokenu srdce);
+pořadí práce = pořadí vydání.
 `plan` (docs/brain-heart-orchestrator.md §3) pošle dávku plánu ze souboru F na `/api/canvas-plan` s čerstvým digestem
 a ostrou dávku hned přijme (návrh grafu + přijetí, §3 O2b; `--no-accept` nechá přijetí člověku); `--example` vypíše
 platný vzor dávky (tentýž je v prompt.md, část Plán).
@@ -181,19 +187,46 @@ def held(value):
     return {"path": path.strip(), "heldBy": holder.strip() or "jiný úkol"}
 
 
-def task_payload(args):
-    """Tělo `POST /api/brain/tasks` v pevném tvaru úkolu (docs/brain-gate.md §6)."""
-    body = {"do": args.do, "why": args.why or "", "files": args.file, "doneWhen": args.done_when,
-            "dontTouch": [held(item) for item in args.dont_touch], "commit": args.commit or ""}
-    context = {key: value for key, value in (("rules", args.rule), ("intent", args.intent)) if value}
-    payload = {**scope(), "title": args.title, "body": {**body, "context": context}}
-    if args.model:
-        payload["body"]["model"] = args.model
-    if args.node:
-        payload["nodeId"] = args.node
-    if args.order is not None:
-        payload["order"] = args.order
-    return payload
+# ID brány a ticketu do těla ticketu nepatří (kopie determinism.ticket_model.MACHINE_ID, nástroj je jen stdlib).
+MACHINE_ID = re.compile(r"\b(?:gt|gs|ht|tk|tf)_[0-9a-f]{8,}")
+TICKET_TEXT, TICKET_LIST = 4000, 20  # meze textu a seznamu těla ticketu (ticket_model.TEXT_LIMIT, LIST_LIMIT)
+
+
+def ticket_text(value):
+    return MACHINE_ID.sub("(ID)", value).strip()[:TICKET_TEXT]
+
+
+def ticket_texts(values):
+    return [text for text in (ticket_text(value) for value in values) if text][:TICKET_LIST]
+
+
+def work_ticket(args):
+    """Tělo `ticket.issue` z podpříkazu `task` (docs/navrhy/2026-11-03-novy-zaklad.md §3.3): titulek a soubory
+    jdou do „co postavit“, `--dont-touch` a `--rule` do „na co si dát pozor“; ID brány v textu tělo nenese."""
+    if not args.done_when:
+        raise Failure({"error": "Ticket práce chce kritérium hotovo.", "code": "ticket_done_criteria",
+                       "hint": "Přidej aspoň jedno --done-when (build, test, pozorovatelné chování)."})
+    files = ["Soubory: " + ", ".join(args.file)] if args.file else []
+    cautions = [f"Nesahej na {item['path']} (drží {item['heldBy']})" for item in map(held, args.dont_touch)]
+    essence = (args.why or args.title) + (f"\nPocit: {args.intent}" if args.intent else "")
+    body = {"essence": ticket_text(essence), "build": ticket_text("\n".join([args.title, args.do, *files])),
+            "openPaths": ticket_texts(args.open_path), "cautions": ticket_texts(cautions + args.rule),
+            "doneCriteria": ticket_texts(args.done_when)}
+    return ({"body": body} | ({"cardId": args.node} if args.node else {})
+            | ({"workspace": args.workspace} if args.workspace else {}))
+
+
+def issue_work(args):
+    """`task`: práce jde jen jako ticket (`ticket.issue` tokenem srdce); pořadí práce = pořadí vydání."""
+    ticket = call("POST", "/api/gate/requests", {"kind": "ticket.issue", "body": work_ticket(args)})["answer"]["ticket"]
+    return {"ticketId": ticket["ticketId"], "status": ticket["status"], "title": args.title,
+            "cardId": ticket["machine"]["cardId"]}
+
+
+def cancel_work(ticket_id):
+    """`cancel --task tk_…`: zrušení ticketu práce (`ticket.cancel`)."""
+    body = {"kind": "ticket.cancel", "body": {"ticketId": ticket_id}}
+    return call("POST", "/api/gate/requests", body)["answer"]["ticket"]
 
 
 def criteria(values):
@@ -1113,8 +1146,7 @@ def run(args):
     if args.command == "steps":
         return submit_steps(args)
     if args.command == "task":
-        task = call("POST", "/api/brain/tasks", task_payload(args))
-        return {key: task[key] for key in ("taskId", "title", "status", "order")}
+        return issue_work(args)
     if args.command == "answer":
         ticket = call("POST", f"/api/gate/tickets/{quote(args.ticket, safe='')}/answer",
                       {"answer": {"text": args.text}}, {"project": project})
@@ -1122,8 +1154,7 @@ def run(args):
     if args.command in ("ticket-issue", "ticket-answer"):
         return gate_ticket(args)
     if args.command == "cancel":
-        task = call("POST", f"/api/brain/tasks/{quote(args.task, safe='')}/cancel", {}, {"project": project})
-        return {key: task[key] for key in ("taskId", "status")}
+        return cancel_work(args.task)
     if args.command == "escalate" and args.withdraw:
         if not args.reason:
             raise SystemExit("escalate --withdraw potřebuje --reason (jedna věta, proč otázka padla).")
@@ -1172,13 +1203,10 @@ def parser():
     task.add_argument("--title", required=True)
     task.add_argument("--do", required=True)
     task.add_argument("--why")
-    for flag in ("--file", "--done-when", "--dont-touch", "--rule"):
+    for flag in ("--file", "--done-when", "--dont-touch", "--rule", "--open-path"):
         task.add_argument(flag, action="append", default=[])
-    for flag in ("--intent", "--node", "--commit"):
+    for flag in ("--intent", "--node", "--workspace"):
         task.add_argument(flag)
-    task.add_argument("--order", type=int)
-    task.add_argument("--model", choices=("sonnet", "opus", "haiku", "fable"))
-    task.add_argument("--workspace")
     plan = commands.add_parser("plan")
     plan.add_argument("--file")
     plan.add_argument("--dry-run", action="store_true")

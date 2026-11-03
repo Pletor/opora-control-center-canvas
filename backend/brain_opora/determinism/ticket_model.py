@@ -69,9 +69,10 @@ def body_payload(body):
 
 
 def issue_payload(payload):
-    """`ticket.issue` `{body, cardId?, executionId?, cardVersion?}` → `(tělo, strojová vrstva)`."""
-    shaped(payload, ("body",), ("cardId", "executionId", "cardVersion"), ids=("cardId", "executionId"),
-           hint=ISSUE_HINT)
+    """`ticket.issue` `{body, cardId?, executionId?, cardVersion?, workspace?}` → `(tělo, strojová vrstva)`;
+    `workspace` (prostor karty, jinak prostor tokenu srdce) čte obsluha zvlášť."""
+    shaped(payload, ("body",), ("cardId", "executionId", "cardVersion", "workspace"),
+           ids=("cardId", "executionId", "workspace"), hint=ISSUE_HINT)
     version = payload.get("cardVersion")
     if version is not None and (type(version) is not int or version < 0):
         raise invalid("cardVersion je celé číslo ≥ 0.", ISSUE_HINT)
