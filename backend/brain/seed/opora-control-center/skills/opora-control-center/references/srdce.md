@@ -92,6 +92,22 @@ přepíše prostor, v main jde jako `research` do prostoru posledního plánu):
 Čtení Schránky je volné jako každé čtení; generátor (`POST`) pustí zeď v projektu se zapnutou bránou jen srdci
 téhož projektu (cizí token 403 `gate_scope`).
 
+## Záměr stránky jako nástroj srdce (plátno 2)
+
+Snímek nese sekci `ZÁMĚRY STRÁNEK`: řádek na stránku `cesta · ID · stav · kritéria N` (stav `bez záměru`,
+`čeká na schválení vN`, `schválený vN`, `zastaralý (schválený vN)`, N = počet `intent.done`). Srdce záměr navrhuje,
+schvaluje jen člověk v UI ([flow.md](flow.md)):
+
+| Příkaz | Cesta | Co vrátí |
+|---|---|---|
+| `intent show PAGE` | `GET /api/flow/workflows?project&kind=page_intent&owner_ref`, `GET …/versions` | aktivní a kandidátní verze: uzly `id · typ · klíč=hodnota`, vazby `a.port → b.port` |
+| `intent propose PAGE --file F [--dry-run]` | `POST /api/flow/workflows` (když chybí), `POST …/versions`, `POST /api/flow/versions/{id}/candidate` | uloží graf `{nodes, edges}` jako draft a navrhne kandidáta; `--dry-run` jen `POST /api/flow/graph-check` |
+| `intent diff PAGE` | jako `show` | přidané, odebrané a změněné uzly a vazby kandidáta proti aktivní verzi |
+
+Rozklad schváleného záměru: ticket karty, která kritérium naplňuje, nese `intent: {workflowVersionId, nodeIds}`
+(`ticket-issue --file`); server ověří, že verze je aktivní `page_intent` projektu a uzly jsou `intent.done`, a jejich
+`claim` doplní do `doneCriteria` (422 `ticket_intent`). Kritérium do těla nepiš.
+
 ## Vstupní brána a výslech (rozhodují člověk, při plné autonomii i agent)
 
 | Cesta | Kdo | Co |

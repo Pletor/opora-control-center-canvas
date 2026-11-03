@@ -31,7 +31,8 @@ python "<SKILL_DIR>/scripts/opora_gate.py" tell "Záměr člověka doslova"
 1. `request` → `answer = {ticket, held}`: ticket, který držíš, jinak nejstarší vydaný (`issued`) v prostoru; nic =
    `ticket: null`, práci si nevymýšlej. Ticket je `{ticketId, status, body, machine, feedback}`; `body` je
    `{essence, build, openPaths[], cautions[], skills[], doneCriteria[]}`, `machine` `{cardId, executionId, cardVersion,
-   department, profile, pins[]}`; `department` / `profile` (oddělení a profil kanceláře, slug nebo null) určuje srdce
+   department, profile, pins[], intent?}` (`intent` `{workflowVersionId, nodeIds}` = kritéria schváleného záměru stránky,
+   jejichž `claim` server doplnil do `doneCriteria`); `department` / `profile` (oddělení a profil kanceláře, slug nebo null) určuje srdce
    v `ticket.issue`. `pins` jsou piny Brainu po pluginech `{pin, plugin, version, zip}`: výchozí ponytail doplní
    server, další srdce polem `pins` v `ticket.issue` (`["opora:brain:skill:<name>", …]`, bez verze = aktivní pin,
    neznámé ID 422 `invalid_payload`). Zip stáhneš z `zip` (`/api/brain-registry/pins/<plugin>@<sha12>.zip`) a

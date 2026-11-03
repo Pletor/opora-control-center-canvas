@@ -159,10 +159,12 @@ def _decision(version, author, reason=None):
     return payload if reason is None else {**payload, "reason": reason}
 
 
-def approve(db, version_id, author):
-    """Člověk schválí kandidáta záměru: stane se aktivní verzí, do logu jde `version.approved` (plátno 2)."""
+def approve(db, version_id, author, page_digest=None):
+    """Člověk schválí kandidáta záměru: stane se aktivní verzí, do logu jde `version.approved` (plátno 2) s otiskem
+    stránky v okamžiku schválení (`pageDigest`, `page_intents.page_digest`); podle něj se pozná zastaralý záměr."""
     version = _intent_candidate(db, version_id)
-    append(db, None, None, "version.approved", _decision(version, author), canvas=2)  # commit až se `_switch_active`
+    payload = {**_decision(version, author), "pageDigest": page_digest}
+    append(db, None, None, "version.approved", payload, canvas=2)  # commit až se `_switch_active`
     return _switch_active(db, version)
 
 

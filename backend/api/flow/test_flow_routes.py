@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.flow.flow_routes import create_flow_router
 from backend.canvas.activity_log import HumanRequired
+from backend.flow.page_intents import page_digest
 from database.schema.project_schema import REGISTRY_SCHEMA, ensure_flow_owner_ref
 
 # Schválení s nulovým limitem: hned po spuštění je to prostoj (deadline vypršel), rozhodnutí ho uzavře.
@@ -26,7 +27,13 @@ INTENT = {"nodes": [{"id": "in", "type": "intent.entry", "params": {"from": "odk
                      "target_port": "main", "kind": "main"}]}
 
 
-def client():
+# Přijatý graf projektu `p` (projekt bez Gitu čte prostor `draft`): stránka kontakt a jedna aplikace.
+PAGES = {"nodes": [{"id": "kontakt", "site": {"kind": "page", "path": "/kontakt", "goal": "Spojit se"}},
+                   {"id": "o-nas", "site": {"kind": "page", "path": "/o-nas"}},
+                   {"id": "app", "site": {"kind": "application"}}], "edges": []}
+
+
+def client(graph=PAGES):
     db = sqlite3.connect(":memory:", check_same_thread=False)
     db.row_factory = sqlite3.Row
     db.executescript(REGISTRY_SCHEMA)
@@ -43,7 +50,10 @@ def client():
     async def human_required(request, exc):
         return JSONResponse({"error": str(exc), "humanRequired": True}, status_code=403)
 
-    app.include_router(create_flow_router(SimpleNamespace(db=db, registry_lock=threading.RLock())))
+    hub = SimpleNamespace(settings=lambda project: {"project": {"sourceKind": "local"}})
+    service = SimpleNamespace(db=db, registry_lock=threading.RLock(), project_hub=hub,
+                              view=lambda project, workspace: {"graph": graph})
+    app.include_router(create_flow_router(service))
     return TestClient(app), db
 
 
@@ -136,3 +146,25 @@ def test_page_intent_owner_approval_and_not_runnable():
     assert [(row["type"], row["canvas"]) for row in log] == [("version.approved", 2), ("version.rejected", 2)]
     assert json.loads(log[1]["payload"]) == {"workflow_id": wid, "version_id": v2, "n": 2, "author": "human",
                                              "reason": "chybí mapa"}
+    assert json.loads(log[0]["payload"])["pageDigest"] == page_digest(PAGES["nodes"][0]["site"])
+
+
+def test_page_intents_list_every_page_with_its_state_and_graph_check():
+    graph = {"nodes": [dict(node) for node in PAGES["nodes"]], "edges": []}
+    c, _ = client(graph)
+    wid = c.post("/api/flow/workflows", json={"kind": "page_intent", "name": "Kontakt", "project_id": "p",
+                                              "owner_ref": "opora:page:kontakt"}).json()["id"]
+    v1 = c.post(f"/api/flow/workflows/{wid}/versions", json={"graph": INTENT}).json()["id"]
+    c.post(f"/api/flow/versions/{v1}/candidate", json={})
+    states = c.get("/api/flow/page-intents", params={"project": "p"}).json()["pages"]
+    assert states == [{"pageId": "kontakt", "state": "pending", "workflowId": wid, "candidateN": 1, "doneCount": 1},
+                      {"pageId": "o-nas", "state": "none", "doneCount": 0}]
+    c.post(f"/api/flow/versions/{v1}/approve", headers={"x-test-actor": "human"})
+    assert c.get("/api/flow/page-intents", params={"project": "p"}).json()["pages"][0]["state"] == "approved"
+    graph["nodes"][0] = {"id": "kontakt", "site": {"kind": "page", "path": "/kontakt", "goal": "Jiný cíl"}}
+    assert c.get("/api/flow/page-intents", params={"project": "p"}).json()["pages"][0]["state"] == "stale"
+    assert c.get("/api/flow/page-intents").status_code == 422
+
+    assert c.post("/api/flow/graph-check", json={"kind": "page_intent", "graph": INTENT}).json() == {"ok": True, "errors": []}
+    bad = c.post("/api/flow/graph-check", json={"kind": "page_intent", "graph": GRAPH}).json()
+    assert bad["ok"] is False and any("intent.done" in error for error in bad["errors"])

@@ -1,9 +1,10 @@
 """Strážce `mapa` (`docs/strazci.md` §4): kontrola mapy nad přijatou architekturou, jen při změně hlavy.
 
-Hlava = otisk přijatého grafu (`architecture_graph`) a nejvyšší `seq` dokladů cest (`journey_runs`); doklad
-cesty mění `journey.unverified`, proto patří do hlavy. Beze změny strážce přeskočí (`None`). Jinak
-`check_map(..., locate=True)` a každý nález kontroly mapy = nález strážce: `severity warn`, `page.no-goal`
-a `journey.broken` `block` (pro člověka). `nodeId` nálezu je místo řešení (`solverId`), takže nález hrany
+Hlava = otisk přijatého grafu (`architecture_graph`), nejvyšší `seq` dokladů cest (`journey_runs`) a stav záměrů
+stránek (`page_intents`); doklad cesty mění `journey.unverified` a schválení záměru `page.no-intent` /
+`page.intent-stale`, proto patří do hlavy. Beze změny strážce přeskočí (`None`). Jinak
+`check_map(..., locate=True)` a každý nález kontroly mapy = nález strážce: `severity warn`, `page.no-goal`,
+`journey.broken` a `page.intent-stale` `block`. `nodeId` nálezu je místo řešení (`solverId`), takže nález hrany
 nebo cesty míří na kartu, která ho vyřeší; hrana zůstává v `data.edgeId`.
 
 Klíč: `map:<pravidlo>:<cíl>`; cíl je karta, hrana nebo cesta. Pravidla s více nálezy na stejný cíl dostanou
@@ -17,10 +18,10 @@ import re
 from backend.canvas.graph import digest
 from backend.canvas.strazci.registry import Guard
 from backend.project.architecture.journey_runs import latest_journey_runs
-from backend.project.architecture.map_check import check_map
+from backend.project.architecture.map_check import check_map, intent_states
 from backend.project.architecture.work_status import architecture_graph
 
-BLOCK_RULES = frozenset({"page.no-goal", "journey.broken"})
+BLOCK_RULES = frozenset({"page.no-goal", "journey.broken", "page.intent-stale"})
 PER_MESSAGE = frozenset({"journey.unrealized", "journey.via-unknown"})
 SECTION = re.compile(r"^Sekce (\S+) ")
 TARGETS = ("nodeId", "edgeId", "journeyId")
@@ -77,10 +78,11 @@ def to_findings(report, workspace):
 
 def run(ctx):
     graph = architecture_graph(ctx.service, ctx.project)
-    head = json.dumps([digest(graph), runs_head(ctx.service, ctx.project)])
+    intents = intent_states(ctx.service, ctx.project, graph)
+    head = json.dumps([digest(graph), runs_head(ctx.service, ctx.project), intents], sort_keys=True)
     if ctx.memo.get("head") == head:
         return None
-    report = check_map(graph, latest_journey_runs(ctx.service, ctx.project), locate=True)
+    report = check_map(graph, latest_journey_runs(ctx.service, ctx.project), locate=True, intents=intents)
     ctx.memo["head"] = head
     return to_findings(report, workspace_of(ctx.service, ctx.project))
 

@@ -10,6 +10,11 @@ není (§3.5).
 
 Výklad pravidel:
 - `page.no-goal`: stránka bez neprázdného `site.goal`.
+- `page.no-intent` (varování) a `page.intent-stale` (chyba, `docs/navrhy/2026-11-03-platno-2-zamer-stranky.md` §5):
+  stránka bez záměru (stav `none`), nebo se schváleným záměrem, ale změněná od schválení (stav `stale`). Stav
+  počítá `backend/flow/page_intents.py` z registru, ne z grafu: `check_map` ho dostane argumentem `intents`
+  (`{pageId: stav}`, načte ho `map_check`); bez `intents` (`None`) pravidla nehlásí nic, stejně jako `runs`.
+  Strážce mapy dá `page.intent-stale` závažnost `block`, `page.no-intent` `warn`.
 - `section.unrealized`: sekce stránky (`site.sections[].id`), na kterou se neodvolává `card.section` žádné
   komponenty pod touto stránkou. Nález nese `nodeId` stránky, sekci jmenuje zpráva.
 - `section.unknown`: karta s `card.section`, kterou její nejbližší stránka nemá (sekci někdo smazal nebo
@@ -51,11 +56,13 @@ neprošlého přechodu. Kde přechod nevychází ze stránky (zdroj je menu `"na
 
 from backend.canvas.site_metadata import JOURNEY_FROM_NAV, card_section_error
 from backend.editor.agent_packet.desktop_v3_packets import ancestor_ids
+from backend.flow.page_intents import read_status
 from backend.project.architecture.journey_runs import last_runs, latest_journey_runs
 from backend.project.architecture.journeys import derive_journeys
 from backend.project.architecture.work_status import architecture_graph
 
-RULES = ("journey.broken", "journey.unrealized", "journey.via-unknown", "journey.unverified", "page.no-goal", "section.unrealized", "section.unknown", "command.no-receiver",
+RULES = ("journey.broken", "journey.unrealized", "journey.via-unknown", "journey.unverified", "page.no-goal", "page.no-intent",
+         "page.intent-stale", "section.unrealized", "section.unknown", "command.no-receiver",
          "state.no-error", "edge.carries-unset")
 ERROR_STATES = frozenset({"chyba", "error", "selhání"})
 
@@ -105,6 +112,20 @@ def _finding(rule, key, item_id, message, solver=None):
 def _page_or(page, application):
     """Stránka zdroje přechodu, u menu (`"nav"`) aplikace cesty."""
     return application if page in (None, JOURNEY_FROM_NAV) else page
+
+
+INTENT_FINDINGS = {"none": ("page.no-intent", "Stránka nemá záměr (plátno 2)."),
+                   "stale": ("page.intent-stale", "Stránka se změnila po schválení záměru, záměr je zastaralý.")}
+
+
+def _intent_rules(pages, intents):
+    """`(page.no-intent, page.intent-stale)` nálezy stránek podle stavu záměru; bez `intents` nic."""
+    found = {rule: [] for rule, _ in INTENT_FINDINGS.values()}
+    for page in pages if intents is not None else []:
+        rule, message = INTENT_FINDINGS.get(intents.get(page["id"], "none"), (None, None))
+        if rule:
+            found[rule].append(_finding(rule, "nodeId", page["id"], message))
+    return found["page.no-intent"], found["page.intent-stale"]
 
 
 def _page_rules(pages, components, nodes):
@@ -244,10 +265,11 @@ def _locate(findings, edges):
             finding["solverId"] = finding.get("nodeId") or sources.get(finding.get("edgeId"))
 
 
-def check_map(graph, runs=None, locate=False):
+def check_map(graph, runs=None, locate=False, intents=None):
     """{findings: [{rule, nodeId|edgeId|journeyId, message}], summary: {pravidlo: počet}} nad grafem `{nodes, edges}`.
 
     `runs` = poslední doklady cest `{(applicationId, journeyId): doklad}`; bez nich se `journey.unverified` nehodnotí.
+    `intents` = stav záměru stránek `{pageId: none|pending|approved|stale}`; bez něj se záměr nehodnotí.
     `locate=True` přidá každému nálezu `solverId` (místo řešení, viz docstring modulu)."""
     nodes = sorted(graph.get("nodes") or [], key=lambda n: n["id"])
     edges = graph.get("edges") or []
@@ -255,8 +277,9 @@ def check_map(graph, runs=None, locate=False):
     components = _components(nodes, by_id)
     pages = [node for node in nodes if _site_kind(node) == "page"]
     goals, sections = _page_rules(pages, components, nodes)
+    no_intent, stale = _intent_rules(pages, intents)
     receivers, errors = _command_rules(nodes, edges, components)
-    findings = [*_journey_rules(graph, by_id, runs), *goals, *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
+    findings = [*_journey_rules(graph, by_id, runs), *goals, *no_intent, *stale, *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
     if locate:
         _locate(findings, edges)
     else:
@@ -274,6 +297,13 @@ def finding_key(finding):
     return "|".join(str(finding.get(part) or "") for part in ("rule", "nodeId", "edgeId", "journeyId", "solverId", "message"))
 
 
+def intent_states(service, project, graph):
+    """`{pageId: stav záměru}` stránek grafu (argument `intents` pro `check_map`)."""
+    return {item["pageId"]: item["state"] for item in read_status(service, project, graph)}
+
+
 def map_check(service, project, locate=False):
     """Kontrola přijaté architektury projektu (`GET /api/project-architecture/map-check`; `locate=1` přidá `solverId`)."""
-    return check_map(architecture_graph(service, project), latest_journey_runs(service, project), locate=locate)
+    graph = architecture_graph(service, project)
+    return check_map(graph, latest_journey_runs(service, project), locate=locate,
+                     intents=intent_states(service, project, graph))

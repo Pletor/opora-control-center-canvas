@@ -41,9 +41,12 @@ PIN = obj({"pin": {"type": "string"}, "plugin": {"type": "string"}, "version": {
            "zip": {"type": "string"}}, ("pin", "plugin", "version", "zip"))  # jeden plugin = jeden zip
 NEIGHBORS = {"type": "array", "items": obj({"cardId": ID, "name": {"type": "string"}, "essence": TEXT},
                                            ("cardId", "name"))}  # následníci / předchůdci karty z grafu (ticket.issue)
+# Kritéria `intent.done` schváleného záměru stránky, která ticket naplňuje (jen zadané, plátno 2 §4).
+INTENT = obj({"workflowVersionId": ID, "nodeIds": {"type": "array", "items": ID, "minItems": 1, "maxItems": 20}},
+             ("workflowVersionId", "nodeIds"))
 MACHINE = obj({"cardId": nullable(ID), "executionId": nullable(ID), "cardVersion": nullable({"type": "integer"}),
                "department": nullable(SLUG), "profile": nullable(SLUG), "successors": NEIGHBORS,
-               "predecessors": NEIGHBORS, "pins": {"type": "array", "items": PIN}},
+               "predecessors": NEIGHBORS, "pins": {"type": "array", "items": PIN}, "intent": INTENT},
               ("cardId", "executionId", "cardVersion", "department", "profile", "successors", "predecessors", "pins"))
 FEEDBACK_KIND = {"type": "string", "enum": ["bug", "idea", "improvement", "question"]}
 FEEDBACK_ITEM = obj({"feedbackId": ID, "kind": FEEDBACK_KIND, "text": TEXT, "answer": ANY},
@@ -93,7 +96,8 @@ SCHEMAS = {
                       {"ticketId": "tk_example"}),
     "ticket.issue": (obj({"body": WORK_BODY_IN, "cardId": ID, "executionId": ID,
                           "cardVersion": {"type": "integer", "minimum": 0}, "department": nullable(SLUG),
-                          "profile": nullable(SLUG), "pins": {"type": "array", "items": BRAIN_REF}, "workspace": ID},
+                          "profile": nullable(SLUG), "pins": {"type": "array", "items": BRAIN_REF}, "intent": INTENT,
+                          "workspace": ID},
                          ("body",)),
                      obj({"ticket": WORK_TICKET}, ("ticket",)),
                      {"body": {"essence": "Návštěvník musí do pěti vteřin poznat, co produkt dělá.",

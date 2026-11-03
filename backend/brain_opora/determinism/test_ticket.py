@@ -179,3 +179,28 @@ def test_department_and_profile_ride_in_the_machine_layer_and_are_checked(servic
         wrong = refused(service, brain, "ticket.issue", {**ISSUE, "department": bad})
         assert wrong.status == 422 and wrong.code == "invalid_payload", bad
     assert refused(service, brain, "ticket.issue", {**ISSUE, "profile": "fe_1"}).code == "invalid_payload"
+
+
+def test_intent_criteria_of_the_approved_page_intent_land_in_done_criteria(service):
+    from backend.flow.workflows import approve, create_draft, create_workflow, set_candidate
+    graph = {"nodes": [{"id": "in", "type": "intent.entry"},
+                       {"id": "ok", "type": "intent.done", "params": {"claim": "Formulář odešle e-mail.", "check": "email"}},
+                       {"id": "mapa", "type": "intent.done", "params": {"claim": "Mapa ukazuje sídlo.", "check": "visible"}}],
+             "edges": []}
+    with service.registry_lock:
+        service.db.execute("INSERT INTO projects(id,name) VALUES('draft','Draft')")  # vestavěný projekt v registru není
+        wid = create_workflow(service.db, "page_intent", "Kontakt", project_id="draft", owner_ref="opora:page:kontakt")["id"]
+        version = set_candidate(service.db, create_draft(service.db, wid, graph)["id"])
+    brain = heart(service)
+    body = {"body": ISSUE["body"], "intent": {"workflowVersionId": version["id"], "nodeIds": ["ok", "mapa"]}}
+    pending = refused(service, brain, "ticket.issue", body)  # kandidát ještě není schválený
+    assert pending.status == 422 and pending.code == "ticket_intent"
+    with service.registry_lock:
+        approve(service.db, version["id"], "human", None)
+    issued = send(service, brain, "ticket.issue", body)["ticket"]
+    assert issued["body"]["doneCriteria"] == [*ISSUE["body"]["doneCriteria"], "Formulář odešle e-mail.", "Mapa ukazuje sídlo."]
+    assert issued["machine"]["intent"] == {"workflowVersionId": version["id"], "nodeIds": ["ok", "mapa"]}
+    assert refused(service, brain, "ticket.issue", {**body, "intent": {**body["intent"], "nodeIds": ["in"]}}).code == "ticket_intent"
+    assert refused(service, brain, "ticket.issue", {**body, "intent": {"workflowVersionId": "nic", "nodeIds": ["ok"]}}).code == "ticket_intent"
+    for bad in ({"workflowVersionId": version["id"]}, {"workflowVersionId": version["id"], "nodeIds": []}, "ok"):
+        assert refused(service, brain, "ticket.issue", {**body, "intent": bad}).code == "invalid_payload", bad

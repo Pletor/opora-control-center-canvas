@@ -504,3 +504,32 @@ def test_collect_counts_the_vault_and_main_reads_the_last_plan_workspace(tmp_pat
         brain.mkdir(parents=True, exist_ok=True)
         (brain / brain_files.ACTIVE).write_text(json.dumps({"workspace": "draft"}), encoding="utf-8")
         assert snapshot._vault(service, "draft", "main") == counts
+
+
+def test_intent_section_lists_each_page_with_state_and_done_count_after_the_plan():
+    pages = [{**FACTS["pages"][0], "intent": {"pageId": "home", "state": "approved", "activeN": 2, "doneCount": 3}},
+             {**FACTS["pages"][1], "intent": {"pageId": "kontakt", "state": "pending", "activeN": 1, "candidateN": 2,
+                                              "doneCount": 1}}]
+    text = snapshot.render({**FACTS, "pages": pages})
+    assert ("ZÁMĚRY STRÁNEK:\n- / · home · schválený v2 · kritéria 3\n"
+            "- /kontakt · kontakt · čeká na schválení v2 (aktivní v1) · kritéria 1\n") in text
+    assert text.index("PLÁN:") < text.index("ZÁMĚRY STRÁNEK:") < text.index("TICKETY PRÁCE:")
+    stale = {"pageId": "home", "state": "stale", "activeN": 1, "doneCount": 1}
+    assert "- / · home · zastaralý (schválený v1) · kritéria 1" in snapshot.render({**FACTS, "pages": [{**pages[0], "intent": stale}]})
+    assert "ZÁMĚRY STRÁNEK" not in snapshot.render(FACTS)  # fakta bez stavu záměru sekci nemají
+
+
+def test_collect_reads_page_intents_from_the_registry(service):
+    from backend.flow.workflows import create_draft, create_workflow, set_candidate
+    view = service.view("draft", "draft")
+    graph = {"nodes": [node("app", kind="sector", site={"kind": "application", "environments": []}),
+                       node("pg", parent_id="app", site={"kind": "page", "path": "/kontakt"}),
+                       node("jina", parent_id="app", site={"kind": "page", "path": "/jina"})], "edges": []}
+    service.save_graph("draft", "draft", graph, view["digest"])
+    with service.registry_lock:
+        service.db.execute("INSERT INTO projects(id,name) VALUES('draft','Draft')")  # vestavěný projekt v registru není
+        wid = create_workflow(service.db, "page_intent", "Záměr", project_id="draft", owner_ref="opora:page:pg")["id"]
+        intent = {"nodes": [{"id": "in", "type": "intent.entry"}, {"id": "ok", "type": "intent.done"}], "edges": []}
+        set_candidate(service.db, create_draft(service.db, wid, intent)["id"])
+    text = snapshot.render(snapshot.collect(service, "draft", "draft"))
+    assert "ZÁMĚRY STRÁNEK:\n- /kontakt · pg · čeká na schválení v1 · kritéria 1\n- /jina · jina · bez záměru · kritéria 0" in text
