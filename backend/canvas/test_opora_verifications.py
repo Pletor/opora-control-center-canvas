@@ -77,7 +77,7 @@ def test_new_requests_and_reports_require_current_authority(authority, service, 
         authority.release(execution["executionId"], credentials(execution))
     else:
         from backend.canvas.test_opora_changesets import accept, propose
-        accept(service, propose(service, nodes=("b",)), execution["acceptedRevision"])
+        accept(service, propose(service, nodes=("a",)), execution["acceptedRevision"])  # autoritu bere změna vlastní karty
     with pytest.raises(ValueError):
         ledger.create(request(execution, "new"))
     with pytest.raises(ValueError):
