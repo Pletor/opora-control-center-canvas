@@ -18,6 +18,7 @@ from backend.brain import evaluate as brain_evaluate
 from backend.flow import critic
 from backend.flow.catalogs.heart.nodes import HEART_TYPES
 from backend.flow.catalogs.heart.runtime import detached
+from backend.flow.catalogs.page_intent import INTENT_TYPES
 from backend.flow.node_spec import PORT_KINDS, NodeType, Port  # noqa: F401
 
 DEFAULT_APPROVAL_SECONDS = 24 * 3600
@@ -53,3 +54,8 @@ NODE_TYPES = {
 }
 
 NODE_TYPES.update({t.type: t for t in HEART_TYPES})
+
+
+def catalog(kind):
+    """Typy uzlů podle druhu workflow: `page_intent` má vlastní katalog (plátno 2), ostatní tento registr."""
+    return INTENT_TYPES if kind == "page_intent" else NODE_TYPES

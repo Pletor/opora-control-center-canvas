@@ -1,3 +1,4 @@
+from backend.flow.catalogs.page_intent import INTENT_TYPES
 from backend.flow.conftest import edge, node
 from backend.flow.graph_check import graph_errors
 from backend.flow.node_types import NODE_TYPES, NodeType, Port
@@ -32,3 +33,19 @@ def test_edge_kind_must_match_port_kinds_and_cardinality():
     assert any("jen jednu hranu" in e for e in graph_errors(two, registry))
     unknown = {"nodes": nodes, "edges": [edge("1", "e", "a", kind="laser")]}
     assert any("neznámý kind" in e for e in graph_errors(unknown, registry))
+
+
+def test_page_intent_needs_entry_done_and_matching_edge_kinds():
+    nodes = [node("in", "intent.entry"), node("d", "intent.data"), node("ok", "intent.done")]
+    good = {"nodes": nodes, "edges": [edge("1", "in", "d"), edge("2", "d", "ok"),
+                                      edge("3", "in", "ok", "data", "data", "data")]}
+    assert graph_errors(good, INTENT_TYPES, "page_intent") == []
+    main_to_data = {"nodes": nodes, "edges": [edge("1", "in", "d", "main", "data", "main")]}
+    assert any("port d.data je data" in e for e in graph_errors(main_to_data, INTENT_TYPES, "page_intent"))
+    data_to_main = {"nodes": nodes, "edges": [edge("1", "in", "d", "data", "main", "data")]}
+    assert any("port d.main je main" in e for e in graph_errors(data_to_main, INTENT_TYPES, "page_intent"))
+    lonely = {"nodes": [node("d", "intent.data")], "edges": []}
+    assert graph_errors(lonely, INTENT_TYPES, "page_intent") == [
+        "Záměr stránky potřebuje aspoň jeden uzel intent.entry.",
+        "Záměr stránky potřebuje aspoň jeden uzel intent.done."]
+    assert graph_errors(lonely, INTENT_TYPES) == []  # pravidlo platí jen pro kind page_intent

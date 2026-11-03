@@ -18,7 +18,7 @@ from backend.flow.graph_check import FlowInvalid
 from backend.flow.node_types import NODE_TYPES
 from backend.flow.run_log import append, now_iso
 from backend.flow.stalls import stall_reason
-from backend.flow.workflows import FlowConflict, FlowNotFound, get_version
+from backend.flow.workflows import FlowConflict, FlowNotFound, get_version, workflow_kind
 
 APPROVAL_DECISIONS = ("approved", "rejected")
 
@@ -70,9 +70,11 @@ def _set_status(db, run_id, status, now):
 
 
 def start_run(db, version_id, trigger=None, registry=NODE_TYPES, now=None, parent_run_id=None):
-    """Vytvoří běh z verze a spouštěče `{node_id?, payload?, source?}` a hned ho posune."""
+    """Vytvoří běh z verze a spouštěče `{node_id?, payload?, source?}` a hned ho posune. Záměr stránky se nespouští."""
     trigger = dict(trigger or {})
     version = get_version(db, version_id)
+    if workflow_kind(db, version["workflow_id"]) == "page_intent":
+        raise FlowConflict("Záměr stránky (page_intent) se nespouští.", "not_runnable")
     graph = version["graph"]
     triggers = [n["id"] for n in graph["nodes"] if registry[n["type"]].trigger]
     node_id = trigger.get("node_id") or (triggers[0] if triggers else None)

@@ -2,10 +2,12 @@
 
 Graf: `{"nodes": [{id, type, type_version, params, position, pinned_output}],
 "edges": [{id, source_node, source_port, target_node, target_port, kind, label}]}`.
+Záměr stránky (`kind = page_intent`) navíc musí mít aspoň jeden `intent.entry` a jeden `intent.done`.
 """
 
 from collections import Counter
 
+from backend.flow.catalogs.page_intent import REQUIRED_TYPES
 from backend.flow.node_types import NODE_TYPES, PORT_KINDS
 
 
@@ -13,7 +15,7 @@ class FlowInvalid(ValueError):
     """Graf nebo požadavek neodpovídá kontraktu toku (HTTP 422)."""
 
 
-def graph_errors(graph, registry=NODE_TYPES):
+def graph_errors(graph, registry=NODE_TYPES, kind=None):
     """Vrátí seznam chyb grafu; prázdný seznam = graf je platný."""
     if not isinstance(graph, dict):
         return ["Graf musí být objekt s nodes a edges."]
@@ -58,10 +60,13 @@ def graph_errors(graph, registry=NODE_TYPES):
     for (node_id, port_name, direction, cardinality), count in usage.items():
         if cardinality == "one" and count > 1:
             errors.append(f"Port {node_id}.{port_name} ({direction}) nese jen jednu hranu, má {count}.")
+    if kind == "page_intent":
+        present = {t.type for t in types.values()}
+        errors += [f"Záměr stránky potřebuje aspoň jeden uzel {t}." for t in REQUIRED_TYPES if t not in present]
     return errors
 
 
-def check_graph(graph, registry=NODE_TYPES):
-    errors = graph_errors(graph, registry)
+def check_graph(graph, registry=NODE_TYPES, kind=None):
+    errors = graph_errors(graph, registry, kind)
     if errors:
         raise FlowInvalid("; ".join(errors))

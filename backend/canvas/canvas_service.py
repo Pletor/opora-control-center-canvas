@@ -47,7 +47,7 @@ from backend.project.worktrees.workspace_domain import require_domain
 from backend.project_setup.project_hub import ProjectHub
 from database.repositories.opora_context_bindings import install as install_context_bindings
 from database.schema.project_initialization import initialize_project_schema
-from database.schema.project_schema import REGISTRY_SCHEMA
+from database.schema.project_schema import REGISTRY_SCHEMA, ensure_flow_owner_ref
 
 # Vrstva kresby skici momentu storyboardu: sb/<nodeId>/<momentId>.
 _SKETCH_LAYER = re.compile(r"sb/(?P<node>[A-Za-z0-9_-]{1,80})/(?P<moment>m-[0-9a-f]{8})")
@@ -115,6 +115,7 @@ class CanvasService:
         # registry.sqlite: jen seznam projektů, workspaces, jobs a archiv; vše ostatní má projekt ve své složce
         self.db = open_sqlite(self.root / "registry.sqlite")
         self.db.executescript(REGISTRY_SCHEMA)
+        ensure_flow_owner_ref(self.db)
         install_context_bindings(self.db)
         self._project_dbs = {}
         # Rozpracované snímky vlákna ({pid: spojení}); volná čtecí spojení po projektech (pod _locks_guard)

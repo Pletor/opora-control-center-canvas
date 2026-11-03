@@ -5,6 +5,7 @@ Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nev
 import sqlite3
 
 from database.schema.brain_schema import SCHEMA as BRAIN_SCHEMA
+from database.schema.flow_schema import OWNER_INDEX as FLOW_OWNER_INDEX
 from database.schema.flow_schema import SCHEMA as FLOW_SCHEMA
 from database.schema.guard_experience_schema import SCHEMA as GUARD_EXPERIENCE_SCHEMA
 from database.schema.guard_experience_schema import TABLES as GUARD_EXPERIENCE_TABLES
@@ -449,6 +450,13 @@ def ensure_ticket_columns(db):
     for name in ("department", "profile", "successors", "predecessors", "pins"):
         if columns and name not in columns:
             add_column(db, "tickets", name)
+
+
+def ensure_flow_owner_ref(db):
+    """Vlastník workflow v registru (docs/navrhy/2026-11-03-platno-2-zamer-stranky.md §2): sloupec a jedinečnost."""
+    if "owner_ref" not in _columns(db, "flow_workflows"):
+        add_column(db, "flow_workflows", "owner_ref")
+    db.executescript(FLOW_OWNER_INDEX)
 
 
 def ensure_brief_fragment_columns(db):
