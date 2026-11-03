@@ -102,6 +102,9 @@ def _input_line(item):
                    + ". Ověř na origin/main: je-li práce sloučená jinde nebo jde o duplikát, kartu odeber z plánu"
                    " a navazující karty napoj na její předchůdce; jinak ji připrav k novému převzetí."
                    if item.get("abandoned") else "")
+                + ("\n  PŘIJATÉ KARTY BEZ KROKŮ (nic je neblokuje, ale bez spec.steps je nikdo nepřevezme): "
+                   + ", ".join(item["unplanned"]) + ". Rozepiš jim kroky (nejdřív ty nahoře), než založíš nové karty."
+                   if item.get("unplanned") else "")
                 + ("\n  ČEKÁ NA ČLOVĚKA (blokuje jen sebe a navazující karty): " + _waiting(item["waitingHuman"])
                    + ". Tyto karty ani svou otázku neopakuj a nečekej na ně: naplánuj práci, která na nich nezávisí"
                    " (jiná oblast nebo obrazovka podle cíle projektu)."
@@ -115,7 +118,7 @@ def _input_line(item):
 
 def _waiting(waits):
     """Co čeká na člověka, jednou větou: karty (PR ke schválení / výsledek k revizi), otázky, rozhodnutí."""
-    why = {"approval": "PR ke schválení", "review": "výsledek k revizi"}
+    why = {"approval": "PR ke schválení", "round_cap": "PR za stropem kol revize", "review": "výsledek k revizi"}
     parts = [f"{c.get('nodeId')} ({why.get(c.get('why'), c.get('why'))}" + (f" #{c['pr']})" if c.get("pr") else ")")
              for c in waits.get("cards") or []]
     if waits.get("questions"):

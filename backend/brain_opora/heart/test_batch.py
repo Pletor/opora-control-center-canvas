@@ -80,6 +80,12 @@ def test_message_names_what_waits_for_the_human_and_asks_to_plan_elsewhere():
             " Tyto karty ani svou otázku neopakuj") in text
 
 
+def test_message_lists_accepted_cards_without_steps():
+    text = batch.message("S", [{"type": "idle", "reason": "frontier_empty", "since": "T", "cardsTotal": 4, "done": 3,
+                                "unplanned": ["a1", "b2"]}])
+    assert "PŘIJATÉ KARTY BEZ KROKŮ (nic je neblokuje, ale bez spec.steps je nikdo nepřevezme): a1, b2." in text
+
+
 def test_message_renders_the_goal_document_under_an_empty_frontier():
     text = batch.message("S", [{"type": "idle", "reason": "frontier_empty", "since": "2027-01-15T07:45:00Z",
                                 "cardsTotal": 4, "done": 3, "goal": "Obrazovky 00, 05, 06 podle návrhu."}])

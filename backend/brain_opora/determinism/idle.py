@@ -8,7 +8,8 @@ Srdce budí jen události; po sloučení poslední karty plán nemá co předat,
 - karta ve `evidence` / `review`, jejíž PR je zavřené bez sloučení (`pr.state` `closed`), je opuštěný pokus: nikdo na
   ní nepracuje, frontu neblokuje a ani její rozhodnutí `review_result` nečeká na člověka; vstup ji nese v `abandoned`,
   aby ji srdce odebralo nebo vrátilo (IDLE-002: tři takové karty držely pipeline 12 h);
-- karta, která čeká na člověka (PR se schválením člověka `human_approvals_missing`, výsledek `human_review_required`),
+- karta, která čeká na člověka (PR se schválením člověka `human_approvals_missing`, PR za stropem kol revize
+  `review_round_cap_reached` (STALL-002), výsledek `human_review_required`),
   rozhodnutí člověka (`decisions`) a otevřená otázka srdce (eskalace) blokují jen sebe, ne celý prostor: důvod je
   `waiting_human` a srdce se budí stejně jako u prázdné fronty, s výčtem toho, co čeká (`waitingHuman`), aby plánovalo
   jinde (STALL-001: jedna eskalace zastavila srdce na 5,5 h);
@@ -26,6 +27,8 @@ IDLE_MINUTES = 10
 # Cíl projektu v repu (OPORA-003): soubor na main, který prošel PR, je rozhodnutí člověka; srdce ho dostane v dávce prázdné fronty.
 GOAL_DOC, GOAL_MAX = "docs/cil-projektu.md", 4000
 FRONTIER_EMPTY, WAITING_HUMAN = "frontier_empty", "waiting_human"
+# Pravidla brány, která rozhoduje jen člověk: schválení a další kolo revize po stropu (accept_unreviewed_head).
+HUMAN_RULES = {"human_approvals_missing": "approval", "review_round_cap_reached": "round_cap"}
 # Činnost prostoru, od které se měří stání (poslední z nich je „od kdy fronta stojí“).
 ACTIVITY = ("merge.done", "result.reported", "stage.changed", "lease.claimed", "card.closed", "changeset.accepted")
 _CLOSED = ("card_closed", "plan_written_back")
@@ -56,11 +59,25 @@ def human_waits(state):
     for card in state.get("cards") or []:
         if card.get("stage") != "review" or (card.get("pr") or {}).get("state") == "closed":
             continue
-        if (card.get("gate") or {}).get("rule") == "human_approvals_missing":
-            found.append({"nodeId": card["nodeId"], "pr": card["pr"].get("number"), "why": "approval"})
+        rule = (card.get("gate") or {}).get("rule")
+        if rule in HUMAN_RULES:
+            found.append({"nodeId": card["nodeId"], "pr": card["pr"].get("number"), "why": HUMAN_RULES[rule]})
         elif card.get("reason") == "human_review_required":
             found.append({"nodeId": card["nodeId"], "pr": (card.get("pr") or {}).get("number"), "why": "review"})
     return found
+
+
+UNPLANNED_MAX = 12
+
+
+def unplanned(state):
+    """Přijaté úkoly bez kroků a bez blokace (etapa `plan`): nedají se převzít, dokud srdce nerozepíše `spec.steps`
+    (STALL-002: 53 takových karet a srdce o nich v dávce prázdné fronty nevědělo). Nejvýš `UNPLANNED_MAX` podle
+    `topoIndex`."""
+    cards = [card for card in state.get("cards") or [] if card.get("stage") == "plan" and card.get("kind") == "task"
+             and not card.get("blockedBy") and not (card.get("steps") or {}).get("total")]
+    cards.sort(key=lambda card: (card.get("topoIndex") is None, card.get("topoIndex") or 0, card["nodeId"]))
+    return [card["nodeId"] for card in cards[:UNPLANNED_MAX]]
 
 
 def reason(state, questions):
@@ -134,6 +151,9 @@ def evaluate(state, questions, since, workspace, now):
     left = abandoned(state)
     if left:
         item["abandoned"] = left
+    todo = unplanned(state)
+    if todo:
+        item["unplanned"] = todo
     if found == WAITING_HUMAN:
         item["waitingHuman"] = {"cards": human_waits(state), "questions": questions,
                                 "decisions": len(state.get("decisions") or [])}
