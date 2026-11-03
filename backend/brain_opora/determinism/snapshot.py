@@ -404,7 +404,7 @@ def _doing(facts, node):
 
 def _work_ticket_lines(facts):
     """Sekce TICKETY PRÁCE: počty podle stavu a nejnovější tickety (titulek = první řádek „co postavit“, karta,
-    oddělení kanceláře, u drženého kdo a od kdy). Srdce podle ní nevydává stejnou práci dvakrát a ruší, co už nedává smysl."""
+    oddělení kanceláře, počet následníků karty, piny Brainu `plugin@sha12`, u drženého kdo a od kdy). Srdce podle ní nevydává stejnou práci dvakrát a ruší, co už nedává smysl."""
     tickets = facts.get("workTickets") or []
     counts = {status: sum(item["status"] == status for item in tickets) for status in WORK_STATUSES}
     head = "TICKETY PRÁCE: " + " · ".join(f"{status} {count}" for status, count in counts.items())
@@ -412,6 +412,9 @@ def _work_ticket_lines(facts):
     return [head, *(f"- [{item['status']}] {_short(item['body']['build'].splitlines()[0], 100)} ({item['ticketId']})"
                     + (f" · karta {item['machine']['cardId']}" if item["machine"]["cardId"] else "")
                     + (f" · oddělení {item['machine']['department']}" if item["machine"].get("department") else "")
+                    + (f" · následníci {len(item['machine']['successors'])}" if item["machine"].get("successors") else "")
+                    + (" · piny " + ", ".join(f"{pin['plugin']}@{pin['version'][:12]}" for pin in item["machine"]["pins"])
+                       if item["machine"].get("pins") else "")
                     + (f" · drží {item['sessionId']} od {item['updatedAt']}" if item["sessionId"] else "")
                     for item in last)]
 

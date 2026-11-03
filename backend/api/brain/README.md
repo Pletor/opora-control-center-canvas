@@ -4,6 +4,7 @@ Router registru Brainu (`backend/brain/`, kontrakt `docs/navrhy/2026-11-03-novy-
 |---|---|
 | `GET /api/brain-registry/artifacts` | artefakty s aktivní verzí a pinem |
 | `GET /api/brain-registry/artifacts/{artifact_id}` | artefakt s verzemi (nejnovější první) a vazbami; neznámé ID 404 |
+| `GET /api/brain-registry/pins/{plugin}@{sha12}.zip` | zip verze pluginu pro `claude --plugin-dir` (vytvoří ho `Store.export`, když chybí); verze, kterou registr nezná, 404. Přes veřejný tunel jen s přístupovým tokenem (hranice v `backend/app/factory.py`) |
 | `POST /api/brain-registry/artifacts/{artifact_id}/candidates` | kandidát: commit souborů pluginu a verze `candidate` s baseline = aktivní; `evals/` 422 |
 | `POST /api/brain-registry/versions/{version_id}/evaluate` | běh evalu `running` (202), `claude plugin eval` v pozadí |
 | `GET /api/brain-registry/eval-runs/{run_id}` | běh evalu se skóre, baseline, cenou a `passed` |

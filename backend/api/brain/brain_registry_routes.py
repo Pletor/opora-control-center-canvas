@@ -2,17 +2,22 @@
 
 Tenký router: data leží v registry.sqlite, každé volání drží `registry_lock`. Čtení je volné. Kandidáta, eval,
 aktivaci a návrat zapisuje člověk (doklad UI) nebo srdce (`X-Opora-Gate-Token` srdce); aktivace bez prošlého evalu
-(`force`) jen člověk. Eval gate: `backend/brain/evaluate.py`.
+(`force`) jen člověk. Eval gate: `backend/brain/evaluate.py`. Zip pinu (`Store.export`) čte dělník téhož stroje;
+přes veřejný tunel ho hranice v `backend/app/factory.py` pustí jen s přístupovým tokenem.
 """
 
+import re
 import threading
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from backend.brain import evaluate, registry
+from backend.brain.store import NAME, Store
 from backend.brain_opora.determinism import gate, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
+
+SHORT = re.compile(r"[0-9a-f]{12}")
 
 
 def _thread(target):
@@ -38,6 +43,17 @@ def create_brain_registry_router(service, spawn=_thread):
         if artifact is None:
             raise HTTPException(404, "Artefakt Brainu neexistuje.")
         return artifact
+
+    @router.get("/pins/{plugin}@{sha12}.zip")
+    def pin_zip(plugin: str, sha12: str):
+        sha = None
+        if NAME.fullmatch(plugin) and SHORT.fullmatch(sha12):
+            with service.registry_lock:
+                sha = registry.plugin_version(service.db, plugin, sha12)
+        if sha is None:
+            raise HTTPException(404, "Verze pluginu v registru Brainu není.")
+        return FileResponse(Store(service.root).export(plugin, sha), media_type="application/zip",
+                            filename=f"{plugin}@{sha12}.zip")
 
     def writer(request):
         """`human` (doklad UI) nebo `heart` (token srdce); jinak GateError 401/403."""

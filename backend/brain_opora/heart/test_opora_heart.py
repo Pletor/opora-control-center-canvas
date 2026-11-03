@@ -74,6 +74,10 @@ class Handler(BaseHTTPRequestHandler):
             if Handler.stale:
                 Handler.stale -= 1
                 return self._reply(409, {"error": "Plátno se změnilo v jiném okně. Obnovte ho."})
+            if body["plan"].get("extend"):
+                return self._reply(200, {"ok": True, "dryRun": False, "refs": {}, "warnings": [], "revision": 6,
+                                         "blocks": {f"{item['node']}/{block['ref']}": f"blk_{block['ref']}"
+                                                    for item in body["plan"]["extend"] for block in item["blocks"]}})
             if not body["plan"].get("nodes"):
                 return self._reply(409, {"error": "Dávka je prázdná."})
             return self._reply(200, {"ok": True, "dryRun": body.get("dryRun", False), "refs": {"hero": "n_1"},
@@ -88,6 +92,8 @@ class Handler(BaseHTTPRequestHandler):
                                      "answer": {"ticket": ticket}})
         if url.path.endswith("/answer"):
             return self._reply(200, {"ticketId": "gt_1", "status": "answered", "answeredBy": "heart"})
+        if url.path == "/api/desktop-v3/state" and method == "GET":
+            return self._reply(200, {"revision": 5, "state": {}, "readOnly": False})
         if url.path.startswith("/api/desktop-v3/"):
             return self._reply(200, {"revision": 2, "item": {**body["item"], "by": "agent"}})
         return self._reply(201, {"ticketId": "gt_2", "kind": "ask", "status": "queued"})
@@ -470,15 +476,51 @@ def test_plan_over_an_accepted_graph_goes_as_a_graph_proposal_and_accepts_it(ser
     assert dry[0]["body"]["dryRun"] is True and dry[0]["body"]["plan"]["nodes"][1]["card"]["effort"] == "medium"
 
 
+BLOCKED = {"nodes": [{"ref": "a", "kind": "node", "name": "A", "blocks": [
+    {"ref": "pick", "title": "Varianta", "ports": [{"ref": "yes", "label": "Ano → B"}]}]},
+    {"ref": "b", "kind": "node", "name": "B"}],
+    "edges": [{"from": "a", "to": "b", "port": "next"},
+              {"from": "a", "to": "b", "port": "block", "block": "pick", "blockPort": "yes"},
+              {"from": "@old", "to": "b", "port": "block", "block": "blk_old", "blockPort": "ok"}]}
+
+
+def test_later_plan_places_blocks_on_accepted_cards_and_wires_their_ports(server, capsys, tmp_path):
+    Handler.manifest = "m1"
+    (tmp_path / "blocks.json").write_text(json.dumps(BLOCKED, ensure_ascii=False), encoding="utf-8")
+    result = json.loads(run(capsys, "plan", "--file", "blocks.json")[1])
+    assert result["accepted"] is True and result["blocks"] == {"@n_a/pick": "blk_pick"}
+    assert result["acceptSteps"] == ["graph_addition", "accept", "blocks", "graph_addition", "accept"]
+    posts = [call for call in Handler.calls if call["method"] == "POST"]
+    assert [call["path"] for call in posts] == ["/api/oporahub/graph-proposals", "/api/oporahub/graph-proposals/gp2/accept",
+                                                "/api/canvas-plan", "/api/oporahub/graph-proposals",
+                                                "/api/oporahub/graph-proposals/gp2/accept"]
+    cards = posts[0]["body"]["plan"]
+    assert cards["nodes"] == [{"ref": "a", "kind": "node", "name": "A"}, {"ref": "b", "kind": "node", "name": "B"}]
+    assert cards["edges"] == [{"from": "a", "to": "b", "port": "next"}]
+    assert posts[2]["body"]["plan"] == {"extend": [{"node": "@n_a", "expectedRevision": 5,
+                                                    "blocks": BLOCKED["nodes"][0]["blocks"]}]}
+    assert posts[3]["body"]["plan"] == {"nodes": [], "edges": [
+        {"from": "@n_a", "to": "@n_b", "port": "block", "block": "blk_pick", "blockPort": "yes"},
+        {"from": "@old", "to": "@n_b", "port": "block", "block": "blk_old", "blockPort": "ok"}]}
+    Handler.calls = []
+    dry = json.loads(run(capsys, "plan", "--file", "blocks.json", "--dry-run")[1])
+    sent = [call for call in Handler.calls if call["method"] == "POST"]
+    assert dry["dryRun"] is True and [call["path"] for call in sent] == ["/api/canvas-plan"]
+    assert sent[0]["body"]["plan"] == BLOCKED  # celá dávka s bloky i vazbami block projde validací bez zápisu
+
+
 def test_addition_refuses_fields_a_graph_proposal_cannot_carry(server, capsys, tmp_path):
     Handler.manifest = "m1"
-    bad = {"nodes": [{"ref": "a", "kind": "node", "name": "A", "blocks": [{"ref": "b", "title": "B"}]}]}
+    bad = {"nodes": [{"ref": "a", "kind": "node", "name": "A", "rules": [{"kind": "must", "text": "R"}]}]}
     (tmp_path / "bad.json").write_text(json.dumps(bad), encoding="utf-8")
     result = json.loads(run(capsys, "plan", "--file", "bad.json")[1])
-    assert result["code"] == "plan_shape" and "blocks" in result["error"] and "návrh grafu" in result["hint"]
-    edge = {"nodes": [], "edges": [{"from": "a", "to": "b", "port": "block"}]}
+    assert result["code"] == "plan_shape" and "rules" in result["error"] and "návrh grafu" in result["hint"]
+    edge = {"nodes": [], "edges": [{"from": "a", "to": "b", "port": "rule"}]}
     (tmp_path / "edge.json").write_text(json.dumps(edge), encoding="utf-8")
     assert json.loads(run(capsys, "plan", "--file", "edge.json")[1])["code"] == "plan_shape"
+    (tmp_path / "blocks.json").write_text(json.dumps(BLOCKED), encoding="utf-8")
+    result = json.loads(run(capsys, "plan", "--file", "blocks.json", "--no-accept")[1])
+    assert result["code"] == "plan_shape" and "přijaté karty" in result["error"]
     assert not [call for call in Handler.calls if call["method"] == "POST"]
 
 

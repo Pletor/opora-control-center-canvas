@@ -8,6 +8,10 @@ Registr dovedností OPORY a jejich git úložiště. Kontrakt: `docs/navrhy/2026
 
   Funkce: `write(plugin, files, message)` commitne jen změnu (autor „OPORA Brain“), jinak vrátí poslední verzi pluginu; `read(plugin, relpath, sha)` = `git show`; `version(plugin)` = poslední commit pluginu; `export(plugin, sha)` = zip pluginu (kořen zipu = kořen pluginu, pro `claude --plugin-dir`) v `<datový kořen>/brain-pins/<plugin>@<sha12>.zip`, idempotentně.
 - `registry.py`: tabulky `brain_artifacts`, `brain_artifact_versions`, `brain_links` v registry.sqlite (schéma `database/schema/brain_schema.py`). ID artefaktu `opora:brain:<kind>:<name>`, pin `opora:brain:<kind>:<name>@<sha12>`. `add_version` přidá kandidáta, `activate` ho zapne a dosavadní aktivní verzi vyřadí (právě jedna `active`, hlídá i unikátní index). `active`, `list_artifacts`, `get_artifact` čtou, `link` váže verzi na `log_event` / `eval_run` / `canvas_node`.
+- `pins.py` (`for_ticket`): piny ticketu (`machine.pins`) při `ticket.issue`. ID artefaktu přeloží přes `registry.resolve`
+  (bez verze = aktivní, `@sha12` = ta verze) a seskupí po pluginech `{pin, plugin, version, zip}`, jeden plugin = jeden
+  zip. Výchozí pin pluginu `ponytail` doplní, když ho srdce nepinulo a v registru je. Neznámé ID je `LookupError`,
+  dvě verze téhož pluginu `ValueError` (brána z obou dělá 422).
 - `seed.py`: idempotentní naplnění při startu srdce (`HeartDriver.start`, vedle seedu Srdce v1).
   - Plugin `opora-heart` ze `seed/opora-heart/` má skilly `heart` (systémový prompt srdce) a `vyslech` (postup výslechu).
   - Plugin `ponytail` (MIT) se bere z nainstalovaného pluginu Claude Code (`~/.claude/plugins/cache/ponytail/ponytail/<nejvyšší verze>/`). Do Brainu jdou jeho skilly, `LICENSE` a manifest bez háčků a `userConfig`. Když na stroji není, seed ho přeskočí a zaloguje.
@@ -20,4 +24,4 @@ Registr dovedností OPORY a jejich git úložiště. Kontrakt: `docs/navrhy/2026
 - `seed/opora-heart/evals/`: zmrazená sada skillu `heart` (`ticket-s-kriteriem`, `bez-podkladu-eskaluje`; `prompt.md` + `graders/*.md`, Haiku, `max_turns: 3`, 1 běh).
 - `evals/`: evaly procesu srdce (sondy přesunuté z `.claude/hillclimb/`, vlastní README).
 
-Srdce čte prompt a postupy režimů jen odsud (`backend/brain_opora/heart/command.py` `heart_skills`, bez zálohy v souboru) a piny zapisuje do `brainPins` záznamu dávky. API: `backend/api/brain/` (`/api/brain-registry/*`).
+Srdce čte prompt a postupy režimů jen odsud (`backend/brain_opora/heart/command.py` `heart_skills`, bez zálohy v souboru) a piny zapisuje do `brainPins` záznamu dávky. API: `backend/api/brain/` (`/api/brain-registry/*`, včetně zipu pinu pro dělníka).

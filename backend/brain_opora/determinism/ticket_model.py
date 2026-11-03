@@ -2,7 +2,7 @@
 
 Přechody hlídá jediná funkce `advance`; nepovolený přechod je 409 `ticket_state`. Tělo pro dělníka nenese ID
 (podstata, co postavit, otevřené cesty, na co si dát pozor, skills s pinem, kritérium hotovo), strojová vrstva
-(`cardId`, `executionId`, `cardVersion`, `department`, `profile`) jde vedle. Pole jsou v camelCase jako ostatní druhy brány.
+(`cardId`, `executionId`, `cardVersion`, `department`, `profile`, `pins`) jde vedle. Pole jsou v camelCase jako ostatní druhy brány.
 """
 import re
 
@@ -24,6 +24,8 @@ FEEDBACK_KINDS = ("bug", "idea", "improvement", "question")
 DEFAULT_SKILLS = ("ponytail@5.3.3",)
 TEXT_LIMIT, LIST_LIMIT = 4000, 20
 PIN = re.compile(r"/?[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}@[A-Za-z0-9][A-Za-z0-9_.+-]{0,39}")
+BRAIN_REF = re.compile(r"opora:brain:(?:skill|tool|workflow|subagent|connector):[A-Za-z0-9][A-Za-z0-9_.-]{0,79}"
+                       r"(?:@[0-9a-f]{12})?")  # artefakt Brainu do `pins` (bez verze = aktivní)
 SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,39}")  # oddělení a profil kanceláře (`department`, `profile`)
 MACHINE_ID = re.compile(r"\b(?:gt|gs|ht|tk|tf)_[0-9a-f]{8,}")  # ID brány a ticketu do těla pro dělníka nepatří
 BODY_KEYS = ("essence", "build", "doneCriteria")
@@ -70,10 +72,11 @@ def body_payload(body):
 
 
 def issue_payload(payload):
-    """`ticket.issue` `{body, cardId?, executionId?, cardVersion?, department?, profile?, workspace?}` →
+    """`ticket.issue` `{body, cardId?, executionId?, cardVersion?, department?, profile?, pins?, workspace?}` →
     `(tělo, strojová vrstva)`; `department` / `profile` (oddělení a profil kanceláře) jsou krátké slugy nebo null.
-    `workspace` (prostor karty, jinak prostor tokenu srdce) čte obsluha zvlášť."""
-    shaped(payload, ("body",), ("cardId", "executionId", "cardVersion", "department", "profile", "workspace"),
+    `pins` jsou ID artefaktů Brainu (`opora:brain:skill:<name>[@sha12]`); na piny s verzí a zipem je přeloží obsluha
+    (`backend/brain/pins.py`). `workspace` (prostor karty, jinak prostor tokenu srdce) čte obsluha zvlášť."""
+    shaped(payload, ("body",), ("cardId", "executionId", "cardVersion", "department", "profile", "pins", "workspace"),
            ids=("cardId", "executionId", "workspace"), hint=ISSUE_HINT)
     version = payload.get("cardVersion")
     if version is not None and (type(version) is not int or version < 0):
@@ -82,8 +85,36 @@ def issue_payload(payload):
         value = payload.get(key)
         if value is not None and not (isinstance(value, str) and SLUG.fullmatch(value)):
             raise invalid(f"{key} je krátký slug (a-z, 0-9, -, do 40 znaků) nebo null.", 'Například "department": "design".')
+    pins = payload.get("pins", [])
+    if not isinstance(pins, list) or len(pins) > LIST_LIMIT or not all(
+            isinstance(ref, str) and BRAIN_REF.fullmatch(ref) for ref in pins):
+        raise invalid("pins je seznam ID artefaktů Brainu (případně s @sha12).",
+                      'Například "pins": ["opora:brain:skill:vyslech"].')
     machine = {key: payload.get(key) for key in ("cardId", "executionId", "cardVersion", "department", "profile")}
-    return body_payload(payload["body"]), machine
+    return body_payload(payload["body"]), {**machine, "pins": pins}
+
+
+WORK_PORTS = ("next", "block")  # vazby práce: pořadí (`next`) a výsledek bloku karty (`block`, docs/karta-pro-agenty.md)
+
+
+def neighbors(graph, card_id):
+    """Následníci a předchůdci karty z grafu jejího prostoru (bez modelu): `{successors, predecessors}`, každý
+    `[{cardId, name, essence?}]` v pořadí vazeb. Následník je cíl vazby `next` z karty i vazby `block` z portu jejího
+    bloku, předchůdce zdroj takové vazby do karty; `essence` je účel karty, když ho má. Karta mimo graf nemá nikoho."""
+    nodes = {node["id"]: node for node in graph.get("nodes", [])}
+    found = {"successors": [], "predecessors": []}
+    if card_id not in nodes:
+        return found
+    for edge in graph.get("edges", []):
+        if edge.get("port", "next") not in WORK_PORTS:
+            continue
+        for key, mine, other in (("successors", "source", "target"), ("predecessors", "target", "source")):
+            node = nodes.get(edge[other])
+            if edge[mine] != card_id or node is None or any(item["cardId"] == node["id"] for item in found[key]):
+                continue
+            purpose = (node.get("purpose") or "").strip()
+            found[key].append({"cardId": node["id"], "name": node["name"], **({"essence": purpose} if purpose else {})})
+    return found
 
 
 def ticket_id(body, hint):

@@ -21,7 +21,8 @@ FACTS = {"project": "p1", "name": "Zahrada", "workspace": "main", "goal": "",
                    {"id": "kontakt", "name": "Kontakt", "path": "/kontakt", "goal": "", "feel": ""}],
          "cards": [{"id": "home", "name": "Domů", "stage": "ready"}],
          "workTickets": [{"ticketId": "tk_1", "seq": 1, "status": "delivered", "body": {"build": "Hero\nUdělej hero."},
-                          "machine": {"cardId": "home", "department": "design"}, "sessionId": "gs_1", "updatedAt": "2026-10-29T07:00:00Z"},
+                          "machine": {"cardId": "home", "department": "design",
+                                      "successors": [{"cardId": "kontakt", "name": "Kontakt"}]}, "sessionId": "gs_1", "updatedAt": "2026-10-29T07:00:00Z"},
                          {"ticketId": "tk_2", "seq": 2, "status": "issued", "body": {"build": "Formulář"},
                           "machine": {"cardId": None}, "sessionId": None, "updatedAt": "2026-10-29T08:00:00Z"}],
          "tickets": [{"ticketId": "gt_1", "kind": "ask", "body": {"q": "Jaká barva?"}}],
@@ -46,7 +47,7 @@ def test_render_has_the_fixed_sections_in_order():
     assert "- Kontakt · kontakt · /kontakt · closed" in text
     assert text.index("[issued] Formulář") < text.index("[delivered] Hero")  # nejnovější tickety první
     assert "- [issued] Formulář (tk_2)\n" in text
-    assert "- [delivered] Hero (tk_1) · karta home · oddělení design · drží gs_1 od 2026-10-29T07:00:00Z" in text  # titulek, karta, držitel
+    assert "- [delivered] Hero (tk_1) · karta home · oddělení design · následníci 1 · drží gs_1 od 2026-10-29T07:00:00Z" in text  # titulek, karta, držitel
     assert "FRONTA ÚKOLŮ" not in text and "DORUČENÍ" not in text and "ht_2" not in text  # staré úkoly snímek nečte
     assert '- gt_1 ask {"q": "Jaká barva?"}' in text and "- ht_1 abcdef123456 green" in text
     assert snapshot.render(FACTS) == text
