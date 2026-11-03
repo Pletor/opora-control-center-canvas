@@ -139,7 +139,9 @@ def child_env(*, base_url, token, project, workspace, source_root=None, environ=
         env.pop(key, None)
     env.update({"OPORA_BASE_URL": base_url, "OPORA_HEART_TOKEN": token, "OPORA_PROJECT": project,
                 "OPORA_WORKSPACE": workspace, "PYTHONIOENCODING": "utf-8",
-                "BASH_DEFAULT_TIMEOUT_MS": BASH_TIMEOUT_MS, "BASH_MAX_TIMEOUT_MS": BASH_TIMEOUT_MS})
+                "BASH_DEFAULT_TIMEOUT_MS": BASH_TIMEOUT_MS, "BASH_MAX_TIMEOUT_MS": BASH_TIMEOUT_MS,
+                # ponytail (plugin pro psaní kódu dělníků) srdce nemění: plánuje, nepíše kód; zapnout až po evalu
+                "PONYTAIL_DEFAULT_MODE": "off"})
     if source_root:
         env["OPORA_SOURCE_ROOT"] = str(source_root)
     return env

@@ -82,6 +82,7 @@ def test_child_env_strips_api_keys_and_sets_the_heart():
     assert (env["OPORA_BASE_URL"], env["OPORA_HEART_TOKEN"], env["OPORA_PROJECT"], env["OPORA_WORKSPACE"]) == (
         "http://127.0.0.1:9", "t", "p", "w")
     assert "OPORA_SOURCE_ROOT" not in env
+    assert env["PONYTAIL_DEFAULT_MODE"] == "off"
     sourced = command.child_env(base_url="b", token="t", project="p", workspace="w", source_root="/src",
                                 environ={"OPORA_SOURCE_ROOT": "/stary"})
     assert sourced["OPORA_SOURCE_ROOT"] == "/src"
