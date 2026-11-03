@@ -2,7 +2,8 @@
 
 Dávka složí zprávu (snímek, vstupy, pokyn skončit `done`), spustí proces, přečte výsledek JSON a zapíše
 jeden řádek do `brain/batches.jsonl`: vstupy, relaci, cenu po modelech (`modelUsage`; poradce = položka Opus),
-tahy, chybu, trvání, shrnutí z `done` a cenu dílčích volání dílny (`subCostUsd` z `dilna/runs.jsonl`, §3b).
+tahy, chybu, trvání, shrnutí z `done`, cenu dílčích volání dílny (`subCostUsd` z `dilna/runs.jsonl`, §3b) a piny
+skillů srdce z Brainu (`brainPins`, s jakou verzí promptu a postupů dávka běžela).
 Cena: `claude -p --resume` vrací součet celé relace, proto u navázané dávky nesou `costUsd` a `costByModel` jen
 přírůstek proti poslednímu záznamu téže relace a `sessionCostUsd` / `sessionCostByModel` surové kumulativní hodnoty
 (nová relace: obě dvojice stejné).
@@ -41,6 +42,7 @@ class BatchSpec:
     project: str
     workspace: str
     snapshot: str
+    skills: command.HeartSkills  # aktivní skilly srdce z Brainu (`command.heart_skills`)
     inputs: list = field(default_factory=list)
     source_root: Path | None = None
     model: str = command.MODEL  # uzel `model.claude` enginu toků; výchozí = dnešní srdce
@@ -218,13 +220,13 @@ def run(spec, runner=run_process, clock=time.time):
     brain.mkdir(parents=True, exist_ok=True)
     (brain / SNAPSHOT).write_text(spec.snapshot, encoding="utf-8")
     (brain / LAST_DONE).unlink(missing_ok=True)
-    settings_path, mcp_path = command.write_config(brain, spec.source_root)
-    prompt_digest = hashlib.sha256(Path(command.PROMPT_FILE).read_bytes()).hexdigest()
+    settings_path, mcp_path, prompt_path = command.write_config(brain, spec.skills, spec.source_root)
+    prompt_digest = hashlib.sha256(spec.skills.prompt.encode("utf-8")).hexdigest()
     session_id, resume = session.choose(brain, prompt_digest=prompt_digest)
     started = clock()
     advisor = advisor_spent(brain, started) < ADVISOR_DAY_USD
     line = command.build_command(spec.claude, session_id=session_id, resume=resume, settings_path=settings_path,
-                                 mcp_path=mcp_path, source_root=spec.source_root, advisor=advisor, model=spec.model,
+                                 mcp_path=mcp_path, prompt_file=prompt_path, source_root=spec.source_root, advisor=advisor, model=spec.model,
                                  advisor_model=spec.advisor_model, subcommands=spec.subcommands)
     env = command.child_env(base_url=spec.base_url, token=spec.token, project=spec.project, workspace=spec.workspace,
                             source_root=spec.source_root)
@@ -243,7 +245,7 @@ def run(spec, runner=run_process, clock=time.time):
     at = datetime.fromtimestamp(started, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     entry = {"at": at, "project": spec.project,
              "workspace": spec.workspace, "status": status, "inputs": spec.inputs,
-             "sessionId": own_session, "resumed": resume, "advisor": advisor,
+             "sessionId": own_session, "resumed": resume, "advisor": advisor, "brainPins": spec.skills.pins,
              "costUsd": cost, "costByModel": cost_by_model,
              "sessionCostUsd": total, "sessionCostByModel": by_model,
              "numTurns": (result or {}).get("num_turns"), "isError": bool((result or {}).get("is_error", True)),

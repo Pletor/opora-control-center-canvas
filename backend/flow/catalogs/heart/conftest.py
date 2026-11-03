@@ -3,6 +3,7 @@ import json
 
 import pytest
 
+from backend.brain import seed as brain_seed
 from backend.brain_opora.heart.process import Outcome
 from backend.flow.catalogs.heart.driver import HeartDriver
 from backend.flow.catalogs.heart.heart import Heart
@@ -52,8 +53,10 @@ class Engine:
 
 
 @pytest.fixture
-def make_heart():
-    """`make_heart(service, clock, runner, **kwargs)` → `(heart, engine)`; vazba uzlů se po testu uvolní."""
+def make_heart(monkeypatch, tmp_path):
+    """`make_heart(service, clock, runner, **kwargs)` → `(heart, engine)`; vazba uzlů se po testu uvolní.
+    Seed Brainu běží bez ponytailu (zkouška nesmí záviset na instalaci pluginů na stroji)."""
+    monkeypatch.setattr(brain_seed, "PONYTAIL_CACHE", tmp_path / "bez-ponytailu")
 
     def make(service, clock, runner, **kwargs):
         heart = Heart(service, base_url="http://127.0.0.1:9", runner=runner, clock=clock, find=lambda: "claude",

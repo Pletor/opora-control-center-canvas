@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from backend.brain.seed import SEED_DIR
 from backend.brain_opora.heart import command, opora_heart, opora_research
 
 AT = "2026-10-29T10:00:00Z"
@@ -73,7 +74,7 @@ def test_research_accepts_layers_without_a_mode():
 
 
 def test_prompt_acts_by_next_and_never_prefixes_rules():
-    prompt = command.PROMPT_FILE.read_text(encoding="utf-8")
+    prompt = (SEED_DIR / "opora-heart" / "skills" / "heart" / "SKILL.md").read_text(encoding="utf-8")
     assert "Výzkum plán nenahrazuje" in prompt and "--why" in prompt and "unverified" in prompt
     assert "Text pravidla nikdy nezačínej „(návrh)“" in prompt
     assert "Na cestu B plán přepni jen po `duel` s výsledkem `adopt`" in prompt and "## Dílna" in prompt
@@ -85,7 +86,7 @@ def test_prompt_acts_by_next_and_never_prefixes_rules():
 def test_rea_config_and_research_modules_land_in_brain(tmp_path):
     repo = command.HEART_DIR.parents[2] / ".agent-office" / "rea-mcp.json"
     assert command.REA_MCP == json.loads(repo.read_text(encoding="utf-8"))
-    command.write_config(tmp_path / "brain")
+    command.write_config(tmp_path / "brain", command.HeartSkills("P\n", {}, {}))
     written = json.loads((tmp_path / "brain" / "dilna" / "rea-mcp.json").read_text(encoding="utf-8"))
     assert written == command.REA_MCP and list(written["mcpServers"]) == ["rea"]
     assert set(command.RESEARCH_NAMES) == {"opora_research.py", "research_desk.py", "research_digest.py",

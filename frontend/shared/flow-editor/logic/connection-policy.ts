@@ -2,30 +2,58 @@
 // editor neplatnou vazbu vůbec nenabídl. Vazba vede z výstupu na vstup, oba porty mají stejný kind, port s
 // `cardinality: "one"` nese jen jednu hranu a stejná vazba nevznikne dvakrát. Zobecněno ze Studia MODEL
 // (`connectionError`), kde roli kindu hraje datový typ portu.
-import type { FlowEdge, FlowGraph, NodeTypes, PortRef, PortSpec } from "./flow-types";
+import type { FlowEdge, FlowGraph, NodeTypes, PortDirection, PortRef, PortSpec } from "./flow-types";
 
 export function portOf(graph: FlowGraph, types: NodeTypes, ref: PortRef): PortSpec | undefined {
   const node = graph.nodes.find((item) => item.id === ref.nodeId);
   return node ? types.get(node.type)?.ports.find((port) => port.name === ref.port && port.direction === ref.direction) : undefined;
 }
 
+/** Jeden konec vazby pro obecnou kontrolu: uzel, port, směr a typ (kind) portu. `kind: null` = port neexistuje nebo
+ * má jiný směr, než konec vazby žádá. Typ je text: toky mají `main`/`model`/…, Studio MODEL svých 12 datových typů. */
+export type PortEnd = { nodeId: string; port: string; direction: PortDirection; kind: string | null; cardinality?: "one" | "many" };
+export type PairRules = {
+  /** Existuje už stejná vazba `from → to`? */
+  exists: (from: PortEnd, to: PortEnd) => boolean;
+  /** Kolik vazeb port už nese (jen pro porty s `cardinality: "one"`). */
+  uses?: (end: PortEnd) => number;
+  /** Pravidla navíc (role Studia) po shodě typů a před kontrolou duplicit. */
+  extra?: (from: PortEnd, to: PortEnd) => string | null;
+  missing?: string;
+  self?: string;
+};
+
+/** Společná pravidla vazby `from → to` (výstup → vstup, stejný typ, bez duplicit, `cardinality: one`); null = platí.
+ * Používá je editor toků i Studio MODEL, každý s vlastními hláškami a vlastním `extra`. */
+export function pairError(from: PortEnd, to: PortEnd, rules: PairRules): string | null {
+  if (from.nodeId === to.nodeId) return rules.self ?? "Uzel nelze propojit sám se sebou.";
+  if (from.direction !== "out" || to.direction !== "in") return "Vazba musí vést z výstupu na vstup.";
+  if (from.kind === null || to.kind === null) return rules.missing ?? "Port neexistuje.";
+  if (from.kind !== to.kind) return `Nekompatibilní porty: ${from.kind} → ${to.kind}.`;
+  const extra = rules.extra?.(from, to);
+  if (extra) return extra;
+  if (rules.exists(from, to)) return "Tato vazba již existuje.";
+  if (rules.uses) for (const end of [from, to])
+    if (end.cardinality === "one" && rules.uses(end)) return `Port ${end.nodeId}.${end.port} nese jen jednu vazbu.`;
+  return null;
+}
+
 const uses = (edges: readonly FlowEdge[], ref: PortRef) => edges.filter((edge) => ref.direction === "out"
   ? edge.source_node === ref.nodeId && edge.source_port === ref.port
   : edge.target_node === ref.nodeId && edge.target_port === ref.port).length;
 
+const endOf = (graph: FlowGraph, types: NodeTypes, ref: PortRef): PortEnd => {
+  const spec = portOf(graph, types, ref);
+  return { ...ref, kind: spec?.kind ?? null, cardinality: spec?.cardinality };
+};
+
 /** Proč vazba `from → to` neplatí; null = platí. Obrácený tah (ze vstupu na výstup) se nejdřív otočí. */
 export function connectionError(graph: FlowGraph, types: NodeTypes, a: PortRef, b: PortRef): string | null {
   const [from, to] = a.direction === "in" && b.direction === "out" ? [b, a] : [a, b];
-  if (from.nodeId === to.nodeId) return "Uzel nelze propojit sám se sebou.";
-  if (from.direction !== "out" || to.direction !== "in") return "Vazba musí vést z výstupu na vstup.";
-  const out = portOf(graph, types, from), input = portOf(graph, types, to);
-  if (!out || !input) return "Port neexistuje.";
-  if (out.kind !== input.kind) return `Nekompatibilní porty: ${out.kind} → ${input.kind}.`;
-  if (graph.edges.some((e) => e.source_node === from.nodeId && e.source_port === from.port && e.target_node === to.nodeId && e.target_port === to.port))
-    return "Tato vazba již existuje.";
-  if (out.cardinality === "one" && uses(graph.edges, from)) return `Port ${from.nodeId}.${from.port} nese jen jednu vazbu.`;
-  if (input.cardinality === "one" && uses(graph.edges, to)) return `Port ${to.nodeId}.${to.port} nese jen jednu vazbu.`;
-  return null;
+  return pairError(endOf(graph, types, from), endOf(graph, types, to), {
+    exists: (f, t) => graph.edges.some((e) => e.source_node === f.nodeId && e.source_port === f.port && e.target_node === t.nodeId && e.target_port === t.port),
+    uses: (end) => uses(graph.edges, end),
+  });
 }
 
 /** Vazba jako hrana grafu (kind z výstupního portu); neplatná vazba hodí chybu s důvodem. */

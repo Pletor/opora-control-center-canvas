@@ -22,9 +22,15 @@ class FakeRunner:
         return self.outcome
 
 
+SKILLS = command.HeartSkills("# Srdce\n", {"vyslech": "# Výslech\n"},
+                             {"heart": "opora:brain:skill:heart@aaaaaaaaaaaa",
+                              "vyslech": "opora:brain:skill:vyslech@aaaaaaaaaaaa"})
+DIGEST = hashlib.sha256(SKILLS.prompt.encode("utf-8")).hexdigest()
+
+
 def spec(tmp_path, inputs=None):
     return batch.BatchSpec(brain=tmp_path / "brain", claude="claude", base_url="http://127.0.0.1:9", token="tok",
-                           project="p1", workspace="main", snapshot="PROJEKT p1", inputs=inputs or [])
+                           project="p1", workspace="main", snapshot="PROJEKT p1", skills=SKILLS, inputs=inputs or [])
 
 
 
@@ -127,7 +133,11 @@ def test_ok_batch_is_journaled_with_costs_and_summary(tmp_path):
     assert entry["costUsd"] == 0.0421 and entry["durationMs"] == 60_500 and entry["inputs"] == inputs
     assert batch.read_journal(tmp_path / "brain") == [entry]
     stored = session.load(tmp_path / "brain")
-    assert stored.pop("promptDigest") == hashlib.sha256(command.PROMPT_FILE.read_bytes()).hexdigest()  # rotace po změně promptu
+    assert stored.pop("promptDigest") == DIGEST  # rotace po změně promptu
+    assert entry["brainPins"] == SKILLS.pins  # s jakou verzí skillů srdce dávka běžela
+    prompt_file = tmp_path / "brain" / command.PROMPT_NAME
+    assert call["line"][call["line"].index("--system-prompt-file") + 1] == str(prompt_file)
+    assert prompt_file.read_text(encoding="utf-8") == SKILLS.prompt
     # bez událostí tahů odhad konce dávky: 900 čerstvých + 20 000 čtení / 7 tahů
     assert stored == {"sessionId": RESULT["session_id"], "batches": 1, "lastInputTokens": 3_757}
     assert entry["inputTokens"] == 20_900 and entry["contextTokens"] == 3_757
@@ -269,7 +279,7 @@ def test_resumed_batch_against_a_legacy_entry_without_session_fields(tmp_path):
     legacy = {"at": "2027-01-15T08:00:00Z", "sessionId": RESULT["session_id"], "costUsd": 0.05,
               "costByModel": {"claude-haiku-4-5": 0.05}}
     (brain / batch.JOURNAL).write_text(json.dumps(legacy) + "\n", encoding="utf-8")
-    session.record(brain, RESULT["session_id"], 1_000, hashlib.sha256(command.PROMPT_FILE.read_bytes()).hexdigest())
+    session.record(brain, RESULT["session_id"], 1_000, DIGEST)
     entry = batch.run(spec(tmp_path), FakeRunner(cumulative(0.09, 0.06, 0.03)), clock(0.0, 1.0))
     assert entry["resumed"] is True and entry["costUsd"] == 0.04
     assert entry["costByModel"] == {"claude-haiku-4-5": 0.01, "claude-opus-4-5": 0.03}

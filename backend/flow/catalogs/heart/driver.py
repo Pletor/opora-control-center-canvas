@@ -9,6 +9,7 @@ pustí jako běh aktivní verze sdíleného workflow srdce. Stropy (`per_hour`, 
 import json
 import logging
 
+from backend.brain import seed as brain_seed
 from backend.flow import interpreter
 from backend.flow.catalogs.heart import seed
 from backend.flow.catalogs.heart.nodes import AGENT_DEFAULTS, SCHEDULE_DEFAULT_SECONDS, params
@@ -25,9 +26,11 @@ class HeartDriver:
         self.workflow_id, self.runs, self.fired = None, {}, {}
 
     def start(self):
-        """Vazba uzlů, idempotentní seed Srdce v1 a převzetí otevřených běhů srdce (po restartu je engine naváže)."""
+        """Vazba uzlů, idempotentní seed Brainu (skilly srdce) a Srdce v1 a převzetí otevřených běhů srdce
+        (po restartu je engine naváže)."""
         bind(self.runtime)
         with self.service.registry_lock:
+            brain_seed.ensure(self.service.db, self.service.root)
             self.workflow_id, _ = seed.ensure_active(self.service.db)
             rows = self.service.db.execute(
                 "SELECT r.id, r.trigger FROM flow_runs r JOIN flow_workflow_versions v ON v.id=r.workflow_version_id "

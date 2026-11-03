@@ -6,13 +6,16 @@ Funkce dostane `ctx` (node, node_run_id, input, config sub-portů, idempotency_k
 - `{"detach": True}`: jen typ s `detached=True`; práce běží jinde (mimo zámek registru), posílá heartbeat
   a skončí přes `interpreter.finish` / `interpreter.fail`.
 
-Typy katalogu srdce (`backend/flow/catalogs/heart/`) se do registru přidávají na konci modulu; katalog importuje
+`critic` (ChatGPT kritik přes `codex exec`, `critic.py`) je `detached` a běží přes `runtime.detached` katalogu srdce,
+tedy jen když je srdce v enginu navázané. Typy katalogu srdce (`backend/flow/catalogs/heart/`) se do registru přidávají na konci modulu; katalog importuje
 `node_spec`, ne tento modul, takže nevzniká kruh.
 """
 
 from datetime import timedelta
 
+from backend.flow import critic
 from backend.flow.catalogs.heart.nodes import HEART_TYPES
+from backend.flow.catalogs.heart.runtime import detached
 from backend.flow.node_spec import PORT_KINDS, NodeType, Port  # noqa: F401
 
 DEFAULT_APPROVAL_SECONDS = 24 * 3600
@@ -38,6 +41,9 @@ NODE_TYPES = {
             (Port("main", "in"), Port("approved", "out"), Port("rejected", "out"), Port("timeout", "out")),
             _approval,
         ),
+        NodeType("critic", 1, (Port("main", "in", schema=critic.INPUT_SCHEMA),
+                               Port("main", "out", schema=critic.OUTPUT_SCHEMA)),
+                 detached(critic.work), detached=True),
     )
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compatiblePort, connectionError, edgeFor } from "./connection-policy";
+import { compatiblePort, connectionError, edgeFor, pairError, type PairRules, type PortEnd } from "./connection-policy";
 import { heartGraph, TYPES } from "./flow-fixtures";
 
 const out = (nodeId: string, port = "main") => ({ nodeId, port, direction: "out" as const });
@@ -32,5 +32,23 @@ describe("connection policy by port kind", () => {
   it("finds the matching opposite port for the plus button", () => {
     expect(compatiblePort(TYPES.get("model.claude")!, { kind: "model", direction: "in" })?.name).toBe("model");
     expect(compatiblePort(TYPES.get("tool.opora_heart")!, { kind: "model", direction: "in" })).toBeUndefined();
+  });
+});
+
+describe("pairError with free-text port types (Studio MODEL)", () => {
+  const end = (nodeId: string, direction: "in" | "out", kind: string | null): PortEnd => ({ nodeId, port: "p", direction, kind });
+  const rules: PairRules = { exists: () => false };
+  it("compares any port type, reports a missing port and runs the extra rule before duplicates", () => {
+    expect(pairError(end("a", "out", "sql-query"), end("b", "in", "sql-query"), rules)).toBeNull();
+    expect(pairError(end("a", "out", "sql-query"), end("b", "in", "event"), rules)).toBe("Nekompatibilní porty: sql-query → event.");
+    expect(pairError(end("a", "out", null), end("b", "in", "event"), { ...rules, missing: "chybí" })).toBe("chybí");
+    expect(pairError(end("a", "out", "event"), end("a", "in", "event"), { ...rules, self: "sám" })).toBe("sám");
+    expect(pairError(end("a", "out", "event"), end("b", "in", "event"), { exists: () => true, extra: () => "role" })).toBe("role");
+    expect(pairError(end("a", "out", "event"), end("b", "in", "event"), { exists: () => true })).toBe("Tato vazba již existuje.");
+  });
+  it("counts uses only on cardinality-one ports", () => {
+    const one: PortEnd = { ...end("b", "in", "event"), cardinality: "one" };
+    expect(pairError(end("a", "out", "event"), one, { ...rules, uses: () => 1 })).toMatch(/jen jednu vazbu/);
+    expect(pairError(end("a", "out", "event"), { ...one, cardinality: "many" }, { ...rules, uses: () => 1 })).toBeNull();
   });
 });

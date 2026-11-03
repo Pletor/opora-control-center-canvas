@@ -65,6 +65,7 @@ opora-canvas/
     integrations/       # platforma: gitio, windows_job, build_identity, openviking_client
     claude_code/        # skills_catalog (SKILL.md z projektu, uživatele, pluginů), skill_preferences (vypnuté skills); commands přibudou
     library/            # slot: načítání a verze předloh
+    brain/              # Brain: registr dovedností (registry), git úložiště v datovém kořeni (store), seed skillů
     (každý balíček má README; test leží vedle modulu jako test_<modul>.py)
 
   database/             # kde data žijí: registry.sqlite + projects/<id>/project.sqlite (database/README.md)
@@ -72,12 +73,9 @@ opora-canvas/
     repositories/       # slot: přístup k datům vyčleněný z modulů
     seeds/              # slot: výchozí obsah knihovny předloh
 
-  library/              # DATA knihovny předloh, verzované v gitu
-    components/<name>/  # blueprint.md + checklist.yaml + šablona kódu
-    functions/
-    methods/
-    lessons/            # zaznamenané chyby → návrhy aktualizace předloh
+  library/              # DATA verzovaná v gitu repozitáře, backend je jen čte
     agent-roles.json    # role agenta (frontend, backend, databáze…): id, název, popis
+    pipelines.json      # předlohy pipeline pro blok Akce
 
   .claude/              # co čte Claude Code: hooks/, commands/, skills/ (opora-control-center, prompt-master)
   shared/               # JSON schémata kontraktů FE ↔ BE ↔ agenti
@@ -90,7 +88,7 @@ Pravidla umístění nového souboru:
 1. Vidí to uživatel? → `frontend/`. Kde v cestě uživatele to je? → `project-setup/`, `project/`, `editor/` nebo `hub/`. Je to obecné (bez domény)? → `ui-kit/`. Sdílený stav bez závislosti na prostředí? → `shared/`. Uvnitř složky: .tsx do `components/`, .ts do `logic/`, .css do `styles/`.
 2. Je to logika, proces, integrace? → `backend/`. Kde v cestě uživatele to je? → `project_setup/`, `project/`, `editor/`. Router jen do `api/<prostředí>/`. Základ plátna → `canvas/`, platforma → `integrations/`.
 3. Je to schéma nebo přístup k datům? → `database/`.
-4. Je to předloha, checklist nebo poučení? → `library/`.
+4. Je to dovednost, postup nebo poučení pro agenta (skill)? → Brain (`backend/brain/`, obsah v gitu datového kořene; výchozí obsah v `backend/brain/seed/`). Pevná data, která backend jen čte (role, předlohy pipeline)? → `library/`.
 5. Test leží hned vedle toho, co testuje, jako `test_<modul>.py` (backend) nebo `<name>.test.ts` (frontend, běží `npm test` = vitest); žádné složky tests/. Css leží ve `styles/` vedle komponenty. Název souboru říká, co dělá a k čemu patří.
 
 ## Skládání frontendu: rodič skládá dílky, události bublají nahoru
