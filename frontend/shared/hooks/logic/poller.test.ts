@@ -169,7 +169,6 @@ describe("žádný poller mimo vzor", () => {
       "editor/canvas/node-card/logic/use-work-overview.ts",
       "editor/canvas/node-card/logic/use-source-status.ts",
       "editor/canvas/card-checklist/logic/card-checklist.ts",
-      "project/maps/components/MapUpdateMenu.tsx",
       "layout/heart-channel/logic/use-heart-channel.ts",
       "editor/office/components/OfficeWorkspace.tsx",
       "project/architecture-editor/logic/use-domain-live.ts",

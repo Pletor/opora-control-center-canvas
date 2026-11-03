@@ -1,0 +1,15 @@
+/* PIPELINE SRDCE (blok `heart-pipeline`)
+   Pod nastavením projektu, oddělená linkou nahoře, stojí samostatná část o srdci: vlevo nadpis, jedna věta, co srdce
+   je, a řádek živých faktů (workflow, aktivní verze, běhy, prostoje), vpravo jediné tlačítko na jeho plátno. Je to
+   rozcestník, ne formulář: nic se tu neukládá, proto nemá kartu jako nastavení, jen linku, která ji od něj odděluje. */
+.heart-pipeline { display: flex; gap: var(--sp-5); align-items: center; justify-content: space-between; margin: var(--sp-5) 0; padding-top: var(--sp-5); border-top: 1px solid var(--line-strong); }
+.heart-pipeline__text { min-width: 0; }
+.heart-pipeline__title { margin: 0 0 var(--sp-2); font-size: var(--fs-4); }
+.heart-pipeline__lead { margin: 0 0 var(--sp-3); color: var(--ink-muted); max-width: 64ch; }
+
+/* Fakta se čtou jako jedna věta rozdělená tečkami; prostoj, který právě stojí, zčervená, aby ho člověk viděl i bez
+   otevření plátna. */
+.heart-pipeline__facts { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); margin: 0; font-size: var(--fs-1); color: var(--ink-2); }
+.heart-pipeline__fact--stalled { color: var(--danger); }
+.heart-pipeline__open { flex-shrink: 0; }
+@media (max-width: 800px) { .heart-pipeline { flex-direction: column; align-items: flex-start; } }

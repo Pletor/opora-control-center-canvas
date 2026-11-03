@@ -52,6 +52,7 @@ import { withStages, type PipelineWriteResponse } from "@/shared/desktop-state/l
 import "@/editor/component-library/node-library/styles/node-library.css";
 import TagFilter from "@/editor/canvas/tag-filter/components/TagFilter";
 import ProjectHome from "@/project-setup/components/ProjectHome";
+import HeartScreen from "@/project/heart-screen/components/HeartScreen";
 import StoryboardWorkspace from "@/editor/storyboard/components/StoryboardWorkspace";
 import TextWorkspace, { type TextSubtab } from "@/editor/node-detail/content/components/TextWorkspace";
 import type { AgentTaskRequest } from "@/editor/llm-control/editor-context/components/context-actions";
@@ -70,13 +71,12 @@ import EnvironmentSwitch from "@/layout/environment-switch/components/Environmen
 import { resolveInitialModeEnvironment, type Environment } from "@/layout/environment-switch/logic/environment";
 import ProjectWorkspace from "@/project/workspace/components/ProjectWorkspace";
 
-import {ProjectMapNavigation, type ProjectMapKind} from "@/project/shell/components/ProjectLayout";
+import {ProjectMapNavigation, type ProjectMapKind} from "@/project/shell/components/ProjectMapNavigation";
 import { readProjectView } from "@/project/shell/logic/project-view";
 import { architectureEditorId } from "@/project/architecture-editor/logic/editor-model";
 import { domainForNode, worktreeDomainChoice } from "@/project/architecture-editor/logic/domain-model";
 import CreateDialog from "@/editor/canvas/create-dialog/components/CreateDialog";
 import type { CreateResult } from "@/editor/canvas/create-dialog/logic/create-form";
-import { useWorkspaceSelection } from "@/shared/selection/logic/workspace-selection";
 import { clearSelection, emptySelection, panelsFor, selectBlock, selectCardTrail, selectEdge, selectNode, type Panels, type Selection } from "@/app/logic/selection-model";
 import "@/layout/shell/styles/desktop-workspaces.css";
 
@@ -150,7 +150,8 @@ import {
 const initial = new URLSearchParams(location.search);
 const initialModeEnvironment = resolveInitialModeEnvironment(initial);
 export default function App() {
-  const [screen, setScreen] = useState<"home" | "canvas">(() => initial.get("screen") === "home" ? "home" : initial.get("screen") === "canvas" || initial.has("mode") || initial.has("layer") || initial.has("workspace") ? "canvas" : "home");
+  // `heart`: samostatná obrazovka srdce (plátno 1) mimo architekturu projektu, vstup ze stránky projektu.
+  const [screen, setScreen] = useState<"home" | "canvas" | "heart">(() => initial.get("screen") === "home" ? "home" : initial.get("screen") === "heart" ? "heart" : initial.get("screen") === "canvas" || initial.has("mode") || initial.has("layer") || initial.has("workspace") ? "canvas" : "home");
   const [draftProject, setDraftProject] = useState<Project | undefined>();
   const [wireframeMode, setWireframeMode] = useState(initial.get("wireframe") === "1");
   const [wireframeInsert, setWireframeInsert] = useState<{ kind: WireframeKind; sequence: number }>();
@@ -160,7 +161,6 @@ export default function App() {
     initial.get("workspace") ?? "draft",
   );
   const [drawingTool, setDrawingTool] = useState<DrawingTool>("selection");
-  const docSelection = useWorkspaceSelection(project, workspace);
   const [drawingCommand, setDrawingCommand] = useState<{
     type: DrawingTool;
     sequence: number;
@@ -1036,12 +1036,13 @@ export default function App() {
   // Úvodní obrazovka má týž rám jako zbytek aplikace, ale bez menu Editoru: nemá plátno ani vybranou kartu.
   if (screen === "home") return <>
     <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
-      <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} autonomy={agentAutonomy} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
+      <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} autonomy={agentAutonomy} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onOpenHeart={() => setScreen("heart")} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
     </div>
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
     <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
     {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} surface={{ value: settings, onChange: updateSettings }} />}
   </>;
+  if (screen === "heart") return <HeartScreen project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onBack={() => setScreen("home")} />;
   const artifactMapOpen = mode === "map" || mode === "office" || mode === "storyboard";
   const inspectorTools =
     mode === "map" || mode === "office" || mode === "storyboard" ? (
@@ -1150,7 +1151,7 @@ export default function App() {
           z levého okraje rámu vyjíždí menu (Struktura, Schránka, Nastavení) nad plátnem, ne vedle
           něj (kontrakt docs/suplik-a-profil.md). */}
       <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
-      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} selection={docSelection.value} onChange={docSelection.change} mapKind={projectMapKind} intentPage={intentPage} onCloseIntent={() => setProjectMapKind("architecture")} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} onOpenArchitecture={openStudioInArchitecture} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
+      {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} mapKind={projectMapKind} intentPage={intentPage} onCloseIntent={() => setProjectMapKind("architecture")} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} onOpenArchitecture={openStudioInArchitecture} architectureLive={architectureLive} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
       environment === "hub" ? <OporaHubWorkspace onDetailOpenChange={setHubDetailOpen} view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
         <main className="canvas-area">
