@@ -6,6 +6,7 @@ from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.kind_schemas import SCHEMAS
 from backend.brain_opora.determinism.test_kinds import conforms
 from backend.canvas.canvas_service import CanvasService
+from database.repositories import opora_events
 
 WORKER = {"project": "draft", "workspace": "draft", "worker": {"name": "office-1"}}
 ISSUE = SCHEMAS["ticket.issue"][2]
@@ -44,7 +45,8 @@ def test_ticket_lifecycle_with_question_and_answer(service):
     assert send(service, office, "ticket.request") == {"ticket": None, "held": False}
     issued = send(service, brain, "ticket.issue", ISSUE)["ticket"]
     assert issued["status"] == "issued" and issued["body"]["skills"] == ["ponytail@5.3.3"]
-    assert issued["machine"] == {"cardId": "hero", "executionId": None, "cardVersion": 3}
+    assert issued["machine"] == {"cardId": "hero", "executionId": None, "cardVersion": 3, "department": "design",
+                                 "profile": "frontend"}
     offered = send(service, office, "ticket.request")
     assert offered["held"] is False and offered["ticket"]["ticketId"] == issued["ticketId"]
     tid = issued["ticketId"]
@@ -76,8 +78,8 @@ def test_only_heart_issues_and_only_the_holder_works_the_ticket(service):
     assert refused(service, office, "ticket.issue", ISSUE).code == "heart_required"
     tid = send(service, brain, "ticket.issue", ISSUE)["ticket"]["ticketId"]
     send(service, office, "ticket.claim", {"ticketId": tid})
-    again = refused(service, other, "ticket.claim", {"ticketId": tid})
-    assert again.status == 409 and again.code == "ticket_state"
+    again = refused(service, other, "ticket.claim", {"ticketId": tid})  # živý držitel bez téže exekuce
+    assert again.status == 409 and again.code == "ticket_not_held"
     assert send(service, other, "ticket.request") == {"ticket": None, "held": False}
     stranger = refused(service, other, "ticket.feedback", {"ticketId": tid, "kind": "bug", "text": "Padá."})
     assert stranger.code == "ticket_not_held"
@@ -106,3 +108,48 @@ def test_heart_cancels_work_that_no_longer_makes_sense_but_not_a_delivered_ticke
     send(service, office, "ticket.claim", {"ticketId": done})
     send(service, office, "ticket.deliver", {"ticketId": done, "summary": "Hotovo."})
     assert refused(service, brain, "ticket.cancel", {"ticketId": done}).code == "ticket_state"
+
+
+def resumed(service):
+    events, _, _ = opora_events.page(service.db_for("draft"), "draft", None, 0, 500)
+    return [event["data"] for event in events if event["kind"] == "ticket.resumed"]
+
+
+@pytest.mark.parametrize("gone", ["expired", "revoked", "missing"])
+def test_new_session_takes_over_work_of_a_session_that_is_gone(service, gone):
+    brain, office, restarted = heart(service), worker(service), worker(service, "office-1b")
+    tid = send(service, brain, "ticket.issue", ISSUE)["ticket"]["ticketId"]
+    send(service, office, "ticket.claim", {"ticketId": tid})
+    send(service, office, "ticket.feedback", {"ticketId": tid, "kind": "idea", "text": "Přidat video."})
+    # Převzetí je jen výslovné: request nové relace cizí rozpracovaný ticket nenabídne.
+    assert send(service, restarted, "ticket.request") == {"ticket": None, "held": False}
+    db = service.db_for("draft")
+    with db:
+        if gone == "expired":
+            db.execute("UPDATE gate_sessions SET expires_at='2000-01-01T00:00:00Z' WHERE id=?", (office["id"],))
+        elif gone == "revoked":
+            db.execute("UPDATE gate_sessions SET revoked_at='2000-01-01T00:00:00Z' WHERE id=?", (office["id"],))
+        else:
+            db.execute("DELETE FROM gate_sessions WHERE id=?", (office["id"],))
+    taken = send(service, restarted, "ticket.claim", {"ticketId": tid})["ticket"]
+    assert taken["status"] == "in_progress" and taken["feedback"][0]["text"] == "Přidat video."
+    assert ticket.get(service, "draft", tid)["sessionId"] == restarted["id"]
+    assert resumed(service) == [{"ticketId": tid, "fromSession": office["id"], "toSession": restarted["id"]}]
+    assert send(service, restarted, "ticket.request")["held"] is True
+    assert send(service, restarted, "ticket.deliver", {"ticketId": tid, "summary": "Hotovo."})["ticket"][
+        "status"] == "delivered"
+
+
+def test_department_and_profile_ride_in_the_machine_layer_and_are_checked(service):
+    brain, office = heart(service), worker(service)
+    plain = send(service, brain, "ticket.issue", {"body": ISSUE["body"], "profile": None})["ticket"]
+    assert plain["machine"]["department"] is None and plain["machine"]["profile"] is None
+    tid = send(service, brain, "ticket.issue", ISSUE)["ticket"]["ticketId"]
+    send(service, brain, "ticket.cancel", {"ticketId": plain["ticketId"]})
+    offered = send(service, office, "ticket.request")["ticket"]
+    assert offered["ticketId"] == tid and offered["machine"]["department"] == "design"
+    assert offered["machine"]["profile"] == "frontend"
+    for bad in ("Design", "-x", "a" * 41, "back end", 7):
+        wrong = refused(service, brain, "ticket.issue", {**ISSUE, "department": bad})
+        assert wrong.status == 422 and wrong.code == "invalid_payload", bad
+    assert refused(service, brain, "ticket.issue", {**ISSUE, "profile": "fe_1"}).code == "invalid_payload"

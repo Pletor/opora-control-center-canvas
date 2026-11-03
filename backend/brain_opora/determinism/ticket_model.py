@@ -2,7 +2,7 @@
 
 Přechody hlídá jediná funkce `advance`; nepovolený přechod je 409 `ticket_state`. Tělo pro dělníka nenese ID
 (podstata, co postavit, otevřené cesty, na co si dát pozor, skills s pinem, kritérium hotovo), strojová vrstva
-(`cardId`, `executionId`, `cardVersion`) jde vedle. Pole jsou v camelCase jako ostatní druhy brány.
+(`cardId`, `executionId`, `cardVersion`, `department`, `profile`) jde vedle. Pole jsou v camelCase jako ostatní druhy brány.
 """
 import re
 
@@ -24,6 +24,7 @@ FEEDBACK_KINDS = ("bug", "idea", "improvement", "question")
 DEFAULT_SKILLS = ("ponytail@5.3.3",)
 TEXT_LIMIT, LIST_LIMIT = 4000, 20
 PIN = re.compile(r"/?[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}@[A-Za-z0-9][A-Za-z0-9_.+-]{0,39}")
+SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,39}")  # oddělení a profil kanceláře (`department`, `profile`)
 MACHINE_ID = re.compile(r"\b(?:gt|gs|ht|tk|tf)_[0-9a-f]{8,}")  # ID brány a ticketu do těla pro dělníka nepatří
 BODY_KEYS = ("essence", "build", "doneCriteria")
 BODY_OPTIONAL = ("openPaths", "cautions", "skills")
@@ -69,14 +70,19 @@ def body_payload(body):
 
 
 def issue_payload(payload):
-    """`ticket.issue` `{body, cardId?, executionId?, cardVersion?, workspace?}` → `(tělo, strojová vrstva)`;
+    """`ticket.issue` `{body, cardId?, executionId?, cardVersion?, department?, profile?, workspace?}` →
+    `(tělo, strojová vrstva)`; `department` / `profile` (oddělení a profil kanceláře) jsou krátké slugy nebo null.
     `workspace` (prostor karty, jinak prostor tokenu srdce) čte obsluha zvlášť."""
-    shaped(payload, ("body",), ("cardId", "executionId", "cardVersion", "workspace"),
+    shaped(payload, ("body",), ("cardId", "executionId", "cardVersion", "department", "profile", "workspace"),
            ids=("cardId", "executionId", "workspace"), hint=ISSUE_HINT)
     version = payload.get("cardVersion")
     if version is not None and (type(version) is not int or version < 0):
         raise invalid("cardVersion je celé číslo ≥ 0.", ISSUE_HINT)
-    machine = {key: payload.get(key) for key in ("cardId", "executionId", "cardVersion")}
+    for key in ("department", "profile"):
+        value = payload.get(key)
+        if value is not None and not (isinstance(value, str) and SLUG.fullmatch(value)):
+            raise invalid(f"{key} je krátký slug (a-z, 0-9, -, do 40 znaků) nebo null.", 'Například "department": "design".')
+    machine = {key: payload.get(key) for key in ("cardId", "executionId", "cardVersion", "department", "profile")}
     return body_payload(payload["body"]), machine
 
 

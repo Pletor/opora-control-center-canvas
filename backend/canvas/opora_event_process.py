@@ -39,6 +39,7 @@ KINDS = {
     "guard.resolved": ("checks", "ok", "Nález strážce vyřešen"),
     "gate.ticket": ("intake", "info", "Lístek brány mozku"),
     "ticket.failed": ("work", "fail", "Ticket práce selhal"),
+    "ticket.resumed": ("work", "info", "Ticket práce převzala nová relace"),
 }
 STAGE_PHASE = {"plan": "plan", "proposal": "plan", "acceptance": "plan", "claim": "intake", "work": "work",
                "evidence": "checks", "review": "review", "pull_request": "review", "merge": "merge",

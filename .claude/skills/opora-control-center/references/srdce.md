@@ -30,6 +30,9 @@ Zeď pustí agentovi i bez tokenu brány jen **pruh práce na kartě** (`LANE` v
 `review-identities/claim`, `verifications/*` a `desktop-v3` `agent-output`, `agent-messages`,
 `agent-message-receipt`, `agent-workspace`, `lease`.
 
+- Ticket práce (`ticket.issue` srdce) nese v `machine` `department` a `profile`: oddělení a profil kanceláře,
+  které má práci dělat (slug nebo null). Rozpracovaný ticket po restartu kanceláře převezmeš `ticket.claim`
+  s týmž `executionId` ([gate.md](gate.md)).
 - Kartu bereš a odevzdáváš jako dnes: `opora_hub.py start --node N` → práce dělníků → `opora_hub.py deliver …`.
 - **Nepoužívej** `/api/canvas-plan`, `canvas-layout`, návrhy (`graph-proposals`, `changesets`, `content-changes`)
   ani zápisy karet a pravidel (`desktop-v3/node`, `state`, `rule*`, …): dostaneš 403 `gate_required`.

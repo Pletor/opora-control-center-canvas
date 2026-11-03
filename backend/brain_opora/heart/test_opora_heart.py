@@ -123,12 +123,14 @@ def run(capsys, *argv):
 def test_task_issues_only_a_work_ticket_with_a_full_body_and_the_card(server, capsys):
     code, out = run(capsys, "task", "--title", "Hero", "--do", "Udělej hero.", "--why", "Proč", "--file", "a.tsx",
                     "--done-when", "npm test projde", "--dont-touch", "nav.tsx@úkol navigace", "--rule", "Česky",
-                    "--intent", "klid", "--open-path", "Pod hero místo pro CTA", "--node", "home")
+                    "--intent", "klid", "--open-path", "Pod hero místo pro CTA", "--node", "home",
+                    "--department", "design", "--profile", "frontend")
     assert code == 0 and json.loads(out) == {"ticketId": "tk_1", "status": "issued", "title": "Hero", "cardId": "home"}
     [call] = Handler.calls  # žádná fronta úkolů, jen ticket
     assert call["path"] == "/api/gate/requests" and call["headers"]["X-Opora-Gate-Token"] == "tok-heart"
     assert call["headers"]["Origin"] == server and call["headers"]["X-Opora-Actor"] == "agent; name=heart"
-    assert call["body"] == {"kind": "ticket.issue", "body": {"cardId": "home", "body": {
+    assert call["body"] == {"kind": "ticket.issue", "body": {"cardId": "home", "department": "design",
+                                                             "profile": "frontend", "body": {
         "essence": "Proč\nPocit: klid", "build": "Hero\nUdělej hero.\nSoubory: a.tsx",
         "openPaths": ["Pod hero místo pro CTA"], "cautions": ["Nesahej na nav.tsx (drží úkol navigace)", "Česky"],
         "doneCriteria": ["npm test projde"]}}}
@@ -834,7 +836,7 @@ def test_steps_file_keeps_the_card_rule_and_fills_ids_linearly(tmp_path):
 def test_ticket_issue_and_answer_go_through_the_gate_with_the_heart_token(server, capsys, tmp_path):
     (tmp_path / "ticket.json").write_text(json.dumps({"body": {"essence": "Proč.", "build": "Co.",
                                                                 "doneCriteria": ["npm test"]}}), encoding="utf-8")
-    code, out = run(capsys, "ticket-issue", "--file", "@ticket.json")
+    code, out = run(capsys, "ticket-issue", "--file", "@ticket.json", "--profile", "backend")
     assert code == 0 and json.loads(out) == {"ticket": {"ticketId": "tk_1", "status": "issued",
                                                         "machine": {"cardId": None}}}
     run(capsys, "ticket-answer", "--ticket", "tk_1", "--feedback", "tf_1", "--text", "Ano.")
@@ -842,7 +844,8 @@ def test_ticket_issue_and_answer_go_through_the_gate_with_the_heart_token(server
     sent = [(call["path"], call["body"], call["headers"]["X-Opora-Gate-Token"]) for call in Handler.calls]
     assert sent == [
         ("/api/gate/requests", {"kind": "ticket.issue", "body": {"body": {"essence": "Proč.", "build": "Co.",
-                                                                          "doneCriteria": ["npm test"]}}}, "tok-heart"),
+                                                                          "doneCriteria": ["npm test"]},
+                                                                 "profile": "backend"}}, "tok-heart"),
         ("/api/gate/requests", {"kind": "ticket.answer", "body": {"ticketId": "tk_1", "text": "Ano.",
                                                                   "feedbackId": "tf_1"}}, "tok-heart"),
         ("/api/gate/requests", {"kind": "ticket.answer", "body": {"ticketId": "gt_1", "text": "Ne."}}, "tok-heart")]

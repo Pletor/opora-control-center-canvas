@@ -35,9 +35,11 @@ def test_every_state_has_a_rule_and_terminal_states_lead_nowhere():
 
 
 def test_body_gets_default_pin_and_keeps_layers_apart():
-    body, machine = ticket_model.issue_payload({"body": BODY, "cardId": "hero", "cardVersion": 2})
+    body, machine = ticket_model.issue_payload({"body": BODY, "cardId": "hero", "cardVersion": 2,
+                                                "department": "design"})
     assert body == {**BODY, "openPaths": [], "cautions": [], "skills": ["ponytail@5.3.3"]}
-    assert machine == {"cardId": "hero", "executionId": None, "cardVersion": 2}
+    assert machine == {"cardId": "hero", "executionId": None, "cardVersion": 2, "department": "design",
+                       "profile": None}
 
 
 @pytest.mark.parametrize("payload", [
@@ -47,6 +49,8 @@ def test_body_gets_default_pin_and_keeps_layers_apart():
     {"body": {**BODY, "id": "x"}},
     {"body": BODY, "cardVersion": -1},
     {"body": BODY, "cardId": "../x"},
+    {"body": BODY, "department": "Design"},
+    {"body": BODY, "profile": "a" * 41},
     {"body": {"essence": "Proč."}},
 ])
 def test_bad_issue_bodies_are_422(payload):
