@@ -161,6 +161,52 @@ class TasksOut(BaseModel):
     tasks: list[Task]
 
 
+class WorkTicketBody(BaseModel):
+    """Tělo ticketu pro dělníka, bez ID (docs/navrhy/2026-11-03-novy-zaklad.md §3.3)."""
+
+    essence: str
+    build: str
+    openPaths: list[str]
+    cautions: list[str]
+    skills: list[str]
+    doneCriteria: list[str]
+
+
+class WorkTicketMachine(BaseModel):
+    cardId: str | None
+    executionId: str | None
+    cardVersion: int | None
+
+
+class WorkTicketFeedback(BaseModel):
+    feedbackId: str
+    seq: int
+    kind: Literal["bug", "idea", "improvement", "question"]
+    text: str
+    sessionId: str
+    answer: Any
+    answeredAt: str | None
+    createdAt: str
+
+
+class WorkTicket(BaseModel):
+    ticketId: str
+    seq: int
+    workspaceId: str
+    status: str
+    body: WorkTicketBody
+    machine: WorkTicketMachine
+    sessionId: str | None
+    delivery: Any
+    feedback: list[WorkTicketFeedback]
+    createdAt: str
+    updatedAt: str
+
+
+class WorkTicketsOut(BaseModel):
+    tickets: list[WorkTicket]
+
+
 class HeartMessageIn(BaseModel):
     project: str
     workspace: str

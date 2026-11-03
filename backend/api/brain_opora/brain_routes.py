@@ -9,6 +9,8 @@ Zeď projektu se zapnutou bránou člověka i srdce pouští, zápis úkolu tedy
 §7): čte kdokoli, mění jen člověk (`require_human`).
 `/brief-setting` = výslech srdce zapnutý a strop rešerše na požadavek (`brief_setting.py`,
 docs/navrhy/2026-10-30-vyslech-srdce.md §8): čte kdokoli, mění člověk nebo agent při plné autonomii (`require_authority`).
+`/tickets` = tickety práce s tělem, strojovou vrstvou a zpětnou vazbou (`ticket.py`, docs/navrhy/2026-11-03-novy-zaklad.md
+§3.3) pro kartotéku v kanceláři: jen čtení, píše se jen druhy brány `ticket.*`.
 """
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -16,7 +18,13 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.api.brain_opora import models
 from backend.api.brain_opora.writer import writer
-from backend.brain_opora.determinism import brief_setting, gate_setting, intake_setting, task_queue
+from backend.brain_opora.determinism import (
+    brief_setting,
+    gate_setting,
+    intake_setting,
+    task_queue,
+    ticket,
+)
 from backend.brain_opora.determinism.gate_payloads import GateError, parse_body
 from backend.canvas.activity_log import require_authority, require_human
 
@@ -104,6 +112,20 @@ def create_brain_router(service):
         by = writer(request, project, TASK_WRITER)
         try:
             return task_queue.cancel(service, project, task_id, by=by)
+        except GateError as error:
+            return _refused(error)
+
+    @router.get("/tickets", responses=models.answers(200, models.WorkTicketsOut, 404, 422))
+    def list_tickets(project: str = "", workspace: str = "", status: str = ""):
+        try:
+            return ticket.list_tickets(service, project, workspace, status)
+        except GateError as error:
+            return _refused(error)
+
+    @router.get("/tickets/{ticket_id}", responses=models.answers(200, models.WorkTicket, 404))
+    def read_ticket(ticket_id: str, project: str = ""):
+        try:
+            return ticket.get(service, project, ticket_id)
         except GateError as error:
             return _refused(error)
 

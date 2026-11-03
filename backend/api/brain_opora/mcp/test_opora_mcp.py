@@ -179,3 +179,17 @@ def test_ask_with_wait_long_polls_inbox_for_its_ticket(gate):
     assert requests[0] == {"kind": "ask", "body": {"question": "Smím?"}}  # wait se bráně neposílá
     assert [body["body"]["after"] for body in requests[1:]] == [0, 1]
     assert all(0 < body["body"]["wait"] <= 30 for body in requests[1:])
+
+
+def test_real_worker_kinds_include_the_ticket_tools_with_their_schemas():
+    import importlib.util
+
+    from backend.brain_opora.determinism import kinds
+
+    spec = importlib.util.spec_from_file_location("opora_mcp_under_test", SERVER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    tools = {tool["name"]: tool for tool in map(module.as_tool, kinds.visible("worker"))}
+    assert {"opora_ticket_request", "opora_ticket_claim", "opora_ticket_feedback", "opora_ticket_deliver"} <= set(tools)
+    assert "opora_ticket_issue" not in tools  # vydává jen srdce
+    assert tools["opora_ticket_feedback"]["inputSchema"]["required"] == ["ticketId", "kind", "text"]

@@ -14,6 +14,7 @@ Uzly, kterými engine toků (`backend/flow/`) spouští srdce mozku OPORY. Kontr
 | `agent.claude` | Dávka `claude -p` stávajícím exekutorem (`heart/batch.run`, `command.py`, `session.py`, `process.py`). Parametry `per_hour` (6), `per_project` (1) a `rate_sleep_seconds` (900). | in/out `main`; in `model` (jedna), `tool` (víc), `memory` (jedna, zatím nic nedělá) |
 | `model.claude` | Model a poradce dávky (`model`: `haiku`, `advisor`: `opus`). | out `model` |
 | `tool.opora_heart` | Nástroj `opora_heart.py`. `subcommands`: seznam povolených podpříkazů, nebo `null` = všechny (dnešní stav). Dávka bez nástroje dostane jen Read, Grep a Glob. | out `tool` |
+| `tool.ticket_issue`, `tool.ticket_answer` | Registrované nástroje ticketu (§3.2 „Ticket“): povolí agentovi jen podpříkaz `opora_heart.py ticket-issue` / `ticket-answer` (druhy brány `ticket.issue` / `ticket.answer`). Do Srdce v1 zatím nejsou zapojené. | out `tool` |
 
 Kroky dávky (`trigger.heart_event`, `trigger.human_message`, `decision.jev`, `context.snapshot` a `agent.claude`) jsou `detached`, protože čtou projekt pod jeho zámkem, Jev jde po síti a `claude -p` běží minuty. Proto běží ve vlastním vlákně mimo `registry_lock` (`runtime.detached`). Každých 60 s pošlou `node.heartbeat` a skončí `interpreter.finish` nebo `fail`. Uzel bez heartbeatu delší než 5 min je prostoj a plánovač ho naváže pokusem `attempt + 1`.
 

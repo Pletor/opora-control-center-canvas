@@ -19,7 +19,7 @@ INTAKE_TEXT = {"change": "proposal", "ask": "question"}  # pole lístku, které 
 TOKEN_HINT = "Založte relaci: POST /api/gate/sessions a pošlete token v hlavičce X-Opora-Gate-Token."
 
 
-def _workspace_known(service, project, workspace):
+def workspace_known(service, project, workspace):
     if workspace in ("draft", "main"):
         return True
     return any(row["id"] == workspace for row in service.workspaces(project))
@@ -30,7 +30,7 @@ def open_session(service, payload):
     project, workspace, worker = session_payload(payload)
     if not service.project_exists(project):
         raise GateError(404, "project_not_found", "Projekt neexistuje.", "ID projektu najdete v GET /api/bootstrap.")
-    if not _workspace_known(service, project, workspace):
+    if not workspace_known(service, project, workspace):
         raise GateError(404, "workspace_not_found", "Pracovní prostor v projektu neexistuje.",
                         "Použijte main, draft nebo ID pracovního prostoru projektu.")
     return tokens.issue_worker(service, project, workspace, worker)
