@@ -1,0 +1,156 @@
+{
+ "case": "C03",
+ "note": "Skrytá zlatá mapa jen pro grader (plán cesty v kontrole); agent A ji NEDOSTÁVÁ, staví si plán sám (cases.md, C03 – Zdrojová data). {port} = port vite preview.",
+ "graph": {
+  "nodes": [
+   {
+    "id": "web",
+    "parentId": null,
+    "kind": "sector",
+    "name": "Pěstování",
+    "purpose": "Kampaň Pěstování",
+    "x": 0,
+    "y": 0,
+    "site": {
+     "kind": "application",
+     "environments": [
+      {
+       "name": "Eval",
+       "host": "127.0.0.1:{port}"
+      }
+     ],
+     "journeys": [
+      {
+       "id": "kampan",
+       "name": "Kampaň Pěstování",
+       "actor": "Začínající pěstitel na balkoně",
+       "pointA": "Rostliny mu hynou, neví proč.",
+       "pointB": "Má zelený balkon a ví, co dělá.",
+       "steps": [
+        {
+         "id": "s0",
+         "page": "nav"
+        },
+        {
+         "id": "s1",
+         "page": "home",
+         "via": {
+          "do": "click",
+          "text": "Domů"
+         }
+        },
+        {
+         "id": "s2",
+         "page": "novinky",
+         "via": {
+          "do": "submit",
+          "section": "form",
+          "text": "Chci video zdarma"
+         }
+        },
+        {
+         "id": "s3",
+         "page": "pribeh"
+        },
+        {
+         "id": "s4",
+         "page": "pribeh",
+         "after": "s1",
+         "via": {
+          "do": "click",
+          "section": "cta"
+         }
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "id": "home",
+    "parentId": "web",
+    "kind": "node",
+    "name": "home",
+    "purpose": "",
+    "x": 0,
+    "y": 200,
+    "site": {
+     "kind": "page",
+     "path": "/",
+     "sections": [
+      {
+       "id": "form",
+       "role": "form",
+       "name": "Video zdarma",
+       "intent": ""
+      },
+      {
+       "id": "cta",
+       "role": "cta",
+       "name": "Výzva na příběh",
+       "intent": ""
+      }
+     ],
+     "goal": "Návštěvník nechá e-mail za video zdarma",
+     "feel": "vlídně"
+    }
+   },
+   {
+    "id": "novinky",
+    "parentId": "web",
+    "kind": "node",
+    "name": "novinky",
+    "purpose": "",
+    "x": 0,
+    "y": 400,
+    "site": {
+     "kind": "page",
+     "path": "/novinky",
+     "sections": [
+      {
+       "id": "hero",
+       "role": "hero",
+       "name": "Úvod",
+       "intent": ""
+      },
+      {
+       "id": "clanky",
+       "role": "content",
+       "name": "Články",
+       "intent": ""
+      }
+     ],
+     "goal": "Přečte si novinku a jde na příběh"
+    }
+   },
+   {
+    "id": "pribeh",
+    "parentId": "web",
+    "kind": "node",
+    "name": "pribeh",
+    "purpose": "",
+    "x": 0,
+    "y": 600,
+    "site": {
+     "kind": "page",
+     "path": "/pribeh",
+     "sections": [
+      {
+       "id": "hero",
+       "role": "hero",
+       "name": "Úvod",
+       "intent": ""
+      },
+      {
+       "id": "pribeh",
+       "role": "content",
+       "name": "Příběh",
+       "intent": ""
+      }
+     ]
+    }
+   }
+  ],
+  "edges": []
+ }
+}

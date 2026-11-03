@@ -1,0 +1,205 @@
+{
+ "case": "C06",
+ "note": "Skrytá zlatá mapa jen pro grader (plán cesty v kontrole); agent A ji NEDOSTÁVÁ, staví si plán sám (cases.md, C06 – Zdrojová data). {port} = port vite preview.",
+ "graph": {
+  "nodes": [
+   {
+    "id": "web",
+    "parentId": null,
+    "kind": "sector",
+    "name": "Kurz",
+    "purpose": "Z návštěvníka platící zákazník s upsellem",
+    "x": 0,
+    "y": 0,
+    "site": {
+     "kind": "application",
+     "environments": [
+      {
+       "name": "Eval",
+       "host": "127.0.0.1:{port}"
+      }
+     ],
+     "journeys": [
+      {
+       "id": "kurz",
+       "name": "Prodej kurzu",
+       "purpose": "Z návštěvníka platící zákazník s upsellem",
+       "actor": "Začínající zahrádkář",
+       "pointA": "Rostliny mu hynou a stydí se zeptat.",
+       "pointB": "Má zelený balkon a ví, co dělá.",
+       "steps": [
+        {
+         "id": "vstup",
+         "page": "vstup"
+        },
+        {
+         "id": "obsah",
+         "page": "video",
+         "via": {
+          "do": "click",
+          "section": "hero",
+          "text": "Chci video zdarma"
+         },
+         "shift": "Zkusí první krok a funguje to.",
+         "objection": "Zase spam."
+        },
+        {
+         "id": "prodej",
+         "page": "nabidka",
+         "via": {
+          "do": "submit",
+          "section": "form",
+          "text": "Pošlete mi nabídku"
+         }
+        },
+        {
+         "id": "upsell",
+         "page": "upsell",
+         "via": {
+          "do": "click"
+         }
+        },
+        {
+         "id": "mini",
+         "page": "miniupsell",
+         "after": "prodej"
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "id": "vstup",
+    "parentId": "web",
+    "kind": "node",
+    "name": "vstup",
+    "purpose": "",
+    "x": 0,
+    "y": 200,
+    "site": {
+     "kind": "page",
+     "path": "/",
+     "sections": [
+      {
+       "id": "hero",
+       "role": "hero",
+       "name": "Úvod",
+       "intent": ""
+      }
+     ]
+    }
+   },
+   {
+    "id": "video",
+    "parentId": "web",
+    "kind": "node",
+    "name": "video",
+    "purpose": "",
+    "x": 0,
+    "y": 400,
+    "site": {
+     "kind": "page",
+     "path": "/video",
+     "sections": [
+      {
+       "id": "hero",
+       "role": "hero",
+       "name": "Úvod",
+       "intent": ""
+      },
+      {
+       "id": "video",
+       "role": "content",
+       "name": "Video",
+       "intent": ""
+      },
+      {
+       "id": "form",
+       "role": "form",
+       "name": "Nabídka e-mailem",
+       "intent": "",
+       "moves": "Zase spam."
+      }
+     ]
+    }
+   },
+   {
+    "id": "nabidka",
+    "parentId": "web",
+    "kind": "node",
+    "name": "nabidka",
+    "purpose": "",
+    "x": 0,
+    "y": 600,
+    "site": {
+     "kind": "page",
+     "path": "/nabidka",
+     "sections": [
+      {
+       "id": "hero",
+       "role": "hero",
+       "name": "Úvod",
+       "intent": ""
+      },
+      {
+       "id": "cenik",
+       "role": "pricing",
+       "name": "Ceník",
+       "intent": ""
+      },
+      {
+       "id": "cta",
+       "role": "cta",
+       "name": "Výzva",
+       "intent": ""
+      }
+     ]
+    }
+   },
+   {
+    "id": "upsell",
+    "parentId": "web",
+    "kind": "node",
+    "name": "upsell",
+    "purpose": "",
+    "x": 0,
+    "y": 800,
+    "site": {
+     "kind": "page",
+     "path": "/upsell",
+     "sections": [
+      {
+       "id": "hero",
+       "role": "hero",
+       "name": "Upsell",
+       "intent": ""
+      }
+     ]
+    }
+   },
+   {
+    "id": "miniupsell",
+    "parentId": "web",
+    "kind": "node",
+    "name": "miniupsell",
+    "purpose": "",
+    "x": 0,
+    "y": 1000,
+    "site": {
+     "kind": "page",
+     "path": "/miniupsell",
+     "sections": [
+      {
+       "id": "hero",
+       "role": "hero",
+       "name": "Miniupsell",
+       "intent": ""
+      }
+     ]
+    }
+   }
+  ],
+  "edges": []
+ }
+}

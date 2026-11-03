@@ -7,12 +7,14 @@ Funkce dostane `ctx` (node, node_run_id, input, config sub-portů, idempotency_k
   a skončí přes `interpreter.finish` / `interpreter.fail`.
 
 `critic` (ChatGPT kritik přes `codex exec`, `critic.py`) je `detached` a běží přes `runtime.detached` katalogu srdce,
-tedy jen když je srdce v enginu navázané. Typy katalogu srdce (`backend/flow/catalogs/heart/`) se do registru přidávají na konci modulu; katalog importuje
+tedy jen když je srdce v enginu navázané. Stejně běží `brain_eval` (eval gate Brainu, `backend/brain/evaluate.py`):
+vstup `{versionId}`, výstup `{score, baselineScore, passed}`. Typy katalogu srdce (`backend/flow/catalogs/heart/`) se do registru přidávají na konci modulu; katalog importuje
 `node_spec`, ne tento modul, takže nevzniká kruh.
 """
 
 from datetime import timedelta
 
+from backend.brain import evaluate as brain_evaluate
 from backend.flow import critic
 from backend.flow.catalogs.heart.nodes import HEART_TYPES
 from backend.flow.catalogs.heart.runtime import detached
@@ -44,6 +46,9 @@ NODE_TYPES = {
         NodeType("critic", 1, (Port("main", "in", schema=critic.INPUT_SCHEMA),
                                Port("main", "out", schema=critic.OUTPUT_SCHEMA)),
                  detached(critic.work), detached=True),
+        NodeType("brain_eval", 1, (Port("main", "in", schema=brain_evaluate.INPUT_SCHEMA),
+                                   Port("main", "out", schema=brain_evaluate.OUTPUT_SCHEMA)),
+                 detached(brain_evaluate.work), detached=True),
     )
 }
 

@@ -61,6 +61,29 @@ def activate(db, version_id):
         db.execute("UPDATE brain_artifact_versions SET status='active' WHERE id=?", (version_id,))
 
 
+def rollback(db, artifact):
+    """Návrat na předchozí aktivní verzi (nejnovější `retired` starší než aktivní), bez evalu; vrací ID verze.
+    LookupError, když artefakt nemá aktivní verzi nebo předchozí verzi."""
+    current = db.execute("SELECT created_at, rowid FROM brain_artifact_versions WHERE artifact_id=? AND status='active'",
+                         (artifact,)).fetchone()
+    row = current and db.execute(
+        "SELECT id FROM brain_artifact_versions WHERE artifact_id=? AND status='retired' AND (created_at<? OR "
+        "(created_at=? AND rowid<?)) ORDER BY created_at DESC, rowid DESC LIMIT 1",
+        (artifact, current["created_at"], current["created_at"], current["rowid"])).fetchone()
+    if row is None:
+        raise LookupError("Artefakt nemá předchozí aktivní verzi.")
+    activate(db, row["id"])
+    return row["id"]
+
+
+def version(db, version_id):
+    """Verze s artefaktem: `{id, artifact_id, plugin, name, version, content_ref, status, baseline_version_id}`."""
+    row = db.execute("SELECT v.id, v.artifact_id, a.plugin, a.name, v.version, v.content_ref, v.status, "
+                     "v.baseline_version_id FROM brain_artifact_versions v JOIN brain_artifacts a ON a.id=v.artifact_id "
+                     "WHERE v.id=?", (version_id,)).fetchone()
+    return dict(row) if row else None
+
+
 def link(db, version_id, target_kind, target_ref):
     if target_kind not in LINK_KINDS:
         raise ValueError(f"Neznámý druh vazby {target_kind!r}.")

@@ -10,6 +10,11 @@ Typ uzlu `critic` (ChatGPT kritik přes `codex exec` pod předplatným, `backend
 codex `read-only` s obsahem v promptu, limit `OPORA_CRITIC_TIMEOUT` (300 s). Chybějící codex, chyba nebo výstup bez
 JSON dají `verdict: concerns`, uzel neselže. Srdce v1 ho nepoužívá; do pipeline srdce jde až přes eval.
 
+Typ uzlu `brain_eval` (eval gate Brainu, `backend/brain/evaluate.py`, viz `brain.md`): vstup `{versionId}` (nebo
+`params.versionId`), výstup portem `main` `{score, baselineScore, passed}`. Běží mimo zámek (`detached`), pustí
+`claude plugin eval` na kandidáta i baseline a zapíše běh evalu; cenu hlásí jako `cost_usd` uzlu. Neúspěšný eval (chybí
+claude, strop ceny) vrátí `passed: false`; verze, která není kandidát, uzel ukončí jako `failed`.
+
 Verze toku jde `draft` → `candidate` → `active`; vrátit se dá `rollback`em na předchozí aktivní.
 
 | Cesta | Co |

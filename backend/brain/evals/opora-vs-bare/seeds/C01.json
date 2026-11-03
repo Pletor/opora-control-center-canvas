@@ -1,0 +1,23 @@
+{
+  "case": "C01",
+  "note": "Skrytá zlatá mapa jen pro grader (plán cesty v kontrole); agent A ji NEDOSTÁVÁ, staví si plán sám (cases.md, C01 – Zdrojová data). Aplikace + stránka se site.goal/feel/sections, bez komponent a hran. {port} = port vite preview.",
+  "graph": {
+    "nodes": [
+      {"id": "web", "parentId": null, "kind": "sector", "name": "Pěstování na balkoně", "purpose": "Web o pěstování zeleniny na balkoně",
+       "x": 0, "y": 0,
+       "site": {"kind": "application", "environments": [{"name": "Eval", "host": "127.0.0.1:{port}"}]}},
+      {"id": "pribeh", "parentId": "web", "kind": "node", "name": "Příběh", "purpose": "", "x": 0, "y": 200,
+       "site": {"kind": "page", "path": "/pribeh",
+                "goal": "Návštěvník uvěří, že to zvládne, a klikne na Chci začít pěstovat",
+                "feel": "osobně, povzbudivě",
+                "sections": [
+                  {"id": "hero", "role": "hero", "name": "Úvod", "intent": "Nadpis a krátký perex"},
+                  {"id": "pribeh", "role": "content", "name": "Příběh autorky", "intent": "Tři odstavce od prvního neúspěchu po plný balkon"},
+                  {"id": "dukaz", "role": "proof", "name": "Citace čtenářů", "intent": "Tři krátké citace čtenářů",
+                   "moves": "Rozptýlí obavu ‚na to nemám talent‘ hlasy začátečníků"},
+                  {"id": "cta", "role": "cta", "name": "Výzva", "intent": "Odkaz Chci začít pěstovat na hlavní stránku /"}
+                ]}}
+    ],
+    "edges": []
+  }
+}

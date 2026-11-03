@@ -1,0 +1,15 @@
+# Evaly procesu srdce: v gitu jsou skripty a vstupy, výsledky běhů zůstávají lokálně.
+results*.json
+*_results.json
+_state.json
+*.log
+raw/
+traces/
+artifacts/
+# běhy opora-vs-bare (baseline/, v2/, …) a multi (m1/, m10/, …)
+/opora-vs-bare/*/
+!/opora-vs-bare/seeds/
+!/opora-vs-bare/templates/
+!/opora-vs-bare/multi/
+/opora-vs-bare/multi/*/
+!/opora-vs-bare/multi/oracles/
