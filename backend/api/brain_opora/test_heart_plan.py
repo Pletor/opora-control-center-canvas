@@ -171,6 +171,58 @@ def call_history(heart):
     return heart[1]("GET", "/api/oporahub/graph-proposals", query=SCOPE)["items"]
 
 
+def vault_card(call, refs):
+    """Karta tvaru generátoru Schránky (`card_of`) za živý fragment v sektoru prvního plánu, se značenou oblastí
+    a sektorem; k tomu blok s portem na existující kartě a vazba block z jeho portu na novou kartu."""
+    from backend.editor.brief_vault.brief_vault_plan import area_size
+    from backend.editor.brief_vault.brief_vault_plan_cards import card_of
+    fragment = call("POST", "/api/brief-vault", {**SCOPE, "op": "create", "scopeNodeId": refs["mvp"],
+                                                 "discipline": "be", "title": "Export", "text": "Export do CSV."})
+    row = {"fragment_id": fragment["fragment"]["id"], "title": "Export"}
+    card = card_of("f1", "s1", row, [], ["Export"], "be", 1, {"type": "SCHEMA", "done": "Export zapíše CSV."})
+    batch = {"nodes": [{"ref": "a1", "kind": "area", "parent": None, "name": "Logika", "size": area_size("logika"),
+                        "briefGroup": "logika"},
+                       {"ref": "s1", "kind": "sector", "parent": "a1", "name": "Backend", "briefDiscipline": "be"},
+                       card],
+             "edges": [{"from": "@" + refs["model"], "to": "f1", "port": "block", "block": "pick", "blockPort": "yes"}],
+             "extend": [{"node": "@" + refs["model"], "blocks": [
+                 {"ref": "pick", "title": "Varianta", "ports": [{"ref": "yes", "label": "Ano → export"}]}]}]}
+    return batch, row["fragment_id"]
+
+
+def test_vault_batch_over_the_accepted_graph_keeps_the_brief_and_wires_an_existing_card(heart):
+    """Další plán ze Schránky: karta nese fragmentRef, text a bloky, oblast a sektor značky; existující karta dostane
+    blok s portem a vazba block z něj projde. Chybný port neprojde ani v dry-run, ani ostře a nic nezapíše."""
+    _, call, tmp_path = heart
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    batch, fragment_id = vault_card(call, refs)
+    bad = json.loads(json.dumps(batch))
+    bad["edges"][0]["blockPort"] = "no"
+    before = call("GET", "/api/desktop-v3/state", query=SCOPE)["revision"], len(call_history(heart))
+    for flags in (("--dry-run",), ()):
+        refused = plan(tmp_path, bad, *flags)
+        assert refused["status"] == 409 and "nemá port" in refused["error"], refused
+    assert (call("GET", "/api/desktop-v3/state", query=SCOPE)["revision"], len(call_history(heart))) == before
+    dry = plan(tmp_path, batch, "--dry-run")
+    assert dry["ok"] is True and dry["dryRun"] is True, dry
+    done = plan(tmp_path, batch)
+    assert done["accepted"] is True, done
+    assert done["acceptSteps"] == ["graph_addition", "accept", "card_state", "graph_addition", "accept"]
+    new = done["refs"]
+    nodes = call("GET", "/api/desktop-v3/state", query=SCOPE)["state"]["nodes"]
+    assert [item["fragmentId"] for item in nodes[new["f1"]]["fragmentRefs"]] == [fragment_id]
+    assert [block["title"] for block in nodes[new["f1"]]["blocks"]] == [block["title"] for block in batch["nodes"][2]["blocks"]]
+    assert (nodes[new["a1"]]["briefGroup"], nodes[new["s1"]]["briefDiscipline"]) == ("logika", "be")
+    text = call("GET", "/api/node-text", query={**SCOPE, "node": new["f1"]})["text"]
+    assert text == batch["nodes"][2]["text"]
+    block = next(item for item in nodes[refs["model"]]["blocks"] if item["title"] == "Varianta")
+    edge = next(item for item in call("GET", "/api/view", query=SCOPE)["graph"]["edges"] if item["port"] == "block")
+    assert (edge["source"], edge["target"], edge["sourceBlockId"], edge["sourcePortId"]) == (
+        refs["model"], new["f1"], block["id"], "yes")
+    state, _ = claims(call)
+    assert state["heads"]["workingDiffers"] is False
+
+
 def test_no_accept_leaves_the_plan_for_the_human(heart):
     _, call, tmp_path = heart
     done = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--no-accept")

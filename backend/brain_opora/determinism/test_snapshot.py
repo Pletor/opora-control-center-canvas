@@ -403,6 +403,24 @@ def test_collect_lists_areas_and_sectors_of_the_canvas(service):
     assert facts["sectors"] == [{"id": "se", "name": "Sektor", "memberOf": "ar"}]
 
 
+def test_collect_reads_site_settings_and_page_overrides_into_the_web_section(service):
+    from backend.canvas.site_settings import empty
+    current = service.project_hub.settings("draft")
+    site = empty()
+    site["legal"]["gdprContact"] = "gdpr@zahrada.cz"
+    service.project_hub.save_settings({"project": "draft", "expected_revision": current["revision"],
+                                       "name": current["project"]["name"],
+                                       "settings": {**current["settings"], "site": site}})
+    view = service.view("draft", "draft")
+    graph = {"nodes": [node("app", kind="sector", site={"kind": "application", "environments": []}),
+                       node("pg", parent_id="app", site={"kind": "page", "path": "/", "seo": {"description": "Domov"}})],
+             "edges": []}
+    service.save_graph("draft", "draft", graph, view["digest"])
+    text = snapshot.render(snapshot.collect(service, "draft", "draft"))
+    assert "WEB:\n- legal · gdprContact: gdpr@zahrada.cz\n- stránka / přebíjí · seo.description: Domov" in text
+    assert "WEB:" not in snapshot.render(FACTS)
+
+
 CONFLICT = {"id": "c" * 40, "subject": "Upravit cíl karty a", "items": [
     {"key": "spec:a:goal", "base": "Start", "ours": "Náš cíl", "theirs": "Přijatý cíl"}]}
 

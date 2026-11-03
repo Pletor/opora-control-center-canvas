@@ -1,6 +1,6 @@
 """Varianta B: OporaHub v2 (přijaté zadání s kroky, executions, stepResults, PR, Lens, agent-state).
 
-Skriptovaný agent (bez LLM) jde podle `.claude/skills/opora-control-center/references/hub-loop.md`
+Skriptovaný agent (bez LLM) jde podle `backend/brain/seed/opora-control-center/skills/opora-control-center/references/hub-loop.md`
 a podle toho, co dělá agent-office (`src/server/opora/execution-*.ts`, `pull-request-handoff.ts`,
 `pr-lens.ts`). GitHub je jediná simulovaná část: čtení PR je nahrazené deterministickou odpovědí
 a sloučení PR je zapsané jako pozorování rekonciliace, stejně jako v backendových testech.

@@ -12,7 +12,11 @@ bez nich se nemění. Tvar ověří `validate_graph` (`docs/architektura-pro-age
 `site.sections` nejbližší stránky mezi předky karty (`check_sections`); uložení grafu ověří jen tvar id.
 
 `memberOf` (`@id` oblasti) zapíše výslovné logické členství uzlu nebo sektoru v oblasti, `null` ho zruší;
-platnost (oblast se stejným rodičem) ověří `validate_graph` (docs/kontrakt-identity.md)."""
+platnost (oblast se stejným rodičem) ověří `validate_graph` (docs/kontrakt-identity.md).
+
+`briefGroup` (oblast) a `briefDiscipline` (sektor) zapíšou značku struktury Schránky do stavu existujícího uzlu
+stejně jako pole nového uzlu dávky (`brief_vault_marks.plan_marks`); srdce tak značky dopíše kartám přijatým
+návrhem grafu, který stav nenese."""
 
 from backend.canvas.canvas_plan_fields import fail, fields, items_of, new_id, plan_ref
 from backend.canvas.canvas_plan_links import PORT_FIELDS, blocks_of
@@ -20,8 +24,9 @@ from backend.canvas.graph import CARD_VALUES
 from backend.canvas.site_metadata import card_section_error
 
 EXTEND_FIELDS = {"node", "expectedRevision", "blocks", "ports", "rules", "spec", "text", "parent", "columns", "color", "fragmentRef",
-                 "replaceBlocks", "layer", "memberOf", "tech", "states", "section"}
+                 "replaceBlocks", "layer", "memberOf", "tech", "states", "section", "briefGroup", "briefDiscipline"}
 CARD_FIELDS = ("tech", "states", "section")
+MARKS = ("briefGroup", "briefDiscipline")
 
 
 def extend_cards(built, extensions, existing):
@@ -42,9 +47,11 @@ def extend_cards(built, extensions, existing):
             fail(label, "expectedRevision musí být nezáporná revize stavu.")
         built.extend_revisions.append(item["expectedRevision"])
         if existing[node_id]["kind"] == "area":
-            if set(item) != {"node", "expectedRevision", "color"}:
-                fail(label, "rozšíření oblasti podporuje pouze color.")
-            existing[node_id]["color"] = item["color"]
+            if not {"node", "expectedRevision"} < set(item) <= {"node", "expectedRevision", "color", "briefGroup"}:
+                fail(label, "rozšíření oblasti podporuje pouze color a briefGroup.")
+            if "color" in item:
+                existing[node_id]["color"] = item["color"]
+            _marks(built, item, existing[node_id], label)
             continue
         if "color" in item:
             fail(label, "color patří pouze oblasti.")
@@ -64,8 +71,10 @@ def extend_cards(built, extensions, existing):
             if built.state["nodes"].get(cursor, {}).get("done", {}).get("confirmed"):
                 fail(label, "uzavřenou kartu ani její potomky nelze rozšířit.")
             cursor = existing[cursor]["parentId"]
-        if not set(item).intersection({"blocks", "ports", "rules", "spec", "text", "parent", "fragmentRef", "layer", "memberOf", *CARD_FIELDS}):
+        if not set(item).intersection({"blocks", "ports", "rules", "spec", "text", "parent", "fragmentRef", "layer", "memberOf",
+                                       *CARD_FIELDS, *MARKS}):
             fail(label, "rozšíření neobsahuje žádný obsah.")
+        _marks(built, item, existing[node_id], label)
         if "memberOf" in item:
             area = item["memberOf"]
             if area is None:
@@ -126,6 +135,15 @@ def extend_cards(built, extensions, existing):
                     fail(label, f"{key}.expectedRevision musí být nezáporné celé číslo.")
                 built.documents.append((node_id, key, revision, item[key][value_key]))
         built.state_changed = True
+
+
+def _marks(built, item, node, label):
+    """Značky Schránky z položky `extend` → stav existujícího uzlu (druh a hodnotu hlídá `plan_marks`)."""
+    found = {key: item[key] for key in MARKS if key in item}
+    if found:
+        from backend.editor.brief_vault.brief_vault_marks import plan_marks
+        plan_marks(built, {**found, "kind": node["kind"], "ref": label}, node["id"])
+        built.marked.add(node["id"])
 
 
 def _set_card_field(node, key, value, label):

@@ -15,6 +15,8 @@ test-results/
 opora.local.toml
 .hermes/
 .claude/worktrees/
+# generuje Brain při startu aplikace (backend/brain/local_skills.py), zdroj backend/brain/seed/
+.claude/skills/opora-control-center/
 /image*.png
 /*.mp4
 .enjoy/

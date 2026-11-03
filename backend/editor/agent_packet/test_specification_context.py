@@ -96,9 +96,9 @@ def test_legacy_context_versions_compare_without_rewriting_originals(tmp_path):
             versions.append(version)
             assert same_assignment({"contextVersion": version, "specification": legacy}, current)
             assert legacy == original
-        assert versions == ["1f209cbba29e48b8c126150087c763a4b44d1d505bb0ecd087ec0510622721be",
-                            "0777a75333ca9444e92ca87f6750ef306b3eb6d01e0a91a90d75eec1ce0f28a9",
-                            "612d0b7318f3d14a525eb33e01eae94203ab9d5201f8ac324f1997a28d423c99"]
+        assert versions == ["7a8245c09f750d61e36b0038f837a21fe3dbdaaae1ab6eeae7f1f828e0ba2d14",
+                            "c44d3b91736a492aac9de73bd894f6b2e839fbe6c907d262f70c66b9f1ed7859",
+                            "b7aa4c81b647abef3a5d1b9b6ab645d648f66a03f21dffe5b82c209dc6278cc7"]
 
 
 def test_capture_under_the_project_lock_builds_the_view_once(tmp_path, monkeypatch):

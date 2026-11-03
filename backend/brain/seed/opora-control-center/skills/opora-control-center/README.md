@@ -2,8 +2,11 @@
 
 Znovupoužitelný skill pro práci s plátnem OPORA v **kterémkoli projektu**, současném i budoucím.
 Platí pro pracovníky pod agent-office i pro agenta mimo aplikaci (Claude Code
-v terminálu nebo VS Code). Globálně je dostupný přes odkaz `~/.claude/skills/opora-control-center`
-na tuto složku v repu OPORA, takže v repu projektu nic instalovat netřeba a úprava zde platí všude.
+v terminálu nebo VS Code). Žije v Brainu (artefakt `opora:brain:skill:opora-control-center`, plugin
+`opora-control-center`); tahle složka je seed první verze. Dělník ho dostane jako výchozí pin ticketu. Lokálním relacím
+ho aplikace při startu vygeneruje do `.claude/skills/opora-control-center/` v repu OPORA (jen ke čtení, gitignored),
+a odkaz `~/.claude/skills/opora-control-center` vede tam. Úprava v generované kopii se dalším startem ztratí;
+nová verze jde přes registr Brainu (kandidát → eval → aktivace), viz `backend/brain/README.md`.
 
 Projekt neurčuje skill, ale dvě hodnoty: `<projectId>` a `<workspace>`. Pracovník je dostane
 v promptu, agent mimo aplikaci je zjistí `opora_read.py projects` / `workspaces`.
@@ -44,7 +47,7 @@ python "<SKILL_DIR>/scripts/opora_read.py" --base-url http://127.0.0.1:8740 view
 
 ## Údržba
 
-Testy skriptů a dokumentace: `uv run pytest .claude/skills/opora-control-center/scripts` (z kořene repa OPORA).
+Testy skriptů a dokumentace: `uv run pytest backend/brain/seed/opora-control-center/skills/opora-control-center/scripts` (z kořene repa OPORA; sbírá je i `uv run pytest backend`).
 `test_skill_docs.py` hlídá, že reference pokrývají všechny zápisové cesty a čtecí příkazy, že každá cesta
 zmíněná v SKILL.md a references/ existuje v tabulce cest backendu (cesty z běžících PR jsou výslovně
 v `PENDING_ROUTES`), že naopak **každá** cesta backendu je ve skillu doslova popsaná (výjimky jen §4

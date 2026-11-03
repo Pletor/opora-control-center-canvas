@@ -19,7 +19,7 @@ from pathlib import Path
 MULTI = Path(__file__).resolve().parent
 FLOW = MULTI.parent
 REPO = FLOW.parents[3]
-SKILL_MD = REPO / ".claude" / "skills" / "opora-control-center" / "SKILL.md"
+SKILL_MD = REPO / "backend" / "brain" / "seed" / "opora-control-center" / "skills" / "opora-control-center" / "SKILL.md"
 
 ORDER = ["S1", "S2", "S3", "S4", "S5", "S6"]
 MEMORY_FIRST = ("Na aplikaci se bude pracovat v dalších sezeních, která si z tohoto nic nepamatují. "

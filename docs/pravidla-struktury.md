@@ -77,7 +77,7 @@ opora-canvas/
     agent-roles.json    # role agenta (frontend, backend, databáze…): id, název, popis
     pipelines.json      # předlohy pipeline pro blok Akce
 
-  .claude/              # co čte Claude Code: hooks/, commands/, skills/ (opora-control-center, prompt-master)
+  .claude/              # co čte Claude Code: hooks/, commands/, skills/ (prompt-master; opora-control-center generuje Brain)
   shared/               # JSON schémata kontraktů FE ↔ BE ↔ agenti
   docs/                 # PRODUCT-CONTRACT, pravidla struktury, ADR, tento spec
   tools/                # build a dev skripty: copy-drawing-assets, serve-preview
