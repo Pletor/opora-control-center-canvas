@@ -104,4 +104,4 @@ kontroly → cesta → `close_card`). Pravidla §2–§4 se nemění; mění se 
   preconditions` (i `close_card`), `local-merge` a `close-card` mají vlastní příkaz; `opora_api.py METHOD PATH`
   volá jinou cestu s identitou agenta a výjimky §4 i cesty s tokenem odmítne předem. Výstup je vždy JSON
   s `ok`, `status`, `error`, `hint`; kód 6 = 422. Postup je recept „stavba stránky“ v `SKILL.md`, ověřený
-  testem `.claude/skills/opora-control-center/scripts/test_opora_recipe.py`.
+  testem `backend/brain/seed/opora-control-center/skills/opora-control-center/scripts/test_opora_recipe.py`.

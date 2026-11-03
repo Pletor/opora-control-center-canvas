@@ -15,7 +15,7 @@ Toto je návod k obsluze Canvasu, nikoli zadání měnit libovolný projekt. Kon
 - **Worktree patří jedné doméně** (`nodeId`). Kdo na které doméně pracuje a v jakém stavu (`running` / `waiting` / `stopped` / `none`, s `reasons[]`) vrací `GET /api/project-architecture/work-status?project=`; jestli web domény odpovídá, `GET /api/project-architecture/web-status?project=[&domain=]`. Chybějící DNS u nenasazené domény je normální stav, ne chyba.
 - Práce začíná v tomto pořadí: **1) nový worktree na doméně** (`POST /api/workspaces {project, nodeId, actor}`) → **2) zadání srdci** (`POST /api/brain/heart/messages {project, workspace, text}`; srdce posadí pracovníka úkolem přes bránu `/api/gate`) → **3) karta**. Worktree zakládá, přiřazuje (`PATCH /api/workspaces/{wid}`) a uzavírá do skladiště (`POST /api/workspaces/{wid}/archive`, čtení `GET /api/workspaces/archive`) člověk; větev `work/<wid>` po uzavření zůstává.
 - Worktree poznáš podle aktéra a krátkého ID (prvních 8 znaků), ne podle celé větve. Pracuj jen ve worktree, které ti člověk určil; přepnutí prostoru je jeho rozhodnutí.
-- Štíhlé zápisy UI: `POST /api/desktop-v3/node` (stav jedné karty, `{revision, nodeId, node}`) a `POST /api/graph/positions` (jen pozice uzlů). Agent je nepoužívá; jeho zápisy jdou přes `opora_write.py` (`.claude/skills/opora-control-center/references/api.md`).
+- Štíhlé zápisy UI: `POST /api/desktop-v3/node` (stav jedné karty, `{revision, nodeId, node}`) a `POST /api/graph/positions` (jen pozice uzlů). Agent je nepoužívá; jeho zápisy jdou přes `opora_write.py` (`backend/brain/seed/opora-control-center/skills/opora-control-center/references/api.md`).
 
 ## 2. Přečti v tomto pořadí
 

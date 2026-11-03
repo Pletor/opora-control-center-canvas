@@ -1,0 +1,5 @@
+{
+  "name": "opora-control-center",
+  "description": "Práce s OPORA Canvas přes OporaHub: stav pro agenty, karty a kroky, běh karty, review, konflikty a mapy projektu.",
+  "author": {"name": "OPORA"}
+}

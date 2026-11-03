@@ -2,13 +2,13 @@
 
 Srdce v `ticket.issue` jmenuje artefakty (`opora:brain:skill:<name>` = aktivní verze, `…@<sha12>` = ta verze).
 Server je přeloží a seskupí po pluginech: jeden plugin = jeden zip (`Store.export`), i když z něj ticket chce víc
-skillů. Výchozí pin pluginu `ponytail` (aktivní verze `opora:brain:skill:ponytail`) přibude, když ho srdce samo
-nepinulo a v registru je. Nic tu nevolá model ani git; zip vzniká až při stažení.
+skillů. Výchozí piny (`DEFAULT`: `ponytail` a `opora-control-center`, aktivní verze) přibudou, když je srdce samo
+nepinulo a v registru jsou. Nic tu nevolá model ani git; zip vzniká až při stažení.
 """
 
 from backend.brain import registry
 
-DEFAULT = "opora:brain:skill:ponytail"
+DEFAULT = ("opora:brain:skill:ponytail", "opora:brain:skill:opora-control-center")
 ZIP = "/api/brain-registry/pins/{plugin}@{short}.zip"
 
 
@@ -18,7 +18,7 @@ def entry(found):
 
 
 def for_ticket(db, requested):
-    """`[{pin, plugin, version, zip}]` po pluginech (výchozí ponytail první). Neznámé ID je `LookupError`,
+    """`[{pin, plugin, version, zip}]` po pluginech (výchozí piny první, v pořadí `DEFAULT`). Neznámé ID je `LookupError`,
     dvě verze téhož pluginu `ValueError`."""
     plugins = {}
     for ref in requested:
@@ -28,7 +28,9 @@ def for_ticket(db, requested):
         known = plugins.setdefault(found["plugin"], entry(found))
         if known["version"] != found["version"]:
             raise ValueError(f"Plugin {found['plugin']} je v pinech ve dvou verzích.")
-    default = registry.active(db, DEFAULT)
-    if default and default["plugin"] not in plugins:
-        plugins = {default["plugin"]: entry(default), **plugins}
-    return list(plugins.values())
+    defaults = {}
+    for ref in DEFAULT:
+        default = registry.active(db, ref)
+        if default and default["plugin"] not in plugins:
+            defaults.setdefault(default["plugin"], entry(default))
+    return list({**defaults, **plugins}.values())

@@ -95,7 +95,7 @@ Kdo z indexu čte:
 
 - **Knihovna, záložka STRÁNKA**: strom dál staví `buildLayerTree`, ale s neprázdným dotazem bere
   shody (id) z endpointu (debounce ~200 ms) a zobrazí je i s předky. Bez dotazu se nic nevolá.
-- **RLM** (`.claude/skills/opora-control-center/scripts/opora_read.py`): `search` a `index` čtou
+- **RLM** (`backend/brain/seed/opora-control-center/skills/opora-control-center/scripts/opora_read.py`): `search` a `index` čtou
   endpoint místo vlastního skládání; `rank` posílá kandidáty s `text = address + type + layer + name + text[:300]`.
 - **Jev**: RLM `rank` posílá kandidáty z indexu do Jevu (`/api/rlm/rank`). Kontrakt RLM je v `backend/brain_opora/decision/README.md`; výběr zdrojů pro srdce (`sources.py`, H3) bude číst tentýž index.
 
