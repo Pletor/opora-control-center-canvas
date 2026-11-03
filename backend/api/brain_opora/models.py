@@ -132,12 +132,22 @@ class WorkTicketBody(BaseModel):
     doneCriteria: list[str]
 
 
+class WorkTicketNeighbor(BaseModel):
+    """Následník nebo předchůdce karty ticketu z grafu (vazba `next` nebo `block`)."""
+
+    cardId: str
+    name: str
+    essence: str | None = None
+
+
 class WorkTicketMachine(BaseModel):
     cardId: str | None
     executionId: str | None
     cardVersion: int | None
     department: str | None
     profile: str | None
+    successors: list[WorkTicketNeighbor]
+    predecessors: list[WorkTicketNeighbor]
 
 
 class WorkTicketFeedback(BaseModel):
