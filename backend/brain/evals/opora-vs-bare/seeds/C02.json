@@ -1,0 +1,99 @@
+{
+ "case": "C02",
+ "note": "Skrytá zlatá mapa jen pro grader (plán cesty v kontrole); agent A ji NEDOSTÁVÁ, staví si plán sám (cases.md, C02 – Zdrojová data). {port} = port vite preview.",
+ "graph": {
+  "nodes": [
+   {
+    "id": "web",
+    "parentId": null,
+    "kind": "sector",
+    "name": "Kontakt",
+    "purpose": "Poptávka zahradních úprav",
+    "x": 0,
+    "y": 0,
+    "site": {
+     "kind": "application",
+     "environments": [
+      {
+       "name": "Eval",
+       "host": "127.0.0.1:{port}"
+      }
+     ],
+     "journeys": [
+      {
+       "id": "poptavka",
+       "name": "Poptávka",
+       "steps": [
+        {
+         "id": "s1",
+         "page": "kontakt"
+        },
+        {
+         "id": "s2",
+         "page": "dekujeme",
+         "via": {
+          "do": "submit",
+          "section": "form",
+          "text": "Odeslat poptávku"
+         }
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "id": "kontakt",
+    "parentId": "web",
+    "kind": "node",
+    "name": "kontakt",
+    "purpose": "",
+    "x": 0,
+    "y": 200,
+    "site": {
+     "kind": "page",
+     "path": "/kontakt",
+     "sections": [
+      {
+       "id": "hero",
+       "role": "hero",
+       "name": "Úvod",
+       "intent": "Ozveme se do 24 h"
+      },
+      {
+       "id": "form",
+       "role": "form",
+       "name": "Formulář",
+       "intent": "Jméno, e-mail, popis; tlačítko Odeslat poptávku",
+       "moves": "Rozptýlí obavu ze spamu: jen e-mail, ozveme se jednou do 24 h."
+      }
+     ],
+     "goal": "Poptávka odeslaná do 2 minut",
+     "feel": "klidně, důvěryhodně"
+    }
+   },
+   {
+    "id": "dekujeme",
+    "parentId": "web",
+    "kind": "node",
+    "name": "dekujeme",
+    "purpose": "",
+    "x": 0,
+    "y": 400,
+    "site": {
+     "kind": "page",
+     "path": "/dekujeme",
+     "sections": [
+      {
+       "id": "hero",
+       "role": "hero",
+       "name": "Poděkování",
+       "intent": ""
+      }
+     ]
+    }
+   }
+  ],
+  "edges": []
+ }
+}

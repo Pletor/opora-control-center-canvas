@@ -452,7 +452,7 @@ def create_app(data_root=None):
     app.include_router(create_strazci_router(service, guardian))
     app.include_router(create_opora_history_router(service))
     app.include_router(create_flow_router(service))  # engine toků (docs/navrhy/2026-11-03-novy-zaklad.md §3.1)
-    app.include_router(create_brain_registry_router(service))  # registr Brainu (tamtéž §3.4), jen čtení
+    app.include_router(create_brain_registry_router(service))  # registr Brainu a eval gate (tamtéž §3.4)
     app.include_router(create_gate_router(service, heart))  # brána mozku (docs/brain-gate.md §4)
     app.include_router(create_brain_router(service))  # přepínač brány (docs/brain-gate.md §1)
     app.include_router(create_heart_router(service, heart))  # srdce mozku (docs/brain-heart.md §1)

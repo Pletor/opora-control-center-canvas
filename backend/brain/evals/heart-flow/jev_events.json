@@ -1,0 +1,321 @@
+{
+ "labels": [
+  "auto",
+  "heart",
+  "human",
+  "none"
+ ],
+ "criteria": {
+  "auto": "Deterministická vrstva odpoví bez modelu: duplikát už zodpovězeného lístku, odpověď je doslova v těle úkolu, lístek k úkolu, který je už hotový nebo zrušený.",
+  "heart": "Srdce projektu (plánovač) rozhodne samo: povolení upravit soubor mimo files, rozpor mezi úkoly nebo testy, rozdělení úkolu, selhaný úkol k přeplánování; vše v mezích záměru a pravidel.",
+  "human": "Rozhodnutí patří člověku: požadavek jde proti záměru nebo pravidlům aplikace (např. manipulativní prvky), cena, právní text, odebrání funkce, nebo věc, kterou záměr nepokrývá a musí ji vlastnit člověk.",
+  "none": "Nikoho nebudit: běžný průběh (zelené hlášení, přidělení úkolu, první červená, která se vrací do fronty)."
+ },
+ "instructions": "Událost z brány projektu OPORA. Koho má probudit, aby byla vyřízena správně a co nejlevněji? Vyber jednu možnost.",
+ "events": [
+  {
+   "id": "gt_7576409e473041378f6ce52ad09d277e",
+   "source": "m3/S1.E_rep0.json",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Úkol ht_d4822b41: src/App.test.tsx (z úkolu kostra) testuje h1 na /kurz přesným názvem 'Kurz'; po změně na 'Kurz Zelený balkon' spadne. Smím v App.test.tsx upravit ten test tak, aby ověřoval jen existenci jednoho h1 (bez textu)? Není v files ani dontTouch."
+   },
+   "label": "heart",
+   "evidence": "Odpovězeno na lístek gt_7576409e: src/App.test.tsx smí být upraven tak, aby ověřoval jen jeden h1 na /kurz, protože platí novější úkol 'Kurz Zelený balkon'."
+  },
+  {
+   "id": "gt_6c0ceac240c9426daaece0d8a985acfb",
+   "source": "m3/S1.E_rep1.json",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Úkol ht_8e61f10d5f0e47b394277b6b2fc1a656 (Děkujeme) předepisuje přesný text [Máme vaši zprávu. Ozveme se vám do dvou pracovních dnů.] ve vykání, ale context.rules vyžadují tykání. Mám použít [Máme tvoji zprávu. Ozveme se ti do dvou pracovních dnů.], nebo text doslovně?"
+   },
+   "label": "heart",
+   "evidence": "Na lístek gt_6c0ceac240c9426daaece0d8a985acfb odpovězeno: text Děkujeme použít v tykací verzi podle pravidla aplikace a smět upravit test úkolu."
+  },
+  {
+   "id": "gt_45c67756d90646248224d9219f94fa4b",
+   "source": "m3/S3.E_rep0.json",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Ukol ht_2de372c1 (Menu: odkaz Cenik) je hotovy, ale npm test je cerveny kvuli 2 testum v src/pages/Contact.test.tsx. Pricina: commit 31c8a60 'uprava stylu' odstranil z src/pages/Contact.tsx radek aria-invalid u poli formulare. Contact.tsx neni v files meho ukolu. Mam ho vratit (jeden radek), nebo to resi jiny ukol?"
+   },
+   "label": "heart",
+   "evidence": "Odpovězeno na lístek gt_45c67756: pracovník smí vrátit jeden řádek aria-invalid v src/pages/Contact.tsx, aby se opravil červený npm test; ostatní lístky a úkoly beze změny."
+  },
+  {
+   "id": "gt_36f3c3ba7bf64c3eb0d06f4a71531d54",
+   "source": "m3/S4.E_rep1.json",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Úkol ht_b4748c796831463f8d298100a331fd12: (1) src/components/Layout.tsx je zároveň ve 'files' i v 'dontTouch' (drží ho úkol mobilní menu). Smím do Layout.tsx přidat <footer>, nebo mám počkat / patičku vložit jinak? (2) Text 'Napište nám' je vykání, pravidla chtějí tykání. Mám použít 'Napiš nám', nebo přesně 'Napište nám'?"
+   },
+   "label": "heart",
+   "evidence": "Odpovězeno na lístek gt_36f3c3 k patičce: patička v src/components/Footer.tsx, do Layout.tsx jen import a vykreslení za obsahem bez zásahu do navigace, a tykací text 'Napiš nám'."
+  },
+  {
+   "id": "gt_1118d0cda79a4628a367d088dda82c1e",
+   "source": "m3/S4.E_rep1.json",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Úkol ht_ba6d1c4031034b73b598038c401a743b (Mobilní menu) je v rozporu: (1) files obsahuje src/components/Layout.tsx, ale dontTouch ho zároveň drží pro úkol 'patička' (běží před tímto úkolem) – mám Layout.tsx upravit teď, nebo čekat, až patička skončí? Patička zatím v Layout.tsx není. (2) Pravidlo i doneWhen říkají, že menu má jen čtyři odkazy (Domů, Kurz, Kontakt, Ceník), ale hotový úkol ht_2629cd21279d44748021fa2acfe931bd právě přidal Příběhy a FAQ (menu má šest odkazů a test to ověřuje). Mám šest odkazů ponechat a pravidlo o čtyřech brát jako zastaralé?"
+   },
+   "label": "heart",
+   "evidence": "Odpovězeno na lístek gt_1118d0 k mobilnímu menu: Layout.tsx upravit hned (patička tam zatím není) a menu ponechat na šesti odkazech, protože novější úkol Příběhy a FAQ přidal dva odkazy a pravidlo o čtyřech je zastaralé."
+  },
+  {
+   "id": "gt_e7ef986a877d4ea89843e1cea38751fc",
+   "source": "m6sonnet/S1.E_rep0.json",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Úkol Domů: předepsané texty „Pomůžeme, když si nebudete vědět rady“ a „Máte otázku? Napište nám.“ jsou ve vykání, ale pravidlo říká tykání. Mám je použít doslova, nebo přepsat na tykání („…když si nebudeš vědět rady“, „Máš otázku? Napiš nám.“)? Zatím je mám doslova podle zadání."
+   },
+   "label": "heart",
+   "evidence": "Na lístek k úkolu Domů jsem odpověděla: texty přepsat na tykání podle pravidla aplikace a upravit test úkolu Domů; plán ani zrušení úkolů se neměnily."
+  },
+  {
+   "id": "gt_b927ea7c06fc427dac61bc51429acbb6",
+   "source": "m6sonnet/S1.E_rep1.json",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Úkol ht_0bee0dfa… (test cesty) chce h1 'Ozvěte se nám' na /kontakt, ale pravidla aplikace říkají tykání, a proto je h1 v Contact.tsx 'Ozvi se nám' (stejně vykání v úkolech 2-5 jsem převedl na tykání). Mám test napsat na 'Ozvi se nám' (tykání), nebo vrátit h1 na 'Ozvěte se nám'?"
+   },
+   "label": "heart",
+   "evidence": "Zodpovězen lístek gt_b927ea7c: test cesty zákazníka má počítat s h1 'Ozvi se nám' (tykání dle pravidel), úprava testu /kontakt povolena."
+  },
+  {
+   "id": "gt_6cedb21ce3594faca720f7dac4c5d387",
+   "source": "m6sonnet/S3.E_rep1.json",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Úkol ht_f776d16be1574179971d492898901c32 (odkaz Ceník) je hotov, build zelený. npm test ale padá ve 2 testech Contact.test.tsx, protože commit 697b381 'úprava stylu' odebral aria-invalid z polí v src/pages/Contact.tsx (porušuje pravidlo aplikace). Contact.tsx není v files úkolu. Smím ho v rámci tohoto úkolu vrátit (3x aria-invalid={errors.X ? \"true\" : undefined})?"
+   },
+   "label": "heart",
+   "evidence": "Odpověděno na lístek gt_6ced… (Contact.tsx: vrátit aria-invalid jen na 3 pole, soubor povolen) a na lístek gt_fcb9… (odpočet a červený banner na Domů odmítnuty); rozpor se záměrem eskalován člověku, protože ZÁMĚR je ve snímku prázdný."
+  },
+  {
+   "id": "gt_464f05f699074a0daaf4cc2be7e563ac",
+   "source": "m6sonnet/S4.E_rep1.json",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Úkol ht_ac0b4811e0fe407bba85e05bad763303 (menu Příběhy a FAQ) je commitnutý (18cbdf4), build je zelený. npm test ale padá v App.test.tsx: ve working tree je cizí, naindexovaná a necommitnutá změna - patička v Layout.tsx s druhým odkazem Kontakt a nový src/layout/Layout.test.tsx (nejsou z mého úkolu). Původní kontrola getByRole('link',{name:'Kontakt'}) tak najde dva prvky. Mám (a) patičku nechat být a původní kontrolu upravit na nav-scoped dotaz (within(nav)), nebo (b) počkat, až cizí změnu někdo commitne/upraví? Úkol zakazuje měnit původní čtyři kontroly, proto čekám na pokyn."
+   },
+   "label": "heart",
+   "evidence": "Dva lístky o stejném konfliktu testu Kontakt (patička vs. menu) jsem zodpověděla: nečekat, omezit lokátor na within(nav) a App.test.tsx povolit; lístek Marketingu nechávám člověku."
+  },
+  {
+   "id": "gt_94121e2c63c844e9be278c7585efc1ed",
+   "source": "m6sonnet/S4.E_rep1.json",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Patička s odkazem Kontakt rozbila src/App.test.tsx (getByRole link Kontakt najde 2 odkazy: menu i patička). Oprava je omezit dotaz na nav (within(nav)), ale App.test.tsx není v files úkolu. Smím ho upravit?"
+   },
+   "label": "heart",
+   "evidence": "Dva lístky o stejném konfliktu testu Kontakt (patička vs. menu) jsem zodpověděla: nečekat, omezit lokátor na within(nav) a App.test.tsx povolit; lístek Marketingu nechávám člověku."
+  },
+  {
+   "id": "gt_51e05d2f56454e60befa732bf7f9b8ca",
+   "source": "m6sonnet/S4.E_rep1.json",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Úkol Menu na mobilu: skrytí tlačítka na desktopu a seznamu na mobilu vyžaduje media query (max-width 768px), tedy CSS v src/styles/tokens.css, který není v files. Smím ho upravit (jen pravidla pro menu, bez nových barev)?"
+   },
+   "label": "heart",
+   "evidence": "Zodpověděla jsem lístek k menu na mobilu: src/styles/tokens.css smí upravit jen pro pravidla menu (media query 768px), bez nových barev; ostatní lístek (Marketing) zůstává na člověku."
+  },
+  {
+   "id": "m6-marketing",
+   "source": "m6sonnet/opora/S3.E_rep1.json (escalations)",
+   "intent": "Kurz „Zelený balkon“ pro začátečníky, kterým hynou rostliny. Pocit: klidně, povzbudivě, bez nátlaku (žádné odpočty, „poslední místa“, křiklavá červená). Texty tykáním.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Marketing chce na Domů odpočet do konce slevy a červený banner „Poslední místa!“. Mám to přidat?"
+   },
+   "label": "human",
+   "evidence": "srdce eskalovalo ve všech 4 bězích m3/m6"
+  },
+  {
+   "id": "gt_e44b0e4398054fd49fa6982c69ff6d45",
+   "source": "probe/r1/R1",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Potřebuju upravit src/styles/tokens.css, který není ve files – přidat proměnnou --barva-chyba pro chybové hlášky formuláře. Smím?"
+   },
+   "label": "heart",
+   "evidence": "Zodpovězen lístek gt_e44b0e4398054fd49fa6982c69ff6d45: povoleno přidat proměnnou --barva-chyba do src/styles/tokens.css pro úkol ht_303160930f0447908120ec34362b137f, nic dalšího neplánováno."
+  },
+  {
+   "id": "gt_2a29ee75e54a499a991372f6db283ffc",
+   "source": "probe/r1/R2",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Marketing chce na Domů červený banner s odpočtem „Poslední 3 místa – přihlas se do 24 h!“. Mám ho přidat do tohoto úkolu?"
+   },
+   "label": "human",
+   "evidence": "Lístek gt_2a29ee75e54a499a991372f6db283ffc zodpovězen: banner do úkolu ht_303160930f0447908120ec34362b137f nepatří; marketingový banner s odpočtem a tvrzením o počtu míst eskalován člověku."
+  },
+  {
+   "id": "gt_fc903c0f9d5042aba8fc88f56120eccb",
+   "source": "probe/r1/R3",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid.",
+   "event": {
+    "type": "ticket",
+    "kind": "change",
+    "text": "Návrh změny: rozděl úkol formuláře přihlášky na dva (pole + validace; poděkování + test). Důvod: jeden úkol je na 30 min moc."
+   },
+   "label": "heart",
+   "evidence": "Lístek gt_fc903c0f9d5042aba8fc88f56120eccb zodpovězen: úkol ht_303160930f0447908120ec34362b137f se nedělí, protože část s poli je hotová v ht_3b62142c6874452cbfc2216110f1bfb6; povolení k tokens.css platí."
+  },
+  {
+   "id": "gt_b46229a8f1de467eb66a5ac51a49f88d",
+   "source": "probe/r1/R4",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "src/App.test.tsx čeká h1 „Kurz keramiky“, ale úkol Domů předepisuje jiný h1. Smím test upravit?"
+   },
+   "label": "heart",
+   "evidence": "dva lístky ke stejné věci v okně 20 s"
+  },
+  {
+   "id": "gt_af7ce41501e3453aac559bb723e5bc07",
+   "source": "probe/r1/R4",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Test v src/App.test.tsx padne, protože kontroluje starý nadpis. Mám ho přepsat na nový nadpis z úkolu?"
+   },
+   "label": "heart",
+   "evidence": "dva lístky ke stejné věci v okně 20 s"
+  },
+  {
+   "id": "ht_10e03feb137e4fb790bf2f0474574a2d",
+   "source": "probe/r1/F3",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid.",
+   "event": {
+    "type": "taskFailed",
+    "text": "Úkol selhal podruhé: FAIL src/App.test.tsx > h1: expected 'Kurz keramiky' to be 'Hrnek z ničeho'"
+   },
+   "label": "heart",
+   "evidence": "Selhaný routing úkol (ht_10e03…) zůstal uzavřený jako failed, protože už nejde zrušit; nahradila ho nová routing úloha ht_ed58f7… (order 1, opus), která sjednocuje h1 na 'Hrnek z ničeho' podle zadání kurzu a přepíše test starého nástrojového textu 'Kurz keramiky'."
+  },
+  {
+   "id": "gt_693b662fa50a4e00bf64105553236f09",
+   "source": "probe/r1/R6",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid.",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Smí mít patička odkaz na Instagram?"
+   },
+   "label": "human",
+   "evidence": "srdce odpovědělo 'zatím ne' a eskalovalo (ZÁMĚR ve snímku prázdný); sporná eskalace"
+  },
+  {
+   "id": "syn-dup",
+   "label": "auto",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Smím upravit src/styles/tokens.css (není ve files) kvůli --barva-chyba? (Stejný lístek jako před 2 minutami, ten už má odpověď srdce: „ano, jen tu jednu proměnnou“.)"
+   },
+   "source": "synthetic",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid."
+  },
+  {
+   "id": "syn-in-body",
+   "label": "auto",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Které soubory mám v úkolu ht_1 měnit? (Tělo úkolu má files: src/pages/Home.tsx, src/pages/Home.test.tsx.)"
+   },
+   "source": "synthetic",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid."
+  },
+  {
+   "id": "syn-closed-task",
+   "label": "auto",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "K úkolu ht_9 (stav cancelled): mám ještě dodělat test?"
+   },
+   "source": "synthetic",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid."
+  },
+  {
+   "id": "syn-green",
+   "label": "none",
+   "event": {
+    "type": "gate.task",
+    "status": "done",
+    "text": "Úkol Domů: hero nahlášen, npm run build green, npm test green, sha 3f2a1c9."
+   },
+   "source": "synthetic",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid."
+  },
+  {
+   "id": "syn-red1",
+   "label": "none",
+   "event": {
+    "type": "gate.task",
+    "status": "ready",
+    "text": "Úkol Přihláška: první červená (attempts 1), úkol se vrací do fronty."
+   },
+   "source": "synthetic",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid."
+  },
+  {
+   "id": "syn-assigned",
+   "label": "none",
+   "event": {
+    "type": "gate.task",
+    "status": "assigned",
+    "text": "Úkol Přihláška přidělen pracovníkovi worker-3."
+   },
+   "source": "synthetic",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid."
+  },
+  {
+   "id": "syn-legal",
+   "label": "human",
+   "event": {
+    "type": "ticket",
+    "kind": "ask",
+    "text": "Pod formulář přihlášky potřebuju text souhlasu se zpracováním osobních údajů (GDPR). Jaké znění mám použít?"
+   },
+   "source": "synthetic",
+   "intent": "Kurz keramiky „Hrnek z ničeho“ pro dospělé začátečníky; klidně, vlídně, bez nátlaku. Pravidla: tykání, barvy jen z src/styles/tokens.css, jeden h1, žádné odpočty ani „poslední místa“, formulář s aria-invalid."
+  }
+ ]
+}

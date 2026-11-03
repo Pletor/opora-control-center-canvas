@@ -2,10 +2,11 @@
 
 Artefakt je dovednost sdílená napříč projekty (proto registr, ne projekt). Obsah leží v gitu Brainu
 (`<datový kořen>/brain/`), verze je SHA commitu a `content_ref` cesta souboru v pluginu. Na artefakt je
-nejvýš jedna `active` verze (unikátní index).
+nejvýš jedna `active` verze (unikátní index). `brain_eval_runs` drží evaly kandidáta proti baseline
+(`backend/brain/evaluate.py`); `forced` = aktivace člověkem bez prošlého evalu.
 """
 
-TABLES = ("brain_artifacts", "brain_artifact_versions", "brain_links")
+TABLES = ("brain_artifacts", "brain_artifact_versions", "brain_links", "brain_eval_runs")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS brain_artifacts(
@@ -24,4 +25,10 @@ CREATE TABLE IF NOT EXISTS brain_links(
   target_kind TEXT NOT NULL CHECK(target_kind IN ('log_event','eval_run','canvas_node')),
   target_ref TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS brain_links_version ON brain_links(version_id);
+CREATE TABLE IF NOT EXISTS brain_eval_runs(
+  id TEXT PRIMARY KEY, version_id TEXT NOT NULL REFERENCES brain_artifact_versions(id),
+  baseline_version_id TEXT REFERENCES brain_artifact_versions(id), score REAL, baseline_score REAL,
+  cost_usd REAL, report_json TEXT, status TEXT NOT NULL CHECK(status IN ('running','ok','error','forced')),
+  created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS brain_eval_runs_version ON brain_eval_runs(version_id, created_at);
 """

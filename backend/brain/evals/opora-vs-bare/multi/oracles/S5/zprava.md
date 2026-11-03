@@ -1,0 +1,3 @@
+Hotovo: na `/kurz` je sekce Termíny, u každého termínu tlačítko „Rezervovat“ na `/kontakt?termin=<id>` a formulář pošle `termin` v JSON `POST /api/poptavka`.
+
+Pozor na předpoklad ze zadání: kalendářové API `GET /api/terminy` v repozitáři neexistuje a ceník žádné API nevolá – varianty má napsané přímo v kódu. Nenapojil jsem tedy nic „stávajícího“. Stránka volá `/api/terminy` podle zadání a když API neodpoví (dnes vždy), ukáže srozumitelnou zprávu „Termíny se teď nepodařilo načíst…“ a zbytek kurzu funguje dál. Až bude API skutečně existovat, stačí, aby vracelo pole `{id, nazev, datum}`. Potřebuju od vás adresu a tvar skutečného kalendářového API.

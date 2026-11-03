@@ -61,3 +61,20 @@ def test_seed_copies_installed_ponytail_skills_and_license(tmp_path):
     assert store.read("ponytail", "LICENSE", active["version"]) == "MIT License\n"
     manifest = json.loads(store.read("ponytail", ".claude-plugin/plugin.json", active["version"]))
     assert manifest == {"name": "ponytail", "version": "5.10.1", "license": "MIT"}  # bez háčků instalace
+
+
+def test_seed_fills_missing_evals_without_a_new_artifact_version(tmp_path):
+    conn, store = db(), Store(tmp_path)
+    files = seed._files(seed.SEED_DIR / "opora-heart")
+    old = store.write("opora-heart", {rel: text for rel, text in files.items() if not rel.startswith("evals/")},
+                      "živý Brain před PR 7c")  # založený Brain bez sady evalu
+    seed.ensure(conn, tmp_path, ponytail_cache=tmp_path / "chybi")
+    assert registry.active(conn, "opora:brain:skill:heart")["version"] == old  # sada evalu není obsah skillu
+    filled = store.version("opora-heart")
+    assert filled != old
+    assert store.read("opora-heart", "evals/ticket-s-kriteriem/prompt.md", filled) == \
+        files["evals/ticket-s-kriteriem/prompt.md"]
+    assert conn.execute("SELECT COUNT(*) FROM brain_artifact_versions").fetchone()[0] == 2
+    edited = store.write("opora-heart", {"evals/ticket-s-kriteriem/prompt.md": "jiná sada\n"}, "ruční úprava")
+    seed.ensure(conn, tmp_path, ponytail_cache=tmp_path / "chybi")
+    assert store.version("opora-heart") == edited  # existující evals/ seed nepřepíše

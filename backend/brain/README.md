@@ -16,6 +16,12 @@ Registr dovedností OPORY a jejich git úložiště. Kontrakt: `docs/navrhy/2026
   - Plugin `opora-heart` ze `seed/opora-heart/` má skilly `heart` (systémový prompt srdce) a `vyslech` (postup výslechu).
   - Plugin `ponytail` (MIT) se bere z nainstalovaného pluginu Claude Code (`~/.claude/plugins/cache/ponytail/ponytail/<nejvyšší verze>/`). Do Brainu jdou jeho skilly, `LICENSE` a manifest bez háčků a `userConfig`. Když na stroji není, seed ho přeskočí a zaloguje.
 
-  Seed vytvoří artefakty skillů a první verzi jako `active`. Plugin, který už v Brainu je, nepřepíše, a artefakt s aktivní verzí nechá být. Úprava `seed/` v repu se tedy do živého Brainu nepropíše; nová verze jde přes registr.
+  Seed vytvoří artefakty skillů a první verzi jako `active`. Plugin, který už v Brainu je, nepřepíše, a artefakt s aktivní verzí nechá být. Úprava `seed/` v repu se tedy do živého Brainu nepropíše; nová verze jde přes registr. Výjimka: pluginu bez `evals/` seed doplní zmrazenou sadu ze `seed/<plugin>/evals/` commitem bez nové verze artefaktu.
+- `evaluate.py`: eval gate. Kandidát (`add_candidate`) = commit pluginu (`Store.write`) a verze `candidate` s `baseline_version_id` = aktivní verze; změna `evals/` je 422 `evals_frozen`. Eval (`start` + `execute`, pro uzel `evaluate`) rozbalí export kandidáta i baseline do dočasné složky, do obou dá `evals/` z verze kandidáta (sadu, kterou kandidát změnit nesměl) a pustí `claude plugin eval <složka> --json … --threshold 0 --trust-plugin --no-publish`. Kandidát běží s `--ablation with-without`, baseline s `none`. Strop ceny obou běhů dohromady je `OPORA_BRAIN_EVAL_MAX_USD` (1.0). Skóre je `aggregates.overallScore`, cena `costUsd`, neúplný běh (`partial`, strop) je `error`.
+  - Běh je řádek `brain_eval_runs` (`running` / `ok` / `error` / `forced`) s vazbou `brain_links(eval_run)` a skóre jde do `eval_score` verze.
+  - Aktivace projde jen po `passed` (`ok` a skóre ≥ baseline). `force` = člověk, zapíše `forced`. Návrat (`registry.rollback`) je bez evalu.
+  - Uzel enginu `brain_eval` (`backend/flow/node_types.py`) volá `work`.
+- `seed/opora-heart/evals/`: zmrazená sada skillu `heart` (`ticket-s-kriteriem`, `bez-podkladu-eskaluje`; `prompt.md` + `graders/*.md`, Haiku, `max_turns: 3`, 1 běh).
+- `evals/`: evaly procesu srdce (sondy přesunuté z `.claude/hillclimb/`, vlastní README).
 
-Srdce čte prompt a postupy režimů jen odsud (`backend/brain_opora/heart/command.py` `heart_skills`, bez zálohy v souboru) a piny zapisuje do `brainPins` záznamu dávky. API jen pro čtení: `backend/api/brain/` (`/api/brain-registry/*`, včetně zipu pinu pro dělníka).
+Srdce čte prompt a postupy režimů jen odsud (`backend/brain_opora/heart/command.py` `heart_skills`, bez zálohy v souboru) a piny zapisuje do `brainPins` záznamu dávky. API: `backend/api/brain/` (`/api/brain-registry/*`, včetně zipu pinu pro dělníka).
