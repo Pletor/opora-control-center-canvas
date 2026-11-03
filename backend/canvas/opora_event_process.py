@@ -40,6 +40,7 @@ KINDS = {
     "gate.ticket": ("intake", "info", "Lístek brány mozku"),
     "ticket.failed": ("work", "fail", "Ticket práce selhal"),
     "ticket.resumed": ("work", "info", "Ticket práce převzala nová relace"),
+    "canvas.failed": ("checks", "fail", "Chyba plátna 2–4"),
 }
 STAGE_PHASE = {"plan": "plan", "proposal": "plan", "acceptance": "plan", "claim": "intake", "work": "work",
                "evidence": "checks", "review": "review", "pull_request": "review", "merge": "merge",

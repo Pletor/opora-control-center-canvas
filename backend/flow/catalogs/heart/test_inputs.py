@@ -59,3 +59,10 @@ def test_merge_done_becomes_a_merged_input_that_resolve_keeps():
     local = {"kind": "merge.done", "nodeId": "n1", "executionId": "ex1", "prNumber": None,
              "data": {"source": "local", "commit": "def456", "mergeSha": "def456"}}
     assert wake_input(local)["pr"] is None and wake_input(local)["mergeSha"] == "def456"
+
+
+def test_canvas_failure_wakes_the_heart():
+    event = {"kind": "canvas.failed", "data": {"seq": 7, "canvas": 2, "kind": "intent.failed",
+                                               "payload": {"pageId": "landing", "nodeId": "ok", "reason": "chybí"}}}
+    assert wake_input(event) == {"type": "canvasFailed", "canvas": 2, "kind": "intent.failed",
+                                 "payload": {"pageId": "landing", "nodeId": "ok", "reason": "chybí"}}

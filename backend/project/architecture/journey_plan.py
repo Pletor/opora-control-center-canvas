@@ -58,7 +58,7 @@ def base_url(application):
     return ("http://" if name.lower() in LOCAL_HOSTS else "https://") + host
 
 
-def _section_scope(section):
+def section_scope(section):
     return '[data-opora-section="' + section.replace("\\", "\\\\").replace('"', '\\"') + '"]'
 
 
@@ -66,7 +66,7 @@ def _segment(source, target):
     via = target.get("via") if isinstance(target.get("via"), dict) else {}
     nav = source["page"] == JOURNEY_FROM_NAV
     section = via.get("section")
-    scope = _section_scope(section) if isinstance(section, str) and section else "nav" if nav else "body"
+    scope = section_scope(section) if isinstance(section, str) and section else "nav" if nav else "body"
     text = via.get("text")
     return {"from": source["id"], "to": target["id"], "open": "/" if nav else source["path"], "scope": scope,
             "do": via.get("do") if via.get("do") in ("click", "submit") else "click",

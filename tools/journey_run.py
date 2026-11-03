@@ -8,6 +8,10 @@ jen vypíše varování. `--dry-run` je neposílá.
     uv run python tools/journey_run.py --server http://127.0.0.1:8740 --project <id> --journey <id>
         [--application <id>] [--base-url URL] [--fixtures file.json] [--headed] [--dry-run] [--log FILE]
 
+`--intent PAGE` místo `--journey` ověří záměr stránky (`docs/navrhy/2026-11-03-platno-2-zamer-stranky.md` §6):
+stáhne `intent-plan` aktivní verze záměru, přehraje kroky a očekávání (`intent_run_browser.py`) a odevzdá doklad
+`opora.intent-run/1` na `intent-runs`. Exit 0, když žádný uzel neselhal (neověřené uzly exit nekazí).
+
 Exit: 0 prošlo, 1 neprošlo nebo chyba serveru, 2 chybí Playwright nebo špatné zadání.
 """
 from __future__ import annotations
@@ -21,9 +25,12 @@ import urllib.request
 from pathlib import Path
 
 try:
+    from tools import intent_run_browser, intent_run_logic
     from tools import journey_run_browser as browser
     from tools import journey_run_logic as logic
 except ImportError:  # spuštěno jako skript z tools/
+    import intent_run_browser  # type: ignore[no-redef]
+    import intent_run_logic  # type: ignore[no-redef]
     import journey_run_browser as browser  # type: ignore[no-redef]
     import journey_run_logic as logic  # type: ignore[no-redef]
 
@@ -110,7 +117,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Přehraje cestu zákazníka a odevzdá doklad (docs/brana-cesty.md).")
     parser.add_argument("--server", default="http://127.0.0.1:8740")
     parser.add_argument("--project", required=True)
-    parser.add_argument("--journey", required=True)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--journey")
+    target.add_argument("--intent", metavar="PAGE", help="ověří záměr stránky PAGE (nodeId) místo cesty")
     parser.add_argument("--application")
     parser.add_argument("--base-url", help="přepíše baseUrl plánu (digest na něm nezávisí)")
     parser.add_argument("--fixtures", help="JSON {\"<journeyId>/<to>\": {selector|popisek: hodnota}}")
@@ -118,6 +127,32 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="doklad jen vypíše, neodešle")
     parser.add_argument("--log", help="soubor průběhu; jeho file:// URL jde do logUrl")
     return parser.parse_args(argv)
+
+
+def run_intent(server: str, args: argparse.Namespace) -> int:
+    """Ověření záměru stránky: plán → přehrání → doklad (bez `--fixtures`, `--log` a hlášení „běží“)."""
+    query = urllib.parse.urlencode({"project": args.project, "page": args.intent})
+    try:
+        plan = intent_run_logic.check_plan(_expect_ok(
+            "plán záměru", *_http("GET", f"{server}/api/project-architecture/intent-plan?{query}", server)))
+    except (RuntimeError, TypeError, ValueError, OSError) as error:
+        print(error, file=sys.stderr)
+        return 1
+    base_url = args.base_url or plan.get("baseUrl")
+    if not base_url:
+        print("Plán nemá baseUrl (aplikace bez prostředí): dodej --base-url.", file=sys.stderr)
+        return 2
+    results = intent_run_browser.replay(plan, base_url, args.headed, lambda line: print(line, file=sys.stderr))
+    run = intent_run_logic.build_run(plan, results)
+    print(json.dumps(run, ensure_ascii=False, indent=2))
+    if not args.dry_run:
+        url = f"{server}/api/project-architecture/intent-runs?{urllib.parse.urlencode({'project': args.project})}"
+        try:
+            _expect_ok("doklad záměru", *_http("POST", url, server, run))
+        except (RuntimeError, OSError) as error:
+            print(error, file=sys.stderr)
+            return 1
+    return 0 if intent_run_logic.run_passed(run) else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -132,6 +167,8 @@ def main(argv: list[str] | None = None) -> int:
     except ImportError:
         print(INSTALL_HINT, file=sys.stderr)
         return 2
+    if args.intent:
+        return run_intent(server, args)
     try:
         fixtures = logic.load_fixtures(args.fixtures)
     except (OSError, TypeError, ValueError) as error:

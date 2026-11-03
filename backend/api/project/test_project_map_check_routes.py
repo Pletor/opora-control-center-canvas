@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from backend.api.project.project_map_check_routes import create_project_map_check_router
 from backend.canvas.canvas_service import ProjectNotFound
 from database.schema.journey_run_schema import SCHEMA as JOURNEY_RUN_SCHEMA
+from database.schema.project_schema import REGISTRY_SCHEMA, ensure_flow_owner_ref
 
 
 def make_client(source_kind="git"):
@@ -35,7 +36,12 @@ def make_client(source_kind="git"):
         return {"graph": graph}
 
     workspaces = [{"id": "w1", "branch": "work/w1", "actor": "agent", "node_id": "app"}]
+    registry = sqlite3.connect(":memory:", check_same_thread=False)
+    registry.row_factory = sqlite3.Row
+    registry.executescript(REGISTRY_SCHEMA)
+    ensure_flow_owner_ref(registry)
     service = SimpleNamespace(project_hub=SimpleNamespace(settings=settings), view=view, db_for=lambda project: db,
+                              db=registry, registry_lock=threading.RLock(),
                               reading=lambda project: nullcontext(), lock_for=lambda project: threading.RLock(),
                               workspaces=lambda project: workspaces)
     app = FastAPI()
@@ -52,6 +58,7 @@ def test_map_check_reads_the_accepted_graph_and_returns_findings():
                                 {"rule": "journey.unverified", "journeyId": "j2",
                                  "message": "Cesta Domů: chybí ověření (doklad přehrání cesty)."},
                                 {"rule": "page.no-goal", "nodeId": "p", "message": "Stránka nemá cíl (goal)."},
+                                {"rule": "page.no-intent", "nodeId": "p", "message": "Stránka nemá záměr (plátno 2)."},
                                 {"rule": "edge.carries-unset", "edgeId": "e1",
                                  "message": "Vazba neříká, co nese (carries)."}]
     assert body["summary"]["page.no-goal"] == 1 and body["summary"]["edge.carries-unset"] == 1
@@ -61,7 +68,7 @@ def test_map_check_locate_adds_solver_ids():
     client, _ = make_client()
     body = client.get("/api/project-architecture/map-check", params={"project": "p1", "locate": "1"}).json()
     assert [(f["rule"], f["solverId"]) for f in body["findings"]] == [
-        ("journey.broken", "app"), ("journey.unverified", "app"), ("page.no-goal", "p"), ("edge.carries-unset", "a")]
+        ("journey.broken", "app"), ("journey.unverified", "app"), ("page.no-goal", "p"), ("page.no-intent", "p"), ("edge.carries-unset", "a")]
 
 
 def test_map_check_uses_draft_without_git_and_requires_project():
@@ -183,3 +190,25 @@ def test_journey_running_errors():
     run_id = client.post(base + "/start", json={"project": "p1", "journeyId": "j2"}).json()["runId"]
     assert client.post(f"{base}/{run_id}/progress", json={"segment": "s1"}).status_code == 422
     assert client.post(f"{base}/neni/progress", json={"segment": {"from": "s1", "to": "s2"}}).status_code == 404
+
+
+def test_intent_plan_and_run_follow_the_active_page_intent():
+    from backend.project.architecture.test_intent_runs import intent_service, publish
+
+    service, wid = intent_service()
+    app = FastAPI()
+    app.include_router(create_project_map_check_router(service))
+    client = TestClient(app)
+    query = {"project": "p", "page": "landing"}
+    assert client.get("/api/project-architecture/intent-plan", params=query).status_code == 404
+    publish(service, wid)
+    plan = client.get("/api/project-architecture/intent-plan", params=query).json()
+    assert plan["schema"] == "opora.intent-plan/1" and [n["nodeId"] for n in plan["nodes"]] == ["send", "ok"]
+    run = {"pageId": "landing", "workflowVersionId": plan["workflowVersionId"], "digest": plan["digest"],
+           "nodes": [{"nodeId": "send", "ok": True}, {"nodeId": "ok", "ok": False, "reason": "chybí text"}]}
+    url = "/api/project-architecture/intent-runs?project=p"
+    record = client.post(url, json=run).json()
+    assert record["passed"] is False and record["stale"] is False
+    assert client.post(url, json={**run, "digest": "x"}).status_code == 422
+    assert client.post(url, json={**run, "pageId": "jina"}).status_code == 404
+    assert service.db.execute("SELECT COUNT(*) FROM flow_log_events WHERE type='intent.failed'").fetchone()[0] == 1

@@ -32,9 +32,11 @@ LANE = (
     "/api/desktop-v3/agent-workspace",
     "/api/desktop-v3/lease",
 )
-# Relé záměru (docs/brain-heart-orchestrator.md §8): pracovník brány předá srdci zprávu člověka. Jen tahle
-# přesná cesta a jen s platným tokenem pracovníka téhož projektu; kdo smí psát, ověří ještě routa.
+# Relé záměru (docs/brain-heart-orchestrator.md §8): pracovník brány předá srdci zprávu člověka. Log pláten 2–4
+# (docs/navrhy/2026-11-03-platno-2-zamer-stranky.md §6): dělník hlásí chybu plátna. Jen tyto přesné cesty a jen
+# s platným tokenem pracovníka téhož projektu; kdo smí psát, ověří ještě routa.
 RELAY = "/api/brain/heart/messages"
+CANVAS_LOG = "/api/flow/log"
 
 
 @dataclass(frozen=True)
@@ -89,7 +91,7 @@ def decide(method, path, actor, gate_on, token, project=""):
     if in_lane(path):
         # Pruh nepotřebuje token: bez hlavičky, s neplatným i s cizím tokenem rozhoduje jen cesta.
         return ALLOW
-    if (path == RELAY and isinstance(token, dict) and token.get("role") == "worker" and bool(project)
+    if (path in (RELAY, CANVAS_LOG) and isinstance(token, dict) and token.get("role") == "worker" and bool(project)
             and token.get("project") == project):
         return ALLOW
     if token == INVALID:

@@ -25,6 +25,8 @@ Katalog uzlů `GET /api/flow/node-types?kind=page_intent` (`intent.entry`, `inte
 potřebuje aspoň jeden `intent.entry` a jeden `intent.done`, vazba `main` vede jen mezi porty `main` a `data` jen mezi
 porty `data`. Záměr se nespouští (`runs` → 409 `not_runnable`). Srdce uloží draft a navrhne kandidáta, `activate`
 vrátí 409 `approval_required`: kandidáta schválí nebo zamítne jen člověk v UI (`approve` / `reject`, jinak 403/428).
+Běžící aplikaci proti aktivní verzi ověří `tools/journey_run.py --intent <nodeId>` (plán `intent-plan`, doklad
+`intent-runs`, [api.md](api.md)); neprošlý uzel jde do logu `intent.failed` přes stejný vstup jako `POST /api/flow/log`.
 Stav záměru každé stránky vrací `GET /api/flow/page-intents?project=`: `none` (bez záměru), `pending` (kandidát čeká),
 `approved`, `stale` (stránka, tedy `site.path`, `goal`, `feel` nebo `sections`, se změnila po schválení; otisk
 `pageDigest` zapíše schválení do logu). Kontrola mapy to hlásí jako `page.no-intent` a `page.intent-stale`.
@@ -49,4 +51,5 @@ server ověří verzi a uzly a jejich `claim` doplní do `doneCriteria`.
 | `/api/flow/runs/{run_id}/log` | `GET ?seq=&limit=` → `{events}` záznam běhu od pořadí `seq` |
 | `/api/flow/runs/{run_id}/advance` | `POST` navázání: vypršelé čekání pokračuje větví `timeout`, přerušený uzel se spustí znovu |
 | `/api/flow/node-runs/{node_run_id}/decision` | `POST {decision: approved\|rejected, actor?}` rozhodnutí schvalovacího uzlu |
+| `/api/flow/log` | `POST {project, canvas: 2\|3\|4, kind, payload}` → `{seq, canvas, kind}` vstup logu pláten 2–4 (`flow_log_events` bez běhu, payload doplní `project` a `author`); `kind` končící `.failed` zapíše do outboxu `canvas.failed` a probudí srdce; píše člověk, srdce projektu nebo relace brány téhož projektu (`X-Opora-Gate-Token`, dělník i srdce), jinak 401/403 jako brána; 404 neznámý projekt, 422 tvar |
 | `/api/flow/stalls` | `GET` → `{stalls}` zaseklé běhy |

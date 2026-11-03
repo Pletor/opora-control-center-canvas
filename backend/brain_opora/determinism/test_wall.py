@@ -73,8 +73,15 @@ def test_worker_of_this_project_relays_a_message_to_the_heart():
     assert wall.decide("POST", wall.RELAY, "agent", True, wall.INVALID, "draft").code == "gate_token_invalid"
     assert wall.decide("POST", wall.RELAY, "agent", True, WORKER, "jiny").code == "gate_scope"
     assert wall.decide("POST", wall.RELAY, "agent", True, WORKER, "").code == "gate_scope"
-    for path in (wall.RELAY + "/x", "/api/brain/heart/escalate", "/api/brain/heart/messagesX"):
+    for path in (wall.RELAY + "/x", "/api/brain/heart/escalate", "/api/brain/heart/messagesX", "/api/flow/logX"):
         assert wall.decide("POST", path, "agent", True, WORKER, "draft").code == "gate_required", path
+
+
+def test_worker_of_this_project_writes_the_canvas_log():
+    """Log pláten 2–4 (§6): dělník téhož projektu projde zdí, routa ho ověří znovu."""
+    assert wall.decide("POST", wall.CANVAS_LOG, "agent", True, WORKER, "draft") is wall.ALLOW
+    assert wall.decide("POST", wall.CANVAS_LOG, "agent", True, None, "draft").code == "gate_required"
+    assert wall.decide("POST", wall.CANVAS_LOG, "agent", True, WORKER, "jiny").code == "gate_scope"
 
 
 @pytest.fixture

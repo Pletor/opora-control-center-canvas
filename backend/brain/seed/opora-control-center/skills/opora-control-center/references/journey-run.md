@@ -45,3 +45,17 @@ uv run python tools/journey_run.py --server http://127.0.0.1:8740 --project <pro
 Projekt smí místo runneru použít vlastní nástroj; Opora vyžaduje jen doklad `opora.journey-run/1`
 (`POST /api/project-architecture/journey-runs`, hlavička `Origin` stejná jako server). Výsledky z dokladu
 nevymýšlej: doklad jde jen ze skutečného běhu.
+
+## Ověření záměru stránky (plátno 2)
+
+Stránka se schváleným záměrem (aktivní verze `page_intent`, [flow.md](flow.md)) se ověří stejným runnerem:
+`uv run --with playwright python tools/journey_run.py --project <id> --intent <nodeId stránky> [--base-url URL]
+[--dry-run]`. Kontrakt `docs/navrhy/2026-11-03-platno-2-zamer-stranky.md` §6.
+
+- Plán `GET /api/project-architecture/intent-plan?project=&page=` (404 bez aktivní verze): kroky `intent.action`
+  (`open`, `click`, `type`, `submit` nad `[data-opora-section="<id>"]`) a očekávání `intent.reaction` /
+  `intent.done` v pořadí toku `main`. Konvence `data-opora-section` výše platí i tady.
+- `check` `visible` (text `claim` / `expect` je vidět) a `path` (cesta URL je `claim`) ověří prohlížeč; `request`,
+  `email`, `record` runner pošle jako neověřené (`ok: null` s `reason`). Po neprošlém kroku je zbytek neověřený.
+- Doklad `POST /api/project-architecture/intent-runs`. Každý `ok: false` jde do logu `intent.failed` a probudí srdce;
+  doklad starší verze (`stale`) srdce nebudí. Exit 0 = žádný uzel neselhal.

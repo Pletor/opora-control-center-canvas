@@ -69,6 +69,18 @@ když její nejbližší stránka (nebo ona sama) je stránkou kroku nerozbité 
 (požadavek `journeys` v definici hotovo, `closure_gate` i agent-state `cards[].dod`) a starší větev uzavření
 v `backend/editor/agent_memory/desktop_v3_state.py`; graf je graf pracovního prostoru karty.
 
+## Ověření záměru stránky (`intent_plan.py`, `intent_runs.py`)
+
+Kontrakt `docs/navrhy/2026-11-03-platno-2-zamer-stranky.md` §6. `page_intent_plan` vezme AKTIVNÍ verzi workflow
+`page_intent` stránky (`owner_ref = opora:page:<nodeId>`, registry.sqlite; bez ní `IntentNotFound`, 404) a čistou
+funkcí `intent_plan` z ní odvodí plán `opora.intent-plan/1`: uzly v pořadí toku `main` od `intent.entry` (větev
+`intent.error` ne), kroky z `intent.action`, očekávání z `intent.reaction` a `intent.done`, `scope` přes
+`[data-opora-section]`, `path` a `baseUrl` stránky z přijaté architektury a `digest` verze
+(`GET /api/project-architecture/intent-plan?project=&page=`). `intent_runs.record_intent_run` ověří doklad
+`opora.intent-run/1` proti plánu verze, kterou runner přehrál, odvodí `passed` a `stale` (digest není aktivní verze)
+a uloží ho append-only do `intent_runs` v `project.sqlite` (`POST /api/project-architecture/intent-runs?project=`).
+Neprošlé uzly aktuálního dokladu zapíše `backend/flow/canvas_log.py` jako `intent.failed` (plátno 2) a probudí srdce.
+
 ## Výřez mapy pro agenta (`node_architecture.py`)
 
 `node_architecture(graph, nodeId)` skládá `node-brief.architecture` (§4) jen pro kartu pod stránkou: cesty, na kterých
