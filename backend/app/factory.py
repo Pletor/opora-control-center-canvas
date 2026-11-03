@@ -69,6 +69,7 @@ from backend.api.editor.semantic_routes import create_semantic_router
 from backend.api.editor.storyboard_routes import create_storyboard_router
 from backend.api.editor.strazci_routes import create_strazci_router
 from backend.api.editor.sync_routes import create_sync_router
+from backend.api.flow.flow_routes import create_flow_router
 from backend.api.project.design_system_routes import create_design_system_router
 from backend.api.project.graphify_routes import create_graphify_router
 from backend.api.project.map_refresh_routes import create_map_refresh_router
@@ -442,6 +443,7 @@ def create_app(data_root=None):
     app.include_router(create_opora_auto_rebase_router(service))
     app.include_router(create_strazci_router(service, guardian))
     app.include_router(create_opora_history_router(service))
+    app.include_router(create_flow_router(service))  # engine toků (docs/navrhy/2026-11-03-novy-zaklad.md §3.1)
     app.include_router(create_gate_router(service, heart))  # brána mozku (docs/brain-gate.md §4)
     app.include_router(create_brain_router(service))  # přepínač brány (docs/brain-gate.md §1)
     app.include_router(create_heart_router(service, heart))  # srdce mozku (docs/brain-heart.md §1)
