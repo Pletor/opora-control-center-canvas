@@ -79,8 +79,11 @@ def _input_line(item):
         delivery = json.dumps(item.get("delivery"), ensure_ascii=False, sort_keys=True)[:1500]
         return (f"- TICKET SELHAL {item['ticketId']} (karta {item.get('cardId') or '?'}, už uzavřený): "
                 f"{item.get('reason') or 'bez důvodu'}; tělo {body}; odevzdání {delivery}")
+    if kind == "canvasFailed":  # chyba plátna 2–4 (backend/flow/canvas_log.py), třeba neprošlý uzel záměru stránky
+        payload = json.dumps(item.get("payload"), ensure_ascii=False, sort_keys=True)[:1500]
+        return f"- CHYBA PLÁTNA {item.get('canvas')} ({item.get('kind')}): {payload}"
     if kind == "merged":
-        pr = f"PR #{item['pr']}" if item.get("pr") else "lokální sloučení"
+        pr =f"PR #{item['pr']}" if item.get("pr") else "lokální sloučení"
         return (f"- SLOUČENO: karta {item.get('nodeId') or '?'}, {pr}, sha {str(item.get('mergeSha') or '?')[:12]}"
                 f" (běh {item.get('executionId') or '?'})")
     if kind == "commits":

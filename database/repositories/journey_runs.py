@@ -1,5 +1,20 @@
-"""Přístup k tabulce `journey_runs` (append-only doklady přehrání cest); transakci vlastní volající."""
+"""Přístup k tabulkám `journey_runs` a `intent_runs` (append-only doklady přehrání cest a záměru stránky);
+transakci vlastní volající."""
 import json
+
+
+class IntentRunStore:
+    """Doklady přehrání záměru stránky (`intent_runs`)."""
+
+    def __init__(self, db, project):
+        self.db, self.project = db, project
+
+    def insert(self, record, recorded_at):
+        self.db.execute(
+            "INSERT INTO intent_runs(project_id,page_id,workflow_version_id,digest,stale,record,recorded_at)"
+            " VALUES(?,?,?,?,?,?,?)",
+            (self.project, record["pageId"], record["workflowVersionId"], record["digest"], int(record["stale"]),
+             json.dumps(record, ensure_ascii=False), recorded_at))
 
 
 class JourneyRunStore:

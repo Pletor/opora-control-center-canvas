@@ -3,6 +3,8 @@
 Tenký router: validace těla a volání modulu. Data leží v registry.sqlite, každé volání drží `registry_lock`.
 Záměr stránky (`docs/navrhy/2026-11-03-platno-2-zamer-stranky.md` §2–§3): `approve` / `reject` jen člověk
 (doklad UI, `request.state.actor == "human"`), 409 s `code` (`approval_required`, `not_runnable`, `owner_taken`).
+Log pláten 2–4 (`POST /log`, §6) píše člověk, srdce projektu nebo relace brány téhož projektu (`X-Opora-Gate-Token`,
+role `worker` / `heart`); jinak 401 `gate_token_invalid` / 403 `gate_scope` jako brána.
 """
 
 from typing import Any, Literal
@@ -11,8 +13,12 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from backend.api.brain_opora.writer import heart_project
+from backend.brain_opora.determinism import gate, tokens
+from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.activity_log import require_human
 from backend.flow import interpreter, workflows
+from backend.flow.canvas_log import log_canvas
 from backend.flow.graph_check import FlowInvalid
 from backend.flow.node_types import catalog
 from backend.flow.run_log import read_log
@@ -47,6 +53,13 @@ class RejectIn(BaseModel):
     reason: str = Field(min_length=1, max_length=2000)
 
 
+class CanvasLogIn(BaseModel):
+    project: str = Field(min_length=1, max_length=64)
+    canvas: Literal[2, 3, 4]
+    kind: str = Field(min_length=3, max_length=64, pattern=r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 class DecisionIn(BaseModel):
     decision: Literal["approved", "rejected"]
     actor: str = Field(default="human", min_length=1, max_length=120)
@@ -55,11 +68,10 @@ class DecisionIn(BaseModel):
 def create_flow_router(service):
     router = APIRouter(prefix="/api/flow", tags=["flow"])
 
-    def call(action, *args):
+    def guarded(action):
         """404 neznámé ID, 409 nedovolený přechod (s `code` jako `{error, code}`), 422 neplatný graf nebo požadavek."""
         try:
-            with service.registry_lock:
-                return action(service.db, *args)
+            return action()
         except FlowNotFound as error:
             raise HTTPException(404, str(error)) from error
         except FlowConflict as error:
@@ -68,6 +80,20 @@ def create_flow_router(service):
             raise HTTPException(409, str(error)) from error
         except FlowInvalid as error:
             raise HTTPException(422, str(error)) from error
+
+    def call(action, *args):
+        def locked():
+            with service.registry_lock:
+                return action(service.db, *args)
+        return guarded(locked)
+
+    def log_author(request, project):
+        """Kdo píše do logu pláten: člověk, srdce projektu, nebo relace brány (dělník či srdce) téhož projektu."""
+        if getattr(request.state, "actor", None) == "human":
+            return "human"
+        if heart_project(request) == project:
+            return "heart"
+        return gate.authenticate(service, request.headers.get(tokens.HEADER), project, ("worker", "heart"))["role"]
 
     @router.get("/node-types")
     def node_type_list(kind: Kind | None = None):
@@ -147,6 +173,15 @@ def create_flow_router(service):
     @router.post("/node-runs/{node_run_id}/decision")
     def approval_decision(node_run_id: str, body: DecisionIn):
         return call(interpreter.decide, node_run_id, body.decision, body.actor)
+
+    @router.post("/log")
+    def canvas_log_create(body: CanvasLogIn, request: Request):
+        """Vstup logu pláten 2–4 (`backend/flow/canvas_log.py`); chyba `*.failed` probudí srdce."""
+        try:
+            author = log_author(request, body.project)
+        except GateError as error:
+            return JSONResponse(error.body(), status_code=error.status)
+        return guarded(lambda: log_canvas(service, body.project, body.canvas, body.kind, body.payload, author))
 
     @router.get("/stalls")
     def stalls():

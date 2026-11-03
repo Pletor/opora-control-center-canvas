@@ -28,6 +28,7 @@ Tenký engine workflow pro plátno 1 (spouští se) a plátno 2 (záměr stránk
   - `pinned_output` uzlu přeskočí jeho funkci a pošle dál připnutá data.
   - Chyba uzlu ukončí běh jako `failed`.
   - Uzel typu `detached` vrátí `{"detach": true}` a zůstane `running`. Práce běží mimo zámek a hlásí se `heartbeat`, pak `finish` nebo `fail`, které běh posunou. Běh má mezitím stav `running`. `advance` takový uzel nechá být, dokud má čerstvý heartbeat. Bez heartbeatu ho prohlásí za přerušený a spustí znovu. Pozdní hlášení přerušeného pokusu se zahodí.
+- `canvas_log.py`: vstup logu pláten 2–4 (`POST /api/flow/log`, záměr stránky §6). `log_canvas` zapíše událost do `flow_log_events` bez běhu (payload nese `project` a `author`). Chyba plátna (`kind` končí `.failed`, např. `intent.failed` z ověření záměru `backend/project/architecture/intent_runs.py`) zapíše do outboxu projektu `canvas.failed`; srdce z něj udělá vstup `canvasFailed` (`catalogs/heart/inputs.wake_input`) a probudí se jako u jiných chyb.
 - `stalls.py`: `stall_reason` je čistá funkce nad řádkem `node_run`. Prostoj je uzel, který běží bez heartbeatu nebo s heartbeatem starším než 5 min, nebo uzel, který čeká a jeho deadline vypršel. `list_stalls` ji použije na otevřené uzly.
 
 - `scheduler.py`: plánovač na pozadí (vlákno z lifespan aplikace, průchod každé 2 s nebo po `wakeup`). Zavolá `tick()` háčků (`HeartDriver` srdce, když je srdce povolené, viz `catalogs/heart/README.md`). Pak posune běhy z `due_runs`: prostoj podle `list_stalls` (vypršelý deadline, uzel bez heartbeatu) a zařazený uzel, který nikdo nevykonal. Běhy `page_intent` přeskočí. Ruční `POST /api/flow/runs/{id}/advance` zůstává.
@@ -46,7 +47,6 @@ Okamžité uzly běží pod zámkem. Dlouhé uzly (`claude -p`, síť, zámky pr
 
 ## Vynecháno
 
-- Zápis chyb z pláten 2–4 přes API: tabulka i `append` je unesou, endpoint zatím chybí.
 - `input_ref` / `output_ref` drží JSON přímo v řádku, ne odkaz na úložiště.
 
 Router: `backend/api/flow/flow_routes.py`. Testy: `uv run pytest backend/flow backend/api/flow`.

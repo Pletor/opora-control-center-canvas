@@ -1,7 +1,8 @@
 """Co srdce budí a co dostane do dávky (docs/brain-heart.md §1).
 
 `wake_input` převede událost outboxu na vstup: čekající lístek `ask` / `change` pracovníka (ne vlastní
-eskalaci srdce), selhaný ticket práce (`ticket.failed` → vstup `workFailed`) a sloučení karty `merge.done` (docs/brain-heart-orchestrator.md §4). Ticket práce
+eskalaci srdce), selhaný ticket práce (`ticket.failed` → vstup `workFailed`), chybu plátna 2–4 (`canvas.failed` z
+`backend/flow/canvas_log.py` → vstup `canvasFailed`, třeba neprošlý uzel záměru stránky) a sloučení karty `merge.done` (docs/brain-heart-orchestrator.md §4). Ticket práce
 (docs/navrhy/2026-11-03-novy-zaklad.md §3.3) budí otázkou dělníka (`ticket.feedback` typu `question` → vstup
 `workQuestion` s textem a `feedbackId`, zodpovězená mezitím vypadne) a odevzdáním (`ticket.deliver` → `workDelivered`
 se shrnutím a sha); obojí z auditní události `gate.ticket` druhu brány. `resolve` těsně před dávkou doplní k vstupům aktuální data z databáze (u selhaného ticketu
@@ -56,6 +57,9 @@ def wake_input(event):
         return {"type": WORK_INPUTS[data["kind"]], "requestId": data["ticketId"]}
     if event.get("kind") == "ticket.failed" and isinstance(data.get("ticketId"), str):
         return {"type": "workFailed", "ticketId": data["ticketId"], "reason": str(data.get("reason") or "")}
+    if event.get("kind") == "canvas.failed":
+        return {"type": "canvasFailed", "canvas": data.get("canvas"), "kind": data.get("kind"),
+                "payload": data.get("payload")}
     if event.get("kind") == "merge.done":
         # PR karty nebo lokální sloučení; data se před dávkou nedočítají (`resolve` je nechá projít).
         return {"type": "merged", "nodeId": event.get("nodeId"), "executionId": event.get("executionId"),

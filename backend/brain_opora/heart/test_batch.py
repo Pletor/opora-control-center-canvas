@@ -292,3 +292,9 @@ def test_advisor_cap_sums_the_increments_of_resumed_batches(tmp_path):
     batch.run(spec(tmp_path), FakeRunner(cumulative(0.9, 0.2, 0.7)), clock(day, day + 1))
     batch.run(spec(tmp_path), FakeRunner(cumulative(1.6, 0.3, 1.3)), clock(day + 2, day + 3))
     assert round(batch.advisor_spent(tmp_path / "brain", day), 6) == 1.3  # součet přírůstků, ne 0,7 + 1,3
+
+
+def test_canvas_failure_is_one_input_line():
+    text = batch.message("P", [{"type": "canvasFailed", "canvas": 2, "kind": "intent.failed",
+                                "payload": {"pageId": "landing", "nodeId": "ok", "reason": "chybí text"}}])
+    assert '- CHYBA PLÁTNA 2 (intent.failed): {"nodeId": "ok", "pageId": "landing", "reason": "chybí text"}' in text

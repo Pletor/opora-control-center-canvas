@@ -183,3 +183,25 @@ def test_journey_running_errors():
     run_id = client.post(base + "/start", json={"project": "p1", "journeyId": "j2"}).json()["runId"]
     assert client.post(f"{base}/{run_id}/progress", json={"segment": "s1"}).status_code == 422
     assert client.post(f"{base}/neni/progress", json={"segment": {"from": "s1", "to": "s2"}}).status_code == 404
+
+
+def test_intent_plan_and_run_follow_the_active_page_intent():
+    from backend.project.architecture.test_intent_runs import intent_service, publish
+
+    service, wid = intent_service()
+    app = FastAPI()
+    app.include_router(create_project_map_check_router(service))
+    client = TestClient(app)
+    query = {"project": "p", "page": "landing"}
+    assert client.get("/api/project-architecture/intent-plan", params=query).status_code == 404
+    publish(service, wid)
+    plan = client.get("/api/project-architecture/intent-plan", params=query).json()
+    assert plan["schema"] == "opora.intent-plan/1" and [n["nodeId"] for n in plan["nodes"]] == ["send", "ok"]
+    run = {"pageId": "landing", "workflowVersionId": plan["workflowVersionId"], "digest": plan["digest"],
+           "nodes": [{"nodeId": "send", "ok": True}, {"nodeId": "ok", "ok": False, "reason": "chybí text"}]}
+    url = "/api/project-architecture/intent-runs?project=p"
+    record = client.post(url, json=run).json()
+    assert record["passed"] is False and record["stale"] is False
+    assert client.post(url, json={**run, "digest": "x"}).status_code == 422
+    assert client.post(url, json={**run, "pageId": "jina"}).status_code == 404
+    assert service.db.execute("SELECT COUNT(*) FROM flow_log_events WHERE type='intent.failed'").fetchone()[0] == 1

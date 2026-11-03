@@ -8,7 +8,11 @@ from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
 from backend.api.flow.flow_routes import create_flow_router
+from backend.brain_opora.determinism import gate
+from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.activity_log import HumanRequired
+from database.schema.opora_event_schema import SCHEMA as EVENT_SCHEMA
+from database.schema.opora_event_schema import ensure_process_columns
 from database.schema.project_schema import REGISTRY_SCHEMA, ensure_flow_owner_ref
 
 # Schválení s nulovým limitem: hned po spuštění je to prostoj (deadline vypršel), rozhodnutí ho uzavře.
@@ -37,14 +41,24 @@ def client():
     @app.middleware("http")
     async def actor(request: Request, call_next):  # doklad UI hraje testovací hlavička
         request.state.actor = request.headers.get("x-test-actor", "agent")
+        request.state.heart_project = request.headers.get("x-test-heart", "")  # zeď po ověření tokenu srdce
         return await call_next(request)
 
     @app.exception_handler(HumanRequired)
     async def human_required(request, exc):
         return JSONResponse({"error": str(exc), "humanRequired": True}, status_code=403)
 
-    app.include_router(create_flow_router(SimpleNamespace(db=db, registry_lock=threading.RLock())))
-    return TestClient(app), db
+    project = sqlite3.connect(":memory:", check_same_thread=False)
+    project.executescript(EVENT_SCHEMA)
+    ensure_process_columns(project)
+    lock = threading.RLock()
+    service = SimpleNamespace(db=db, registry_lock=threading.RLock(), db_for=lambda pid: project,
+                              lock_for=lambda pid: lock,
+                              project_hub=SimpleNamespace(settings=lambda pid: {"project": {"sourceKind": "folder"}}))
+    app.include_router(create_flow_router(service))
+    client = TestClient(app)
+    client.project_db = project
+    return client, db
 
 
 def test_workflow_versions_run_decision_and_log():
@@ -136,3 +150,36 @@ def test_page_intent_owner_approval_and_not_runnable():
     assert [(row["type"], row["canvas"]) for row in log] == [("version.approved", 2), ("version.rejected", 2)]
     assert json.loads(log[1]["payload"]) == {"workflow_id": wid, "version_id": v2, "n": 2, "author": "human",
                                              "reason": "chybí mapa"}
+
+
+def test_canvas_log_takes_human_heart_and_gate_session_of_the_project(monkeypatch):
+    c, db = client()
+    entry = {"project": "p", "canvas": 2, "kind": "intent.failed", "payload": {"pageId": "kontakt", "nodeId": "ok"}}
+    refused = c.post("/api/flow/log", json=entry)  # agent bez tokenu
+    assert refused.status_code == 401 and refused.json()["code"] == "gate_token_invalid"
+    assert c.post("/api/flow/log", json=entry, headers={"x-test-heart": "jiny"}).status_code == 401
+    human = c.post("/api/flow/log", json=entry, headers={"x-test-actor": "human"})
+    assert human.status_code == 200 and human.json()["canvas"] == 2
+    assert c.post("/api/flow/log", json={**entry, "kind": "page.opened"}, headers={"x-test-heart": "p"}).status_code == 200
+
+    def authenticate(service, token, project, roles):
+        if token != "tok-worker" or project != "p":
+            raise GateError(403, "gate_scope", "Cizí projekt.", "")
+        return {"role": "worker", "project_id": "p"}
+
+    monkeypatch.setattr(gate, "authenticate", authenticate)
+    assert c.post("/api/flow/log", json=entry, headers={"X-Opora-Gate-Token": "tok-worker"}).status_code == 200
+    assert c.post("/api/flow/log", json={**entry, "project": "q"},
+                  headers={"X-Opora-Gate-Token": "tok-worker"}).status_code == 403
+    for bad in ({"canvas": 1}, {"kind": "Spatne"}, {"payload": {"x": "y" * 5000}}):
+        assert c.post("/api/flow/log", json={**entry, **bad}, headers={"x-test-actor": "human"}).status_code == 422
+    assert c.post("/api/flow/log", json={**entry, "project": "nikdo"},
+                  headers={"x-test-actor": "human"}).status_code == 404
+
+    log = db.execute("SELECT type, canvas, payload, run_id FROM flow_log_events ORDER BY seq").fetchall()
+    assert [(row["type"], row["canvas"], json.loads(row["payload"])["author"]) for row in log] == [
+        ("intent.failed", 2, "human"), ("page.opened", 2, "heart"), ("intent.failed", 2, "worker")]
+    assert all(row["run_id"] is None for row in log)
+    events = c.project_db.execute("SELECT kind, workspace_id, data FROM opora_events ORDER BY id").fetchall()
+    assert [(kind, space) for kind, space, _ in events] == [("canvas.failed", "draft")] * 2  # jen chyby budí srdce
+    assert json.loads(events[0][2])["payload"] == entry["payload"]

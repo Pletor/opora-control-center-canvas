@@ -34,6 +34,8 @@ Kroky dávky (`trigger.heart_event`, `trigger.human_message`, `decision.jev`, `c
 - `inputs.py`: událost → vstup (`wake_input`), čerstvá data vstupu těsně před dávkou (`resolve`) a výpočty spouštěčů.
   Ticket práce budí otázkou dělníka (`workQuestion`: text, `feedbackId`, stav; zodpovězená vypadne) a odevzdáním
   (`workDelivered`: shrnutí, sha), obojí z auditní události `gate.ticket` (`feedbackKind` nese typ zpětné vazby).
+  Chyba plátna 2–4 (`canvas.failed` z `backend/flow/canvas_log.py`, třeba neprošlý uzel záměru stránky) dává vstup
+  `canvasFailed` s plátnem, druhem a payloadem.
 
 ## Řízení (`driver.py`)
 

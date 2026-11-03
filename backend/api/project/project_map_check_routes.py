@@ -1,6 +1,7 @@
 """Rozhraní Projektu: kontrola mapy architektury bez modelu (docs/architektura-pro-agenty.md §5) i přes worktree, odvozené
 cesty zákazníka (§6) a brána cesty (docs/brana-cesty.md): plán přehrání, odevzdání dokladu a krátkodobý stav
-„cesta právě běží“ (§3a, jen v paměti procesu). Model se nevolá."""
+„cesta právě běží“ (§3a, jen v paměti procesu). Ověření záměru stránky (docs/navrhy/2026-11-03-platno-2-zamer-stranky.md
+§6): plán z aktivní verze záměru a doklad `opora.intent-run/1`. Model se nevolá."""
 
 import json
 
@@ -8,6 +9,8 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from backend.canvas.canvas_service import ProjectNotFound
+from backend.project.architecture.intent_plan import IntentNotFound, page_intent_plan
+from backend.project.architecture.intent_runs import IntentRunInvalid, record_intent_run
 from backend.project.architecture.journey_plan import JourneyConflict, JourneyNotFound, journey_plan
 from backend.project.architecture.journey_running import (
     JourneyRunning,
@@ -30,9 +33,9 @@ def _journey_errors(action):
     """404 neznámý projekt nebo cesta, 409 rozbitá či nejednoznačná cesta, 422 tvar dokladu."""
     try:
         return action()
-    except (ProjectNotFound, JourneyNotFound, JourneyRunUnknown) as error:
+    except (ProjectNotFound, JourneyNotFound, JourneyRunUnknown, IntentNotFound) as error:
         raise HTTPException(404, str(error)) from error
-    except JourneyRunInvalid as error:
+    except (JourneyRunInvalid, IntentRunInvalid) as error:
         raise HTTPException(422, str(error)) from error
     except JourneyConflict as error:
         raise HTTPException(409, str(error)) from error
@@ -93,5 +96,16 @@ def create_project_map_check_router(service, running=None):
         body = await _json_body(request, "Průběh běhu")
         _journey_errors(lambda: running.progress(run_id, validate_progress(body)))
         return Response(status_code=204)
+
+    @router.get("/intent-plan")
+    def intent_plan_view(project: str = Query(min_length=1, max_length=64),
+                         page: str = Query(min_length=1, max_length=200)):
+        return _journey_errors(lambda: page_intent_plan(service, project, page))
+
+    @router.post("/intent-runs")
+    async def intent_runs_create(request: Request, project: str = Query(min_length=1, max_length=64)):
+        body = await _json_body(request, "Doklad")
+        author = getattr(request.state, "actor", None) or "agent"
+        return await run_in_threadpool(_journey_errors, lambda: record_intent_run(service, project, body, author))
 
     return router

@@ -14,6 +14,7 @@ Workers (`opora_gate.py request → claim → work → deliver`) do the coding.
 | human message (intent, change, question) | `POST /api/brain/heart/messages {project, workspace, text}` (human, or worker relay with `via`, `docs/brain-heart-orchestrator.md` §8) | at once |
 | queued ticket `ask` / `change` | `gate.ticket` event with `status: queued` | after a 20 s batch window |
 | work ticket `failed` (cancelled execution) | `ticket.failed` event, input `workFailed` | after a 20 s batch window |
+| canvas 2–4 failure (e.g. a failed node of a page intent run) | `canvas.failed` event from `POST /api/flow/log` or `POST /api/project-architecture/intent-runs`, input `canvasFailed` | after a 20 s batch window |
 | `merged` `{nodeId, executionId, mergeSha, pr}` | `merge.done` event (merged card PR or local merge) | after a 20 s batch window |
 | `commits` `{from, to, log}` | git watcher every 300 s: the source HEAD moved (`git` source after the app's own sync) | after a 20 s batch window |
 
