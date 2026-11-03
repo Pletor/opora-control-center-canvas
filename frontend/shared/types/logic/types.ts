@@ -149,17 +149,7 @@ export type Architecture = "monolith" | "modular" | "microservices" | "serverles
 /** Kolik zákazníků aplikace obsluhuje; "" v nastavení = nenastaveno. */
 export type Tenancy = "single" | "multi";
 /** Nastavení projektu tak, jak ho vrací a přijímá `/api/project-settings`. Zápis nese vždy všechny klíče. */
-export type ProjectSettings = { goal: string; platform: Platform; architecture: Architecture | ""; tenancy: Tenancy | ""; site: SiteSettings };
-/** Globální nastavení a design webu (`backend/canvas/site_settings.py`): všechna pole vždy, nevyplněné = "". Bez tajemství. */
-export type SiteSettings = {
-  seo: { titleTemplate: string; description: string; ogImage: string };
-  legal: { gdprContact: string; cookies: string };
-  email: { from: string; replyTo: string };
-  design: {
-    header: string; footer: string; buttons: string;
-    typography: { h1: string; h2: string; h3: string; h4: string; h5: string; body: string; fonts: string };
-  };
-};
+export type ProjectSettings = { goal: string; platform: Platform; architecture: Architecture | ""; tenancy: Tenancy | "" };
 export type SettingsSnapshot = { project: Project; revision: number; settings: ProjectSettings };
 export type Job = {
   id: string;

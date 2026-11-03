@@ -3,18 +3,22 @@ import { api, type Project, type Job, type ProjectSettings, type SettingsSnapsho
 import { ARCHITECTURE_OPTIONS, TENANCY_OPTIONS } from "@/shared/project-capabilities/logic/project-profile";
 import AgentAutonomyBadge from "@/shared/agent-autonomy/components/AgentAutonomyBadge";
 import AgentAutonomySwitch from "@/shared/agent-autonomy/components/AgentAutonomySwitch";
-import SiteSettingsCard from "@/project-setup/site-settings/components/SiteSettingsCard";
 import type { AgentAutonomyApi } from "@/shared/agent-autonomy/logic/use-agent-autonomy";
+import HeartPipelineCard from "@/project-setup/heart-pipeline/components/HeartPipelineCard";
+import { heartPipelineSummary } from "@/project-setup/heart-pipeline/logic/heart-pipeline";
+import { useHeartData } from "@/project/heart-canvas/logic/use-heart-data";
 import "@/project-setup/styles/project-home.css";
 
 type Draft = SettingsSnapshot & { dirty: boolean };
 const drafts = new Map<string, Draft>();
 
-export default function ProjectHome({ projects, draftProject, projectId, jobs, autonomy, onChoose, onRefresh, onOpen, onRemove, onConnected }: {
+export default function ProjectHome({ projects, draftProject, projectId, jobs, autonomy, onChoose, onRefresh, onOpen, onOpenHeart, onRemove, onConnected }: {
   projects: Project[]; draftProject?: Project; projectId: string; jobs: Job[];
   /** Plná autonomie agentů otevřeného projektu (drží a ukládá App přes useAgentAutonomy). */
   autonomy: AgentAutonomyApi;
   onChoose: (id: string, kind?: string) => void; onRefresh: () => Promise<void>; onOpen: () => void; onRemove: () => void;
+  /** Otevře samostatnou obrazovku srdce projektu (`screen=heart`, vyřizuje App). */
+  onOpenHeart: () => void;
   onConnected?: () => void;
 }) {
   const [form, setForm] = useState<Draft | null>(null);
@@ -29,6 +33,7 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, a
   const [reload, setReload] = useState(0);
   const generation = useRef(0);
   const current = useRef(projectId); current.current = projectId;
+  const heart = useHeartData(projectId);
   useEffect(() => {
     const ticket = ++generation.current;
     setLoading(true); setError(""); setForm(null);
@@ -113,12 +118,12 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, a
           <div className="hub-fields"><label className="field">Architektura<select aria-label="Architektura" value={form.settings.architecture} disabled={busy} onChange={(e) => change({ architecture: e.target.value as ProjectSettings["architecture"] })}><option value="">Nenastaveno – ukázat vše</option>{ARCHITECTURE_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label} – {option.hint}</option>)}</select></label>
           <label className="field">Uživatelé<select aria-label="Uživatelé" value={form.settings.tenancy} disabled={busy} onChange={(e) => change({ tenancy: e.target.value as ProjectSettings["tenancy"] })}><option value="">Nenastaveno – ukázat vše</option>{TENANCY_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label} – {option.hint}</option>)}</select></label></div>
           <label className="field">Cíl projektu<textarea aria-label="Cíl projektu" rows={4} maxLength={4000} value={form.settings.goal} disabled={busy} onChange={(e) => change({ goal: e.target.value })} /></label>
-          <SiteSettingsCard site={form.settings.site} disabled={busy} onChange={(site) => change({ site })} />
           <div className="hub-actions"><span role="status" data-testid="project-settings-status">{busy ? "Ukládám…" : form.dirty ? "Neuložené nastavení" : form.revision ? `Uloženo · verze ${form.revision}` : "Výchozí nastavení"}</span><button className="primary" disabled={busy || !form.dirty}>Uložit nastavení projektu</button></div>
         </form> : <p role="status">Načítám nastavení…</p>}
         {/* Plná autonomie se ukládá hned a mimo revizi nastavení (docs/plna-autonomie-agenta.md). */}
         <AgentAutonomySwitch autonomy={autonomy.autonomy} disabled={autonomy.loading || busy} saving={autonomy.saving} error={autonomy.error} onChange={(full) => { void autonomy.setFull(full); }} />
       </section>
+      <HeartPipelineCard summary={heartPipelineSummary(heart.workflow, heart.versions, heart.runs, heart.stalls)} loading={heart.loading} error={heart.error} onOpen={onOpenHeart} />
     </main>
   </div>;
 }

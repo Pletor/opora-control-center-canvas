@@ -152,18 +152,6 @@ def test_page_text_length_bounds(key, limit):
             validate_graph({"nodes": [application(), page_with(**{key: value})], "edges": []})
 
 
-def test_page_overrides_site_seo_and_header_footer_only():
-    candidate = page_with(seo={"titleTemplate": "%s · Příběh"}, design={"header": "bez menu"})
-    validate_graph({"nodes": [application(), candidate], "edges": []})
-    assert candidate["site"]["design"] == {"header": "bez menu"}
-    for change, field in ((dict(design={"buttons": "zelená"}), "site.design"),
-                          (dict(seo={"description": ""}), "site.seo.description"),
-                          (dict(seo={"ogPassword": "x"}), "site.seo.ogPassword"),
-                          (dict(legal={"cookies": "x"}), "legal")):
-        with pytest.raises(ValueError, match=field):
-            validate_graph({"nodes": [application(), page_with(**change)], "edges": []})
-
-
 def test_section_bounds_and_count():
     longest = {"id": "s" * 80, "role": "custom", "name": "n" * 60, "intent": "i" * 200}
     validate_graph({"nodes": [application(), page_with(sections=[longest])], "edges": []})

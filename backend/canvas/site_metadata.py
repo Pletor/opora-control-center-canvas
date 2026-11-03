@@ -9,15 +9,12 @@ import re
 from urllib.parse import unquote, urlsplit
 
 from backend.canvas.payload_errors import invalid, keys_problem
-from backend.canvas.site_settings import site_problem
 
 DNS_LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", re.IGNORECASE)
 # Stejný tvar jako `graph.valid_id`; graph importuje tento modul, proto vlastní kopie bez cyklu.
 SECTION_ID = re.compile(r"[A-Za-z0-9_-]{1,80}")
 # Stránka nese záměr člověka (goal, feel, navLabel) a sekce, které navrhuje agent. Vše nepovinné, bez výchozích hodnot.
-# `seo` a `design` (jen header/footer) přebíjí nastavení webu projektu (`site_settings.py`).
-PAGE_KEYS = {"kind", "path", "goal", "feel", "navLabel", "sections", "seo", "design"}
-PAGE_OVERRIDES = ("seo", "design")
+PAGE_KEYS = {"kind", "path", "goal", "feel", "navLabel", "sections"}
 PAGE_TEXT_LIMITS = {"goal": ("cíl stránky", 200), "feel": ("působení stránky", 120), "navLabel": ("popisek v menu", 40)}
 SECTION_KEYS = {"id", "role", "name", "intent"}
 # Čím sekce posouvá zákazníka v kroku cesty (pain reliever / gain creator, `docs/cesta-zakaznika-a-brief.md` §2.3).
@@ -76,12 +73,6 @@ def validate_page_fields(label, site):
         if key in site and not _text(site[key], 1, maximum):
             raise invalid(label, f"site.{key}", f"{title} ({key}) má neplatnou hodnotu {site[key]!r}.",
                           f"text 1–{maximum} znaků bez řídicích znaků; prázdné pole vynechte", PAGE_EXAMPLE)
-    overrides = {key: site[key] for key in PAGE_OVERRIDES if key in site}
-    problem = site_problem(overrides, partial=True) if overrides else None
-    if problem:
-        field, text, expected = problem
-        raise invalid(label, f"site.{field}", f"přebití nastavení webu {text}", expected,
-                      {"seo": {"titleTemplate": "%s · Příběh"}, "design": {"header": "bez menu"}})
     if "sections" not in site:
         return
     sections = site["sections"]
@@ -361,7 +352,7 @@ def validate_sites(nodes):
                 raise invalid(label, "kind", f"stránka (site.kind page) leží na uzlu druhu {node['kind']}.",
                               "uzel kind node pod sektorem aplikace", PAGE_EXAMPLE)
             _shape(label, "site", site, {"kind", "path"}, PAGE_KEYS - {"kind", "path"},
-                   "stránka {kind: page, path} a volitelně goal, feel, navLabel, sections, seo, design", PAGE_EXAMPLE)
+                   "stránka {kind: page, path} a volitelně goal, feel, navLabel, sections", PAGE_EXAMPLE)
             route = _checked(route_key, site["path"], label, "site.path",
                              "cesta začínající / bez dotazu a fragmentu", PAGE_EXAMPLE)
             validate_page_fields(label, site)

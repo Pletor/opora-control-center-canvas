@@ -1,5 +1,5 @@
 /* PLÁTNO SRDCE (blok `heart-canvas`)
-   Plátno srdce zabírá celou plochu stránky Projekt pod hlavní lištou a dělí ji do řad: hlavička se jménem workflow a
+   Plátno srdce zabírá celou obrazovku srdce pod její hlavičkou a dělí ji do řad: hlavička se jménem workflow a
    přepínačem Editor | Běhy (jako Editor | Executions v n8n, nad jedním grafem), lišta verzí, tělo a v Bězích spodní
    log. Tělo je řádek: v Bězích vlevo seznam běhů, zbytek patří editoru toku, protože graf je to hlavní, co člověk čte. */
 .heart-canvas { display: flex; flex: 1; flex-direction: column; width: 100%; min-width: 0; height: 100%; min-height: 0; background: var(--bg); color: var(--ink); }

@@ -1,1 +1,0 @@
-Mapy projektu: Graphify artefakty v sandboxovaném iframe a menu jejich obnovy (/api/graphify, /api/map-refresh). Graphify má výchozí pohled lehkou mapu oblastí `project-map/` (`/api/graphify/overview`); původní HTML se načte až na vyžádání.

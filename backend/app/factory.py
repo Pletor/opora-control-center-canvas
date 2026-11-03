@@ -79,6 +79,7 @@ from backend.api.project.project_map_check_routes import create_project_map_chec
 from backend.api.project.project_web_status_routes import create_project_web_status_router
 from backend.api.project.project_work_status_routes import create_project_work_status_router
 from backend.api.project.project_workspace_routes import create_project_workspace_router
+from backend.api.project.site_admin_routes import create_site_admin_router
 from backend.api.project.studio_model_routes import create_studio_model_router
 from backend.api.project.workspace_routes import create_workspace_router
 from backend.api.project_setup.project_routes import create_project_setup_router
@@ -286,12 +287,13 @@ def create_app(data_root=None):
                 return JSONResponse(
                     {"error": "Zápisy vyžadují stejný Origin a JSON."}, status_code=403
                 )
-            # Obrázek kresby (do 10 MB, v base64 o třetinu víc) má vlastní strop; ostatní zápisy 2 MB.
+            # Obrázek kresby a asset Správy webu (do 10 MB, v base64 o třetinu víc) mají vlastní strop; ostatní zápisy 2 MB.
             # Dávka plánu (docs/davka-planu.md §3) smí mít celé 2 MiB.
             limit = (OBSERVER_BODY_LIMIT if request.url.path.startswith("/api/oporahub/execution-observers/")
                      else VERIFICATION_BODY_LIMIT if request.url.path.startswith("/api/oporahub/verifications/")
                      else CONTENT_BODY_LIMIT if request.url.path == "/api/oporahub/content-changes" or request.url.path.startswith("/api/oporahub/content-changes/")
-                     else 14_500_000 if request.url.path == "/api/drawing-file"
+                     else 14_500_000 if request.url.path in ("/api/drawing-file", "/api/site-admin/assets",
+                                                             "/api/site-admin/fonts")
                      else PREVIEW_BODY_LIMIT if request.url.path == "/api/oporahub/review-jobs/preview"
                      else 2 * 1024 * 1024 if request.url.path == "/api/canvas-plan" else 2000000)
             body = bytearray()
@@ -414,6 +416,7 @@ def create_app(data_root=None):
     app.include_router(create_project_web_status_router(WebStatusService(service)))
     app.include_router(create_project_map_check_router(service))
     app.include_router(create_studio_model_router(service))
+    app.include_router(create_site_admin_router(service))
     # Oracle: echo a verdikt nad zadáním, kódem a gitem; jen čtení, nic nespouští
     check_runs = CheckRuns(service)
     sync_report = SyncReport(service, check_runs=check_runs)
