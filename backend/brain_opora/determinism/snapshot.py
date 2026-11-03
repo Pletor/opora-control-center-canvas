@@ -1,7 +1,8 @@
 """Snímek projektu pro srdce (docs/brain-heart.md §3): deterministický text bez modelu, s pevným stropem znaků.
 
 `collect` přečte fakta (identita projektu, vyplněné nastavení webu a přebití stránek (sekce WEB, `snapshot_web.py`), zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky,
-oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu),
+oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu), stav záměru každé stránky z registru
+(sekce ZÁMĚRY STRÁNEK, `backend/flow/page_intents.py`, docs/navrhy/2026-11-03-platno-2-zamer-stranky.md §4),
 tickety práce (sekce TICKETY PRÁCE, docs/navrhy/2026-11-03-novy-zaklad.md §3.3), čekající lístky, otevřené eskalace srdce pro člověka (sekce OTÁZKY U ČLOVĚKA), poslední vstupy vstupní brány (sekce VSTUPY), aktivní milníky s kritérii (hotovo/celkem a karty) a splněné
 milníky s odloženými požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY),
 otevřené konflikty auto-rebase (sekce KONFLIKTY NÁVRHŮ, docs/oporahub-auto-rebase.md), poslední kontroly, deník dávek;
@@ -34,6 +35,7 @@ from backend.editor.brief_vault.brief_vault_duel_shape import summary as duel_su
 from backend.editor.brief_vault.brief_vault_gate_rules import gate_state
 from backend.editor.brief_vault.brief_vault_model import effective_disciplines, latest_rows
 from backend.editor.brief_vault.brief_vault_tree import live_ids
+from backend.flow.page_intents import read_status
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.intake_milestones import IntakeMilestones
@@ -107,9 +109,18 @@ def open_cards(service, project, workspace):
     return cards[:PLAN_LIMIT]
 
 
+def _intents(service, project, nodes):
+    """`{pageId: stav záměru}` (`page_intents.status`); nečitelný registr = nic, sekce ZÁMĚRY STRÁNEK pak chybí."""
+    try:
+        return {item["pageId"]: item for item in read_status(service, project, {"nodes": nodes})}
+    except (AttributeError, KeyError, ValueError, sqlite3.Error):
+        return {}
+
+
 def _pages(service, project, workspace):
-    """`(stránky, oblasti, sektory)` z grafu plátna: stránky `{id, name, path, goal, feel}`, oblasti `{id, name}`
-    a sektory `{id, name, memberOf}`; nečitelný graf = nic. ID oblastí a sektorů potřebují `member` a `milestone`."""
+    """`(stránky, oblasti, sektory)` z grafu plátna: stránky `{id, name, path, goal, feel, intent?}` (`intent` = stav
+    záměru stránky), oblasti `{id, name}` a sektory `{id, name, memberOf}`; nečitelný graf = nic. ID oblastí
+    a sektorů potřebují `member` a `milestone`."""
     try:
         nodes = service.view(project, workspace)["graph"]["nodes"]
     except (ValueError, KeyError, OSError, sqlite3.Error):
@@ -128,6 +139,10 @@ def _pages(service, project, workspace):
             areas.append({"id": node["id"], "name": name})
         elif node.get("kind") == "sector":
             sectors.append({"id": node["id"], "name": name, "memberOf": node.get("memberOf")})
+    intents = _intents(service, project, nodes)
+    for page in pages:
+        if page["id"] in intents:
+            page["intent"] = intents[page["id"]]
     return pages, areas, sectors
 
 
@@ -408,6 +423,29 @@ def _plan(facts):
     return rows or ["- (prázdný plán)"]
 
 
+INTENT_STATES = {"none": "bez záměru", "pending": "čeká na schválení", "approved": "schválený", "stale": "zastaralý"}
+
+
+def _intent_state(intent):
+    """Stav záměru česky s verzemi: `schválený v2`, `čeká na schválení v3 (aktivní v2)`, `zastaralý (schválený v2)`."""
+    state, active, candidate = intent["state"], intent.get("activeN"), intent.get("candidateN")
+    if state == "approved":
+        return f"schválený v{active}"
+    if state == "stale":
+        return f"zastaralý (schválený v{active})"
+    if state == "pending":
+        return f"čeká na schválení v{candidate}" + (f" (aktivní v{active})" if active else "")
+    return INTENT_STATES[state]
+
+
+def _intent_lines(facts):
+    """ZÁMĚRY STRÁNEK: řádek na stránku (strop `PAGES` jako PLÁN) se stavem a počtem kritérií `intent.done`;
+    fakta bez stavu záměru (nečitelný registr) sekci nemají."""
+    pages = [page for page in facts["pages"][:PAGES] if page.get("intent")]
+    return ["ZÁMĚRY STRÁNEK:", *(f"- {page['path'] or '—'} · {page['id']} · {_intent_state(page['intent'])}"
+                                 f" · kritéria {page['intent']['doneCount']}" for page in pages)] if pages else []
+
+
 def _waiting_on(work, node):
     """Stav předchůdce, na kterého blokovaná karta čeká: otevřený PR, nezapsané sloučení, běh nebo volná."""
     state = work.get(node, FREE)
@@ -621,7 +659,7 @@ def render(facts, limit=LIMIT):
     """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
              f"ZÁMĚR: {_intent(facts) or '—'}", *snapshot_web.lines(facts.get("site"), facts["pages"]), *_memory_lines(facts), *_escalation_lines(facts),
-             "PLÁN:", *_plan(facts), *_work_ticket_lines(facts), *_vault_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
+             "PLÁN:", *_plan(facts), *_intent_lines(facts), *_work_ticket_lines(facts), *_vault_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
     lines += _intake_lines(facts) + _requirement_lines(facts) + _milestone_lines(facts) + _conflict_lines(facts)

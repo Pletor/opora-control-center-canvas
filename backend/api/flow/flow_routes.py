@@ -3,6 +3,8 @@
 Tenký router: validace těla a volání modulu. Data leží v registry.sqlite, každé volání drží `registry_lock`.
 Záměr stránky (`docs/navrhy/2026-11-03-platno-2-zamer-stranky.md` §2–§3): `approve` / `reject` jen člověk
 (doklad UI, `request.state.actor == "human"`), 409 s `code` (`approval_required`, `not_runnable`, `owner_taken`).
+Stav záměrů stránek (`page-intents`) a otisk stránky při schválení počítá `backend/flow/page_intents.py` nad přijatým
+grafem projektu; graf se čte mimo `registry_lock`.
 """
 
 from typing import Any, Literal
@@ -12,12 +14,14 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from backend.canvas.activity_log import require_human
-from backend.flow import interpreter, workflows
-from backend.flow.graph_check import FlowInvalid
+from backend.canvas.canvas_service import ProjectNotFound
+from backend.flow import interpreter, page_intents, workflows
+from backend.flow.graph_check import FlowInvalid, graph_errors
 from backend.flow.node_types import catalog
 from backend.flow.run_log import read_log
 from backend.flow.stalls import list_stalls
 from backend.flow.workflows import FlowConflict, FlowNotFound
+from backend.project.architecture.work_status import architecture_graph
 
 Kind = Literal["heart", "page_intent", "brain_workflow"]
 
@@ -36,6 +40,11 @@ class DraftIn(BaseModel):
 
 class CandidateIn(BaseModel):
     eval_run_id: str | None = None
+
+
+class GraphCheckIn(BaseModel):
+    kind: Kind
+    graph: Any
 
 
 class RunIn(BaseModel):
@@ -80,6 +89,24 @@ def create_flow_router(service):
             for t in catalog(kind).values()
         ]}
 
+    @router.post("/graph-check")
+    def graph_check(body: GraphCheckIn):
+        """Ověření grafu bez zápisu (`intent propose --dry-run` srdce): `{ok, errors}` podle katalogu druhu."""
+        errors = graph_errors(body.graph, catalog(body.kind), body.kind)
+        return {"ok": not errors, "errors": errors}
+
+    def accepted_graph(project):
+        try:
+            return architecture_graph(service, project)
+        except ProjectNotFound as error:
+            raise HTTPException(404, str(error)) from error
+
+    @router.get("/page-intents")
+    def page_intent_list(project: str = Query(min_length=1, max_length=64)):
+        """Stav záměru každé stránky projektu `[{pageId, state, workflowId?, activeN?, candidateN?, doneCount}]`."""
+        graph = accepted_graph(project)
+        return {"pages": call(lambda db: page_intents.status(db, project, page_intents.pages_of(graph)))}
+
     @router.get("/workflows")
     def workflow_list(project: str | None = Query(default=None, max_length=64), kind: Kind | None = None,
                       owner_ref: str | None = Query(default=None, max_length=200)):
@@ -109,7 +136,9 @@ def create_flow_router(service):
     def version_approve(version_id: str, request: Request):
         """Schválení kandidáta záměru stránky: jen člověk v UI (token srdce či dělníka dostane 403)."""
         require_human(getattr(request.state, "actor", None), "Záměr stránky schvaluje jen člověk v UI.")
-        return call(workflows.approve, version_id, "human")
+        owner = call(page_intents.owner_of, version_id)
+        digest = page_intents.current_digest(accepted_graph(owner[0]), owner[1]) if owner else None
+        return call(workflows.approve, version_id, "human", digest)
 
     @router.post("/versions/{version_id}/reject")
     def version_reject(version_id: str, body: RejectIn, request: Request):

@@ -38,7 +38,7 @@ mapy řeš podle `mapGaps` / `holes`, ne podle `/api/strazci/findings`.
 
 | Strážce (interval) | `rule` | Co znamená | Co udělá agent |
 |---|---|---|---|
-| `mapa` (60 s, při změně hlavy) | pravidla kontroly mapy (`section.unrealized`, `journey.unrealized`, …) | díry mapy nad přijatou architekturou; `page.no-goal` a `journey.broken` jsou `block` | nic navíc: pracuj z `mapGaps` (`owner: "agent"`); `page.no-goal` a `journey.broken` patří člověku |
+| `mapa` (60 s, při změně hlavy) | pravidla kontroly mapy (`section.unrealized`, `journey.unrealized`, …) | díry mapy nad přijatou architekturou; `page.no-goal`, `journey.broken` a `page.intent-stale` jsou `block` | nic navíc: pracuj z `mapGaps` (`owner: "agent"`); `page.no-goal` a `journey.broken` patří člověku |
 | `prace` (30 s) | `work.lease-expired` | nárok karty je po termínu, karta se dál tváří, že se staví | tvůj běh: propadl, heartbeat nepomůže; `opora_hub.py state --fresh` a nový claim přes akci. Cizí: nic, nárok uvolní příští claim |
 | | `work.no-heartbeat` | živý běh bez zprávy déle než 10 min | tvůj běh: hned `opora_hub.py heartbeat` (po ⅓ TTL); cizí: nic |
 | | `work.step-stalled` | krok `running` (`step.started`) déle než 30 min bez další zprávy | tvůj běh: nahlas krok (`opora_hub.py step`, `done` nebo `failed` s evidencí) nebo pokračuj; cizí: nic |

@@ -91,7 +91,7 @@ def test_rea_config_and_research_modules_land_in_brain(tmp_path):
     assert written == command.REA_MCP and list(written["mcpServers"]) == ["rea"]
     assert set(command.RESEARCH_NAMES) == {"opora_research.py", "research_desk.py", "research_digest.py",
                                            "research_fetch.py", "research_verify.py", "research_browser.py",
-                                           "opora_duel.py"}
+                                           "opora_duel.py", "opora_intent.py"}
     assert all((tmp_path / "brain" / name).is_file() for name in command.RESEARCH_NAMES)
     # kopie v `brain/` se načtou samy, bez balíčku backendu (`python -I`, jen cwd na cestě)
     probe = ("import sys; sys.path.insert(0, '.'); import opora_research, opora_duel, research_desk;"

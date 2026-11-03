@@ -41,7 +41,10 @@ Modules (PR 4 of the new base, contract `docs/navrhy/2026-11-03-novy-zaklad.md` 
   closed` (+ `failed`, `cancelled`); `advance(current, target)` is the only transition guard (forbidden = 409
   `ticket_state` naming the allowed targets). Body checks: the worker body has no IDs (`essence`, `build`,
   `openPaths`, `cautions`, `skills` pins `/name@version`, default `ponytail@5.3.3`, `doneCriteria`); the machine
-  layer `cardId`, `executionId`, `cardVersion` sits beside it.
+  layer `cardId`, `executionId`, `cardVersion` sits beside it. The optional `intent` `{workflowVersionId, nodeIds}`
+  names `intent.done` criteria of an approved page intent; `ticket.issue` checks it against the registry
+  (`backend/flow/page_intents.py`: active `page_intent` version of the project, `intent.done` nodes, else 422
+  `ticket_intent`) and appends their `claim` to `doneCriteria`.
 - `ticket.py`: handlers of the kinds `ticket.issue` (heart only → `issued`, in `workspace` of the card or of the
   heart token), `ticket.cancel` (heart only, open ticket → `cancelled`; delivered is 409), `ticket.request` (the held ticket again,
   else the oldest `issued`, not taken), `ticket.claim` (`issued → claimed`, held by the session),
@@ -60,6 +63,9 @@ Modules (PR 4 of the new base, contract `docs/navrhy/2026-11-03-novy-zaklad.md` 
   merge); a `cancelled` execution makes the ticket `failed`. Hooks (`safe_follow`, never stops the execution) sit in
   `ExecutionResults.submit`, `opora_execution_pr_closure.merge_events` and the budget cancellation; `ticket.deliver`
   catches up facts that came first.
+- `snapshot.py`: section `ZÁMĚRY STRÁNEK` after `PLÁN` = one line per page (same `PAGES` cap) `path · id · state ·
+  kritéria N` with the page intent state from `backend/flow/page_intents.py` (`bez záměru`, `čeká na schválení vN`,
+  `schválený vN`, `zastaralý (schválený vN)`) and the count of `intent.done`; an unreadable registry drops the section.
 - `snapshot.py` also builds `view`, the JSON of the `state` kind; `rules` are the approved project rules of the
   Desktop v3 memory, only (no `context.rules` of tasks any more); `tickets{<status>: count}` and `myTicket` replaced the queue counts.
 

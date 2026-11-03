@@ -40,9 +40,9 @@ def graph_errors(graph, registry=NODE_TYPES, kind=None):
             errors.append(f"Hrana {eid!r} nemá jedinečné id.")
             continue
         seen.add(eid)
-        kind = edge.get("kind", "main")
-        if kind not in PORT_KINDS:
-            errors.append(f"Hrana {eid} má neznámý kind {kind!r}.")
+        edge_kind = edge.get("kind", "main")
+        if edge_kind not in PORT_KINDS:
+            errors.append(f"Hrana {eid} má neznámý kind {edge_kind!r}.")
             continue
         ends = (("source", "out"), ("target", "in"))
         for end, direction in ends:
@@ -53,8 +53,8 @@ def graph_errors(graph, registry=NODE_TYPES, kind=None):
                 errors.append(f"Hrana {eid} vede na neexistující uzel {node_id!r}.")
             elif port is None:
                 errors.append(f"Hrana {eid}: uzel {node_id} nemá {direction} port {port_name!r}.")
-            elif port.kind != kind:
-                errors.append(f"Hrana {eid} je {kind}, ale port {node_id}.{port_name} je {port.kind}.")
+            elif port.kind != edge_kind:
+                errors.append(f"Hrana {eid} je {edge_kind}, ale port {node_id}.{port_name} je {port.kind}.")
             else:
                 usage[(node_id, port_name, direction, port.cardinality)] += 1
     for (node_id, port_name, direction, cardinality), count in usage.items():

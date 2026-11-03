@@ -13,4 +13,4 @@ def test_old_tickets_table_gets_machine_columns():
     initialize_project_schema(db)
     initialize_project_schema(db)
     columns = [row[1] for row in db.execute("PRAGMA table_info(tickets)")]
-    assert columns[-5:] == ["department", "profile", "successors", "predecessors", "pins"]
+    assert columns[-6:] == ["department", "profile", "successors", "predecessors", "pins", "intent"]

@@ -53,6 +53,10 @@ Modules (H2a):
   `dilna/rea-mcp.json` with compact schemas, with `OPORA_RESEARCH_CHROME=1` the human's Chrome read only on the
   domain allowlist of `research_browser.py` behind its PreToolUse hook, result via `research-update`) and `duel` (deterministic, Haiku sub-calls as actors
   `srdce-obhajce-a|b` and judges `srdce-soudce-1|2`, `duel-decide` by the server rule). Both log to `runs.jsonl`.
+  `intent` (`opora_intent.py` beside the tool, page intent of canvas 2, `docs/navrhy/2026-11-03-platno-2-zamer-stranky.md`
+  §4): `show PAGE` (active and candidate version compact: nodes with type and params, then edges), `propose PAGE --file F
+  [--dry-run]` (creates the `page_intent` workflow when missing, saves a draft and proposes it as candidate; `--dry-run`
+  only `POST /api/flow/graph-check`), `diff PAGE` (candidate against active). Only a human approves.
   `research --requirement rq_…` is interrogation research: the per-requirement cap is checked before the desk runs and
   the cost is added to the requirement's brief (`docs/navrhy/2026-10-30-vyslech-srdce.md` §8).
 - The system prompt and mode procedures are Brain skills (`backend/brain/`, seed `backend/brain/seed/opora-heart/`).

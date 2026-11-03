@@ -247,6 +247,8 @@ přijatou architekturou (čtení) a nad dávkou plánu i návrhem změny grafu (
 | `state.no-error` | komponenta s výstupem `command` nemá stav „chyba“ | práce |
 | `edge.carries-unset` | hrana `next` mezi komponentami stránky bez `carries` | práce (migrace bez odhadu) |
 | `page.no-goal` | stránka bez `goal` | jediná díra pro člověka |
+| `page.no-intent` | stránka bez záměru (plátno 2, `docs/navrhy/2026-11-03-platno-2-zamer-stranky.md` §5); jen při čtení | varování: záměr navrhne srdce |
+| `page.intent-stale` | stránka se změnila po schválení záměru (`path`, `goal`, `feel`, `sections`); jen při čtení | chyba: srdce navrhne novou verzi, člověk schválí |
 
 Provádí `backend/project/architecture/map_check.py`; čtení nad přijatou architekturou je
 `GET /api/project-architecture/map-check?project=`; výsledek je vidět na Mapě domény v panelu **Díry mapy** (nálezy domény po

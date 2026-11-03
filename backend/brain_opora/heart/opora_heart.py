@@ -39,6 +39,8 @@
     python opora_heart.py vault ls [--kind brief|gate|research] [--q TEXT] [--workspace W]
     python opora_heart.py vault show ID [--workspace W]
     python opora_heart.py vault plan [--node ID]… [--workspace W]
+    python opora_heart.py intent show PAGE | diff PAGE
+    python opora_heart.py intent propose PAGE --file F [--dry-run]
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
 OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrnutí do `last_done.json` v cwd.
@@ -85,6 +87,9 @@ zadání (`/api/oporahub/changesets`, docs/oporahub-plan-steps.md); při `autono
 stav`, strop řádků), `show ID` plné znění položky, `plan` návrh dávky z generátoru Schránky do
 `dilna/out/vault-plan.json` pro `plan --file` (sám na plátno nic nezapisuje); v main jde jako výzkum do prostoru
 posledního plánu.
+`intent` je záměr stránky (plátno 2) v `opora_intent.py` vedle nástroje: `show PAGE` aktivní a kandidátní verze
+kompaktně, `propose PAGE --file F` draft a kandidát (`--dry-run` jen ověří graf), `diff PAGE` rozdíl kandidáta
+proti aktivní verzi; schvaluje jen člověk v UI.
 `skill NAME` vypíše postup režimu ze `skills/NAME.md` vedle nástroje (výslech čte `skill vyslech`, jen při výslechu).
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
@@ -1158,7 +1163,8 @@ def log_run(script, script_args, exit_code, ms, calls, cost):
 
 
 def research_module(name="opora_research"):
-    """`opora_research.py` / `opora_duel.py`: kopie vedle nástroje v `brain/`, v testech modul balíčku."""
+    """`opora_research.py` / `opora_duel.py` / `opora_intent.py`: kopie vedle nástroje v `brain/`, v testech modul
+    balíčku."""
     try:
         return importlib.import_module(name)
     except ImportError:
@@ -1338,6 +1344,8 @@ def run(args):
         return call("GET", "/api/brain/heart/snapshot", query=scope())["snapshot"]
     if args.command == "plan":
         return submit_plan(args)
+    if args.command == "intent":
+        return research_module("opora_intent").intent(args, sys.modules[__name__])
     if args.command == "vault":
         return (vault_ls(args.kind, args.q) if args.action == "ls" else vault_show(args.id) if args.action == "show"
                 else vault_plan(args.node))
@@ -1530,6 +1538,13 @@ def parser():
     vault.add_parser("plan").add_argument("--node", action="append", default=[], help="ID fragmentu brief")
     for sub in vault.choices.values():
         sub.add_argument("--workspace")
+    intent = commands.add_parser("intent").add_subparsers(dest="action", required=True)  # záměr stránky (plátno 2)
+    intent.add_parser("show").add_argument("page")
+    intent.add_parser("diff").add_argument("page")
+    propose = intent.add_parser("propose")
+    propose.add_argument("page")
+    propose.add_argument("--file", required=True)
+    propose.add_argument("--dry-run", action="store_true")
     duel = commands.add_parser("duel")
     for flag in ("--subject", "--a", "--b"):
         duel.add_argument(flag, required=True)
