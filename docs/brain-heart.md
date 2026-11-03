@@ -36,7 +36,7 @@ claude -p --output-format stream-json --verbose --model haiku --advisor opus
   --setting-sources project --settings <json: deny rules, disableAllHooks>
   --strict-mcp-config --mcp-config {"mcpServers":{}}
   --allowedTools "Read,Grep,Glob,Bash(python <tool>:*)" --permission-mode dontAsk
-  --append-system-prompt-file backend/brain_opora/heart/prompt.md
+  --system-prompt-file brain/heart-prompt.md (active version of the Brain skill opora:brain:skill:heart)
   --add-dir <project source root (read only by policy)>
   --max-turns 40
   "<batch message>"
@@ -353,7 +353,7 @@ Errors print `code` and `hint`, and the exit code is not zero.
 - The work body of `ticket.issue` has an optional `order` field. A lower order goes first; when orders are equal, `seq` decides.
   This lets the heart sequence its plan.
 
-## 6. The heart's prompt (`heart/prompt.md`, Czech)
+## 6. The heart's prompt (Brain skill `opora:brain:skill:heart`, seed `backend/brain/seed/opora-heart/skills/heart/SKILL.md`, Czech)
 
 The prompt has these parts:
 1. **Role.** You are the heart of the project. You turn intent into tasks for workers. You never write code.

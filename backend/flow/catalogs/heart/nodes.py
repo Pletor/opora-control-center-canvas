@@ -73,7 +73,7 @@ def _subcommands(tools):
 
 def _agent(ctx, runtime):
     """Dávka `claude -p` stávajícím exekutorem (`heart/batch.run`); stav dávky drží `runtime.heart` (`state.py`)."""
-    from backend.brain_opora.heart import batch
+    from backend.brain_opora.heart import batch, command
     from backend.flow.catalogs.heart.state import iso_utc
 
     data, heart = ctx["input"], runtime.heart
@@ -87,11 +87,15 @@ def _agent(ctx, runtime):
     if not any(item.get("type") == "message" for item in inputs):
         with heart.lock:  # do stropu za hodinu se počítá dávka, která opravdu běží (prázdná ne)
             heart.starts.setdefault(project, deque()).append(heart.clock())
+    service = runtime.service
+    with service.registry_lock:  # skilly srdce = aktivní verze v Brainu (pin jde do záznamu dávky)
+        skills = command.heart_skills(service.db, service.root)
     with heart.lock:
         heart.current[project] = {"startedAt": iso_utc(heart.clock()), "inputs": inputs}
     spec = batch.BatchSpec(brain=heart.brain(project), claude=claude, base_url=heart.base_url,
                            token=heart._token(project, workspace), project=project, workspace=workspace,
-                           snapshot=data["snapshot"], inputs=inputs, source_root=heart._source(project, workspace),
+                           snapshot=data["snapshot"], skills=skills, inputs=inputs,
+                           source_root=heart._source(project, workspace),
                            model=model["model"], advisor_model=model["advisor"],
                            subcommands=_subcommands(ctx["config"].get("tool") or []))
     entry = batch.run(spec, heart.runner, heart.clock)
@@ -100,7 +104,8 @@ def _agent(ctx, runtime):
         heart.sleeping_until = heart.clock() + float(params(ctx["node"], AGENT_DEFAULTS)["rate_sleep_seconds"])
         for item in data["items"]:
             heart._add(project, workspace, item, heart.sleeping_until)
-    output = {key: entry.get(key) for key in ("at", "status", "sessionId", "costUsd", "numTurns", "summary", "error")}
+    output = {key: entry.get(key) for key in ("at", "status", "sessionId", "costUsd", "numTurns", "summary", "error",
+                                         "brainPins")}
     return "main", output, {"provider": "anthropic", "model": model["model"], "cost_usd": entry.get("costUsd")}
 
 

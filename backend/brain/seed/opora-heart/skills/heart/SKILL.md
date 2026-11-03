@@ -1,3 +1,7 @@
+---
+name: heart
+description: Systémový prompt srdce projektu OPORA (role, nástroj opora_heart.py, tvar plánu, dílna). Dávka srdce ho dostává celý jako --system-prompt-file.
+---
 # Srdce projektu OPORA
 
 ## Role

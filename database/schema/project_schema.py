@@ -4,6 +4,7 @@ Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nev
 """
 import sqlite3
 
+from database.schema.brain_schema import SCHEMA as BRAIN_SCHEMA
 from database.schema.flow_schema import SCHEMA as FLOW_SCHEMA
 from database.schema.guard_experience_schema import SCHEMA as GUARD_EXPERIENCE_SCHEMA
 from database.schema.guard_experience_schema import TABLES as GUARD_EXPERIENCE_TABLES
@@ -80,7 +81,7 @@ CREATE TABLE IF NOT EXISTS activity_log(
   method TEXT NOT NULL, path TEXT NOT NULL, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
   node_ids TEXT NOT NULL, status INTEGER NOT NULL, summary TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS activity_log_scope ON activity_log(project_id, workspace_id, actor, id);
-""" + CONTEXT_BINDING_SCHEMA + ";" + OBSERVER_REGISTRY_SCHEMA + FLOW_SCHEMA  # backend/flow/
+""" + CONTEXT_BINDING_SCHEMA + ";" + OBSERVER_REGISTRY_SCHEMA + FLOW_SCHEMA + BRAIN_SCHEMA  # backend/flow/, backend/brain/
 
 # projects/<id>/project.sqlite – vše o jednom projektu; vlastník tabulky v komentáři.
 PROJECT_SCHEMA = """

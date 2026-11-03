@@ -55,10 +55,13 @@ Modules (H2a):
   `srdce-obhajce-a|b` and judges `srdce-soudce-1|2`, `duel-decide` by the server rule). Both log to `runs.jsonl`.
   `research --requirement rq_…` is interrogation research: the per-requirement cap is checked before the desk runs and
   the cost is added to the requirement's brief (`docs/navrhy/2026-10-30-vyslech-srdce.md` §8).
-- `skills/*.md`: mode procedures copied to `brain/skills/`, read only on demand via `opora_heart.py skill NAME`
-  (`vyslech.md` when a batch carries `VÝSLECH`); never part of the system prompt.
-- `prompt.md`: the heart's role, task shape with a full example (an implementation card has 2–8 steps, each with `kind`
-  and `files`, so the card gauge can size it), application-wide rules, when to ask the advisor.
+- The system prompt and mode procedures are Brain skills (`backend/brain/`, seed `backend/brain/seed/opora-heart/`).
+  `command.heart_skills` reads the active versions of `opora:brain:skill:heart` (role, task shape with a full example,
+  an implementation card has 2–8 steps with `kind` and `files`, application-wide rules, when to ask the advisor) and
+  `opora:brain:skill:vyslech`; there is no file fallback. `write_config` writes the prompt to `brain/heart-prompt.md`
+  (`--system-prompt-file`) and procedures to `brain/skills/NAME.md`, read only on demand via
+  `opora_heart.py skill NAME` (`vyslech` when a batch carries `VÝSLECH`). The batch entry carries `brainPins`
+  (`{heart, vyslech}` → `opora:brain:skill:<name>@<sha12>`), so every batch shows which heart version ran.
 
 The heart token comes from `tokens.issue_heart` once per project and workspace; it lives only in memory and in the
 environment of the process. Routes are in `backend/api/brain_opora/heart_routes.py`.

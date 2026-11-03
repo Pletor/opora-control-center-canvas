@@ -77,7 +77,7 @@ def heart(tmp_path, monkeypatch):
         monkeypatch.setenv(key, value)
     monkeypatch.delenv("OPORA_SOURCE_ROOT", raising=False)
     brain = tmp_path / "brain"
-    command.write_config(brain)
+    command.write_config(brain, command.HeartSkills("P\n", {}, {}))
     monkeypatch.setattr(opora_heart, "DILNA", brain / "dilna")
     monkeypatch.setattr(research_digest, "find_claude", lambda: "claude")
     monkeypatch.setattr(opora_research, "find_browser", lambda: "C:/chrome.exe")

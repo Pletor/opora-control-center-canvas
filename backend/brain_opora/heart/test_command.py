@@ -5,14 +5,50 @@ import uuid
 
 import pytest
 
+from backend.brain import registry, seed
+from backend.brain.store import Store
 from backend.brain_opora.heart import command
+from database.schema.project_schema import REGISTRY_SCHEMA
 
 SID = str(uuid.UUID(int=7))
+SKILLS = command.HeartSkills("P\n", {"vyslech": "V\n"}, {})
+
+
+def seeded(tmp_path):
+    """Registr a Brain v `tmp_path` po seedu (bez ponytailu)."""
+    import sqlite3
+
+    db = sqlite3.connect(":memory:")
+    db.row_factory = sqlite3.Row
+    db.executescript(REGISTRY_SCHEMA)
+    seed.ensure(db, tmp_path, ponytail_cache=tmp_path / "chybi")
+    return db
+
+
+def test_heart_reads_prompt_and_modes_from_the_active_brain_version(tmp_path):
+    db = seeded(tmp_path)
+    skills = command.heart_skills(db, tmp_path)
+    source = seed.SEED_DIR / "opora-heart" / "skills"
+    assert skills.prompt == command.skill_body((source / "heart" / "SKILL.md").read_text(encoding="utf-8"))
+    assert skills.prompt.startswith("# Srdce projektu OPORA") and "name: heart" not in skills.prompt
+    assert list(skills.modes) == ["vyslech"] and skills.modes["vyslech"].startswith("# Výslech")
+    sha = Store(tmp_path).version("opora-heart")
+    assert skills.pins == {"heart": f"opora:brain:skill:heart@{sha[:12]}",
+                           "vyslech": f"opora:brain:skill:vyslech@{sha[:12]}"}
+    newer = Store(tmp_path).write("opora-heart", {"skills/heart/SKILL.md": "---\nname: heart\n---\nJiné srdce\n"}, "v2")
+    version = registry.add_version(db, "opora:brain:skill:heart", newer, "skills/heart/SKILL.md")
+    assert command.heart_skills(db, tmp_path).prompt == skills.prompt  # kandidát srdce nemění
+    registry.activate(db, version)
+    changed = command.heart_skills(db, tmp_path)
+    assert changed.prompt == "Jiné srdce\n" and changed.pins["heart"] == f"opora:brain:skill:heart@{newer[:12]}"
+    db.execute("UPDATE brain_artifact_versions SET status='retired'")
+    with pytest.raises(RuntimeError, match="opora:brain:skill:heart"):  # žádná záloha v souboru
+        command.heart_skills(db, tmp_path)
 
 
 def build(resume, source_root=None):
     return command.build_command("claude", session_id=SID, resume=resume, settings_path="s.json",
-                                 mcp_path="m.json", source_root=source_root)
+                                 mcp_path="m.json", prompt_file="p.md", source_root=source_root)
 
 
 def test_new_session_command_matches_the_contract():
@@ -25,13 +61,13 @@ def test_new_session_command_matches_the_contract():
     assert "--strict-mcp-config" in line and pairs["--mcp-config"] == "m.json"
     assert pairs["--allowedTools"] == "Read,Grep,Glob,Bash(python opora_heart.py:*)"
     assert pairs["--permission-mode"] == "dontAsk" and pairs["--add-dir"] == "/src"
-    assert pairs["--system-prompt-file"] == str(command.PROMPT_FILE) and command.PROMPT_FILE.is_file()
+    assert pairs["--system-prompt-file"] == "p.md"
     assert line[-2:] == ["--max-turns", "40"]
 
 
 def test_flow_node_sets_model_advisor_and_allowed_subcommands():
     line = command.build_command("claude", session_id=SID, resume=False, settings_path="s", mcp_path="m",
-                                 model="sonnet", advisor_model="fable", subcommands=("plan", "done"))
+                                 prompt_file="p", model="sonnet", advisor_model="fable", subcommands=("plan", "done"))
     pairs = {line[i]: line[i + 1] for i in range(1, len(line) - 1) if line[i].startswith("--")}
     assert pairs["--model"] == "sonnet" and pairs["--advisor"] == "fable"
     assert pairs["--allowedTools"] == "Read,Grep,Glob,Bash(python opora_heart.py plan:*),Bash(python opora_heart.py done:*)"
@@ -40,10 +76,10 @@ def test_flow_node_sets_model_advisor_and_allowed_subcommands():
 def test_resume_and_no_source_root():
     line = build(True)
     assert line[line.index("--resume") + 1] == SID and "--session-id" not in line and "--add-dir" not in line
-    with pytest.raises(ValueError):
-        command.build_command("claude", session_id="", resume=False, settings_path="s", mcp_path="m")
-    with pytest.raises(ValueError):
-        command.build_command("claude", session_id="ne-uuid", resume=False, settings_path="s", mcp_path="m")
+    for bad in ("", "ne-uuid"):
+        with pytest.raises(ValueError):
+            command.build_command("claude", session_id=bad, resume=False, settings_path="s", mcp_path="m",
+                                  prompt_file="p")
 
 
 def test_settings_deny_writes_into_the_source_and_disable_hooks(tmp_path):
@@ -52,7 +88,8 @@ def test_settings_deny_writes_into_the_source_and_disable_hooks(tmp_path):
     assert value["disableAllHooks"] is True and root.startswith("//") and "\\" not in root
     assert {f"Edit({root}/**)", f"Write({root}/**)", "NotebookEdit", "Read(**/.env)"} <= set(value["permissions"]["deny"])
     assert value["permissions"]["allow"] == []
-    settings_path, mcp_path = command.write_config(tmp_path / "brain", tmp_path / "src")
+    settings_path, mcp_path, prompt_path = command.write_config(tmp_path / "brain", SKILLS, tmp_path / "src")
+    assert prompt_path == tmp_path / "brain" / command.PROMPT_NAME and prompt_path.read_text(encoding="utf-8") == "P\n"
     assert json.loads(settings_path.read_text(encoding="utf-8")) == command.settings(tmp_path / "src", tmp_path / "brain")
     assert json.loads(mcp_path.read_text(encoding="utf-8")) == {"mcpServers": {}}
     assert (tmp_path / "brain" / "opora_heart.py").read_bytes() == command.TOOL_FILE.read_bytes()
@@ -105,15 +142,15 @@ def test_find_claude_prefers_exe_on_windows():
 
 
 def test_interrogation_skill_lands_in_brain_and_is_read_only_on_demand(tmp_path):
-    """Výslech, řez 2 (docs/navrhy/2026-10-30-vyslech-srdce.md §5): skill leží v `brain/skills/`, čte ho
-    `opora_heart.py skill vyslech` (i z kopie v `brain/`) a základní prompt na něj jen odkazuje."""
+    """Výslech, řez 2 (docs/navrhy/2026-10-30-vyslech-srdce.md §5): skill z Brainu leží v `brain/skills/`, čte ho
+    `opora_heart.py skill vyslech` (z kopie v `brain/`) a základní prompt na něj jen odkazuje."""
     import subprocess
     import sys
 
     from backend.brain_opora.determinism import brief
 
-    skill = command.SKILLS_DIR / "vyslech.md"
-    text = skill.read_text(encoding="utf-8")
+    skills = command.heart_skills(seeded(tmp_path / "data"), tmp_path / "data")
+    text = skills.modes["vyslech"]
     assert len(text.splitlines()) <= 80 and "--requirement" in text and "rozhodni z toho, co máš" in text
     for key in ("goal", "users", "parts", "acceptance", "outOfScope", "assumptions", "risks", "dependencies",
                 "questions"):
@@ -121,10 +158,9 @@ def test_interrogation_skill_lands_in_brain_and_is_read_only_on_demand(tmp_path)
     shape = text.split("```json\n")[1].split("```")[0]
     sample = json.loads(shape.replace("nodeId|areaId", "a0"))
     assert brief.check_synthesis(sample) is sample and brief.clarity(sample, [{"answer": "ano"}]) == []  # vzor projde kontrolou kódu (předpoklady potvrdí člověk)
-    prompt = command.PROMPT_FILE.read_text(encoding="utf-8")
-    assert "python opora_heart.py skill vyslech" in prompt and "## Tvar syntézy" not in prompt
-    command.write_config(tmp_path / "brain")
-    assert (tmp_path / "brain" / "skills" / "vyslech.md").read_bytes() == skill.read_bytes()
+    assert "python opora_heart.py skill vyslech" in skills.prompt and "## Tvar syntézy" not in skills.prompt
+    command.write_config(tmp_path / "brain", skills)
+    assert (tmp_path / "brain" / "skills" / "vyslech.md").read_text(encoding="utf-8") == text
     done = subprocess.run([sys.executable, "-I", "opora_heart.py", "skill", "vyslech"], cwd=tmp_path / "brain",
                           capture_output=True, check=True, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     assert done.stdout.decode("utf-8").replace("\r\n", "\n").strip() == text.strip()
