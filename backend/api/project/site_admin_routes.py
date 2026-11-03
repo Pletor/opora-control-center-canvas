@@ -26,8 +26,8 @@ def _errors(action):
         return action()
     except (ProjectNotFound, SiteFileMissing) as error:
         raise HTTPException(404, str(error)) from error
-    except SiteAdminInvalid as error:
-        raise HTTPException(422, str(error)) from error
+    except SiteAdminInvalid as error:  # vlastní CSS vrací {message, path, line, reason}
+        raise HTTPException(422, getattr(error, "detail", None) or str(error)) from error
     except SiteAdminConflict as error:
         raise HTTPException(409, str(error)) from error
 
@@ -66,6 +66,10 @@ def create_site_admin_router(service):
     @router.get("/tokens.css")
     def tokens_css(project: str = PROJECT):
         return Response(compiled.tokens_css(document(project)), media_type="text/css; charset=utf-8")
+
+    @router.get("/components.css")
+    def components_css(project: str = PROJECT):
+        return Response(compiled.components_css(document(project)), media_type="text/css; charset=utf-8")
 
     @router.get("/tokens.json")
     def tokens_json(project: str = PROJECT):

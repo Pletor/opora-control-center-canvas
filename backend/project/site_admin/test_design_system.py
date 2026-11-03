@@ -16,7 +16,10 @@ def colors(*tokens, themes=("light", "dark")):
 def test_empty_document_has_one_theme_and_every_settings_part():
     document = empty()
     assert document["revision"] == 0 and document["lastChange"] is None
-    assert set(document["settings"]) == {"seo", "affiliate", "email", "header", "footer", "buttons", "gdpr"}
+    assert set(document["settings"]) == {"seo", "affiliate", "email", "header", "footer", "gdpr", "appearance",
+                                         "buttons", "customCss"}
+    assert document["settings"]["appearance"]["colors"]["link"] is None
+    assert document["settings"]["buttons"]["variants"] == {} and document["settings"]["customCss"] == {"button": {}}
     assert document["design"]["tokens"]["color"] == {"themes": [{"id": "light", "name": "Light"}], "tokens": []}
 
 
@@ -130,12 +133,15 @@ def test_typography_rules():
     ({"design": {"components": [{"name": "my-button"}]}}, "identifikátor"),
     ({"design": {"assetGroups": [{"name": "Logos", "files": [{"name": "a.svg", "blob": "../a.svg"}]}]}}, "blob"),
     ({"v": 2}, "v musí být 1"),
+    ({"settings": {"appearance": {"colors": {"brand": "#000"}}}}, "neznámé pole colors.brand"),
+    ({"settings": {"buttons": {"variants": {"Primary": {}}}}}, "jméno varianty"),
+    ({"settings": {"customCss": {"button": {"ghost": ":scope { color: red }"}}}}, "varianta tlačítka neexistuje"),
 ])
 def test_shape_errors_are_422_with_a_message(raw, message):
     with pytest.raises(SiteAdminInvalid, match=message):
         normalize(raw)
 
 
-def test_button_tokens_are_not_mistaken_for_secrets():
-    document, _ = normalize({"settings": {"buttons": [{"name": "primary", "tokens": {"bg": "{ember}"}}]}})
-    assert document["settings"]["buttons"][0]["tokens"] == {"bg": "{ember}"}
+def test_normalized_document_is_stable():
+    document, _ = normalize(ember())
+    assert normalize(document) == (document, [])

@@ -46,6 +46,31 @@ def test_generated_files(tmp_path):
         assert client.get(f"{URL}/tokens.json", params=DRAFT).json()["version"] == 1
         readme = client.get(f"{URL}/README.md", params=DRAFT)
         assert readme.headers["content-type"].startswith("text/markdown") and "## Jak systém použít" in readme.text
+        components = client.get(f"{URL}/components.css", params=DRAFT)
+        assert components.headers["content-type"].startswith("text/css") and ".ds-btn--primary {" in components.text
+        assert "@keyframes ds-btn-primary-glow" in components.text
+
+
+def test_appearance_view_survives_a_stale_save_and_bad_css_is_422_with_a_line(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        document = ember()
+        document["settings"]["appearance"] = {"colors": {"linkHover": "#004488"}, "layout": {"contentSize": "1140px"}}
+        first = client.put(URL, params=DRAFT, headers=HEADERS, json={"expectedRevision": 0, "document": document})
+        stored = first.json()["document"]
+        assert stored["settings"]["appearance"]["layout"]["contentSize"] == "1140px"
+        colors = stored["design"]["tokens"]["color"]["tokens"]
+        next(t for t in colors if t["name"] == "link-hover")["value"] = "#112233"  # úprava v Colors, Vzhled starý
+        second = client.put(URL, params=DRAFT, headers=HEADERS, json={"expectedRevision": 1, "document": stored})
+        assert second.json()["document"]["settings"]["appearance"]["colors"]["linkHover"] == "#112233"
+        bad = second.json()["document"]
+        bad["settings"]["customCss"]["button"]["primary"] = ":scope { color: red }\n@import url(x.css);"
+        refused = client.put(URL, params=DRAFT, headers=HEADERS, json={"expectedRevision": 2, "document": bad})
+        assert refused.status_code == 422
+        assert refused.json()["detail"] == {
+            "message": "settings.customCss.button.primary, řádek 2: @import není povolené (jen @keyframes, @media, "
+                       "@supports, @container).",
+            "path": "settings.customCss.button.primary", "line": 2,
+            "reason": "@import není povolené (jen @keyframes, @media, @supports, @container)."}
 
 
 def test_assets_and_fonts_upload_read_and_delete(tmp_path):
