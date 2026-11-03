@@ -35,7 +35,7 @@ stav. Nahoře přibude tabulka souhrnu jen pro rozbalené karty.
   - komentář v položkách není;
   - main git projektu je `readOnly` s nulami;
   - neplatný rozsah vrací stejný kód jako `read`.
-- Dokumentace: `backend/api/editor/README.md`, `backend/editor/agent_memory/README.md`, `.claude/skills/opora-control-center/references/api.md`.
+- Dokumentace: `backend/api/editor/README.md`, `backend/editor/agent_memory/README.md`, `backend/brain/seed/opora-control-center/skills/opora-control-center/references/api.md`.
 
 ## Frontend: API
 

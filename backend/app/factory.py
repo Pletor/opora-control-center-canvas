@@ -92,6 +92,7 @@ from backend.app.remote_access import (
     is_loopback_only,
     requires_token,
 )
+from backend.brain import local_skills
 from backend.brain_opora.determinism import tokens as gate_tokens
 from backend.brain_opora.determinism import wall as brain_wall
 from backend.canvas import authority as authority_context
@@ -193,6 +194,8 @@ def create_app(data_root=None):
         auto_rebase.start()
         harness_memory.start()
         guardian.start()
+        # Brain: seed a generované skilly lokálních relací (`.claude/skills/`, backend/brain/README.md).
+        await run_in_threadpool(local_skills.start, service)
         flow.start()
         yield
         flow.close()

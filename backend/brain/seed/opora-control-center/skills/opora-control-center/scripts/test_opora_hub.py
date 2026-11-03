@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[7]))
 
 import opora_hub  # noqa: E402
 import opora_write  # noqa: E402

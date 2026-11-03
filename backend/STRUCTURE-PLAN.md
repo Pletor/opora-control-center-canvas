@@ -158,7 +158,7 @@ Zanikají balíčky `domain/`, `agents/`, `maps/` – všechny soubory jsou pře
 | řetězec "backend.domain.service.git" (4 testy) | "backend.canvas.canvas_service.git" |
 
 Beze změny: `pyproject.toml`, `tools/serve-preview.py` (`backend.app`), `tools/tests` (`backend.paths`).
-Dokumentace: `.claude/skills/opora-control-center/references/{source-map,api,graphify}.md`, `docs/pravidla-struktury.md`, README každého balíčku.
+Dokumentace: `backend/brain/seed/opora-control-center/skills/opora-control-center/references/{source-map,api,graphify}.md`, `docs/pravidla-struktury.md`, README každého balíčku.
 
 ## 5. Evidovaný dluh (vyžaduje změnu obsahu souborů, mimo rozsah)
 1. HOTOVO: routery vyjmuty do `api/project/workspace_routes.py`, `api/project/map_refresh_routes.py`; 25 inline rout z `app/factory.py` rozděleno do `api/app_routes.py`, `api/project_setup/project_routes.py`, `api/project/project_workspace_routes.py`, `api/editor/canvas_routes.py`, `api/editor/node_routes.py`. `mcp/` bude volat jen `api/`.

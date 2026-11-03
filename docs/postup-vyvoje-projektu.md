@@ -20,7 +20,7 @@ Aplikace sama agenta nespustí ani nepushne. Agenty spouštíš ty.
 
 1. **OPORA:** v kořeni repa Opory spusť `uv run opora`. Po každé změně Python kódu Opory ji restartuj.
 2. **Projekt:** Ample je v OPORA připojený jako lokální projekt `ample`, id `cc5f34ec07cd455ca5ad1a69af19022b`, pracovní prostor `draft`. Další projekt připojíš na úvodní stránce projektů přes **Typ zdroje → Lokální složka**, kde zadáš originální cestu.
-3. **Skill pro agenty:** `opora-control-center` je dostupný ve všech projektech přes odkaz `~/.claude/skills/opora-control-center`, který vede na repo Opory. Agent díky němu umí číst kartu a zapisovat výsledek.
+3. **Skill pro agenty:** `opora-control-center` je dostupný ve všech projektech přes odkaz `~/.claude/skills/opora-control-center`, který vede na generovanou kopii v repu Opory (aplikace ji při startu vygeneruje z Brainu, zdroj `backend/brain/seed/opora-control-center/`). Agent díky němu umí číst kartu a zapisovat výsledek.
 4. **VS Code:** otevři originální složku projektu. Agenty pouštíš v integrovaném terminálu **v kořeni projektu**.
 
 ## Smyčka jednoho úkolu

@@ -1,7 +1,7 @@
 """Varianta A: starý protokol, jak ho agenti používají dnes (lease, node-brief, block, agent-output).
 
 Skriptovaný agent (bez LLM) projde každou kartu stejně jako skutečný agent podle
-`.claude/skills/opora-control-center/references/legacy.md`: frontier → lease → node-brief →
+`backend/brain/seed/opora-control-center/skills/opora-control-center/references/legacy.md`: frontier → lease → node-brief →
 kroky jako úkoly bloků → práce s commitem po kroku → stav bloku a prostor agenta po kroku →
 `agent-output` → release → review → lidské potvrzení `done.confirmed`.
 """

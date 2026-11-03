@@ -60,7 +60,7 @@ cheaper calls. No arbitrary code runs.
 3. **Recursion: subagents.** The root model splits the question by sections or folders and hands each piece to a
    read-only subagent, which returns condensed findings with `file:line` or a card id.
 
-The skill recipe is `.claude/skills/opora-control-center/references/rlm.md`: `index` → `rank` (or `search`) → read only
+The skill recipe is `backend/brain/seed/opora-control-center/skills/opora-control-center/references/rlm.md`: `index` → `rank` (or `search`) → read only
 the best 2–5 sections → split and delegate where that is not enough → answer with source links.
 
 Rule: any JEV failure answers `None` and the layer above falls back to determinism. Nothing here imports `heart`.

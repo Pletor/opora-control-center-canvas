@@ -25,7 +25,7 @@ Modules (H1b, replaced in PR 5c):
 - The task queue (`task_queue.py`, `task_payloads.py`, table `heart_tasks`, `/api/brain/tasks`, kinds `next`, `report`,
   `release`, `task.create`, `task.cancel`, event `gate.task`) was replaced by the ticket of work (see PR 4 below) and
   deleted without backward compatibility; `drop_retired_tables` drops the old table with its data.
-- Worker client: `.claude/skills/opora-control-center/scripts/opora_gate.py` (reference `references/gate.md`).
+- Worker client: `backend/brain/seed/opora-control-center/skills/opora-control-center/scripts/opora_gate.py` (reference `references/gate.md`).
 
 Modules (H1c, contract `docs/brain-control-api.md`):
 - `kinds.py`: the single table of request kinds (`ask`, `change`, `state`, `inbox`,

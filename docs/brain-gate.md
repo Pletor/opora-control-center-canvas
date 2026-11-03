@@ -118,7 +118,7 @@ a ticket (`docs/navrhy/2026-11-03-novy-zaklad.md` §3.3):
 - **Reading.** `GET /api/brain/tickets?project&workspace&status?` and `GET /api/brain/tickets/{id}?project=`.
 - **Failure.** When the execution is cancelled, `ticket_lifecycle.follow` moves the ticket to `failed` and emits the
   outbox event `ticket.failed {ticketId, status, reason}`; the heart turns it into the input `workFailed`.
-- **Client** `.claude/skills/opora-control-center/scripts/opora_gate.py`, stdlib only:
+- **Client** `backend/brain/seed/opora-control-center/skills/opora-control-center/scripts/opora_gate.py`, stdlib only:
   - commands: `session`, `request`, `claim --ticket [--execution]`, `feedback --ticket --kind TEXT`,
     `deliver --ticket --summary [--sha]`, `release --ticket`, `ask`, `change --reason`, `inbox`, `tell`;
   - the token is kept in `<cwd>/.opora/gate.json`.

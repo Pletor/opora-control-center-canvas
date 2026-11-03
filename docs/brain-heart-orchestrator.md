@@ -131,7 +131,7 @@ vstupy výše; „zapne se, když je potřeba“ je výchozí chování, žádn�
 | O1 pruh | `determinism/wall.py`, `docs/brain-gate.md` §3 | `test_wall.py` |
 | O2 srdce staví karty | `heart/opora_heart.py`, `heart/prompt.md`, `determinism/snapshot.py` (PLÁN) | `test_opora_heart*.py`, `test_snapshot.py` |
 | O3 git | `flow/catalogs/heart/inputs.py`, `git_watch.py`, `determinism/snapshot.py` (GIT), `docs/brain-heart.md` §1 | `test_inputs.py`, `test_git_watch.py`, `test_snapshot.py` |
-| O4 skill | `.claude/skills/opora-control-center/references/srdce.md`, `SKILL.md` | lint skillu |
+| O4 skill | `backend/brain/seed/opora-control-center/skills/opora-control-center/references/srdce.md`, `SKILL.md` | lint skillu |
 | O5 zapnutí | — (klik člověka v panelu Asistent) | `GET /api/brain/gate-setting` |
 
 ## 8. O6 – Kancelář jako kanál člověka (rozhodnutí 2026-10-30)
