@@ -71,8 +71,14 @@ def note(request, node_ids=(), label=""):
 
     Middleware ho přidá v `describe(..., hint=...)` k tomu, co dá tělo; selhání tu nikdy neshodí zápis."""
     hint = getattr(request.state, "activity_hint", None) or {"nodeIds": [], "label": ""}
-    hint = {"nodeIds": [*hint["nodeIds"], *node_ids], "label": label or hint["label"]}
+    hint = {**hint, "nodeIds": [*hint["nodeIds"], *node_ids], "label": label or hint["label"]}
     request.state.activity_hint = hint
+
+
+def note_scope(request, project, workspace):
+    """Projekt a prostor zápisu, který je nemá v těle ani v query (brána je bere z relace)."""
+    hint = getattr(request.state, "activity_hint", None) or {"nodeIds": [], "label": ""}
+    request.state.activity_hint = {**hint, "scope": {"project": project, "workspace": workspace}}
 
 
 def note_from(request, trace):
@@ -96,8 +102,9 @@ def describe(body, query, path="", hint=None):
         payload = {}
     if not isinstance(payload, dict):
         payload = {}
-    project = payload.get("project") or query.get("project") or ""
-    workspace = payload.get("workspace") or query.get("workspace") or ""
+    scope = (hint or {}).get("scope") or {}  # brána: projekt a prostor nese relace, ne tělo
+    project = payload.get("project") or query.get("project") or scope.get("project") or ""
+    workspace = payload.get("workspace") or query.get("workspace") or scope.get("workspace") or ""
     nodes = [payload[key] for key in NODE_KEYS if isinstance(payload.get(key), str) and payload[key]]
     parts = [",".join(sorted(key for key in payload if key not in ("project", "workspace")))]
     plan_text = ""

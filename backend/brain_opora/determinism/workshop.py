@@ -35,7 +35,11 @@ def _rows(service, project, workspace, name):
         db = service.db_for(project)
         if name == "work":
             return TicketStore(db, project).list(workspace, limit=ROWS)
-        return GateTicketStore(db, project).all(workspace, ROWS)
+        # Lístky dělníků a člověka; vlastní zápisy srdce (ticket.issue, cancel, answer) jsou ve `work`.
+        from backend.brain_opora.determinism import kinds  # kinds → snapshot → … ; až za běhu
+
+        rows = GateTicketStore(db, project).all(workspace, ROWS)
+        return [row for row in rows if getattr(kinds.KINDS.get(row["kind"]), "role", "worker") != "heart"]
 
 
 def _memory(service, project, workspace, name):
