@@ -38,6 +38,7 @@ import { architectureEditable, contentLock, structureLock, type LockInput } from
 import { useWorktreeAdmin } from "../logic/use-worktree-admin";
 import { normalizeConflicts } from "../view-conflicts/logic/view-conflicts";
 import EditorNotices from "./EditorNotices";
+import { usePageIntents } from "@/project/intent-canvas/intent-entry/logic/use-page-intents";
 import { pageDecomposeOffer, type PageDecompose } from "../page-editor/page-decompose/logic/page-decompose-prompt";
 
 /** Co editor architektury potřebuje vědět o živé práci: schopnost projektu (od App) a akce, které jdou nahoru do App. */
@@ -46,6 +47,8 @@ export type ArchitectureLiveProps = {
   onSwitchWorkspace: (id: string) => void; onAskHeart: (request: HeartRequest) => void; onCreateWorktree: (domainId: string) => void;
   /** Otevře kartu (App přepne prostor, je-li jiný). */
   onOpenCard: (request: CardRequest) => void;
+  /** Otevře plátno záměru stránky (`projectView=intent&page=<id>`, vyřizuje App). */
+  onOpenIntent?: (pageId: string) => void;
 };
 
 const EMPTY_GRAPH: Graph = { nodes: [], edges: [] };
@@ -73,6 +76,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const admin = useWorktreeAdmin(project, () => { live.refreshWork(); onGraphChanged(); });
   const derivedJourneys = useStudioRuns(project, store.view?.digest).journeys;
   const mapCheck = useMapCheck(project, store.view?.digest);
+  const intents = usePageIntents(project, store.view?.digest);
   const graph = store.view?.graph ?? EMPTY_GRAPH;
   const guards = useCardGuards(project, workspace);
   const worktrees = useMapWorktrees(project, liveProps.worktreeLive, store.view?.digest);
@@ -193,6 +197,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       onOpen={(id) => navigate(id)} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
     : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} initialJourneyId={journeyEdit} onJourneyOpened={() => setJourneyEdit(undefined)} pages={pages} disabled={structureDisabled} onOpen={openScope}
       work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys} cardStates={cards.states} mapCheck={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding} decompose={decompose}
+      intent={liveProps.onOpenIntent && { intents, onOpen: liveProps.onOpenIntent }}
       webBadge={views && !views.work ? webBadge : null}
       live={views?.work ? <LiveDomainPanel web={views.web} work={views.work} announcement={live.announcement} selectedWorktreeId={worktreeId} onSelectWorktree={setWorktreeId} onRefreshWeb={live.refreshWeb} nav={nav}
         actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onAskHeart: liveProps.onAskHeart, onArchive: async (id, reason) => { await admin.archive(id, reason); setWorktreeId((current) => (current === id ? null : current)); } }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/> : null} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}

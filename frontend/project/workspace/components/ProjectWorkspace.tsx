@@ -4,11 +4,16 @@ import type {WorkspaceSelection} from '@/shared/selection/logic/workspace-select
 import ArchitectureEditor, {type ArchitectureLiveProps} from '@/project/architecture-editor/components/ArchitectureEditor';
 import Studio from '@/project/studio/components/Studio';
 import HeartCanvas from '@/project/heart-canvas/components/HeartCanvas';
+import IntentCanvas from '@/project/intent-canvas/components/IntentCanvas';
 
 /** Hlavní stránka skládá hotové komponenty; kontext a dokumentový editor zůstávají v Editoru. */
-export default function ProjectWorkspace({project,workspace,selection,onChange,mapKind,projectName,onGraphChanged,onOpenEditor,onOpenArchitecture,architectureLive}:{
+export default function ProjectWorkspace({project,workspace,selection,onChange,mapKind,intentPage,onCloseIntent,projectName,onGraphChanged,onOpenEditor,onOpenArchitecture,architectureLive}:{
   projectName?:string;
   mapKind:ProjectMapKind;
+  /** Stránka plátna záměru (`page` v adrese); bez ní se záměr neotevře. */
+  intentPage?:string;
+  /** Zpět ze záměru do Architektury projektu; rozsah editoru (doména, stránka) zůstal v adrese. */
+  onCloseIntent?:()=>void;
   project:string;workspace:string;selection:WorkspaceSelection;onChange:(update:Partial<WorkspaceSelection>)=>void;
   onGraphChanged:()=>void;
   onOpenEditor:(id:string)=>void;
@@ -21,6 +26,8 @@ export default function ProjectWorkspace({project,workspace,selection,onChange,m
   if (mapKind === 'studio') return <Studio key={JSON.stringify([project,workspace])} project={project} workspace={workspace} worktreeLive={architectureLive.worktreeLive} onOpenArchitecture={onOpenArchitecture}/>;
   // Srdce (plátno 1) čte workflow srdce projektu, ne obsah worktree; klíč je jen projekt.
   if (mapKind === 'heart') return <HeartCanvas key={project} project={project}/>;
+  // Záměr stránky (plátno 2) patří jedné stránce projektu; zpět vede do Architektury s jejím zachovaným rozsahem.
+  if (mapKind === 'intent' && intentPage) return <IntentCanvas key={project+':'+intentPage} project={project} page={intentPage} onBack={()=>onCloseIntent?.()}/>;
   // Editor architektury se klíčuje jen projektem: přepnutí worktree nechá otevřenou doménu i stránku a jen znovu načte obsah (docs/domeny-a-worktree.md §10).
   if (mapKind === 'architecture') return <ArchitectureEditor key={JSON.stringify([project])} project={project} workspace={workspace} projectName={projectName} onGraphChanged={onGraphChanged} onOpenEditor={onOpenEditor} live={architectureLive}/>;
   return <ProjectLayout key={JSON.stringify([project,workspace])} project={project} workspace={workspace}

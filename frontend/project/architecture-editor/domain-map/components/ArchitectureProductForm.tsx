@@ -5,11 +5,13 @@ import { pageSiteForSave } from "../logic/page-site";
 import PageIntentFields from "./PageIntentFields";
 import PageJourneys from "./PageJourneys";
 import type { PageJourneyRole } from "../logic/page-journeys";
+import IntentButton, { type IntentEntry } from "@/project/intent-canvas/intent-entry/components/IntentButton";
 
 /** Structural identity belongs to the domain map; working specifications stay in Editor.
- * `journeyRoles`: the customer journeys this page lies on, shown read-only (journeys are edited in the funnel). */
-export default function ArchitectureProductForm({ initial, disabled, journeyRoles, onSave, onClose }: {
-  initial: ProductDraft; disabled: boolean; journeyRoles?: PageJourneyRole[]; onSave: (draft: ProductDraft) => Promise<void>; onClose: () => void;
+ * `journeyRoles`: the customer journeys this page lies on, shown read-only (journeys are edited in the funnel).
+ * `intent`: entry to the page intent canvas, offered only for an existing page. */
+export default function ArchitectureProductForm({ initial, disabled, journeyRoles, intent, onSave, onClose }: {
+  initial: ProductDraft; disabled: boolean; journeyRoles?: PageJourneyRole[]; intent?: IntentEntry; onSave: (draft: ProductDraft) => Promise<void>; onClose: () => void;
 }) {
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState("");
@@ -36,7 +38,7 @@ export default function ArchitectureProductForm({ initial, disabled, journeyRole
     <h3>{draft.id ? "Upravit" : "Přidat"} {draft.site.kind === "page" ? "stránku" : "doménu"}</h3>
     <label>Název<input required maxLength={160} disabled={locked} data-testid="architecture-product-name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })}/></label>
     <label>Účel<textarea rows={3} maxLength={4000} disabled={locked} data-testid="architecture-product-purpose" value={draft.purpose} onChange={(event) => setDraft({ ...draft, purpose: event.target.value })}/></label>
-    {draft.site.kind === "page" ? <PageIntentFields site={draft.site} disabled={locked} onChange={(site) => setDraft({ ...draft, site })}/> : draft.site.environments.map((env, index) => <fieldset key={index} disabled={locked}>
+    {draft.site.kind === "page" ? <PageIntentFields site={draft.site} disabled={locked} intent={draft.id && intent ? <IntentButton pageId={draft.id} entry={intent}/> : null} onChange={(site) => setDraft({ ...draft, site })}/> : draft.site.environments.map((env, index) => <fieldset key={index} disabled={locked}>
       <label>Prostředí<select value={env.name} data-testid="architecture-product-environment" onChange={(event) => { if (draft.site.kind === "application") setDraft({ ...draft, site: { ...draft.site, environments: draft.site.environments.map((old, i) => i === index ? { ...old, name: event.target.value } : old) } }); }}><option>Produkce</option><option>Vývoj</option>{!["Produkce", "Vývoj"].includes(env.name) && <option>{env.name}</option>}</select></label>
       <label>Doména<input required data-testid={"architecture-product-host-" + index} placeholder="app.example.cz" value={env.host} onChange={(event) => { if (draft.site.kind === "application") setDraft({ ...draft, site: { ...draft.site, environments: draft.site.environments.map((old, i) => i === index ? { ...old, host: event.target.value } : old) } }); }}/><small>Bez https:// a cesty. {draft.site.kind === "application" && draft.site.environments.length > 1 ? "Tyto hosty sdílejí původní stránky. Oddělení najdete na přehledu domén." : "Tato doména má vlastní stránky a vlastní ID."}</small></label>
     </fieldset>)}

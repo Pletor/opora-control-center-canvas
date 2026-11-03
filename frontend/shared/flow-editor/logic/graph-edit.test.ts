@@ -13,6 +13,10 @@ describe("graph edits return a new graph and leave the version untouched", () =>
     expect(graph.nodes).toHaveLength(4);
     expect(() => addNode(graph, TYPES, "nope", { x: 0, y: 0 })).toThrow(/Neznámý typ/);
   });
+  it("gives a new node the parameters its catalog type describes, empty", () => {
+    const intent = new Map([["intent.view", { type: "intent.view", version: 1, trigger: false, ports: [], params: { section: "id sekce", shows: "co vidí" } }]]);
+    expect(addNode({ nodes: [], edges: [] }, intent, "intent.view", { x: 0, y: 0 }).node.params).toEqual({ section: "", shows: "" });
+  });
   it("adds a sub-node below the agent and wires it to the clicked port", () => {
     const next = addConnected(heartGraph(), TYPES, "tool.opora_heart", { nodeId: "srdce", port: "tool", direction: "in" });
     expect(next.nodes.at(-1)).toMatchObject({ id: "opora_heart", position: { x: 520, y: 200 } });
