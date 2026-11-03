@@ -132,6 +132,15 @@ class WorkTicketBody(BaseModel):
     doneCriteria: list[str]
 
 
+class WorkTicketPin(BaseModel):
+    """Pin Brainu po pluginu (docs/navrhy/2026-11-03-novy-zaklad.md §3.4): zip pro `claude --plugin-dir`."""
+
+    pin: str
+    plugin: str
+    version: str
+    zip: str
+
+
 class WorkTicketNeighbor(BaseModel):
     """Následník nebo předchůdce karty ticketu z grafu (vazba `next` nebo `block`)."""
 
@@ -148,6 +157,7 @@ class WorkTicketMachine(BaseModel):
     profile: str | None
     successors: list[WorkTicketNeighbor]
     predecessors: list[WorkTicketNeighbor]
+    pins: list[WorkTicketPin]
 
 
 class WorkTicketFeedback(BaseModel):

@@ -35,12 +35,16 @@ WORK_BODY_IN = obj({"essence": TEXT, "build": TEXT, "openPaths": TEXTS, "caution
                     "doneCriteria": {**TEXTS, "minItems": 1}}, ("essence", "build", "doneCriteria"))
 WORK_BODY = {**WORK_BODY_IN, "required": ["essence", "build", "openPaths", "cautions", "skills", "doneCriteria"]}
 SLUG = {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"}  # oddělení a profil kanceláře
+BRAIN_REF = {"type": "string", "pattern": "^opora:brain:(skill|tool|workflow|subagent|connector):[A-Za-z0-9][A-Za-z0-9_.-]"
+                                         "{0,79}(@[0-9a-f]{12})?$"}  # artefakt Brainu (bez verze = aktivní)
+PIN = obj({"pin": {"type": "string"}, "plugin": {"type": "string"}, "version": {"type": "string"},
+           "zip": {"type": "string"}}, ("pin", "plugin", "version", "zip"))  # jeden plugin = jeden zip
 NEIGHBORS = {"type": "array", "items": obj({"cardId": ID, "name": {"type": "string"}, "essence": TEXT},
                                            ("cardId", "name"))}  # následníci / předchůdci karty z grafu (ticket.issue)
 MACHINE = obj({"cardId": nullable(ID), "executionId": nullable(ID), "cardVersion": nullable({"type": "integer"}),
                "department": nullable(SLUG), "profile": nullable(SLUG), "successors": NEIGHBORS,
-               "predecessors": NEIGHBORS},
-              ("cardId", "executionId", "cardVersion", "department", "profile", "successors", "predecessors"))
+               "predecessors": NEIGHBORS, "pins": {"type": "array", "items": PIN}},
+              ("cardId", "executionId", "cardVersion", "department", "profile", "successors", "predecessors", "pins"))
 FEEDBACK_KIND = {"type": "string", "enum": ["bug", "idea", "improvement", "question"]}
 FEEDBACK_ITEM = obj({"feedbackId": ID, "kind": FEEDBACK_KIND, "text": TEXT, "answer": ANY},
                     ("feedbackId", "kind", "text", "answer"))
@@ -89,7 +93,8 @@ SCHEMAS = {
                       {"ticketId": "tk_example"}),
     "ticket.issue": (obj({"body": WORK_BODY_IN, "cardId": ID, "executionId": ID,
                           "cardVersion": {"type": "integer", "minimum": 0}, "department": nullable(SLUG),
-                          "profile": nullable(SLUG), "workspace": ID}, ("body",)),
+                          "profile": nullable(SLUG), "pins": {"type": "array", "items": BRAIN_REF}, "workspace": ID},
+                         ("body",)),
                      obj({"ticket": WORK_TICKET}, ("ticket",)),
                      {"body": {"essence": "Návštěvník musí do pěti vteřin poznat, co produkt dělá.",
                                "build": "Hero sekci úvodní stránky s nadpisem, podnadpisem a jedním tlačítkem.",

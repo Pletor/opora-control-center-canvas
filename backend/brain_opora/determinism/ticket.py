@@ -15,6 +15,7 @@ nemění, ticket drží nová relace a vznikne událost `ticket.resumed` `{ticke
 """
 import uuid
 
+from backend.brain import pins
 from backend.brain_opora.determinism import gate, ticket_lifecycle, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, shaped
 from backend.brain_opora.determinism.ticket_model import (
@@ -81,8 +82,10 @@ def _write(service, session, work):
 def issue(service, session, body, now=None):
     """`ticket.issue` (jen srdce): nový ticket ve stavu `issued` v prostoru karty (`workspace`, git projekt má
     karty v prostoru domény), jinak v prostoru tokenu srdce. S `cardId` doplní do strojové vrstvy následníky
-    a předchůdce karty z grafu toho prostoru (`ticket_model.neighbors`); tělo pro dělníka se nemění."""
+    a předchůdce karty z grafu toho prostoru (`ticket_model.neighbors`); tělo pro dělníka se nemění. Piny Brainu
+    přeloží `pins.for_ticket` (neznámé ID 422)."""
     worker_body, machine = issue_payload(body)
+    machine["pins"] = _pins(service, machine["pins"])
     workspace = body.get("workspace") or session["workspace_id"]
     if not gate.workspace_known(service, session["project_id"], workspace):
         raise GateError(404, "workspace_not_found", "Pracovní prostor v projektu neexistuje.",
@@ -95,6 +98,16 @@ def issue(service, session, body, now=None):
         store.insert(new_id, workspace, "issued", worker_body, machine, at)
         return {"ticket": store.get(new_id)}
     return _write(service, session, work)
+
+
+def _pins(service, requested):
+    """ID artefaktů Brainu → piny po pluginech s výchozím ponytailem (registr je list, pod zámkem projektu ne)."""
+    try:
+        with service.registry_lock:
+            return pins.for_ticket(service.db, requested)
+    except (LookupError, ValueError) as error:
+        raise GateError(422, "invalid_payload", str(error),
+                        "ID artefaktů a aktivní piny vrací GET /api/brain-registry/artifacts.") from None
 
 
 def request(service, session, body, now=None):
