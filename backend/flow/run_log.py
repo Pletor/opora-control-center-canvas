@@ -34,6 +34,8 @@ def _project(db, run_id, node_run_id, kind, p, ts):
     elif kind == "node.started":
         db.execute("UPDATE flow_node_runs SET status='running', started_at=?, last_heartbeat_at=? WHERE id=?",
                    (ts, ts, node_run_id))
+    elif kind == "node.heartbeat":
+        db.execute("UPDATE flow_node_runs SET last_heartbeat_at=? WHERE id=? AND status='running'", (ts, node_run_id))
     elif kind == "node.waiting":
         db.execute(
             "UPDATE flow_node_runs SET status='waiting', waiting_for=?, deadline=?, last_heartbeat_at=? WHERE id=?",
@@ -42,8 +44,9 @@ def _project(db, run_id, node_run_id, kind, p, ts):
     elif kind == "node.succeeded":
         db.execute(
             "UPDATE flow_node_runs SET status='succeeded', output_port=?, output_ref=?, ended_at=?, "
-            "last_heartbeat_at=? WHERE id=?",
-            (p["port"], _dump(p.get("output")), ts, ts, node_run_id),
+            "last_heartbeat_at=?, provider=?, model=?, cost_usd=? WHERE id=?",
+            (p["port"], _dump(p.get("output")), ts, ts, p.get("provider"), p.get("model"), p.get("cost_usd"),
+             node_run_id),
         )
     elif kind == "node.failed":
         db.execute("UPDATE flow_node_runs SET status='failed', error=?, ended_at=? WHERE id=?",

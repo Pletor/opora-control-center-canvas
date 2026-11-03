@@ -94,7 +94,10 @@ from backend.app.remote_access import (
 from backend.brain_opora.determinism import tokens as gate_tokens
 from backend.brain_opora.determinism import wall as brain_wall
 from backend.brain_opora.heart.supervisor import HeartSupervisor
+from backend.brain_opora.heart.supervisor import enabled as heart_enabled
 from backend.canvas import authority as authority_context
+from backend.flow.catalogs.heart.driver import HeartDriver, flow_heart_on
+from backend.flow.scheduler import FlowScheduler
 from backend.canvas.activity_log import ActivityLog, HumanRequired, describe
 from backend.canvas.payload_errors import InvalidPayload, NextStep
 from backend.canvas.canvas_service import CanvasService, ProjectNotFound
@@ -177,6 +180,11 @@ def create_app(data_root=None):
     # Srdce mozku: dávky `claude -p` jen pro projekty se zapnutou bránou, jen na loopbacku (docs/brain-heart.md).
     # Před dávkou zařadí vstupy brány přes Jev, jen s povolením projektu (docs/navrhy/2026-10-30-vstupni-brana.md §7).
     heart = HeartSupervisor(service, base_url=f"http://127.0.0.1:{port}", jev=intake_jev)
+    # Plánovač enginu toků (docs/navrhy/2026-11-03-novy-zaklad.md §5 bod 2): `OPORA_FLOW_HEART=on` = dávky srdce
+    # řídí engine a vlákno supervisoru se nespustí; srdce je jediný zapisovatel, oba nikdy neběží zároveň.
+    flow_heart = flow_heart_on()
+    flow = FlowScheduler(service, [HeartDriver(service, heart)] if flow_heart and heart_enabled() else [],
+                         wakeup=heart.wakeup if flow_heart else None)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -186,8 +194,11 @@ def create_app(data_root=None):
         auto_rebase.start()
         harness_memory.start()
         guardian.start()
-        heart.start()
+        if not flow_heart:
+            heart.start()
+        flow.start()
         yield
+        flow.close()
         heart.close()
         map_refresh.close()
         reconciliation.close()
@@ -202,6 +213,7 @@ def create_app(data_root=None):
     app.state.map_refresh = map_refresh
     app.state.reconciliation = reconciliation
     app.state.heart = heart
+    app.state.flow = flow
 
     # Vzdálený přístup přes tunel; bez obou proměnných prostředí je hranice přesně dnešní.
     remote = RemoteAccess.from_env()
