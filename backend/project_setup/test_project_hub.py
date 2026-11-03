@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
 from backend.canvas.canvas_service import CanvasService
-from backend.canvas.site_settings import empty as empty_site
 
 ORIGIN = "http://127.0.0.1:8740"
 HEADERS = {"origin": ORIGIN}
@@ -48,7 +47,7 @@ def test_empty_settings_cas_and_archived_project_are_guarded(tmp_path):
             "project": pid,
             "expected_revision": 0,
             "name": "Renamed",
-            "settings": {"goal": "Ship", "platform": "web", "architecture": "", "tenancy": "", "site": empty_site()},
+            "settings": {"goal": "Ship", "platform": "web", "architecture": "", "tenancy": ""},
         }
         saved = post(client, "/api/project-settings", payload)
         assert saved.status_code == 200 and saved.json()["revision"] == 1
@@ -68,7 +67,7 @@ def test_local_project_rejects_non_absolute_or_missing_paths(tmp_path, path):
         assert response.status_code == 409
 
 
-PROFILE = {"architecture": "", "tenancy": "", "site": empty_site()}
+PROFILE = {"architecture": "", "tenancy": ""}
 
 
 @pytest.mark.parametrize("settings", [
@@ -78,12 +77,9 @@ PROFILE = {"architecture": "", "tenancy": "", "site": empty_site()}
     {"goal": "", "platform": "web", **PROFILE, "provider": "openai-codex", "model": "gpt-5.6", "budgetSeconds": 10},
     # Zápis vyžaduje celou sadu klíčů: starý tvar bez profilu neprojde.
     {"goal": "", "platform": "web"},
-    {"goal": "", "platform": "web", **PROFILE, "architecture": "soa"},
-    {"goal": "", "platform": "web", **PROFILE, "tenancy": "many"},
-    {"goal": "", "platform": "web", **PROFILE, "architecture": None},
-    # Nastavení webu: celý tvar, bez tajemství.
-    {"goal": "", "platform": "web", "architecture": "", "tenancy": ""},
-    {"goal": "", "platform": "web", **PROFILE, "site": {**empty_site(), "email": {"from": "", "replyTo": "", "smtpPassword": "x"}}},
+    {"goal": "", "platform": "web", "architecture": "soa", "tenancy": ""},
+    {"goal": "", "platform": "web", "architecture": "", "tenancy": "many"},
+    {"goal": "", "platform": "web", "architecture": None, "tenancy": ""},
 ])
 def test_settings_schema_and_platform_validation(tmp_path, settings):
     service = CanvasService(tmp_path)
@@ -134,7 +130,7 @@ def test_settings_without_profile_read_with_defaults(tmp_path):
         db.commit()
         current = service.project_hub.settings(pid)
         assert current["revision"] == 2
-        assert current["settings"] == {"goal": "Starý cíl", "platform": "app", **PROFILE}
+        assert current["settings"] == {"goal": "Starý cíl", "platform": "app", "architecture": "", "tenancy": ""}
         # Neznámá hodnota v uloženém profilu (novější verze, ruční zásah) se čte jako nenastaveno.
         db.execute("INSERT INTO project_profile VALUES(?,?,?)", (pid, "mesh", "multi"))
         db.commit()
@@ -148,7 +144,7 @@ def test_profile_round_trip_and_cas(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         pid = post(client, "/api/empty-project", {"name": "Ample", "confirmed": True}).json()["id"]
         fresh = client.get("/api/project-settings", params={"project": pid}).json()
-        assert fresh["settings"] == {"goal": "", "platform": "web", **PROFILE}
+        assert fresh["settings"] == {"goal": "", "platform": "web", "architecture": "", "tenancy": ""}
         profile = {**fresh["settings"], "architecture": "modular", "tenancy": "multi"}
         payload = {"project": pid, "expected_revision": 0, "name": "Ample", "settings": profile}
         saved = post(client, "/api/project-settings", payload)
@@ -160,21 +156,3 @@ def test_profile_round_trip_and_cas(tmp_path):
         assert bad.status_code == 409 and bad.json()["error"] == "Neplatné rozdělení uživatelů projektu."
         reset = post(client, "/api/project-settings", {**payload, "expected_revision": 1, "settings": fresh["settings"]})
         assert reset.json()["settings"]["architecture"] == "" and reset.json()["revision"] == 2
-
-
-def test_site_settings_round_trip_in_project_json_and_reject_secrets(tmp_path):
-    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
-        pid = post(client, "/api/empty-project", {"name": "Web", "confirmed": True}).json()["id"]
-        fresh = client.get("/api/project-settings", params={"project": pid}).json()
-        site = empty_site()
-        site["seo"]["titleTemplate"] = "%s · Zahrada"
-        site["design"]["typography"]["h1"] = "Fraunces 48"
-        payload = {"project": pid, "expected_revision": 0, "name": "Web", "settings": {**fresh["settings"], "site": site}}
-        saved = post(client, "/api/project-settings", payload)
-        assert saved.status_code == 200 and saved.json()["settings"]["site"] == site
-        assert client.get("/api/project-settings", params={"project": pid}).json()["settings"]["site"] == site
-        secret = {**site, "email": {"from": "", "replyTo": "", "smtpPassword": "x"}}
-        refused = post(client, "/api/project-settings", {**payload, "expected_revision": 1,
-                                                         "settings": {**payload["settings"], "site": secret}})
-        assert refused.status_code == 422 and "tajemství" in refused.json()["error"]
-        assert refused.json()["field"] == "settings.site.email.smtpPassword"
