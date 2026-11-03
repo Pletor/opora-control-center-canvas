@@ -1,0 +1,9 @@
+/* VSTUP NA ZÁMĚR (blok `intent-entry`)
+   Tiché tlačítko „Záměr“ mezi akcemi karty stránky a ve formuláři stránky. Hned za slovem visí malý odznak stavu,
+   aby člověk z mapy stránek bez otevírání viděl, které stránky záměr nemají, které čekají na jeho schválení a které
+   zastaraly. Barva odznaku nese naléhavost: zlatá čeká na člověka, zelená platí, červená zastarala, šedá chybí. */
+.intent-entry { display: inline-flex; gap: 6px; align-items: center; }
+.intent-entry__badge { padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--ink-muted); font-size: 10px; font-weight: 600; line-height: 16px; }
+.intent-entry__badge--pending { border-color: var(--gold); color: var(--gold); }
+.intent-entry__badge--approved { border-color: var(--ok); color: var(--ok); }
+.intent-entry__badge--stale { border-color: var(--danger); color: var(--danger); }

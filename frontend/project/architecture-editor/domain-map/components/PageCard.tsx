@@ -11,6 +11,7 @@ import GuardBadge from "@/project/studio/studio-guards/components/GuardBadge";
 import WorktreeBadge from "@/project/studio/studio-worktree/components/WorktreeBadge";
 import PageDecomposeCopy from "../../page-editor/page-decompose/components/PageDecomposeCopy";
 import type { PageDecompose } from "../../page-editor/page-decompose/logic/page-decompose-prompt";
+import IntentButton, { type IntentEntry } from "@/project/intent-canvas/intent-entry/components/IntentButton";
 
 type Actions = {
   disabled: boolean; onOpen: (id: string) => void; onAdd: (parentId: string) => void; onEdit: (node: CanvasNode) => void;
@@ -24,11 +25,13 @@ export type PageWork = { counts: Map<string, number>; highlighted: Set<string> }
  * čipem ID; pod ní cesta, cíl, účel, sekce, cesty zákazníka a podstránky (rekurzivně); pata se souhrnem, dírami, nálezy strážců,
  * odznakem worktree (větev) a tichými akcemi struktury (i „Kopírovat zadání rozkladu“ pro agenta). Rám nese barvu stavu, „staví se“ dýchá;
  * stránka, na které nebo pod kterou se pracuje ve worktree, má dvojitý čárkovaný rám se seříznutým rohem (`domain-map__card--worktree`). */
-export default function PageCard({ branch, index, count, actions, work, journeyRoles, states, decompose }: {
+export default function PageCard({ branch, index, count, actions, work, journeyRoles, states, decompose, intent }: {
   branch: ProductBranch; index: number; count: number; actions: Actions; work?: PageWork; journeyRoles?: Map<string, PageJourneyRole[]>;
   states?: ReadonlyMap<string, CardState>;
   /** Zadání rozkladu stránky pro agenta (§5.2), skládá rodič; chybí = bez tlačítka „Kopírovat zadání rozkladu“. */
   decompose?: PageDecompose;
+  /** Vstup na plátno záměru stránky (tlačítko „Záměr“ s odznakem stavu); chybí = bez tlačítka. */
+  intent?: IntentEntry;
 }) {
   const { node, children } = branch;
   const { disabled } = actions;
@@ -49,7 +52,7 @@ export default function PageCard({ branch, index, count, actions, work, journeyR
       {node.site?.kind === "page" && <PageSections sections={node.site.sections}/>}
       <PageJourneys roles={journeyRoles?.get(node.id) ?? []} pageId={node.id}/>
       <div className="domain-map__subpages">
-        {children.map((child, i) => <PageCard key={child.node.id} branch={child} index={i} count={children.length} actions={actions} work={work} journeyRoles={journeyRoles} states={states} decompose={decompose}/>)}
+        {children.map((child, i) => <PageCard key={child.node.id} branch={child} index={i} count={children.length} actions={actions} work={work} journeyRoles={journeyRoles} states={states} decompose={decompose} intent={intent}/>)}
         {!children.length && <p className="domain-map__empty">Zatím bez podstránek</p>}
         <button type="button" className="domain-map__sub-add" disabled={disabled} data-testid={"architecture-add-page-" + node.id} onClick={() => actions.onAdd(node.id)}>+ Podstránka</button>
       </div>
@@ -63,6 +66,7 @@ export default function PageCard({ branch, index, count, actions, work, journeyR
     </footer>}
     <nav className="domain-map__card-actions" aria-label={`Úpravy stránky ${node.name}`}>
       <button type="button" disabled={disabled} onClick={() => actions.onEdit(node)}>Upravit</button>
+      {intent && <IntentButton pageId={node.id} entry={intent}/>}
       <button type="button" disabled={disabled || index === 0} aria-label={`Posunout ${node.name} dříve`} data-testid={"architecture-page-up-" + node.id} onClick={() => actions.onReorder(node.id, -1)}>←</button>
       <button type="button" disabled={disabled || index === count - 1} aria-label={`Posunout ${node.name} později`} data-testid={"architecture-page-down-" + node.id} onClick={() => actions.onReorder(node.id, 1)}>→</button>
       <button type="button" disabled={disabled} data-testid={"architecture-page-move-" + node.id} onClick={() => actions.onMove(node.id)}>Přesunout</button>

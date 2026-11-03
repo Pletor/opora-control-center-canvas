@@ -13,6 +13,7 @@ import { journeysOfPage, type PageJourneyRole } from "../logic/page-journeys";
 import { navLabelOf } from "../logic/page-site";
 import type { CardState } from "../../card-state/logic/card-state";
 import type { PageDecompose } from "../../page-editor/page-decompose/logic/page-decompose-prompt";
+import type { IntentEntry } from "@/project/intent-canvas/intent-entry/components/IntentButton";
 import "../styles/domain-map.css";
 
 function flatten(branches: ProductBranch[]): CanvasNode[] {
@@ -23,7 +24,7 @@ function flatten(branches: ProductBranch[]): CanvasNode[] {
  * Step 2: the only place where structure changes: pages, sub-pages, order, navigation. The parent saves; this part reports edits upward.
  * `live` = third column (only projects with worktrees); `webBadge` = web state in the domain panel when there is no live column.
  */
-export default function ArchitectureDomainMap({ domain, pages, disabled, live, webBadge, work, derivedJourneys, cardStates, mapCheck, onOpenFinding, decompose, initialDraftParentId, onDraftOpened, initialJourneyId, onJourneyOpened, onOpen, onSave, onReorder, onReparent, onRemove }: {
+export default function ArchitectureDomainMap({ domain, pages, disabled, live, webBadge, work, derivedJourneys, cardStates, mapCheck, onOpenFinding, decompose, intent, initialDraftParentId, onDraftOpened, initialJourneyId, onJourneyOpened, onOpen, onSave, onReorder, onReparent, onRemove }: {
   domain: CanvasNode; pages: ProductBranch[]; disabled: boolean; live?: ReactNode; webBadge?: ReactNode; work?: PageWork;
   /** Odvozené kroky cest zákazníka celého projektu (backend §6); null = zatím nenačteno nebo nedostupné. */
   derivedJourneys?: DerivedJourney[] | null;
@@ -36,6 +37,8 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
   mapCheck?: MapCheckGroup[] | null; onOpenFinding?: (target: MapCheckTarget) => void;
   /** Zadání rozkladu stránky pro agenta (§5.2) pro tlačítko na kartě stránky; skládá rodič. */
   decompose?: PageDecompose;
+  /** Vstup na plátno záměru stránky pro karty i formulář stránky; skládá rodič. */
+  intent?: IntentEntry;
   onSave: (draft: ProductDraft) => Promise<void>; onReorder: (id: string, direction: -1 | 1) => void;
   onReparent: (id: string, parentId: string) => Promise<void>; onRemove: (id: string) => void;
 }) {
@@ -56,7 +59,7 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
       <p className="domain-map__kicker">MAPA STRÁNEK · {host || domain.name}</p>
       <h2 className="domain-map__title">Navigace domény</h2>
       <p className="domain-map__lead">Hlavní stránky se zobrazují v navigaci. Podstránky patří ke svému rodiči.</p>
-      {draft && <ArchitectureProductForm key={draft.id ?? draft.parentId} initial={draft} disabled={disabled} journeyRoles={draft.id ? journeyRoles.get(draft.id) : undefined} onSave={onSave} onClose={() => setDraft(null)}/>}
+      {draft && <ArchitectureProductForm key={draft.id ?? draft.parentId} initial={draft} disabled={disabled} journeyRoles={draft.id ? journeyRoles.get(draft.id) : undefined} intent={intent} onSave={onSave} onClose={() => setDraft(null)}/>}
       {moving && <MovePageForm key={moving} domainId={domain.id} candidates={flatten(pages).filter((node) => node.id !== moving)} disabled={disabled}
         onSubmit={(parentId) => onReparent(moving, parentId).then(() => setMoving(null))} onCancel={() => setMoving(null)}/>}
       <nav className="domain-map__navbar" aria-label="Hlavní navigace stránek" data-testid="architecture-navbar">
@@ -64,7 +67,7 @@ export default function ArchitectureDomainMap({ domain, pages, disabled, live, w
         {pages.map(({ node }) => <button type="button" key={node.id} className="domain-map__navbar-item" onClick={() => onOpen(node.id)}>{navLabelOf(node)}</button>)}
       </nav>
       <div className="domain-map__grid">
-        {pages.map((branch, index) => <PageCard key={branch.node.id} branch={branch} index={index} count={pages.length} actions={actions} work={work} journeyRoles={journeyRoles} states={cardStates} decompose={decompose}/>)}
+        {pages.map((branch, index) => <PageCard key={branch.node.id} branch={branch} index={index} count={pages.length} actions={actions} work={work} journeyRoles={journeyRoles} states={cardStates} decompose={decompose} intent={intent}/>)}
       </div>
       {!pages.length && <p className="domain-map__empty">Přidejte první stránku této domény.</p>}
       {mapCheck && <MapCheckPanel groups={mapCheck} onSelect={(target) => target.kind === "page" ? onOpen(target.id) : onOpenFinding?.(target)}/>}
