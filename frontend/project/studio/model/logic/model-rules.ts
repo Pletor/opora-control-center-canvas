@@ -1,9 +1,10 @@
 // Pravidla definice modelu (prototyp `model.mjs`): nová komponenta z katalogu, kontrola vazby (výstup → vstup, stejný
 // datový typ, role Studia, bez duplicit), připojení a odebrání komponenty jako čisté funkce, které vrací nový model,
 // a validace celé definice `opora.studio-model/1` s limity úložiště (≤ 1000 komponent, ≤ 5000 vazeb).
+import { pairError, type PortEnd } from "@/shared/flow-editor/logic/connection-policy";
 import { componentType } from "./catalog";
 import { roleConnectionError, STUDIO_POLICY, type ConnectionPolicy } from "./connection-policy";
-import { STUDIO_MODEL_SCHEMA, type Point, type PortRef, type StudioModel, type StudioModelEdge, type StudioModelNode } from "./model-types";
+import { STUDIO_MODEL_SCHEMA, type Point, type Port, type PortRef, type PortType, type StudioModel, type StudioModelEdge, type StudioModelNode } from "./model-types";
 
 export const MAX_NODES = 1000;
 export const MAX_EDGES = 5000;
@@ -23,15 +24,15 @@ export function connectionError(model: Graph, from: PortRef | null | undefined, 
   if (!from || !to) return "Chybí koncový bod.";
   const a = model.nodes.find((n) => n.id === from.nodeId), b = model.nodes.find((n) => n.id === to.nodeId);
   if (!a || !b) return "Komponenta neexistuje.";
-  if (a.id === b.id) return "Komponentu nelze propojit samu se sebou.";
   const out = componentType(a.type)?.ports.find((p) => p.id === from.portId), input = componentType(b.type)?.ports.find((p) => p.id === to.portId);
-  if (out?.direction !== "output" || input?.direction !== "input") return "Vazba musí vést z výstupu na vstup.";
-  if (out.type !== input.type) return `Nekompatibilní porty: ${out.type} → ${input.type}.`;
-  const roleError = roleConnectionError(a, b, out.type, policy);
-  if (roleError) return roleError;
-  if (model.edges.some((e) => e.id !== ignoreId && e.from.nodeId === a.id && e.from.portId === out.id && e.to.nodeId === b.id && e.to.portId === input.id))
-    return "Tato vazba již existuje.";
-  return null;
+  // Společná pravidla vazby (shared/flow-editor); port se špatným směrem se bere jako neexistující a hlásí směr.
+  const end = (nodeId: string, port: Port | undefined, portId: string, direction: "in" | "out"): PortEnd =>
+    ({ nodeId, port: portId, direction, kind: port?.direction === (direction === "out" ? "output" : "input") ? port.type : null });
+  return pairError(end(a.id, out, from.portId, "out"), end(b.id, input, to.portId, "in"), {
+    self: "Komponentu nelze propojit samu se sebou.", missing: "Vazba musí vést z výstupu na vstup.",
+    extra: (f) => roleConnectionError(a, b, f.kind as PortType, policy),
+    exists: () => model.edges.some((e) => e.id !== ignoreId && e.from.nodeId === a.id && e.from.portId === from.portId && e.to.nodeId === b.id && e.to.portId === to.portId),
+  });
 }
 
 /** Nový model s přidanou vazbou; neplatná vazba hodí chybu a model zůstane, jak byl. */

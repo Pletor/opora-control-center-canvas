@@ -2,11 +2,10 @@
 // Adapter, hledání v názvu, kategorii, poskytovateli i typech portů. Řízený Pod se samostatně nenabízí, vzniká uvnitř
 // Kubernetes Deployment (stejně jako nabídka cílů vazby). Čistá logika bez Reactu.
 import { catalog } from "../../model/logic/catalog";
+import { groupInOrder, matchesWords, searchWords } from "@/shared/flow-editor/node-palette/logic/palette-search";
 import type { ComponentType } from "../../model/logic/model-types";
 
 export const PALETTE_GROUPS = ["Web", "Data", "Control", "Event", "Deployment", "Adapter"] as const;
-/** Typ komponenty přetahovaný z katalogu na plátno (HTML drag and drop). */
-export const PALETTE_DRAG_TYPE = "application/x-opora-studio-type";
 
 export type PaletteItem = { id: string; name: string; icon: string; provider: string; summary: string };
 export type PaletteGroup = { id: string; items: PaletteItem[] };
@@ -16,15 +15,12 @@ function summary(type: ComponentType): string {
   return `${type.ports.length} ${type.ports.length === 1 ? "port" : type.ports.length < 5 ? "porty" : "portů"} · ${kinds.join(" · ")}`;
 }
 
-const haystack = (type: ComponentType) => [type.id, type.name, type.category, type.provider ?? "", ...type.ports.map((port) => port.type)].join(" ").toLowerCase();
+const haystack = (type: ComponentType) => [type.id, type.name, type.category, type.provider ?? "", ...type.ports.map((port) => port.type)].join(" ");
 
 export function paletteGroups(query = "", types: readonly ComponentType[] = catalog): PaletteGroup[] {
-  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const shown = types.filter((type) => type.id !== "pod" && words.every((word) => haystack(type).includes(word)));
-  const order = [...PALETTE_GROUPS, ...new Set(shown.map((type) => type.group).filter((group) => !(PALETTE_GROUPS as readonly string[]).includes(group)))];
+  const words = searchWords(query);
   // Obecné typy (bez poskytovatele) jako první, cloudové a technologické profily za nimi; jinak pořadí katalogu.
-  const ranked = [...shown].sort((a, b) => Number(!!a.provider) - Number(!!b.provider));
-  return order.map((id) => ({ id, items: ranked.filter((type) => type.group === id)
-    .map((type) => ({ id: type.id, name: type.name, icon: type.icon, provider: type.provider ?? "", summary: summary(type) })) }))
-    .filter((group) => group.items.length > 0);
+  const shown = types.filter((type) => type.id !== "pod" && matchesWords(haystack(type), words)).sort((a, b) => Number(!!a.provider) - Number(!!b.provider));
+  return groupInOrder(shown, PALETTE_GROUPS).map((group) => ({ id: group.id, items: group.items
+    .map((type) => ({ id: type.id, name: type.name, icon: type.icon, provider: type.provider ?? "", summary: summary(type) })) }));
 }

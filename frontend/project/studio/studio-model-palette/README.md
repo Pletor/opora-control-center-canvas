@@ -5,5 +5,5 @@ Event, Deployment, Adapter, hledání a sbalitelné skupiny. Klik přidá kompon
 puštění; samotné přidání (`createNode` + `withSimulationDefaults`) dělá rodič. Řízený Pod se samostatně nenabízí.
 
 - `components/ModelPalette.tsx` (hledání, sbalení), `components/PaletteGroup.tsx` (skupina a položky, drag and drop).
-- `logic/palette-groups.ts` – skupiny, hledání, souhrn portů, typ přetahovaných dat (`PALETTE_DRAG_TYPE`).
+- `logic/palette-groups.ts` – skupiny, hledání, souhrn portů.
 - `styles/studio-model-palette.css`, blok `studio-model-palette`.

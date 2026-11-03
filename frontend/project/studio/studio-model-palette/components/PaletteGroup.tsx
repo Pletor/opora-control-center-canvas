@@ -1,4 +1,5 @@
-import { PALETTE_DRAG_TYPE, type PaletteGroup as Group } from "../logic/palette-groups";
+import { PALETTE_DRAG_TYPE } from "@/shared/flow-editor/node-palette/logic/palette";
+import type { PaletteGroup as Group } from "../logic/palette-groups";
 
 /** Jedna skupina katalogu: hlavička s názvem a počtem sbalí nebo rozbalí seznam; položka nese ikonu typu, název,
  * poskytovatele a souhrn portů. Položku jde přetáhnout na plátno (nese id typu) nebo kliknutím přidat. */
