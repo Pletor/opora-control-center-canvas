@@ -46,6 +46,8 @@ class Built:
         self.fragment_refs = {}
         # id karty → jméno položky, jejíž `card.section` dávka zapsala; ověří `check_sections`.
         self.sections = {}
+        # id uzlů, kterým dávka zapsala značku Schránky (nové i `extend`); jejich jedinečnost hlídá `check_unique`.
+        self.marked = set()
 
     def new_graph(self):
         return {"nodes": [*self.graph["nodes"], *self.nodes], "edges": [*self.graph["edges"], *self.edges]}
@@ -104,10 +106,10 @@ def build(plan, graph, state):
             built.graph = arrange(built.graph, area, move["order"], move["columns"])
     for index, item in enumerate(edges_in):
         edge_of(built, item, f"edges[{index}]", resolve)
-    if any("briefGroup" in item or "briefDiscipline" in item for item in nodes_in):
+    if built.marked:
         # Značky struktury Schránky: nejvýš jedna oblast skupiny a jeden sektor disciplíny v kontejneru.
         from backend.editor.brief_vault.brief_vault_marks import check_unique
-        check_unique(built.new_graph(), built.state, {node["id"] for node in built.nodes})
+        check_unique(built.new_graph(), built.state, built.marked)
     for index, item in enumerate(decisions_in):
         label = f"decisions[{index}]"
         fields(item, DECISION_FIELDS, {"text"}, label)
@@ -209,3 +211,4 @@ def _node(built, item, parents, kinds, existing):
     if "briefGroup" in item or "briefDiscipline" in item:
         from backend.editor.brief_vault.brief_vault_marks import plan_marks
         plan_marks(built, item, node_id)
+        built.marked.add(node_id)

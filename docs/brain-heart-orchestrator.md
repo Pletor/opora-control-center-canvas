@@ -67,6 +67,13 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
   (node|sector|area), name, parent, purpose, spec, sourceRef, position, size, memberOf` a pole karty `card` (i `effort`), `checks`,
   `goal_mode` se stejnou validací jako dávka plánu (`validate_graph`), vazby `next`; jiná pole odmítne (`code: plan_shape`) dřív než server. `--dry-run` ověří
   přírůstek dávkou plánu s `dryRun`. Výstup: `acceptSteps: ["graph_addition", "accept"]`, `proposalId`, `refs`.
+  Stav karty (`blocks` s porty, `text`, `fragmentRef` = vazba na zadání ve Schránce, `briefGroup` oblasti,
+  `briefDiscipline` sektoru) návrh grafu nenese: dávka ho smí mít u uzlu jako první plán (i dávka generátoru Schránky)
+  a po přijetí karet ho zapíše jedna dávka plánu `extend` (`acceptSteps` `card_state`) spolu s položkami `extend`
+  dávky pro existující přijaté karty (`node: "@<id>"`, jen stav karty: `blocks`, `ports`, `replaceBlocks`, `text`,
+  `fragmentRef`, značky; bez `expectedRevision` doplní revizi stavu nástroj; `spec` a pole grafu odmítne, zadání mění
+  `steps --node`). Vazby `block` (i z portu existující karty) jdou pak druhým návrhem grafu. Dávka se stavem karet,
+  `extend` nebo vazbou `block` se před prvním zápisem celá ověří dávkou plánu s `dryRun`, takže chybný port nic nezapíše.
   Žádná routa ani agent-state se neměnily. Test: `backend/api/brain_opora/test_heart_plan.py` (plán 1 → claim
   ready; plán 2 se sektorem `@id` a vazbou na existující kartu → nová karta ready, dřívější ready zůstal).
 - **O2d – členství existujících uzlů v oblasti.** Srdce smí návrhem grafu změnit i existující uzly, ale jen
