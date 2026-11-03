@@ -97,6 +97,8 @@ def test_cards_waiting_for_a_human_approval_or_review_block_only_themselves(serv
     assert reasons == {"w1": "waiting_human"}
     assert found[0][1]["waitingHuman"]["cards"] == [{"nodeId": "mig", "pr": 82, "why": "approval"},
                                                      {"nodeId": "res", "pr": None, "why": "review"}]
+    held["cards"][0]["gate"]["rule"] = "review_round_cap_reached"  # STALL-002: #92 za stropem kol čeká na člověka
+    assert idle.wakes(service, "draft", ["w1"], "at", NOW + 1, read=read)[1] == {"w1": "waiting_human"}
     held["cards"][0]["gate"]["rule"] = "self_checks_missing"
     assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)[1] == {"w1": None}
     held["cards"] = [held["cards"][1]]
@@ -116,6 +118,18 @@ def test_review_cards_whose_pr_closed_unmerged_do_not_hold_the_frontier(service)
     assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)[1] == {"w1": "waiting_human"}
     stuck["cards"][0]["pr"]["state"] = "open"
     assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)[1] == {"w1": None}
+
+
+def test_accepted_tasks_without_steps_ride_along_with_the_wake(service):
+    """STALL-002: accepted task cards without steps and blockers cannot be claimed until the heart writes their steps."""
+    plan = state()
+    plan["cards"] = [{"nodeId": "late", "stage": "plan", "kind": "task", "topoIndex": 9, "steps": {"total": 0}},
+                     {"nodeId": "early", "stage": "plan", "kind": "task", "topoIndex": 2, "steps": {"total": 0}},
+                     {"nodeId": "stepped", "stage": "plan", "kind": "task", "steps": {"total": 3}},
+                     {"nodeId": "waits", "stage": "plan", "kind": "task", "blockedBy": ["x"], "steps": {"total": 0}},
+                     {"nodeId": "area", "stage": "plan", "kind": None}]
+    _, read = reader(state=plan)
+    assert idle.wakes(service, "draft", ["w1"], "at", NOW, read=read)[0][0][1]["unplanned"] == ["early", "late"]
 
 
 def test_less_than_ten_minutes_or_no_activity_does_not_wake_yet(service):
