@@ -136,6 +136,8 @@ class WorkTicketMachine(BaseModel):
     cardId: str | None
     executionId: str | None
     cardVersion: int | None
+    department: str | None
+    profile: str | None
 
 
 class WorkTicketFeedback(BaseModel):

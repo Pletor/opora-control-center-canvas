@@ -30,14 +30,19 @@ python "<SKILL_DIR>/scripts/opora_gate.py" tell "Záměr člověka doslova"
 
 1. `request` → `answer = {ticket, held}`: ticket, který držíš, jinak nejstarší vydaný (`issued`) v prostoru; nic =
    `ticket: null`, práci si nevymýšlej. Ticket je `{ticketId, status, body, machine, feedback}`; `body` je
-   `{essence, build, openPaths[], cautions[], skills[], doneCriteria[]}`, `machine` `{cardId, executionId, cardVersion}`.
+   `{essence, build, openPaths[], cautions[], skills[], doneCriteria[]}`, `machine` `{cardId, executionId, cardVersion,
+   department, profile}`; `department` / `profile` (oddělení a profil kanceláře, slug nebo null) určuje srdce
+   v `ticket.issue`.
 2. `claim` ticket vezme (`issued` → `claimed`); s `--execution` ho naváže na běžící exekuci karty, stav pak posouvá
    i exekuce (ověřeno, sloučeno = `verified` → `closed`, zrušená exekuce = `failed`, srdce se o tom dozví).
+   Převzetí po restartu nebo vypršení relace: `claim` na rozpracovaný ticket jiné relace projde, když pošleš
+   `--execution` shodné s `machine.executionId`, nebo když relace držitele vypršela; stav zůstane, ticket držíš ty
+   (událost `ticket.resumed`). `request` cizí ticket sám nenabídne, převzetí je jen výslovné přes `claim`.
 3. Pracuj podle `build` a `doneCriteria`, dbej `cautions`. Zpětná vazba (`bug`, `idea`, `improvement`, `question`)
    jde přes `feedback`; otázka přepne ticket na `needs_answer` a odpověď srdce uvidíš v `request` (`feedback[].answer`).
 4. `deliver` se shrnutím (a sha z `git rev-parse HEAD`) → `delivered`. S otevřenou otázkou nejde.
 5. Nedostal jsi místo ani exekuci: `release` vrátí vzatý ticket do fronty (`claimed` → `issued`). Rozpracovaný vrátit nejde.
-6. Chyby: `ticket_not_held` (409, ticket nedržíš), `ticket_state` (409, nepovolený přechod; hint vypíše povolené),
+6. Chyby: `ticket_not_held` (409, ticket nedržíš nebo ho drží jiná živá relace s jinou exekucí), `ticket_state` (409, nepovolený přechod; hint vypíše povolené),
    `ticket_execution` (409), `ticket_not_found` (404), `invalid_payload` (422), `gate_token_invalid` (401, nová
    `session`), `gate_scope` (403, jiný projekt).
 

@@ -9,6 +9,9 @@ do `gate_tickets` (událost `gate.ticket`). Nic tu nevolá model.
 `ticket.claim` s `executionId` naváže ticket na běžící exekuci karty (`ticket_lifecycle.bind`); odevzdaný ticket pak
 posouvají fakta exekuce (`ticket_lifecycle.follow`: ověřeno, sloučeno, zrušeno). `ticket.release` vrátí vzatý ticket
 (`claimed` → `issued`), když kancelář nedostala místo ani exekuci.
+Převzetí: `ticket.claim` jiné relace téhož prostoru na držený ticket projde, když nese `executionId` exekuce ticketu
+(tatáž exekuce po restartu kanceláře) nebo když relace držitele vypršela, je zneplatněná či neexistuje. Stav se
+nemění, ticket drží nová relace a vznikne událost `ticket.resumed` `{ticketId, fromSession, toSession}`.
 """
 import uuid
 
@@ -23,7 +26,9 @@ from backend.brain_opora.determinism.ticket_model import (
     issue_payload,
     ticket_id,
 )
-from database.repositories.tickets import TicketStore
+from backend.canvas.opora_events import emit_event
+from database.repositories.gate_sessions import GateSessionStore
+from database.repositories.tickets import HELD, TicketStore
 
 MISSING_HINT = "ID ticketu vrací ticket.request nebo GET /api/brain/tickets."
 HELD_HINT = "Pracujte jen s ticketem, který jste vzali přes ticket.claim; svůj vrátí ticket.request."
@@ -99,14 +104,40 @@ def request(service, session, body, now=None):
     return {"ticket": for_worker(ticket) if ticket else None, "held": held is not None}
 
 
+def _holder_gone(db, session_id, at):
+    """Relace držitele vypršela, je zneplatněná nebo neexistuje."""
+    holder = GateSessionStore(db).get(session_id)
+    return (holder is None or holder["revoked_at"] is not None
+            or (holder["expires_at"] is not None and holder["expires_at"] <= at))
+
+
+def _take_over(store, session, ticket, execution_id, at):
+    """Převzetí drženého ticketu jinou relací (tatáž exekuce, nebo držitel už neplatí); jinak 409 `ticket_not_held`."""
+    same_execution = execution_id is not None and execution_id == ticket["machine"]["executionId"]
+    if not same_execution and not _holder_gone(store.db, ticket["sessionId"], at):
+        raise GateError(409, "ticket_not_held", "Ticket drží jiná živá relace.", HELD_HINT)
+    if execution_id and not same_execution:
+        ticket_lifecycle.bind(store.db, store.project, ticket, execution_id)
+    if not store.take_over(ticket["ticketId"], ticket["status"], ticket["sessionId"], session["id"], at,
+                           execution_id):
+        raise GateError(409, "ticket_state", "Ticket mezitím změnil stav.", "Načtěte ho znovu přes ticket.request.")
+    emit_event(store.db, project_id=store.project, workspace_id=ticket["workspaceId"], kind="ticket.resumed",
+               node_id=ticket["machine"]["cardId"], execution_id=execution_id or ticket["machine"]["executionId"],
+               data={"ticketId": ticket["ticketId"], "fromSession": ticket["sessionId"], "toSession": session["id"]})
+
+
 def claim(service, session, body, now=None):
-    """`ticket.claim`: vydaný ticket připíše relaci (`issued` → `claimed`); vzatý nebo uzavřený je 409.
-    S `executionId` ho naváže na běžící exekuci karty ticketu (jinak 409 `ticket_execution`)."""
+    """`ticket.claim`: vydaný ticket připíše relaci (`issued` → `claimed`); uzavřený je 409 `ticket_state`.
+    S `executionId` ho naváže na běžící exekuci karty ticketu (jinak 409 `ticket_execution`). Ticket držený
+    jinou relací převezme (`_take_over`)."""
     wanted, execution_id = claim_payload(body)
     at = tokens.stamp(now)
 
     def work(store):
         ticket = _found(store, session, wanted)
+        if ticket["status"] in HELD and ticket["sessionId"] not in (None, session["id"]):
+            _take_over(store, session, ticket, execution_id, at)
+            return {"ticket": for_worker(store.get(wanted))}
         advance(ticket["status"], "claimed")  # nejdřív stav (409 ticket_state), pak vazba na exekuci
         if execution_id:
             ticket_lifecycle.bind(store.db, store.project, ticket, execution_id)

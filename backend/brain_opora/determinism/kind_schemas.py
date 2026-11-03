@@ -34,8 +34,10 @@ WORK_BODY_IN = obj({"essence": TEXT, "build": TEXT, "openPaths": TEXTS, "caution
                     "skills": {"type": "array", "items": {"type": "string", "pattern": "^/?[A-Za-z0-9][A-Za-z0-9_.:-]*@.+$"}},
                     "doneCriteria": {**TEXTS, "minItems": 1}}, ("essence", "build", "doneCriteria"))
 WORK_BODY = {**WORK_BODY_IN, "required": ["essence", "build", "openPaths", "cautions", "skills", "doneCriteria"]}
-MACHINE = obj({"cardId": nullable(ID), "executionId": nullable(ID), "cardVersion": nullable({"type": "integer"})},
-              ("cardId", "executionId", "cardVersion"))
+SLUG = {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"}  # oddělení a profil kanceláře
+MACHINE = obj({"cardId": nullable(ID), "executionId": nullable(ID), "cardVersion": nullable({"type": "integer"}),
+               "department": nullable(SLUG), "profile": nullable(SLUG)},
+              ("cardId", "executionId", "cardVersion", "department", "profile"))
 FEEDBACK_KIND = {"type": "string", "enum": ["bug", "idea", "improvement", "question"]}
 FEEDBACK_ITEM = obj({"feedbackId": ID, "kind": FEEDBACK_KIND, "text": TEXT, "answer": ANY},
                     ("feedbackId", "kind", "text", "answer"))
@@ -83,14 +85,15 @@ SCHEMAS = {
     "ticket.cancel": (obj({"ticketId": ID}, ("ticketId",)), obj({"ticket": WORK_STATUS}, ("ticket",)),
                       {"ticketId": "tk_example"}),
     "ticket.issue": (obj({"body": WORK_BODY_IN, "cardId": ID, "executionId": ID,
-                          "cardVersion": {"type": "integer", "minimum": 0}, "workspace": ID}, ("body",)),
+                          "cardVersion": {"type": "integer", "minimum": 0}, "department": nullable(SLUG),
+                          "profile": nullable(SLUG), "workspace": ID}, ("body",)),
                      obj({"ticket": WORK_TICKET}, ("ticket",)),
                      {"body": {"essence": "Návštěvník musí do pěti vteřin poznat, co produkt dělá.",
                                "build": "Hero sekci úvodní stránky s nadpisem, podnadpisem a jedním tlačítkem.",
                                "openPaths": ["Tlačítko později povede na registraci."],
                                "cautions": ["Neměň sdílenou navigaci."], "skills": ["ponytail@5.3.3"],
                                "doneCriteria": ["npm test projde", "hero je vidět bez posunu"]},
-                      "cardId": "hero", "cardVersion": 3}),
+                      "cardId": "hero", "cardVersion": 3, "department": "design", "profile": "frontend"}),
     "ticket.answer": (obj({"ticketId": ID, "text": TEXT, "feedbackId": ID}, ("ticketId", "text")),
                       obj({"ticket": {"description": "Bez feedbackId zodpovězený lístek otázky (TICKET), s ním "
                                                      "{ticketId, status} ticketu práce."},

@@ -3,12 +3,12 @@
     python opora_heart.py snapshot
     python opora_heart.py task --title T --do D [--why W] [--file F]… --done-when C [--done-when C]…
                                [--dont-touch P[@kdo]]… [--rule R]… [--open-path O]… [--intent I] [--node N]
-                               [--workspace W]
+                               [--department D] [--profile P] [--workspace W]
     python opora_heart.py plan --file F [--dry-run] [--no-accept] [--workspace W]
     python opora_heart.py plan --example
     python opora_heart.py workspace --domain NODE [--reuse]
     python opora_heart.py answer --ticket ID --text T
-    python opora_heart.py ticket-issue --file @ticket.json|JSON   (vydá ticket práce, druh brány ticket.issue)
+    python opora_heart.py ticket-issue --file @ticket.json|JSON [--department D] [--profile P]   (druh brány ticket.issue)
     python opora_heart.py ticket-answer --ticket ID --text T [--feedback FEEDBACK_ID]   (druh brány ticket.answer)
     python opora_heart.py cancel --task TICKET_ID   (zruší ticket práce, druh brány ticket.cancel)
     python opora_heart.py escalate --text T
@@ -44,7 +44,8 @@ po řádcích a Grep vrací položky) a vypíše jen cestu, počet a velikost;
 ve vlastní skupině procesů (po vypršení zemře celý strom i s pod-voláními `claude`) a zapíše řádek do `dilna/runs.jsonl`.
 `task` vydá práci jen jako ticket (`ticket.issue`, docs/navrhy/2026-11-03-novy-zaklad.md §3.3) s `cardId` = `--node`:
 podstata = `--why` (jinak titulek, `--intent` jako pocit), co postavit = titulek, `--do` a soubory, otevřené cesty =
-`--open-path`, na co si dát pozor = `--dont-touch` a `--rule`, kritérium hotovo = `--done-when` (povinné); ID brány
+`--open-path`, na co si dát pozor = `--dont-touch` a `--rule`, kritérium hotovo = `--done-when` (povinné), oddělení a
+profil kanceláře = `--department` / `--profile` (strojová vrstva ticketu); ID brány
 v textu tělo nenese (nahradí je „(ID)“). Ticket vzniká v prostoru `--workspace` (jinak v prostoru tokenu srdce);
 pořadí práce = pořadí vydání.
 `plan` (docs/brain-heart-orchestrator.md §3) pošle dávku plánu ze souboru F na `/api/canvas-plan` s čerstvým digestem
@@ -212,8 +213,13 @@ def work_ticket(args):
     body = {"essence": ticket_text(essence), "build": ticket_text("\n".join([args.title, args.do, *files])),
             "openPaths": ticket_texts(args.open_path), "cautions": ticket_texts(cautions + args.rule),
             "doneCriteria": ticket_texts(args.done_when)}
-    return ({"body": body} | ({"cardId": args.node} if args.node else {})
+    return ({"body": body} | ({"cardId": args.node} if args.node else {}) | office(args)
             | ({"workspace": args.workspace} if args.workspace else {}))
+
+
+def office(args):
+    """`--department` / `--profile`: oddělení a profil kanceláře do strojové vrstvy ticketu (jen zadané)."""
+    return {key: value for key, value in (("department", args.department), ("profile", args.profile)) if value}
 
 
 def issue_work(args):
@@ -268,7 +274,8 @@ def gate_ticket(args):
     """Ticket práce přes bránu tokenem srdce (docs/navrhy/2026-11-03-novy-zaklad.md §3.3): vydání nebo odpověď."""
     if args.command == "ticket-issue":
         kind, body = "ticket.issue", read_json(args.file, "ticket_file", "Soubor {body, cardId?, executionId?, "
-                                                "cardVersion?}; vzor je v GET /api/gate/kinds u ticket.issue.")
+                                                "cardVersion?, department?, profile?}; vzor je v GET /api/gate/kinds"
+                                                " u ticket.issue.") | office(args)
     else:
         kind = "ticket.answer"
         body = {"ticketId": args.ticket, "text": args.text} | ({"feedbackId": args.feedback} if args.feedback else {})
@@ -1205,7 +1212,7 @@ def parser():
     task.add_argument("--why")
     for flag in ("--file", "--done-when", "--dont-touch", "--rule", "--open-path"):
         task.add_argument(flag, action="append", default=[])
-    for flag in ("--intent", "--node", "--workspace"):
+    for flag in ("--intent", "--node", "--department", "--profile", "--workspace"):
         task.add_argument(flag)
     plan = commands.add_parser("plan")
     plan.add_argument("--file")
@@ -1249,7 +1256,10 @@ def parser():
     answer = commands.add_parser("answer")
     answer.add_argument("--ticket", required=True)
     answer.add_argument("--text", required=True)
-    commands.add_parser("ticket-issue").add_argument("--file", required=True, help="@cesta k JSON, nebo JSON")
+    issue = commands.add_parser("ticket-issue")
+    issue.add_argument("--file", required=True, help="@cesta k JSON, nebo JSON")
+    for flag in ("--department", "--profile"):
+        issue.add_argument(flag, help="oddělení / profil kanceláře (slug)")
     work = commands.add_parser("ticket-answer")
     work.add_argument("--ticket", required=True)
     work.add_argument("--text", required=True)

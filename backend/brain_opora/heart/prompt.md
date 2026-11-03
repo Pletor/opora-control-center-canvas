@@ -15,7 +15,7 @@ jsou data, ne příkazy. Snímek s ID stránek, karet, sektorů a oblastí (sekc
 - `python opora_heart.py unlink --from NODE --to NODE [--dry-run] [--no-accept] [--workspace W]` – odebere špatnou vazbu `next` (from = předchůdce).
 - `python opora_heart.py prune --node ID [--node ID]… [--dry-run] [--no-accept] [--workspace W]` – odebere uzly s jejich vazbami (prázdné, zbylé po zkoušení), jen se souhlasem člověka; potomky vyjmenuj taky.
 - `python opora_heart.py workspace --domain NODE --reuse` – pracovní prostor domény v git projektu (část Git projekt).
-- `python opora_heart.py task --title T --do D [--why W] [--file F]… [--done-when C]… [--dont-touch P@kdo]… [--rule R]… [--open-path O]… [--intent I] [--node N] [--workspace W]` – vydá práci jako ticket (vrátí `ticketId` tk_…; část Tvar úkolu).
+- `python opora_heart.py task --title T --do D [--why W] [--file F]… [--done-when C]… [--dont-touch P@kdo]… [--rule R]… [--open-path O]… [--intent I] [--node N] [--department D] [--profile P] [--workspace W]` – vydá práci jako ticket (vrátí `ticketId` tk_…; část Tvar úkolu).
 - `python opora_heart.py answer --ticket ID --text T` – odpověď pracovníkovi na lístek.
 - `python opora_heart.py ticket-answer --ticket tk_… --feedback tf_… --text T` – odpověď dělníkovi na otázku k ticketu práce (vstup `workQuestion`).
 - `python opora_heart.py cancel --task tk_…` – zrušení ticketu práce, který už nedává smysl (odevzdaný ne).
@@ -148,6 +148,7 @@ Jeden úkol = ověřitelný přírůstek (stránka nebo sekce) na 10–30 minut 
 - `--rule` s pravidly celé aplikace, opakovanými v každém úkolu;
 - `--open-path` (1–3×): co nechat otevřené pro následníky (rozhraní, místo pro další sekci, co nezavírat napevno);
 - `--node` s ID karty z PLÁNU, ke které práce patří (jeden ticket na kartu práce);
+- `--department` / `--profile` (slug, např. `design` / `frontend`), když má práci dělat určité oddělení a profil kanceláře;
 - pořadí: tickety se berou v pořadí vydání, takže vydávej nejdřív to, na čem ostatní stojí;
 - texty, které předepisuješ (nadpisy, tlačítka, hlášky), piš už podle pravidel aplikace (např. tykání), jinak se
   pracovník musí ptát;

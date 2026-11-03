@@ -224,3 +224,26 @@ def test_ticket_issued_by_heart_claimed_over_http_and_read_for_the_office(tmp_pa
         assert client.get("/api/brain/tickets/tk_none", params={"project": "draft"}).status_code == 404
         bad = client.get("/api/brain/tickets", params={"project": "draft", "workspace": "draft", "status": "x"})
         assert bad.status_code == 422 and bad.json()["hint"]
+        assert one["machine"]["department"] == "design" and one["machine"]["profile"] == "frontend"
+
+
+def test_restarted_office_takes_over_the_ticket_over_http_only_when_the_old_session_is_gone(tmp_path):
+    from backend.brain_opora.determinism.kind_schemas import SCHEMAS
+
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        service = client.app.state.service
+        _, heart_token = tokens.issue_heart(service, "draft", "draft")
+        old, new = open_session(client), open_session(client)
+        ticket_id = request(client, {**AGENT, tokens.HEADER: heart_token}, "ticket.issue",
+                            SCHEMAS["ticket.issue"][2]).json()["answer"]["ticket"]["ticketId"]
+        assert request(client, worker(old["token"]), "ticket.claim", {"ticketId": ticket_id}).status_code == 201
+        refused = request(client, worker(new["token"]), "ticket.claim", {"ticketId": ticket_id})
+        assert refused.status_code == 409 and refused.json()["code"] == "ticket_not_held" and refused.json()["hint"]
+        db = service.db_for("draft")
+        with db:
+            db.execute("UPDATE gate_sessions SET expires_at='2000-01-01T00:00:00Z' WHERE id=?", (old["sessionId"],))
+        taken = request(client, worker(new["token"]), "ticket.claim", {"ticketId": ticket_id})
+        assert taken.status_code == 201 and taken.json()["answer"]["ticket"]["status"] == "claimed"
+        assert taken.json()["answer"]["ticket"]["machine"]["department"] == "design"
+        one = client.get(f"/api/brain/tickets/{ticket_id}", params={"project": "draft"}).json()
+        assert one["sessionId"] == new["sessionId"]

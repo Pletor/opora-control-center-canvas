@@ -107,6 +107,13 @@ a ticket (`docs/navrhy/2026-11-03-novy-zaklad.md` §3.3):
   a `feedbackId`). A worker or the office calls `ticket.request` → `ticket.claim` (optional `executionId`) →
   `ticket.feedback` (bug / idea / improvement / question; a question moves the ticket to `needs_answer`) →
   `ticket.deliver` (summary, sha). `ticket.release` gives a claimed ticket back (claimed → issued).
+- **Takeover.** `ticket.claim` from another session of the same workspace takes over a held ticket when its
+  `executionId` equals the ticket's `machine.executionId` (same execution after an office restart) or when the
+  holder's session expired, was revoked or is gone. The state stays, the new session holds the ticket and the event
+  `ticket.resumed {ticketId, fromSession, toSession}` is emitted; otherwise 409 `ticket_not_held`. `ticket.request`
+  never offers a ticket held by someone else.
+- **Office routing.** `machine.department` / `machine.profile` (slug `^[a-z0-9][a-z0-9-]{0,39}$` or null) are set by
+  the heart in `ticket.issue` (`opora_heart.py task|ticket-issue --department D --profile P`).
 - **States.** draft, issued, claimed, in_progress, needs_answer, delivered, verified, closed, failed, cancelled.
 - **Reading.** `GET /api/brain/tickets?project&workspace&status?` and `GET /api/brain/tickets/{id}?project=`.
 - **Failure.** When the execution is cancelled, `ticket_lifecycle.follow` moves the ticket to `failed` and emits the

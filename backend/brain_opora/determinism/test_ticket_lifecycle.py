@@ -2,7 +2,7 @@
 import pytest
 
 from backend.brain_opora.determinism import ticket, ticket_lifecycle
-from backend.brain_opora.determinism.test_ticket import ISSUE, heart, refused, send, worker
+from backend.brain_opora.determinism.test_ticket import ISSUE, heart, refused, resumed, send, worker
 from backend.canvas.opora_execution_pr_closure import merge_events
 from backend.canvas.opora_execution_results import ExecutionResults
 from backend.canvas.test_opora_changesets import SCOPE, baseline, service  # noqa: F401
@@ -120,3 +120,20 @@ def test_release_returns_a_claimed_ticket_to_the_queue(service, authority):  # n
     assert send(service, other, "ticket.claim", {"ticketId": tid})["ticket"]["status"] == "claimed"
     send(service, other, "ticket.feedback", {"ticketId": tid, "kind": "idea", "text": "Později."})
     assert refused(service, other, "ticket.release", {"ticketId": tid}).code == "ticket_state"  # rozpracovaný ne
+
+
+def test_office_restart_takes_over_the_ticket_of_the_same_execution(service, authority):  # noqa: F811
+    office, restarted, stranger = worker(service), worker(service, "office-1b"), worker(service, "office-2")
+    tid, record = issued(service), claim_execution(authority)
+    send(service, office, "ticket.claim", {"ticketId": tid, "executionId": record["executionId"]})
+    send(service, office, "ticket.feedback", {"ticketId": tid, "kind": "idea", "text": "Později."})
+    # Cizí relace bez téže exekuce u živého držitele neprojde, ani s jinou exekucí.
+    assert refused(service, stranger, "ticket.claim", {"ticketId": tid}).code == "ticket_not_held"
+    other = refused(service, stranger, "ticket.claim", {"ticketId": tid, "executionId": "ex_other"})
+    assert other.status == 409 and other.code == "ticket_not_held"
+    taken = send(service, restarted, "ticket.claim", {"ticketId": tid, "executionId": record["executionId"]})
+    assert taken["ticket"]["status"] == "in_progress"
+    assert taken["ticket"]["machine"]["executionId"] == record["executionId"]
+    assert resumed(service) == [{"ticketId": tid, "fromSession": office["id"], "toSession": restarted["id"]}]
+    assert refused(service, office, "ticket.deliver", {"ticketId": tid, "summary": "x"}).code == "ticket_not_held"
+    assert deliver(service, restarted, tid) == "delivered"
