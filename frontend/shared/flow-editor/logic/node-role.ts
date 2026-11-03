@@ -9,7 +9,7 @@ export type PortPlace = PortSpec & { side: PortSide; label: string; required: bo
 
 /** Povinné sub-porty (jako „Chat Model *“ v n8n): agent bez modelu neběží. */
 export const REQUIRED_KINDS: readonly PortKind[] = ["model"];
-export const KIND_LABEL: Record<PortKind, string> = { main: "tok", model: "Model", memory: "Paměť", tool: "Nástroj", subagent: "Subagent", approval: "Schválení" };
+export const KIND_LABEL: Record<PortKind, string> = { main: "tok", model: "Model", memory: "Paměť", tool: "Nástroj", subagent: "Subagent", approval: "Schválení", data: "Data" };
 
 export function nodeRole(spec: NodeTypeSpec | undefined): NodeRole {
   if (!spec) return "main";

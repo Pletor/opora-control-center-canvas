@@ -6,6 +6,7 @@ it("restores graphify, studio and heart links and sends old or unknown project l
   expect(readProjectView("graphify")).toBe("graphify");
   expect(readProjectView("studio")).toBe("studio");
   expect(readProjectView("heart")).toBe("heart");
+  expect(readProjectView("intent")).toBe("intent");
   expect(readProjectView("archify")).toBe("architecture");
   expect(readProjectView(null)).toBe("architecture");
   expect(readProjectView("unknown")).toBe("architecture");

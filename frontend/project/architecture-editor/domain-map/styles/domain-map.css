@@ -188,3 +188,7 @@
 .domain-map__page-journey::before{content:"↧ ";color:var(--ae-accent)}
 .domain-map__form-journeys{display:flex;flex-direction:column;gap:2px}
 .domain-map__form-journeys-title{font-size:12px}
+
+/* Formulář stránky začíná vstupem na její záměr: tlačítko „Záměr“ s odznakem stavu stojí vpravo nad poli, aby člověk
+   při úpravě cíle a sekcí viděl, jestli schválený záměr ještě sedí. */
+.domain-map__form-intent{display:flex;justify-content:flex-end}
