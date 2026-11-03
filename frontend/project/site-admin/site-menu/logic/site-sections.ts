@@ -15,8 +15,8 @@ const item = (id: SiteSection, label: string, ready = false): SiteMenuItem => ({
 
 export const SITE_MENU: SiteMenuGroup[] = [
   { id: "settings", label: "Nastavení", items: [item("seo", "SEO"), item("affiliate", "Affiliate"), item("email", "E-mail (SMTP)")] },
-  { id: "appearance", label: "Vzhled", items: [item("appearance", "Vzhled webu"), item("header", "Hlavička webu"), item("footer", "Patička webu"),
-    item("buttons", "Tlačítka webu"), item("fonts", "Vlastní fonty", true)] },
+  { id: "appearance", label: "Vzhled", items: [item("appearance", "Vzhled webu", true), item("header", "Hlavička webu"), item("footer", "Patička webu"),
+    item("buttons", "Tlačítka webu", true), item("fonts", "Vlastní fonty", true)] },
   { id: "gdpr", label: "GDPR", items: [item("cookies", "Cookie lišta")] },
   { id: "design", label: "Design System", items: [item("overview", "Overview", true), item("colors", "Colors", true),
     item("typography", "Typography", true), item("spacing", "Spacing", true), item("radius", "Corner radius", true),

@@ -6,3 +6,5 @@ Náhledy design systému (typografie, stíny, ukázky) stojí na vygenerovaném 
 - `url("fonts/<soubor>")` → `/api/site-admin/fonts/<soubor>?project=`.
 
 `components/TokensScope.tsx`: `TokensStyle` vloží CSS jednou na stránku (`<style>`), `TokensScope` je obal náhledu s `data-theme` zvoleného tématu. Neuložené úpravy dílky ukazují navíc inline stylem; po Uložit rodič načte nový `tokens.css`.
+
+Vzhled a Tlačítka stojí i na `components.css` (`GET /api/site-admin/components.css?project=`). `logic/components-scope.ts` (+ test) ho uzavře do `.ds-web` (náhled webu, stejný prvek jako `.ds-scope`): `body` je kořen náhledu, ostatní selektory jeho potomci, vrstvy `@layer` se rozbalí (vrstvený styl by prohrál s nevrstveným stylem OPORY) a `url("assets/…")` míří na `GET /api/site-admin/assets/<skupina>/<soubor>?project=`. `PreviewStyle` takový CSS vloží do stránky.

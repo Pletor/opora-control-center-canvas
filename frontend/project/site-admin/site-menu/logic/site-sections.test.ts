@@ -6,7 +6,8 @@ it("lays out the menu of image9: settings, appearance, GDPR and the design syste
   expect(SITE_MENU[0].items.map((entry) => entry.label)).toEqual(["SEO", "Affiliate", "E-mail (SMTP)"]);
   expect(SITE_MENU[3].items.filter((entry) => entry.ready).map((entry) => entry.id))
     .toEqual(["overview", "colors", "typography", "spacing", "radius", "shadow", "files"]);
-  expect(siteMenuItem("buttons").ready).toBe(false);
+  expect(SITE_MENU[1].items.filter((entry) => entry.ready).map((entry) => entry.id)).toEqual(["appearance", "buttons", "fonts"]);
+  expect(siteMenuItem("header").ready).toBe(false);
 });
 
 it("reads the section from the address and falls back to the overview", () => {
