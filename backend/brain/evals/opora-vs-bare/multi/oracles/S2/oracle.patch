@@ -1,0 +1,172 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index db1701c..63ab25c 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -4,6 +4,7 @@ import Domu from "./pages/Domu";
+ import Kurz from "./pages/Kurz";
+ import Kontakt from "./pages/Kontakt";
+ import Dekujeme from "./pages/Dekujeme";
++import Cenik from "./pages/Cenik";
+ import "./styles.css";
+ 
+ export default function App() {
+@@ -12,6 +13,7 @@ export default function App() {
+       <Route element={<Layout />}>
+         <Route path="/" element={<Domu />} />
+         <Route path="/kurz" element={<Kurz />} />
++        <Route path="/cenik" element={<Cenik />} />
+         <Route path="/kontakt" element={<Kontakt />} />
+         <Route path="/dekujeme" element={<Dekujeme />} />
+       </Route>
+diff --git a/src/kontakt/api.test.ts b/src/kontakt/api.test.ts
+new file mode 100644
+index 0000000..e7bcf68
+--- /dev/null
++++ b/src/kontakt/api.test.ts
+@@ -0,0 +1,13 @@
++import { afterEach, expect, test, vi } from "vitest";
++import { sendPoptavka } from "./api";
++
++afterEach(() => vi.unstubAllGlobals());
++
++test("poptávka jde jako JSON s variantou a chyba serveru vrátí false", async () => {
++  const fetchMock = vi.fn().mockResolvedValue({ ok: false });
++  vi.stubGlobal("fetch", fetchMock);
++  const ok = await sendPoptavka({ jmeno: "Jana", email: "jana@example.cz", zprava: "Rajčata usychají.", varianta: "pruvodce" });
++  expect(ok).toBe(false);
++  expect(fetchMock.mock.calls[0][0]).toBe("/api/poptavka");
++  expect(JSON.parse(fetchMock.mock.calls[0][1].body).varianta).toBe("pruvodce");
++});
+diff --git a/src/kontakt/api.ts b/src/kontakt/api.ts
+new file mode 100644
+index 0000000..b0a030d
+--- /dev/null
++++ b/src/kontakt/api.ts
+@@ -0,0 +1,14 @@
++import type { Values } from "./validate";
++
++export async function sendPoptavka(body: Values & { varianta: string }): Promise<boolean> {
++  try {
++    const res = await fetch("/api/poptavka", {
++      method: "POST",
++      headers: { "Content-Type": "application/json" },
++      body: JSON.stringify(body),
++    });
++    return res.ok;
++  } catch {
++    return false;
++  }
++}
+diff --git a/src/nav.ts b/src/nav.ts
+index b3e94f4..56bc8d7 100644
+--- a/src/nav.ts
++++ b/src/nav.ts
+@@ -1,5 +1,6 @@
+ export const MENU = [
+   { to: "/", label: "Domů" },
+   { to: "/kurz", label: "Kurz" },
++  { to: "/cenik", label: "Ceník" },
+   { to: "/kontakt", label: "Kontakt" },
+ ];
+diff --git a/src/pages/Cenik.tsx b/src/pages/Cenik.tsx
+new file mode 100644
+index 0000000..a23ab64
+--- /dev/null
++++ b/src/pages/Cenik.tsx
+@@ -0,0 +1,28 @@
++import { Link } from "react-router-dom";
++
++export const VARIANTY = [
++  { id: "samouk", nazev: "Samouk", cena: "0 Kč", popis: "Všechny lekce, tempo si určujete sami." },
++  { id: "pruvodce", nazev: "Průvodce", cena: "990 Kč", popis: "Lekce a týdenní připomínky, co zrovna dělat." },
++  { id: "mentor", nazev: "S mentorem", cena: "2490 Kč", popis: "K tomu tři konzultace nad fotkami vašeho balkonu." },
++];
++
++export default function Cenik() {
++  return (
++    <>
++      <section data-opora-section="hero" className="hero">
++        <h1>Ceník</h1>
++        <p>Vyberte si, kolik podpory chcete. Začít můžete i zdarma.</p>
++      </section>
++      <section data-opora-section="varianty" className="cenik">
++        {VARIANTY.map((v) => (
++          <article key={v.id} className="cenik__varianta">
++            <h2>{v.nazev}</h2>
++            <p className="cenik__cena">{v.cena}</p>
++            <p>{v.popis}</p>
++            <Link className="button" to={`/kontakt?varianta=${v.id}`}>Vybrat</Link>
++          </article>
++        ))}
++      </section>
++    </>
++  );
++}
+diff --git a/src/pages/Kontakt.tsx b/src/pages/Kontakt.tsx
+index a5773cd..c275346 100644
+--- a/src/pages/Kontakt.tsx
++++ b/src/pages/Kontakt.tsx
+@@ -1,18 +1,29 @@
+ import { useState, type FormEvent } from "react";
+-import { useNavigate } from "react-router-dom";
++import { useNavigate, useSearchParams } from "react-router-dom";
++import { sendPoptavka } from "../kontakt/api";
+ import { validate, type Errors, type Values } from "../kontakt/validate";
+ 
+ export default function Kontakt() {
+   const navigate = useNavigate();
++  const [params] = useSearchParams();
++  const varianta = params.get("varianta") ?? "";
+   const [values, setValues] = useState<Values>({ jmeno: "", email: "", zprava: "" });
+   const [errors, setErrors] = useState<Errors>({});
++  const [sending, setSending] = useState(false);
++  const [serverError, setServerError] = useState("");
+   const set = (k: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [k]: e.target.value });
+ 
+-  function submit(e: FormEvent) {
++  async function submit(e: FormEvent) {
+     e.preventDefault();
+     const found = validate(values);
+     setErrors(found);
+-    if (Object.keys(found).length === 0) navigate("/dekujeme");
++    if (Object.keys(found).length > 0) return;
++    setSending(true);
++    setServerError("");
++    const ok = await sendPoptavka({ ...values, varianta });
++    setSending(false);
++    if (ok) navigate("/dekujeme");
++    else setServerError("Zprávu se teď nepodařilo odeslat. Zkuste to prosím za chvíli znovu, vyplněné údaje zůstaly.");
+   }
+ 
+   return (
+@@ -20,6 +31,7 @@ export default function Kontakt() {
+       <section data-opora-section="hero" className="hero">
+         <h1>Napište nám</h1>
+         <p>Ozveme se do dvou pracovních dnů. Žádný spěch, žádné závazky.</p>
++        {varianta && <p>Vybraná varianta: {varianta}</p>}
+       </section>
+       <section data-opora-section="form">
+         <form className="form" onSubmit={submit} noValidate>
+@@ -41,7 +53,8 @@ export default function Kontakt() {
+               aria-invalid={errors.zprava ? true : undefined} aria-describedby={errors.zprava ? "zprava-chyba" : undefined} />
+             {errors.zprava && <p id="zprava-chyba" className="field__error" role="alert">{errors.zprava}</p>}
+           </div>
+-          <button type="submit" className="button">Odeslat</button>
++          {serverError && <p className="form__error" role="alert">{serverError}</p>}
++          <button type="submit" className="button" disabled={sending}>{sending ? "Odesílám…" : "Odeslat"}</button>
+         </form>
+       </section>
+     </>
+diff --git a/src/pages/Kurz.tsx b/src/pages/Kurz.tsx
+index c14a4c4..c25fab5 100644
+--- a/src/pages/Kurz.tsx
++++ b/src/pages/Kurz.tsx
+@@ -19,7 +19,7 @@ export default function Kurz() {
+         </ol>
+       </section>
+       <section data-opora-section="cta">
+-        <Link className="button" to="/kontakt">Chci se přihlásit</Link>
++        <Link className="button" to="/kontakt">Chci začít</Link>
+       </section>
+     </>
+   );

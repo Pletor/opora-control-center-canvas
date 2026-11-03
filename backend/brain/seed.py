@@ -3,7 +3,8 @@
 `opora-heart` leží v `seed/opora-heart/` (skilly `heart` = systémový prompt srdce, `vyslech` = postup výslechu).
 `ponytail` (MIT) se bere z nainstalovaného pluginu Claude Code (nejvyšší verze v cache), do Brainu jdou jeho skilly
 a licence; když na stroji není, seed ho přeskočí a zaloguje. Plugin, který už v Brainu je, seed nepřepisuje, a artefakt
-s aktivní verzí nechá být: další verze přicházejí přes registr (kandidát → eval → aktivace), ne ze seedu.
+s aktivní verzí nechá být: další verze přicházejí přes registr (kandidát → eval → aktivace), ne ze seedu. Jedinou
+výjimkou je chybějící `evals/` (zmrazená sada eval gate, `evaluate.py`): tu seed doplní commitem bez nové verze.
 """
 
 import json
@@ -45,8 +46,20 @@ def ponytail_files(cache=None):
     return files
 
 
+def _fill_evals(store, plugin, files):
+    """Pluginu, který už v Brainu je a nemá `evals/`, doplní zmrazenou sadu ze seedu commitem bez nové verze artefaktu
+    (sada evalu není obsah skillu). Existující `evals/` seed nemění."""
+    evals = {relpath: text for relpath, text in files.items() if relpath.startswith("evals/")}
+    if evals and not (store.root / "plugins" / plugin / "evals").is_dir():
+        store.write(plugin, evals, f"seed: evals {plugin}")
+
+
 def _register(db, store, plugin, files):
-    sha = store.version(plugin) or store.write(plugin, files, MESSAGE.format(plugin=plugin))
+    sha = store.version(plugin)
+    if sha is None:
+        sha = store.write(plugin, files, MESSAGE.format(plugin=plugin))
+    else:
+        _fill_evals(store, plugin, files)
     for relpath in sorted(files):
         parts = relpath.split("/")
         if len(parts) != 3 or parts[0] != "skills" or parts[2] != "SKILL.md":

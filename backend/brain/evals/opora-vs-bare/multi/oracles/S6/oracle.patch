@@ -1,0 +1,144 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 4baa2ea..2fa8eb3 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,10 +1,9 @@
+-import { Route, Routes } from "react-router-dom";
++import { Navigate, Route, Routes } from "react-router-dom";
+ import Layout from "./Layout";
+ import Domu from "./pages/Domu";
+ import Kurz from "./pages/Kurz";
+ import Kontakt from "./pages/Kontakt";
+ import Dekujeme from "./pages/Dekujeme";
+-import Cenik from "./pages/Cenik";
+ import Pribehy from "./pages/Pribehy";
+ import Faq from "./pages/Faq";
+ import "./styles.css";
+@@ -15,7 +14,7 @@ export default function App() {
+       <Route element={<Layout />}>
+         <Route path="/" element={<Domu />} />
+         <Route path="/kurz" element={<Kurz />} />
+-        <Route path="/cenik" element={<Cenik />} />
++        <Route path="/cenik" element={<Navigate to="/kurz" replace />} />
+         <Route path="/pribehy" element={<Pribehy />} />
+         <Route path="/faq" element={<Faq />} />
+         <Route path="/kontakt" element={<Kontakt />} />
+diff --git a/src/kontakt/api.test.ts b/src/kontakt/api.test.ts
+index e7bcf68..8f5338d 100644
+--- a/src/kontakt/api.test.ts
++++ b/src/kontakt/api.test.ts
+@@ -3,11 +3,11 @@ import { sendPoptavka } from "./api";
+ 
+ afterEach(() => vi.unstubAllGlobals());
+ 
+-test("poptávka jde jako JSON s variantou a chyba serveru vrátí false", async () => {
++test("poptávka jde jako JSON s termínem a chyba serveru vrátí false", async () => {
+   const fetchMock = vi.fn().mockResolvedValue({ ok: false });
+   vi.stubGlobal("fetch", fetchMock);
+-  const ok = await sendPoptavka({ jmeno: "Jana", email: "jana@example.cz", zprava: "Rajčata usychají.", varianta: "pruvodce" });
++  const ok = await sendPoptavka({ jmeno: "Jana", email: "jana@example.cz", zprava: "Rajčata usychají.", termin: "t2" });
+   expect(ok).toBe(false);
+   expect(fetchMock.mock.calls[0][0]).toBe("/api/poptavka");
+-  expect(JSON.parse(fetchMock.mock.calls[0][1].body).varianta).toBe("pruvodce");
++  expect(JSON.parse(fetchMock.mock.calls[0][1].body).termin).toBe("t2");
+ });
+diff --git a/src/kontakt/api.ts b/src/kontakt/api.ts
+index bf71a83..2d026cd 100644
+--- a/src/kontakt/api.ts
++++ b/src/kontakt/api.ts
+@@ -1,6 +1,6 @@
+ import type { Values } from "./validate";
+ 
+-export async function sendPoptavka(body: Values & { varianta: string; termin?: string }): Promise<boolean> {
++export async function sendPoptavka(body: Values & { termin?: string }): Promise<boolean> {
+   try {
+     const res = await fetch("/api/poptavka", {
+       method: "POST",
+diff --git a/src/nav.ts b/src/nav.ts
+index 4a0ea68..4e97703 100644
+--- a/src/nav.ts
++++ b/src/nav.ts
+@@ -1,7 +1,6 @@
+ export const MENU = [
+   { to: "/", label: "Domů" },
+   { to: "/kurz", label: "Kurz" },
+-  { to: "/cenik", label: "Ceník" },
+   { to: "/pribehy", label: "Příběhy" },
+   { to: "/faq", label: "FAQ" },
+   { to: "/kontakt", label: "Kontakt" },
+diff --git a/src/pages/Cenik.tsx b/src/pages/Cenik.tsx
+deleted file mode 100644
+index a23ab64..0000000
+--- a/src/pages/Cenik.tsx
++++ /dev/null
+@@ -1,28 +0,0 @@
+-import { Link } from "react-router-dom";
+-
+-export const VARIANTY = [
+-  { id: "samouk", nazev: "Samouk", cena: "0 Kč", popis: "Všechny lekce, tempo si určujete sami." },
+-  { id: "pruvodce", nazev: "Průvodce", cena: "990 Kč", popis: "Lekce a týdenní připomínky, co zrovna dělat." },
+-  { id: "mentor", nazev: "S mentorem", cena: "2490 Kč", popis: "K tomu tři konzultace nad fotkami vašeho balkonu." },
+-];
+-
+-export default function Cenik() {
+-  return (
+-    <>
+-      <section data-opora-section="hero" className="hero">
+-        <h1>Ceník</h1>
+-        <p>Vyberte si, kolik podpory chcete. Začít můžete i zdarma.</p>
+-      </section>
+-      <section data-opora-section="varianty" className="cenik">
+-        {VARIANTY.map((v) => (
+-          <article key={v.id} className="cenik__varianta">
+-            <h2>{v.nazev}</h2>
+-            <p className="cenik__cena">{v.cena}</p>
+-            <p>{v.popis}</p>
+-            <Link className="button" to={`/kontakt?varianta=${v.id}`}>Vybrat</Link>
+-          </article>
+-        ))}
+-      </section>
+-    </>
+-  );
+-}
+diff --git a/src/pages/Faq.tsx b/src/pages/Faq.tsx
+index 6e9145f..f0fc037 100644
+--- a/src/pages/Faq.tsx
++++ b/src/pages/Faq.tsx
+@@ -3,7 +3,7 @@ const OTAZKY = [
+   ["Kolik času týdně to zabere?", "Lekce má kolem 20 minut, péče o balkon pár minut denně."],
+   ["Potřebuji velký balkon?", "Ne, stačí parapet nebo dva truhlíky."],
+   ["Co když mám balkon na sever?", "Ukážeme rostliny, kterým stín nevadí."],
+-  ["Můžu začít zdarma?", "Ano, varianta Samouk je zdarma."],
++  ["Kolik kurz stojí?", "Nic, kurz je zdarma. Stačí se přihlásit."],
+   ["Jak se vám ozvu, když si nevím rady?", "Napište nám přes kontaktní formulář, odpovíme do dvou pracovních dnů."],
+ ];
+ 
+diff --git a/src/pages/Kontakt.tsx b/src/pages/Kontakt.tsx
+index 574a7be..388f4c7 100644
+--- a/src/pages/Kontakt.tsx
++++ b/src/pages/Kontakt.tsx
+@@ -6,7 +6,6 @@ import { validate, type Errors, type Values } from "../kontakt/validate";
+ export default function Kontakt() {
+   const navigate = useNavigate();
+   const [params] = useSearchParams();
+-  const varianta = params.get("varianta") ?? "";
+   const termin = params.get("termin") ?? "";
+   const [values, setValues] = useState<Values>({ jmeno: "", email: "", zprava: "" });
+   const [errors, setErrors] = useState<Errors>({});
+@@ -21,7 +20,7 @@ export default function Kontakt() {
+     if (Object.keys(found).length > 0) return;
+     setSending(true);
+     setServerError("");
+-    const ok = await sendPoptavka({ ...values, varianta, ...(termin ? { termin } : {}) });
++    const ok = await sendPoptavka({ ...values, ...(termin ? { termin } : {}) });
+     setSending(false);
+     if (ok) navigate("/dekujeme");
+     else setServerError("Zprávu se teď nepodařilo odeslat. Zkuste to prosím za chvíli znovu, vyplněné údaje zůstaly.");
+@@ -32,7 +31,6 @@ export default function Kontakt() {
+       <section data-opora-section="hero" className="hero">
+         <h1>Napište nám</h1>
+         <p>Ozveme se do dvou pracovních dnů. Žádný spěch, žádné závazky.</p>
+-        {varianta && <p>Vybraná varianta: {varianta}</p>}
+         {termin && <p>Vybraný termín: {termin}</p>}
+       </section>
+       <section data-opora-section="form">

@@ -1,0 +1,88 @@
+diff --git a/src/Layout.tsx b/src/Layout.tsx
+index 2ff8556..5280aad 100644
+--- a/src/Layout.tsx
++++ b/src/Layout.tsx
+@@ -1,16 +1,20 @@
+-import { NavLink, Outlet } from "react-router-dom";
++import { useState } from "react";
++import { Link, NavLink, Outlet } from "react-router-dom";
+ import { MENU } from "./nav";
+ 
+ export default function Layout() {
++  const [open, setOpen] = useState(false);
+   return (
+     <>
+       <header className="top">
+         <span className="top__brand">Zelený balkon</span>
+         <nav aria-label="Hlavní menu" className="nav">
+-          <ul className="nav__list">
++          <button type="button" className="nav__toggle" aria-expanded={open} aria-controls="hlavni-menu"
++            onClick={() => setOpen(!open)}>Menu</button>
++          <ul id="hlavni-menu" className={open ? "nav__list nav__list--open" : "nav__list"}>
+             {MENU.map((m) => (
+               <li key={m.to}>
+-                <NavLink to={m.to} end>{m.label}</NavLink>
++                <NavLink to={m.to} end onClick={() => setOpen(false)}>{m.label}</NavLink>
+               </li>
+             ))}
+           </ul>
+@@ -19,6 +23,10 @@ export default function Layout() {
+       <main className="page">
+         <Outlet />
+       </main>
++      <footer className="foot">
++        <p>Zelený balkon · <a href="mailto:ahoj@zelenybalkon.test">ahoj@zelenybalkon.test</a></p>
++        <p><Link to="/faq">Časté otázky</Link> · <Link to="/kontakt">Napište nám</Link></p>
++      </footer>
+     </>
+   );
+ }
+diff --git a/src/pages/Domu.tsx b/src/pages/Domu.tsx
+index 47ec9c1..25716e4 100644
+--- a/src/pages/Domu.tsx
++++ b/src/pages/Domu.tsx
+@@ -1,4 +1,5 @@
+ import { Link } from "react-router-dom";
++import { PRIBEHY } from "../pribehy";
+ 
+ export default function Domu() {
+   return (
+@@ -16,6 +17,16 @@ export default function Domu() {
+           <li>Na každý krok máte čas, nic nespěchá.</li>
+         </ul>
+       </section>
++      <section data-opora-section="pribehy-ukazka">
++        <h2>Zvládli to i jiní</h2>
++        {PRIBEHY.slice(0, 2).map((p) => (
++          <article key={p.id} className="pribeh">
++            <blockquote>{p.text}</blockquote>
++            <p>{p.jmeno}</p>
++          </article>
++        ))}
++        <Link to="/pribehy">Další příběhy</Link>
++      </section>
+     </>
+   );
+ }
+diff --git a/src/styles.css b/src/styles.css
+index 90a8801..ab46c4c 100644
+--- a/src/styles.css
++++ b/src/styles.css
+@@ -4,6 +4,7 @@
+ body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 system-ui, sans-serif; }
+ .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 24px; }
+ .top__brand { font-weight: 700; color: var(--leaf); }
++.nav__toggle { display: none; font: inherit; background: none; border: 1px solid var(--leaf); border-radius: 6px; padding: 4px 12px; color: var(--ink); }
+ .nav__list { display: flex; gap: 18px; list-style: none; margin: 0; padding: 0; }
+ .nav__list a { color: var(--ink); text-decoration: none; }
+ .nav__list a.active { color: var(--leaf); text-decoration: underline; }
+@@ -17,3 +18,9 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
+ .field input, .field textarea { font: inherit; padding: 8px 10px; border: 1px solid #b9c4b1; border-radius: 6px; }
+ .field input[aria-invalid="true"], .field textarea[aria-invalid="true"] { border-color: var(--warn); }
+ .field__error, .form__error { color: var(--warn); margin: 0; }
++.foot { border-top: 1px solid var(--soft); padding: 16px 24px; text-align: center; font-size: 15px; }
++@media (max-width: 640px) {
++  .nav__toggle { display: inline-block; }
++  .nav__list { display: none; flex-direction: column; gap: 8px; padding-top: 8px; }
++  .nav__list--open { display: flex; }
++}

@@ -1,0 +1,133 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 63ab25c..4baa2ea 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -5,6 +5,8 @@ import Kurz from "./pages/Kurz";
+ import Kontakt from "./pages/Kontakt";
+ import Dekujeme from "./pages/Dekujeme";
+ import Cenik from "./pages/Cenik";
++import Pribehy from "./pages/Pribehy";
++import Faq from "./pages/Faq";
+ import "./styles.css";
+ 
+ export default function App() {
+@@ -14,6 +16,8 @@ export default function App() {
+         <Route path="/" element={<Domu />} />
+         <Route path="/kurz" element={<Kurz />} />
+         <Route path="/cenik" element={<Cenik />} />
++        <Route path="/pribehy" element={<Pribehy />} />
++        <Route path="/faq" element={<Faq />} />
+         <Route path="/kontakt" element={<Kontakt />} />
+         <Route path="/dekujeme" element={<Dekujeme />} />
+       </Route>
+diff --git a/src/nav.ts b/src/nav.ts
+index 5d0d82b..4a0ea68 100644
+--- a/src/nav.ts
++++ b/src/nav.ts
+@@ -1,6 +1,8 @@
+ export const MENU = [
+   { to: "/", label: "Domů" },
+   { to: "/kurz", label: "Kurz" },
+-  { to: "/cennik", label: "Ceník" },
++  { to: "/cenik", label: "Ceník" },
++  { to: "/pribehy", label: "Příběhy" },
++  { to: "/faq", label: "FAQ" },
+   { to: "/kontakt", label: "Kontakt" },
+ ];
+diff --git a/src/pages/Faq.tsx b/src/pages/Faq.tsx
+new file mode 100644
+index 0000000..6e9145f
+--- /dev/null
++++ b/src/pages/Faq.tsx
+@@ -0,0 +1,26 @@
++const OTAZKY = [
++  ["Zvládnu to, i když mi zatím všechno uschlo?", "Ano. Kurz počítá právě s tím a začíná nejodolnějšími rostlinami."],
++  ["Kolik času týdně to zabere?", "Lekce má kolem 20 minut, péče o balkon pár minut denně."],
++  ["Potřebuji velký balkon?", "Ne, stačí parapet nebo dva truhlíky."],
++  ["Co když mám balkon na sever?", "Ukážeme rostliny, kterým stín nevadí."],
++  ["Můžu začít zdarma?", "Ano, varianta Samouk je zdarma."],
++  ["Jak se vám ozvu, když si nevím rady?", "Napište nám přes kontaktní formulář, odpovíme do dvou pracovních dnů."],
++];
++
++export default function Faq() {
++  return (
++    <>
++      <section data-opora-section="hero" className="hero">
++        <h1>Časté otázky</h1>
++      </section>
++      <section data-opora-section="otazky">
++        {OTAZKY.map(([q, a]) => (
++          <details key={q}>
++            <summary>{q}</summary>
++            <p>{a}</p>
++          </details>
++        ))}
++      </section>
++    </>
++  );
++}
+diff --git a/src/pages/Kontakt.tsx b/src/pages/Kontakt.tsx
+index 6731ff6..c275346 100644
+--- a/src/pages/Kontakt.tsx
++++ b/src/pages/Kontakt.tsx
+@@ -37,17 +37,20 @@ export default function Kontakt() {
+         <form className="form" onSubmit={submit} noValidate>
+           <div className="field">
+             <label htmlFor="jmeno">Jméno</label>
+-            <input id="jmeno" value={values.jmeno} onChange={set("jmeno")} aria-describedby={errors.jmeno ? "jmeno-chyba" : undefined} />
++            <input id="jmeno" value={values.jmeno} onChange={set("jmeno")}
++              aria-invalid={errors.jmeno ? true : undefined} aria-describedby={errors.jmeno ? "jmeno-chyba" : undefined} />
+             {errors.jmeno && <p id="jmeno-chyba" className="field__error" role="alert">{errors.jmeno}</p>}
+           </div>
+           <div className="field">
+             <label htmlFor="email">E-mail</label>
+-            <input id="email" type="email" value={values.email} onChange={set("email")} aria-describedby={errors.email ? "email-chyba" : undefined} />
++            <input id="email" type="email" value={values.email} onChange={set("email")}
++              aria-invalid={errors.email ? true : undefined} aria-describedby={errors.email ? "email-chyba" : undefined} />
+             {errors.email && <p id="email-chyba" className="field__error" role="alert">{errors.email}</p>}
+           </div>
+           <div className="field">
+             <label htmlFor="zprava">Zpráva</label>
+-            <textarea id="zprava" rows={5} value={values.zprava} onChange={set("zprava")} aria-describedby={errors.zprava ? "zprava-chyba" : undefined} />
++            <textarea id="zprava" rows={5} value={values.zprava} onChange={set("zprava")}
++              aria-invalid={errors.zprava ? true : undefined} aria-describedby={errors.zprava ? "zprava-chyba" : undefined} />
+             {errors.zprava && <p id="zprava-chyba" className="field__error" role="alert">{errors.zprava}</p>}
+           </div>
+           {serverError && <p className="form__error" role="alert">{serverError}</p>}
+diff --git a/src/pages/Pribehy.tsx b/src/pages/Pribehy.tsx
+new file mode 100644
+index 0000000..618c4c4
+--- /dev/null
++++ b/src/pages/Pribehy.tsx
+@@ -0,0 +1,20 @@
++import { PRIBEHY } from "../pribehy";
++
++export default function Pribehy() {
++  return (
++    <>
++      <section data-opora-section="hero" className="hero">
++        <h1>Příběhy absolventů</h1>
++        <p>Začínali stejně jako vy. Tady je, jak to dopadlo.</p>
++      </section>
++      <section data-opora-section="pribehy">
++        {PRIBEHY.map((p) => (
++          <article key={p.id} className="pribeh">
++            <blockquote>{p.text}</blockquote>
++            <p>{p.jmeno}</p>
++          </article>
++        ))}
++      </section>
++    </>
++  );
++}
+diff --git a/src/pribehy.ts b/src/pribehy.ts
+new file mode 100644
+index 0000000..2555ff4
+--- /dev/null
++++ b/src/pribehy.ts
+@@ -0,0 +1,5 @@
++export const PRIBEHY = [
++  { id: "bazalka", jmeno: "Absolventka z Brna", text: "Bazalka mi vždycky do týdne zvadla. Teď ji trhám celé léto a vím proč." },
++  { id: "rajcata", jmeno: "Absolvent z Ostravy", text: "Na severním balkoně jsem si nevěřil. Cherry rajčata dala první úrodu v srpnu." },
++  { id: "jahody", jmeno: "Absolventka z Plzně", text: "Jahody v truhlíku zvládly i moje dvě děti. Zalévání podle kalendáře funguje." },
++];

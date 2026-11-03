@@ -1,0 +1,274 @@
+diff --git a/src/App.test.tsx b/src/App.test.tsx
+index 2cad617..193de4c 100644
+--- a/src/App.test.tsx
++++ b/src/App.test.tsx
+@@ -5,11 +5,12 @@ import App from "./App";
+ 
+ afterEach(cleanup);
+ 
+-test("hlavní stránka ukazuje rozpracovaný stav", () => {
++test("Domů má jeden nadpis a vede na kurz", () => {
+   render(
+     <MemoryRouter initialEntries={["/"]}>
+       <App />
+     </MemoryRouter>,
+   );
+-  expect(screen.getByRole("heading", { name: "Rozpracováno" })).toBeTruthy();
++  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
++  expect(screen.getByRole("link", { name: "Prohlédnout kurz" }).getAttribute("href")).toBe("/kurz");
+ });
+diff --git a/src/App.tsx b/src/App.tsx
+index 8b81794..db1701c 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,9 +1,20 @@
+ import { Route, Routes } from "react-router-dom";
++import Layout from "./Layout";
++import Domu from "./pages/Domu";
++import Kurz from "./pages/Kurz";
++import Kontakt from "./pages/Kontakt";
++import Dekujeme from "./pages/Dekujeme";
++import "./styles.css";
+ 
+ export default function App() {
+   return (
+     <Routes>
+-      <Route path="/" element={<main><h1>Rozpracováno</h1></main>} />
++      <Route element={<Layout />}>
++        <Route path="/" element={<Domu />} />
++        <Route path="/kurz" element={<Kurz />} />
++        <Route path="/kontakt" element={<Kontakt />} />
++        <Route path="/dekujeme" element={<Dekujeme />} />
++      </Route>
+     </Routes>
+   );
+ }
+diff --git a/src/Layout.tsx b/src/Layout.tsx
+new file mode 100644
+index 0000000..2ff8556
+--- /dev/null
++++ b/src/Layout.tsx
+@@ -0,0 +1,24 @@
++import { NavLink, Outlet } from "react-router-dom";
++import { MENU } from "./nav";
++
++export default function Layout() {
++  return (
++    <>
++      <header className="top">
++        <span className="top__brand">Zelený balkon</span>
++        <nav aria-label="Hlavní menu" className="nav">
++          <ul className="nav__list">
++            {MENU.map((m) => (
++              <li key={m.to}>
++                <NavLink to={m.to} end>{m.label}</NavLink>
++              </li>
++            ))}
++          </ul>
++        </nav>
++      </header>
++      <main className="page">
++        <Outlet />
++      </main>
++    </>
++  );
++}
+diff --git a/src/kontakt/validate.test.ts b/src/kontakt/validate.test.ts
+new file mode 100644
+index 0000000..1c4b960
+--- /dev/null
++++ b/src/kontakt/validate.test.ts
+@@ -0,0 +1,10 @@
++import { expect, test } from "vitest";
++import { validate } from "./validate";
++
++test("prázdný formulář má chybu u všech polí", () => {
++  expect(Object.keys(validate({ jmeno: "", email: "", zprava: "" })).sort()).toEqual(["email", "jmeno", "zprava"]);
++});
++
++test("zpráva kratší než 10 znaků neprojde", () => {
++  expect(validate({ jmeno: "Jana", email: "jana@example.cz", zprava: "Ahoj" })).toEqual({ zprava: "Napište prosím aspoň 10 znaků." });
++});
+diff --git a/src/kontakt/validate.ts b/src/kontakt/validate.ts
+new file mode 100644
+index 0000000..577717e
+--- /dev/null
++++ b/src/kontakt/validate.ts
+@@ -0,0 +1,10 @@
++export type Values = { jmeno: string; email: string; zprava: string };
++export type Errors = Partial<Record<keyof Values, string>>;
++
++export function validate(v: Values): Errors {
++  const errors: Errors = {};
++  if (!v.jmeno.trim()) errors.jmeno = "Vyplňte prosím jméno.";
++  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email.trim())) errors.email = "Zadejte e-mail ve tvaru jana@example.cz.";
++  if (v.zprava.trim().length < 10) errors.zprava = "Napište prosím aspoň 10 znaků.";
++  return errors;
++}
+diff --git a/src/nav.ts b/src/nav.ts
+new file mode 100644
+index 0000000..b3e94f4
+--- /dev/null
++++ b/src/nav.ts
+@@ -0,0 +1,5 @@
++export const MENU = [
++  { to: "/", label: "Domů" },
++  { to: "/kurz", label: "Kurz" },
++  { to: "/kontakt", label: "Kontakt" },
++];
+diff --git a/src/pages/Dekujeme.tsx b/src/pages/Dekujeme.tsx
+new file mode 100644
+index 0000000..52c5ab2
+--- /dev/null
++++ b/src/pages/Dekujeme.tsx
+@@ -0,0 +1,11 @@
++import { Link } from "react-router-dom";
++
++export default function Dekujeme() {
++  return (
++    <section data-opora-section="hero" className="hero">
++      <h1>Děkujeme</h1>
++      <p>Zprávu máme. Ozveme se do dvou pracovních dnů. Mezitím zalijte, co zalít jde.</p>
++      <Link to="/">Zpět na úvod</Link>
++    </section>
++  );
++}
+diff --git a/src/pages/Domu.tsx b/src/pages/Domu.tsx
+new file mode 100644
+index 0000000..47ec9c1
+--- /dev/null
++++ b/src/pages/Domu.tsx
+@@ -0,0 +1,21 @@
++import { Link } from "react-router-dom";
++
++export default function Domu() {
++  return (
++    <>
++      <section data-opora-section="hero" className="hero">
++        <h1>Zelený balkon</h1>
++        <p>Kurz pro začátečníky, kterým rostliny zatím hynou. V klidu, krok za krokem, bez stresu.</p>
++        <Link className="button" to="/kurz">Prohlédnout kurz</Link>
++      </section>
++      <section data-opora-section="proc">
++        <h2>Proč to tentokrát vyjde</h2>
++        <ul>
++          <li>Začneme třemi odolnými rostlinami, které odpustí chybu.</li>
++          <li>Zalévání podle jednoduchého kalendáře na lednici.</li>
++          <li>Na každý krok máte čas, nic nespěchá.</li>
++        </ul>
++      </section>
++    </>
++  );
++}
+diff --git a/src/pages/Kontakt.tsx b/src/pages/Kontakt.tsx
+new file mode 100644
+index 0000000..a5773cd
+--- /dev/null
++++ b/src/pages/Kontakt.tsx
+@@ -0,0 +1,49 @@
++import { useState, type FormEvent } from "react";
++import { useNavigate } from "react-router-dom";
++import { validate, type Errors, type Values } from "../kontakt/validate";
++
++export default function Kontakt() {
++  const navigate = useNavigate();
++  const [values, setValues] = useState<Values>({ jmeno: "", email: "", zprava: "" });
++  const [errors, setErrors] = useState<Errors>({});
++  const set = (k: keyof Values) => (e: { target: { value: string } }) => setValues({ ...values, [k]: e.target.value });
++
++  function submit(e: FormEvent) {
++    e.preventDefault();
++    const found = validate(values);
++    setErrors(found);
++    if (Object.keys(found).length === 0) navigate("/dekujeme");
++  }
++
++  return (
++    <>
++      <section data-opora-section="hero" className="hero">
++        <h1>Napište nám</h1>
++        <p>Ozveme se do dvou pracovních dnů. Žádný spěch, žádné závazky.</p>
++      </section>
++      <section data-opora-section="form">
++        <form className="form" onSubmit={submit} noValidate>
++          <div className="field">
++            <label htmlFor="jmeno">Jméno</label>
++            <input id="jmeno" value={values.jmeno} onChange={set("jmeno")}
++              aria-invalid={errors.jmeno ? true : undefined} aria-describedby={errors.jmeno ? "jmeno-chyba" : undefined} />
++            {errors.jmeno && <p id="jmeno-chyba" className="field__error" role="alert">{errors.jmeno}</p>}
++          </div>
++          <div className="field">
++            <label htmlFor="email">E-mail</label>
++            <input id="email" type="email" value={values.email} onChange={set("email")}
++              aria-invalid={errors.email ? true : undefined} aria-describedby={errors.email ? "email-chyba" : undefined} />
++            {errors.email && <p id="email-chyba" className="field__error" role="alert">{errors.email}</p>}
++          </div>
++          <div className="field">
++            <label htmlFor="zprava">Zpráva</label>
++            <textarea id="zprava" rows={5} value={values.zprava} onChange={set("zprava")}
++              aria-invalid={errors.zprava ? true : undefined} aria-describedby={errors.zprava ? "zprava-chyba" : undefined} />
++            {errors.zprava && <p id="zprava-chyba" className="field__error" role="alert">{errors.zprava}</p>}
++          </div>
++          <button type="submit" className="button">Odeslat</button>
++        </form>
++      </section>
++    </>
++  );
++}
+diff --git a/src/pages/Kurz.tsx b/src/pages/Kurz.tsx
+new file mode 100644
+index 0000000..c14a4c4
+--- /dev/null
++++ b/src/pages/Kurz.tsx
+@@ -0,0 +1,26 @@
++import { Link } from "react-router-dom";
++
++export default function Kurz() {
++  return (
++    <>
++      <section data-opora-section="hero" className="hero">
++        <h1>Kurz Zelený balkon</h1>
++        <p>Šest krátkých lekcí, ve kterých se naučíte, co rostliny na balkoně opravdu potřebují.</p>
++      </section>
++      <section data-opora-section="obsah">
++        <h2>Co vás čeká</h2>
++        <ol>
++          <li>Světlo a místo: kam co postavit.</li>
++          <li>Zalévání bez hádání.</li>
++          <li>Substrát a přesazování.</li>
++          <li>Hnojení s mírou.</li>
++          <li>Škůdci bez paniky.</li>
++          <li>První sklizeň bylinek.</li>
++        </ol>
++      </section>
++      <section data-opora-section="cta">
++        <Link className="button" to="/kontakt">Chci se přihlásit</Link>
++      </section>
++    </>
++  );
++}
+diff --git a/src/styles.css b/src/styles.css
+new file mode 100644
+index 0000000..90a8801
+--- /dev/null
++++ b/src/styles.css
+@@ -0,0 +1,19 @@
++/* Klidná zelená a hodně vzduchu, žádná křiklavá barva: začátečník má mít pocit, že to zvládne. */
++:root { --bg: #f6f7f2; --ink: #22301f; --leaf: #3f6b3a; --soft: #e3ebdc; --warn: #8a5a2b; }
++* { box-sizing: border-box; }
++body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 system-ui, sans-serif; }
++.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 24px; }
++.top__brand { font-weight: 700; color: var(--leaf); }
++.nav__list { display: flex; gap: 18px; list-style: none; margin: 0; padding: 0; }
++.nav__list a { color: var(--ink); text-decoration: none; }
++.nav__list a.active { color: var(--leaf); text-decoration: underline; }
++.page { max-width: 760px; margin: 0 auto; padding: 8px 24px 48px; }
++.hero { padding: 32px 0 16px; }
++.button { display: inline-block; background: var(--leaf); color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font: inherit; text-decoration: none; cursor: pointer; }
++.button:disabled { opacity: 0.6; cursor: progress; }
++a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid var(--leaf); outline-offset: 2px; }
++.form { display: grid; gap: 16px; }
++.field { display: grid; gap: 4px; }
++.field input, .field textarea { font: inherit; padding: 8px 10px; border: 1px solid #b9c4b1; border-radius: 6px; }
++.field input[aria-invalid="true"], .field textarea[aria-invalid="true"] { border-color: var(--warn); }
++.field__error, .form__error { color: var(--warn); margin: 0; }
