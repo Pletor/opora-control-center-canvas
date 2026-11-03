@@ -5,17 +5,17 @@ sedí pracovníci brány. Kontrakt: `docs/kancelar.md`. Nic se tu nevyplňuje an
 
 Slovník: **oddělení** = oblast na kořenové vrstvě (`kind: "area"`), **místnost** = sektor (člen oblasti podle
 polohy, `membersOf`; mimo oblast je v **Hale**), **stůl** = karta s `parentId` = sektor, **pracovník** =
-relace brány, která drží úkol (`sessionId` úkolu `assigned` z `GET /api/brain/tasks`). Úkol s `nodeId` karty
-sedí u stolu, s `nodeId` sektoru u společného stolu místnosti, ostatní (a ty, jejichž uzel v budově není)
+relace brány, která drží ticket (`sessionId` ticketu ve stavu claimed / in_progress / needs_answer / delivered z `GET /api/brain/tickets`). Ticket s `machine.cardId` karty
+sedí u stolu, s `cardId` sektoru u společného stolu místnosti, ostatní (a ty, jejichž uzel v budově není)
 v **Recepci**.
 
-`logic/office-model.ts` (testováno): `buildOffice({graph, tasks, workRows, leases, state})` vrátí
-`{departments, hall, reception}`; `workersOf` vybere pracovníky z úkolů (každá relace jednou), `workerCount`
+`logic/office-model.ts` (testováno): `buildOffice({graph, tickets, workRows, leases, state})` vrátí
+`{departments, hall, reception}`; `workersOf` vybere pracovníky z ticketů (každá relace jednou), `workerCount`
 je sečte. Stůl nese stavovou větu `cardState()` z `node-card/logic/card-state.ts` (stejná jako na kartě),
 místnost součty tónů pro pruh stavů. `logic/hire-message.ts`: text pro srdce (`hireText`) a žádost
 `{workspace, text}` (`hireRequest`).
 
-`components/OfficeWorkspace.tsx` je rodič: drží úkoly brány a stav srdce (`heart-api.ts`, polling 4 s),
+`components/OfficeWorkspace.tsx` je rodič: drží tickety práce a stav srdce (`heart-api.ts`, polling 4 s),
 přehled práce (`useWorkOverview`) a pronájmy (`useLeases`); skládá dílky `OfficeHeader` (počet pracovníků,
 stav srdce a zprávy ve frontě), `Department` (pásmo oblasti nebo Hala), `Room` (dlaždice sektoru se
 společným stolem), `Desk` (řádek karty), `WorkerChip` (čip pracovníka) a `Reception`. Když má projekt

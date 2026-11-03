@@ -53,13 +53,14 @@ def test_worker_asks_human_answers_and_the_answer_reaches_the_inbox(tmp_path):
         assert kinds == [("gate.ticket", "queued"), ("gate.ticket", "answered")]
 
 
-def test_next_answers_at_once_from_the_queue(tmp_path):
+def test_ticket_request_answers_at_once_and_the_old_queue_kinds_are_unknown(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         auth = worker(open_session(client)["token"])
-        nxt = client.post("/api/gate/requests", headers=auth, json={"kind": "next"})
-        assert nxt.status_code == 201 and nxt.json()["answer"]["task"] is None
-        bad = client.post("/api/gate/requests", headers=auth, json={"kind": "deploy"})
-        assert bad.status_code == 422 and "next, ask, report, change" in bad.json()["hint"]
+        asked = client.post("/api/gate/requests", headers=auth, json={"kind": "ticket.request"})
+        assert asked.status_code == 201 and asked.json()["answer"] == {"ticket": None, "held": False}
+        for kind in ("deploy", "next", "report", "release", "task.create"):
+            bad = client.post("/api/gate/requests", headers=auth, json={"kind": kind})
+            assert bad.status_code == 422 and "ask, change, state, inbox" in bad.json()["hint"]
         big = client.post("/api/gate/requests", headers=auth, json={"kind": "ask", "body": "x" * 70_000})
         assert big.status_code == 413 and big.json()["code"] == "body_too_large"
 
@@ -127,24 +128,17 @@ def test_every_kind_example_runs_through_the_gate_and_answers_its_output_schema(
             ran.append(name)
             return out
 
-        ids["task"] = run("task.create", heart)["answer"]["task"]["taskId"]
-        assert run("state", auth)["answer"]["queue"]["ready"] == 1
-        assert run("next", auth)["answer"]["task"]["id"] == ids["task"]
-        assert run("release", auth, taskId="task")["answer"]["task"]["status"] == "ready"
-        assert run("next", auth)["answer"]["task"]["id"] == ids["task"]
-        assert run("report", auth, taskId="task")["answer"]["task"]["status"] == "done"
-        ids["ticket"] = run("ask", auth, taskId="task")["ticketId"]
-        run("change", auth, taskId="task")
+        ids["ticket"] = run("ask", auth)["ticketId"]
+        run("change", auth)
         assert run("ticket.answer", heart, ticketId="ticket")["answer"]["ticket"]["answeredBy"] == "heart"
         box = run("inbox", auth)["answer"]
         assert [t["ticketId"] for t in box["tickets"]] == [ids["ticket"]] and box["tickets"][0]["answer"] == {
             "text": "Ano, pokračujte."}
-        ids["task"] = run("task.create", heart)["answer"]["task"]["taskId"]
-        assert run("task.cancel", heart, taskId="task")["answer"]["task"]["status"] == "cancelled"
         escalated = run("escalate", heart)["answer"]["ticket"]
         assert (escalated["kind"], escalated["status"], escalated["body"]["for"]) == ("ask", "queued", "human")
         assert run("ticket.request", auth)["answer"] == {"ticket": None, "held": False}
         ids["work"] = run("ticket.issue", heart)["answer"]["ticket"]["ticketId"]
+        assert run("state", auth)["answer"]["tickets"]["issued"] == 1
         assert run("ticket.claim", auth, ticketId="work")["answer"]["ticket"]["status"] == "claimed"
         assert run("ticket.release", auth, ticketId="work")["answer"]["ticket"]["status"] == "issued"
         assert run("ticket.claim", auth, ticketId="work")["answer"]["ticket"]["status"] == "claimed"
@@ -159,8 +153,8 @@ def test_every_kind_example_runs_through_the_gate_and_answers_its_output_schema(
         assert set(ran) == set(listed)
         # Synchronní druhy nechaly lístek pro audit.
         audit = client.app.state.service.db_for("draft").execute(
-            "SELECT kind, answered_by FROM gate_tickets WHERE kind='task.cancel'").fetchall()
-        assert [tuple(row) for row in audit] == [("task.cancel", "gate")]
+            "SELECT kind, answered_by FROM gate_tickets WHERE kind='ticket.cancel'").fetchall()
+        assert [tuple(row) for row in audit] == [("ticket.cancel", "gate")]
 
 
 def test_kinds_listing_follows_the_role(tmp_path):
@@ -172,9 +166,9 @@ def test_kinds_listing_follows_the_role(tmp_path):
             body = client.get("/api/gate/kinds", headers=headers).json()
             return body["role"], [kind["kind"] for kind in body["kinds"]]
 
-        worker_kinds = ["next", "ask", "report", "change", "state", "inbox", "release", "ticket.request",
+        worker_kinds = ["ask", "change", "state", "inbox", "ticket.request",
                         "ticket.claim", "ticket.feedback", "ticket.deliver", "ticket.release"]
-        heart_kinds = ["task.create", "task.cancel", "ticket.issue", "ticket.cancel", "ticket.answer", "escalate"]
+        heart_kinds = ["ticket.issue", "ticket.cancel", "ticket.answer", "escalate"]
         assert names(auth) == ("worker", worker_kinds)
         assert names(AGENT) == ("worker", worker_kinds)
         assert names({**AGENT, tokens.HEADER: token}) == ("heart", worker_kinds + heart_kinds)
@@ -186,7 +180,7 @@ def test_kinds_listing_follows_the_role(tmp_path):
 def test_worker_sending_a_heart_kind_gets_403_with_code_and_hint(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         auth = worker(open_session(client)["token"])
-        for kind in ("task.create", "task.cancel", "ticket.cancel", "ticket.answer", "escalate"):
+        for kind in ("ticket.issue", "ticket.cancel", "ticket.answer", "escalate"):
             refused = request(client, auth, kind, {})
             assert refused.status_code == 403 and refused.json()["code"] == "heart_required", kind
             assert refused.json()["hint"]
@@ -199,10 +193,11 @@ def test_openapi_documents_gate_and_brain_routes(tmp_path):
         assert "kind" in requests["requestBody"]["content"]["application/json"]["schema"]["properties"]
         assert "201" in requests["responses"] and "403" in requests["responses"]
         for path, method in (("/api/gate/kinds", "get"), ("/api/gate/inbox", "get"), ("/api/gate/sessions", "post"),
-                             ("/api/brain/tasks", "post"), ("/api/brain/tasks", "get"),
+                             ("/api/brain/tickets", "get"),
                              ("/api/gate/tickets/{ticket_id}/answer", "post"), ("/api/brain/heart/escalate", "post")):
             assert spec["paths"][path][method]["responses"], (path, method)
-        assert {"Task", "Ticket", "KindsOut", "Refusal"} <= set(spec["components"]["schemas"])
+        assert {"WorkTicket", "Ticket", "KindsOut", "Refusal"} <= set(spec["components"]["schemas"])
+        assert "/api/brain/tasks" not in spec["paths"] and "Task" not in spec["components"]["schemas"]
 
 
 def test_ticket_issued_by_heart_claimed_over_http_and_read_for_the_office(tmp_path):

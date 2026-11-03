@@ -1,10 +1,13 @@
-"""Klient brány mozku pro pracovníky (docs/brain-gate.md §4, §6 H1b), jen standardní knihovna.
+"""Klient brány mozku pro pracovníky (docs/brain-gate.md §4, ticket práce docs/navrhy/2026-11-03-novy-zaklad.md §3.3),
+jen standardní knihovna.
 
     opora_gate.py session --project P --workspace W --name N [--office O] [--floor F]
-    opora_gate.py next
+    opora_gate.py request                                  # držený ticket, jinak nejstarší vydaný (nebere ho)
+    opora_gate.py claim --ticket tk_… [--execution ex_…]   # vezme ticket (issued → claimed)
+    opora_gate.py feedback --ticket tk_… --kind question "Smím změnit sdílený styl?"
+    opora_gate.py deliver --ticket tk_… --summary "…" [--sha S]
+    opora_gate.py release --ticket tk_…                    # vzatý ticket zpět do fronty (claimed → issued)
     opora_gate.py ask "Smím upravit X?"
-    opora_gate.py report --task T --sha S --summary "…" --check "npm test=green" --check "pytest=red"
-    opora_gate.py release --task T --reason "Úkol potřebuje soubor z dontTouch."
     opora_gate.py inbox [--wait 20]
     opora_gate.py tell "Záměr člověka doslova"   # relé záměru srdci (docs/brain-heart-orchestrator.md §8)
 
@@ -91,15 +94,6 @@ def save_state(cwd, state):
             handle.write(prefix + ".opora/\n")
 
 
-def parse_check(text):
-    """`"npm test=green"` → `{name, status}`; název smí obsahovat `=`, rozhoduje poslední."""
-    name, sep, status = text.rpartition("=")
-    if not sep or not name.strip() or status not in ("green", "red"):
-        raise GateFailure(EXIT_CLIENT, {"ok": False, "error": f"Neplatná kontrola: {text}",
-                                        "hint": 'Tvar je --check "název=green" nebo --check "název=red".'})
-    return {"name": name.strip(), "status": status}
-
-
 def request(state, kind, body):
     return call("POST", "/api/gate/requests", {"kind": kind, "body": body}, state["token"], name=state.get("name"))
 
@@ -115,19 +109,22 @@ def run(args, cwd):
                          "expiresAt": issued["expiresAt"], "after": 0})
         return {"sessionId": issued["sessionId"], "expiresAt": issued["expiresAt"], "stored": str(STATE)}
     state = load_state(cwd)
-    if args.command == "next":
-        return request(state, "next", {})
+    if args.command == "request":
+        return request(state, "ticket.request", {})
+    if args.command == "claim":
+        return request(state, "ticket.claim", {"ticketId": args.ticket}
+                       | ({"executionId": args.execution} if args.execution else {}))
+    if args.command == "feedback":
+        return request(state, "ticket.feedback", {"ticketId": args.ticket, "kind": args.kind, "text": args.text})
+    if args.command == "deliver":
+        return request(state, "ticket.deliver", {"ticketId": args.ticket, "summary": args.summary}
+                       | ({"sha": args.sha} if args.sha else {}))
+    if args.command == "release":
+        return request(state, "ticket.release", {"ticketId": args.ticket})
     if args.command == "ask":
         return request(state, "ask", {"question": args.text})
     if args.command == "change":
-        body = {"proposal": args.text, "reason": args.reason} | ({"taskId": args.task} if args.task else {})
-        return request(state, "change", body)
-    if args.command == "report":
-        checks = [parse_check(item) for item in args.check or []]
-        return request(state, "report", {"taskId": args.task, "sha": args.sha, "summary": args.summary,
-                                         "checks": checks})
-    if args.command == "release":
-        return request(state, "release", {"taskId": args.task, "reason": args.reason})
+        return request(state, "change", {"proposal": args.text, "reason": args.reason})
     if args.command == "tell":
         return call("POST", "/api/brain/heart/messages", {"project": state["project"], "workspace": state["workspace"],
                                                          "text": args.text}, state["token"], name=state.get("name"))
@@ -146,21 +143,25 @@ def parser():
     session.add_argument("--name", required=True)
     session.add_argument("--office")
     session.add_argument("--floor")
-    sub.add_parser("next", help="další úkol z fronty (nebo plán, když je fronta prázdná)")
+    sub.add_parser("request", help="ticket, který relace drží, jinak nejstarší vydaný (nebere ho); nic = null")
+    claim = sub.add_parser("claim", help="vezme vydaný ticket (issued → claimed)")
+    claim.add_argument("--ticket", required=True)
+    claim.add_argument("--execution", help="běžící exekuce karty ticketu; stav pak posouvá i exekuce")
+    feedback = sub.add_parser("feedback", help="zpětná vazba k drženému ticketu; otázka čeká na odpověď srdce")
+    feedback.add_argument("--ticket", required=True)
+    feedback.add_argument("--kind", required=True, choices=("bug", "idea", "improvement", "question"))
+    feedback.add_argument("text")
+    deliver = sub.add_parser("deliver", help="odevzdá držený ticket se shrnutím (a sha)")
+    deliver.add_argument("--ticket", required=True)
+    deliver.add_argument("--summary", required=True)
+    deliver.add_argument("--sha", help="výstup git rev-parse HEAD")
+    release = sub.add_parser("release", help="vrátí vzatý ticket do fronty (claimed → issued)")
+    release.add_argument("--ticket", required=True)
     ask = sub.add_parser("ask", help="otázka; odpověď přijde do schránky")
     ask.add_argument("text")
     change = sub.add_parser("change", help="žádost srdci o změnu plánu; odpověď přijde do schránky")
     change.add_argument("text", help="navržená změna plánu")
     change.add_argument("--reason", required=True, help="proč (např. záměr člověka)")
-    change.add_argument("--task", help="úkol fronty, kterého se změna týká")
-    report = sub.add_parser("report", help="hlášení úkolu s kontrolami na sha")
-    report.add_argument("--task", required=True)
-    report.add_argument("--sha", required=True)
-    report.add_argument("--summary", required=True)
-    report.add_argument("--check", action="append", help='"název=green|red", lze opakovat')
-    release = sub.add_parser("release", help="vrátí držený úkol do fronty s krátkým důvodem")
-    release.add_argument("--task", required=True)
-    release.add_argument("--reason", required=True)
     inbox = sub.add_parser("inbox", help="nové odpovědi na lístky této relace")
     inbox.add_argument("--wait", type=int, default=0, help="long-poll 0..30 s")
     tell = sub.add_parser("tell", help="předá srdci záměr člověka doslova (zpráva s via = jméno relace)")

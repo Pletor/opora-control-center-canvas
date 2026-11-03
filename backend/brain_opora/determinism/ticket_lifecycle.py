@@ -7,7 +7,8 @@ přechodech `ticket_model.advance`:
   kterou nedrží jiný otevřený ticket; jinak 409 `ticket_execution`.
 - `follow`: `delivered` → `verified`, když výsledek exekuce nese `selfChecks` a všechny prošly, nebo když je PR
   exekuce sloučený; `verified` → `closed` po sloučení PR (GitHub i lokální sloučení); zrušená exekuce
-  (`cancelled`) → `failed`. Bez navázaného ticketu se nestane nic.
+  (`cancelled`) → `failed`. Bez navázaného ticketu se nestane nic. Přechod na `failed` vydá událost `ticket.failed`
+  `{ticketId, status, reason}`, ze které srdce dostane vstup `workFailed` (`flow/catalogs/heart/inputs.py`).
 - `safe_follow`: háček pro místa exekucí (výsledek, sloučení, zrušení). Chyba ticketu exekuci nikdy nezastaví.
 
 Transakci a zámky vlastní volající; nic tu nevolá model.
@@ -18,10 +19,12 @@ import logging
 from backend.brain_opora.determinism import tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.ticket_model import TRANSITIONS, advance
+from backend.canvas.opora_events import emit_event
 from database.repositories.tickets import TicketStore
 
 LOG = logging.getLogger(__name__)
 OPEN = ("draft", "issued", "claimed", "in_progress", "needs_answer", "delivered", "verified")
+FAILED_REASON = "Exekuce ticketu byla zrušena."
 BIND_HINT = "Pošlete executionId běžící exekuce karty ticketu (machine.cardId) ze startu exekuce v tomto prostoru."
 
 
@@ -92,8 +95,17 @@ def follow(db, project, ticket, now=None):
         if not store.move(ticket["ticketId"], status, advance(status, target), at):
             break  # mezitím změnil stav někdo jiný; jeho zápis platí
         status = target
+        if status == "failed":
+            _failed(db, project, ticket)
         target = _next(db, project, {**ticket, "status": status})
     return status
+
+
+def _failed(db, project, ticket):
+    """Událost `ticket.failed` ve stejné transakci jako přechod (jediná cesta do `failed` je zrušená exekuce)."""
+    emit_event(db, project_id=project, workspace_id=ticket["workspaceId"], kind="ticket.failed",
+               node_id=ticket["machine"]["cardId"], execution_id=ticket["machine"]["executionId"],
+               data={"ticketId": ticket["ticketId"], "status": "failed", "reason": FAILED_REASON})
 
 
 def safe_follow(db, project, execution_id, now=None):

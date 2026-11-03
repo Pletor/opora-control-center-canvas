@@ -12,19 +12,12 @@ from dataclasses import dataclass
 from backend.brain_opora.determinism import (
     gate,
     snapshot,
-    task_queue,
     ticket,
     ticket_lifecycle,
     ticket_model,
 )
 from backend.brain_opora.determinism.gate_payloads import GateError, inbox_body, invalid, shaped
 from backend.brain_opora.determinism.kind_schemas import SCHEMAS
-from backend.brain_opora.determinism.task_payloads import (
-    empty_body,
-    release_payload,
-    report_payload,
-    task_fields,
-)
 
 ROLES = {"worker": ("worker",), "heart": ("worker", "heart"), "human": ("worker", "heart")}
 ESCALATE_LIMIT = 8000
@@ -35,7 +28,6 @@ COMMON = {
     "body_too_large": "Zkraťte tělo pod 64 KB; velké podklady patří do souboru v repozitáři, do brány jen odkaz.",
 }
 HEART_ONLY = {"heart_required": "Tento druh posílá jen srdce projektu; své druhy najdete v GET /api/gate/kinds."}
-TASK_MISSING = {"task_not_found": "ID úkolu vrací next, task.create nebo GET /api/brain/tasks."}
 TICKET_MISSING = {"ticket_not_found": "ID lístku najdete v události gate.ticket nebo ve snímku srdce."}
 WORK_MISSING = {"ticket_not_found": ticket.MISSING_HINT}
 WORK_STATE = {"ticket_state": "Přechod stavu ticketu není povolený; hint chyby vypíše povolené cíle."}
@@ -69,13 +61,18 @@ def _hint(name):
     return "Příklad: " + json.dumps({"kind": name, "body": SCHEMAS[name][2]}, ensure_ascii=False)
 
 
+def _empty(body):
+    """`state` nemá žádné parametry."""
+    if body not in ({}, None):
+        raise invalid("Požadavek state má prázdné tělo.", 'Pošlete {"kind": "state"} nebo {"kind": "state", "body": {}}.')
+
+
 def _ask(body):
-    shaped(body, ("question",), ("taskId",), texts=("question",), ids=("taskId",), hint=_hint("ask"))
+    shaped(body, ("question",), texts=("question",), hint=_hint("ask"))
 
 
 def _change(body):
-    shaped(body, ("proposal", "reason"), ("taskId",), texts=("proposal", "reason"), ids=("taskId",),
-           hint=_hint("change"))
+    shaped(body, ("proposal", "reason"), texts=("proposal", "reason"), hint=_hint("change"))
 
 
 def _ticket_answer(body):
@@ -91,43 +88,19 @@ def _answer(service, session, body, now):
                                   "heart", now)}
 
 
-def _task_create(body):
-    if isinstance(body, dict) and {"project", "workspace"} & set(body):
-        raise invalid("Projekt a pracovní prostor bere task.create z tokenu srdce.", _hint("task.create"))
-    task_fields(body)
-
-
-def _scope(session):
-    return {"project": session["project_id"], "workspace": session["workspace_id"]}
-
-
 # Obsluha je `handle(service, session, body, now) -> odpověď`; tělo už prošlo kontrolou `check`.
 TABLE = (
-    Kind("next", "worker", "Další úkol z fronty: držený úkol znovu, jinak nejstarší ready. Prázdná fronta vrátí "
-         "task null a plan (otevřené karty).", {}, empty_body, task_queue.next_task),
     Kind("ask", "worker", "Otázka pro srdce nebo člověka. Lístek čeká ve frontě, odpověď přijde do schránky (inbox).",
          {}, _ask, None),
-    Kind("report", "worker", "Hlášení úkolu s kontrolami na sha: vše zelené = done, červená = zpět do ready, "
-         "druhá červená = failed.",
-         {"invalid_sha": "Pošlete výstup git rev-parse HEAD (nebo jeho zkrácenou podobu).",
-          "sha_unknown": "Commitni práci a nahlas sha z `git rev-parse HEAD`.",
-          "checks_required": 'Spusťte kontroly a pošlete checks: [{"name": "npm test", "status": "green"}].',
-          **TASK_MISSING,
-          "task_not_assigned": "Hlaste jen úkol, který vám vrátil next; o další požádejte přes next."},
-         report_payload, task_queue.report),
     Kind("change", "worker", "Návrh změny plánu nebo úkolu pro srdce. Lístek čeká ve frontě, odpověď přijde do "
          "schránky (inbox).", {}, _change, None),
-    Kind("state", "worker", "Kompaktní deterministický stav: projekt, záměr, pravidla, plán, počty fronty a úkol "
-         "držený touto relací.", {"project_not_found": "ID projektu najdete v GET /api/bootstrap."}, empty_body,
+    Kind("state", "worker", "Kompaktní deterministický stav: projekt, záměr, pravidla, plán, počty ticketů podle "
+         "stavu a ticket držený touto relací.", {"project_not_found": "ID projektu najdete v GET /api/bootstrap."}, _empty,
          lambda service, session, body, now: snapshot.state(service, session["project_id"], session["workspace_id"],
                                                             session["id"])),
     Kind("inbox", "worker", "Zodpovězené lístky této relace s answeredSeq > after; s wait > 0 čeká až wait sekund. "
          "Další volání pošle after = last.", {}, inbox_body,
          lambda service, session, body, now: gate.inbox(service, session, *inbox_body(body))),
-    Kind("release", "worker", "Vrátí držený úkol do fronty (ready) s krátkým důvodem; attempts se nemění. Použijte, "
-         "když úkol nedokončíte, místo čekání na vypršení tokenu.",
-         {**TASK_MISSING, "task_not_assigned": "Vrátit jde jen úkol, který držíte (vrátil vám ho next)."},
-         release_payload, task_queue.release),
     Kind("ticket.request", "worker", "Žádost o práci: ticket, který relace drží, jinak nejstarší vydaný v prostoru "
          "(nebere ho). Nic k práci = ticket null.", {}, lambda body: shaped(body, (), hint=_hint("ticket.request")),
          ticket.request),
@@ -143,16 +116,6 @@ TABLE = (
     Kind("ticket.release", "worker", "Vrátí vzatý ticket do fronty (claimed → issued) bez držitele a bez exekuce, "
          "když kancelář nedostala místo ani exekuci. Rozpracovaný ticket vrátit nejde.", WORK_HELD,
          lambda body: ticket_model.ticket_id(body, _hint("ticket.release")), ticket.release),
-    Kind("task.create", "heart", "Nový úkol ve frontě (ready) v projektu a prostoru tokenu srdce; nižší order jde "
-         "dřív.", {**HEART_ONLY, "project_not_found": "ID projektu najdete v GET /api/bootstrap.",
-         "files_held": "Soubor úkolu nesmí být zároveň v dontTouch; seřaď úkoly přes order."}, _task_create,
-         lambda service, session, body, now: {"task": task_queue.create(service, {**body, **_scope(session)},
-                                                                         "heart", now)}),
-    Kind("task.cancel", "heart", "Zruší úkol ve stavu ready nebo assigned.",
-         {**HEART_ONLY, **TASK_MISSING, "task_closed": "Zrušit jde jen úkol ve stavu ready nebo assigned."},
-         lambda body: shaped(body, ("taskId",), ids=("taskId",), hint=_hint("task.cancel")),
-         lambda service, session, body, now: {"task": task_queue.cancel(service, session["project_id"],
-                                                                         body["taskId"], now, by="heart")}),
     Kind("ticket.issue", "heart", "Vydá ticket práce (issued) v prostoru tokenu srdce: tělo pro dělníka bez ID "
          "(essence, build, openPaths, cautions, skills, doneCriteria) a strojová vrstva (cardId, executionId, "
          "cardVersion).", HEART_ONLY, ticket_model.issue_payload, ticket.issue),
@@ -197,6 +160,6 @@ def run(service, session, payload, now=None):
     if not kind.sync:
         return gate.record(service, session, name, body, now)
     # Obsluha běží dřív než zápis lístku a se svými zámky: odmítnutý požadavek lístek nezaloží a přehled
-    # karet pro prázdnou frontu (zámek grafu, pak projektu) se nečte pod zámkem projektu.
+    # karet stavu (zámek grafu, pak projektu) se nečte pod zámkem projektu.
     result = kind.handle(service, session, body, now)
     return gate.record(service, session, name, body, now, answered=True, answer=result)

@@ -21,7 +21,7 @@ Kód: `backend/canvas/card_trail_read.py` (sběr faktů), `backend/canvas/card_t
   "nodeId": "n0",
   "now": {"owner": "agent:builder", "since": "2026-10-31T11:00:00Z", "until": "2026-10-31T12:00:00Z",
           "stepId": "s2", "source": "det"},
-  "runs": [{"executionId": "e1", "taskId": null, "owner": "agent:builder", "createdAt": "…", "until": "…",
+  "runs": [{"executionId": "e1", "ticketId": null, "owner": "agent:builder", "createdAt": "…", "until": "…",
             "state": "reported", "summary": "Doplnil test.", "source": "agent", "attempts": 1, "reported": true,
             "steps": [{"stepId": "s1", "title": "Test modulu", "status": "done",
                        "checks": [{"name": "npm test", "status": "green"}], "commits": ["a…"],
@@ -42,11 +42,11 @@ Kód: `backend/canvas/card_trail_read.py` (sběr faktů), `backend/canvas/card_t
 | pole | odkud |
 |---|---|
 | `runs[]` exekuce | `opora_executions` karty (nejvýš 10, nejnovější první), stav jako v `GET /executions` (`response`), výsledky (`summary`, `stepResults`, `selfChecks`) a průběžné kroky (`POST /steps`); výsledek přepíše průběžný krok |
-| `runs[]` úkoly brány | `heart_tasks` karty (nejvýš 10): jeden krok = úkol, `report.sha` = commit, `report.checks`, `body.files` = `allowed`, `attempts` = červená hlášení; `owner` = poslední dělník v událostech `gate.task` |
+| `runs[]` tickety práce | tickety karty **bez** exekuce (nejvýš 10; ticket s exekucí ukazuje běh exekuce): klíč běhu `ticketId`, jeden krok = ticket, `delivery.sha` = commit, `body.files` = `allowed`; `owner` = `sessionId` |
 | `steps[].checks` | jména z `evidence.checks`, stav z `selfChecks` výsledku (`passed` = `green`, `failed` = `red`, jinak `unknown`) |
 | `steps[].files` | `git show --name-only` commitů v repozitáři prostoru (`source_root`, jinak `repository_path`); nejvýš 20 commitů na stopu; bez známého repa pole chybí a `filesKnown` = false |
-| `steps[].allowed` | `files` kroku plánu z připnutého zadání běhu, u úkolu brány `body.files` |
-| `now` | běžící exekuce (`owner`, `createdAt`, `expiresAt`), jinak úkol brány ve stavu `assigned`; `stepId` = první nehotový krok |
+| `steps[].allowed` | `files` kroku plánu z připnutého zadání běhu, u ticketu `body.files` |
+| `now` | běžící exekuce (`owner`, `createdAt`, `expiresAt`), jinak ticket práce ve stavu claimed / in_progress; `stepId` = první nehotový krok |
 | `pr` | odkaz PR karty (`link_for`: sloučený vyhrává), i u zavřené karty |
 | `missing` | jediná definice hotovo (`done_state`, stejné díly jako `closure_gate`), karta bez kroků `["steps"]` |
 | `afterMerge` | `null` u karty ve standardním procesu; jinak `{requirements, number, mergeSha, executionId, steps: [{id, title}], label, source: "det"}` = požadavky uznané sloučením, protože přibyly do zadání až po něm (`docs/oporahub-plan-steps.md`, „Kroky přidané po sloučení“); `label` = „Kroky přibyly po sloučení PR #N (sha) – uznány sloučením, mimo standardní proces: …“ |
@@ -67,7 +67,7 @@ U kroku `source` říká původ `notes`; stav, kontroly, commity a soubory jsou 
 
 | `code` | kdy |
 |---|---|
-| `red_twice` | kontrola kroku červená (nebo krok `failed`) ve ≥ 2 bězích; u úkolu brány `attempts` ≥ 2 |
+| `red_twice` | kontrola kroku červená (nebo krok `failed`) ve ≥ 2 bězích |
 | `delivered_without_evidence` | nejnovější hlášení `done` kroku nemá kontrolu ani commit |
 | `missing_summary` | skončený běh s odevzdaným výsledkem a prázdným shrnutím |
 | `files_mismatch` | soubory commitů nejnovějšího `done` mimo `allowed` (glob, `*` i přes `/`, složka `x/`); jen když jsou známé obě strany |

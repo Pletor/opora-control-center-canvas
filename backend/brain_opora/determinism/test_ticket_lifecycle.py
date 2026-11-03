@@ -8,6 +8,7 @@ from backend.canvas.opora_execution_results import ExecutionResults
 from backend.canvas.test_opora_changesets import SCOPE, baseline, service  # noqa: F401
 from backend.canvas.test_opora_executions import claim as claim_execution
 from backend.canvas.test_opora_executions import credentials
+from database.repositories import opora_events
 
 SHA = "a" * 40
 
@@ -101,6 +102,10 @@ def test_cancelled_execution_fails_the_ticket_and_without_ticket_nothing_happens
                    (record["executionId"],))
         assert ticket_lifecycle.safe_follow(db, "draft", record["executionId"]) == "failed"
         assert ticket_lifecycle.safe_follow(db, "draft", "unbound") is None
+    events, _, _ = opora_events.page(db, "draft", None, 0, 500)
+    (failed,) = [event for event in events if event["kind"] == "ticket.failed"]
+    assert failed["data"] == {"ticketId": tid, "status": "failed", "reason": ticket_lifecycle.FAILED_REASON}
+    assert failed["executionId"] == record["executionId"]
 
 
 def test_release_returns_a_claimed_ticket_to_the_queue(service, authority):  # noqa: F811

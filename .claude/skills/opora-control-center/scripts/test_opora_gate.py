@@ -1,4 +1,4 @@
-"""Klient brány proti falešnému serveru: relace a token v .opora/, .gitignore, next/ask/report/release, kurzor schránky a 4xx."""
+"""Klient brány proti falešnému serveru: relace a token v .opora/, .gitignore, tickety práce (request/claim/feedback/deliver/release) a ask, kurzor schránky a 4xx."""
 import json
 import sys
 import threading
@@ -37,8 +37,9 @@ class FakeGate(BaseHTTPRequestHandler):
             return self._send(201, {"sessionId": "gs_1", "token": TOKEN, "expiresAt": "2026-10-29T18:00:00Z"})
         if self.path == "/api/brain/heart/messages":
             return self._send(200, {"queued": True, "pending": 1})
-        if body["kind"] == "report" and body["body"]["taskId"] == "ht_cizi":
-            return self._send(409, {"error": "Úkol není přidělený.", "code": "task_not_assigned", "hint": "Použijte next."})
+        if body["kind"] == "ticket.deliver" and body["body"]["ticketId"] == "tk_cizi":
+            return self._send(409, {"error": "Ticket nedrží tato relace.", "code": "ticket_not_held",
+                                    "hint": "Svůj ticket vrátí ticket.request."})
         return self._send(201, {"ticketId": "gt_1", "seq": 1, "kind": body["kind"], "status": "answered",
                                 "answer": {"echo": body["body"]}})
 
@@ -78,16 +79,19 @@ def test_session_stores_token_and_ignores_opora_dir(server, tmp_path, capsys):
 
 def test_requests_carry_token_and_bodies(server, tmp_path, capsys):
     run(tmp_path, capsys, "session", "--project", "draft", "--workspace", "draft", "--name", "dev")
-    assert run(tmp_path, capsys, "next")[1]["answer"] == {"echo": {}}
+    assert run(tmp_path, capsys, "request")[1]["answer"] == {"echo": {}}
     assert run(tmp_path, capsys, "ask", "Smím?")[1]["answer"] == {"echo": {"question": "Smím?"}}
     answer = run(tmp_path, capsys, "change", "Přidej kartu Kontakt.", "--reason", "Záměr člověka.")[1]["answer"]
     assert answer == {"echo": {"proposal": "Přidej kartu Kontakt.", "reason": "Záměr člověka."}}
-    code, out = run(tmp_path, capsys, "report", "--task", "ht_1", "--sha", "abc1234", "--summary", "ok",
-                    "--check", "npm test=green", "--check", "a=b=red")
-    assert code == 0 and out["answer"]["echo"]["checks"] == [{"name": "npm test", "status": "green"},
-                                                             {"name": "a=b", "status": "red"}]
-    code, out = run(tmp_path, capsys, "release", "--task", "ht_1", "--reason", "Nestihnu.")
-    assert code == 0 and server[-1][2] == {"kind": "release", "body": {"taskId": "ht_1", "reason": "Nestihnu."}}
+    run(tmp_path, capsys, "claim", "--ticket", "tk_1", "--execution", "ex_1")
+    assert server[-1][2] == {"kind": "ticket.claim", "body": {"ticketId": "tk_1", "executionId": "ex_1"}}
+    run(tmp_path, capsys, "feedback", "--ticket", "tk_1", "--kind", "question", "Smím změnit styl?")
+    assert server[-1][2] == {"kind": "ticket.feedback", "body": {"ticketId": "tk_1", "kind": "question",
+                                                                 "text": "Smím změnit styl?"}}
+    code, out = run(tmp_path, capsys, "deliver", "--ticket", "tk_1", "--summary", "ok", "--sha", "abc1234")
+    assert code == 0 and out["answer"]["echo"] == {"ticketId": "tk_1", "summary": "ok", "sha": "abc1234"}
+    code, out = run(tmp_path, capsys, "release", "--ticket", "tk_1")
+    assert code == 0 and server[-1][2] == {"kind": "ticket.release", "body": {"ticketId": "tk_1"}}
     assert all(item[3] == TOKEN and item[4].startswith("http://127.0.0.1:") for item in server[1:])
 
 
@@ -108,16 +112,14 @@ def test_inbox_moves_the_cursor(server, tmp_path, capsys):
 
 
 def test_refusals_exit_non_zero_with_code_and_hint(server, tmp_path, capsys):
-    code, out = run(tmp_path, capsys, "next")
+    code, out = run(tmp_path, capsys, "request")
     assert code == opora_gate.EXIT_CLIENT and "session" in out["hint"]
     run(tmp_path, capsys, "session", "--project", "draft", "--workspace", "draft", "--name", "dev")
-    code, out = run(tmp_path, capsys, "report", "--task", "ht_cizi", "--sha", "abc1234", "--summary", "x",
-                    "--check", "t=green")
+    code, out = run(tmp_path, capsys, "deliver", "--ticket", "tk_cizi", "--summary", "x")
     assert code == opora_gate.EXIT_REFUSED and out["status"] == 409
-    assert (out["code"], out["hint"]) == ("task_not_assigned", "Použijte next.")
-    code, out = run(tmp_path, capsys, "report", "--task", "ht_1", "--sha", "abc1234", "--summary", "x",
-                    "--check", "t=yellow")
-    assert code == opora_gate.EXIT_CLIENT
+    assert (out["code"], out["hint"]) == ("ticket_not_held", "Svůj ticket vrátí ticket.request.")
+    with pytest.raises(SystemExit):
+        opora_gate.main(["next"], cwd=tmp_path)  # stará fronta úkolů už v klientu není
 
 
 def test_server_down_is_a_client_error(tmp_path, capsys, monkeypatch):

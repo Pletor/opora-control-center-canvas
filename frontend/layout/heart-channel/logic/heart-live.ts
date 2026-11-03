@@ -22,7 +22,7 @@ export function inputLabel(input: HeartInput): string {
     case "merged":
       return input.pr ? `sloučení PR #${input.pr}` : "lokální sloučení";
     case "commits": return "nové commity";
-    case "taskFailed": return "selhaný úkol";
+    case "workFailed": return "selhaný ticket";
     case "milestoneDone": return "splněný milník";
     case "cardTrigger": return "spouštěč karty";
     case "brief": return "výslech požadavku";

@@ -82,9 +82,10 @@
   gap: var(--sp-2);
 }
 
-/* Fronta je seznam ke čtení: skupina má tichý popisek, řádek nese název, stav a kdo úkol drží.
-   Klik řádek rozbalí na to, co se má udělat a kdy je hotovo; nic se tu needituje. Stav je barevné
-   slovo: připraveno klidně, přiděleno akcentem, hotovo tlumeně, selhalo červeně. */
+/* Tickety jsou seznam ke čtení: skupina má tichý popisek, řádek nese titulek, stav, kartu a kdo ticket drží.
+   Klik řádek rozbalí na poslední zpětnou vazbu dělníka, podstatu a kritéria hotovosti; nic se tu needituje.
+   Stav je barevné slovo: čeká na odpověď zlatě, vzato a rozpracováno akcentem, ostatní tlumeně, selhalo
+   červeně; otevřená otázka dělníka je zlatá, aby ji oko našlo. */
 .heart-channel__group {
   margin-bottom: var(--sp-3);
 }
@@ -99,46 +100,65 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.heart-channel__tasks {
+.heart-channel__tickets {
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.heart-channel__task {
+.heart-channel__ticket {
   border-bottom: 1px solid var(--line);
 }
-.heart-channel__task-summary {
+.heart-channel__ticket-summary {
   display: flex;
   align-items: baseline;
   gap: var(--sp-2);
   padding: 6px 0;
   cursor: pointer;
 }
-.heart-channel__task-title {
+.heart-channel__ticket-title {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.heart-channel__task-status,
-.heart-channel__task-holder {
+.heart-channel__ticket-status,
+.heart-channel__ticket-card,
+.heart-channel__ticket-holder {
   flex: none;
   color: var(--ink-muted);
   font-size: var(--fs-1);
 }
-.heart-channel__task-status--assigned {
+.heart-channel__ticket-card {
+  max-width: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.heart-channel__ticket-status--needs_answer {
+  color: var(--warn, var(--accent));
+}
+.heart-channel__ticket-status--claimed,
+.heart-channel__ticket-status--in_progress {
   color: var(--accent);
 }
-.heart-channel__task-status--failed {
+.heart-channel__ticket-status--failed {
   color: var(--danger);
 }
-.heart-channel__task-do {
+.heart-channel__ticket-feedback {
+  margin: 0 0 var(--sp-2);
+  color: var(--ink-muted);
+  white-space: pre-wrap;
+}
+.heart-channel__ticket-feedback--open {
+  color: var(--warn, var(--accent));
+}
+.heart-channel__ticket-essence {
   margin: 0 0 var(--sp-2);
   color: var(--ink-2);
   white-space: pre-wrap;
 }
-.heart-channel__task-done-when {
+.heart-channel__ticket-criteria {
   margin: 0 0 var(--sp-2);
   padding-left: var(--sp-5);
   color: var(--ink-2);

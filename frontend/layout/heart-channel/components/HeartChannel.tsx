@@ -8,13 +8,13 @@ import GateOff from "./GateOff";
 import HeartComposer from "./HeartComposer";
 import HeartLive from "./HeartLive";
 import HeartState from "./HeartState";
-import Queue from "./Queue";
+import Tickets from "./Tickets";
 
 const NO_NODES: { id: string; name: string }[] = [];
 
 /**
- * Kanál člověka do srdce (docs/brain-heart-channel.md §1): jeden sloupec shora otázky srdce, fronta
- * úkolů, stav srdce a pole pro zprávu. Rodič kanálu: drží načtená data (`useHeartChannel`) a koncept
+ * Kanál člověka do srdce (docs/brain-heart-channel.md §1): jeden sloupec shora otázky srdce, tickety
+ * práce, stav srdce a pole pro zprávu. Rodič kanálu: drží načtená data (`useHeartChannel`) a koncept
  * zprávy, dílky dostávají hotová data a hlásí volby nahoru. Stav brány dodá panel asistenta
  * (`gateOn`, `null` = ještě se zjišťuje, `gateFailure`) a zapnutí brány hlásí nahoru `onEnableGate`.
  * Karty plátna (`nodes`) dávají krokům srdce jména; karta mimo graf zůstane svým ID.
@@ -68,7 +68,7 @@ export default function HeartChannel({
           </p>
         )}
         <Escalations escalations={data.escalations} onAnswer={data.answer} />
-        <Queue tasks={data.tasks} loaded={data.loaded} />
+        <Tickets tickets={data.tickets} loaded={data.loaded} />
         <HeartState status={data.status} live={current ? <HeartLive current={current} steps={liveSteps} /> : null}
           batchSteps={batchSteps} onOpenBatch={batches.load} />
       </div>

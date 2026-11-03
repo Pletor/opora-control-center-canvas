@@ -12,7 +12,7 @@ export type TrailStep = {
   source: TrailSource; files: string[] | null; allowed: string[];
 };
 export type TrailRun = {
-  executionId: string | null; taskId: string | null; owner: string; createdAt: string; until: string | null;
+  executionId: string | null; ticketId: string | null; owner: string; createdAt: string; until: string | null;
   state: string; summary: string; source: TrailSource; attempts: number; reported: boolean; steps: TrailStep[];
 };
 export type TrailNow = { owner: string; since: string; until: string | null; stepId: string | null };
@@ -55,7 +55,7 @@ function step(raw: Record<string, unknown>): TrailStep | null {
 
 function run(raw: Record<string, unknown>): TrailRun | null {
   if (!text(raw.createdAt) && !text(raw.state)) return null;
-  return { executionId: textOrNull(raw.executionId), taskId: textOrNull(raw.taskId), owner: text(raw.owner),
+  return { executionId: textOrNull(raw.executionId), ticketId: textOrNull(raw.ticketId), owner: text(raw.owner),
     createdAt: text(raw.createdAt), until: textOrNull(raw.until), state: text(raw.state), summary: text(raw.summary),
     source: source(raw.source), attempts: Number.isSafeInteger(raw.attempts) ? Number(raw.attempts) : 0,
     reported: raw.reported === true, steps: list(raw.steps, step) };

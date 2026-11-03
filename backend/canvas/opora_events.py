@@ -25,14 +25,14 @@ KINDS = ("stage.changed", "step.started", "step.done", "step.failed", "lease.cla
          "formal.result", "decision.created", "decision.resolved", "changeset.proposed", "changeset.accepted",
          "autorebase.done", "autorebase.conflict", "merge.done", "writeback.done", "card.closed",
          "memory.recall", "memory.write", "plan.commit", "card.reopened", "harness.fixture.observed",
-         "guard.alert", "guard.resolved", "gate.ticket", "gate.task")
+         "guard.alert", "guard.resolved", "gate.ticket", "ticket.failed")
 # Derived kinds never trigger a refresh themselves; step progress is not a loop stage.
 DERIVED = {"stage.changed", "gate.changed", "step.started", "step.done", "step.failed"}
 # Live process (docs/zivy-proces.md): memory and legacy plan commits come from the activity bridge and
 # never move a card's stage; events of external sources (office, github) never refresh a card either.
 # Guards (docs/strazci.md §3) only watch and tell: their findings never move a card's stage either.
 QUIET = DERIVED | {"memory.recall", "memory.write", "plan.commit", "harness.fixture.observed", "guard.alert",
-                   "guard.resolved", "gate.ticket", "gate.task"}
+                   "guard.resolved", "gate.ticket", "ticket.failed"}
 EXTERNAL_SOURCES = ("office", "github")
 SYSTEM = {"kind": "system", "name": "opora"}
 ACTOR_KINDS = ("human", "agent", "system")

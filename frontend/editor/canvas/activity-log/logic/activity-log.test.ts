@@ -20,7 +20,6 @@ describe("actionLabel – lidský název akce z cesty", () => {
     ["/api/canvas-versions", "Uložit vše"],
     ["/api/desktop-v3/state", "Stav karet"],
     ["/api/desktop-v3/agent-workspace", "Prostor agenta"],
-    ["/api/brain/tasks", "Úkol do fronty"],
     ["/api/brain/heart/ask", "Otázka pro vás"],
     ["/api/oporahub/graph-proposals", "Návrh grafu"],
   ])("%s → %s", (path, label) => expect(actionLabel(path)).toBe(label));

@@ -1,9 +1,9 @@
-"""Co srdce budí: selhaný úkol ano, vrácení úkolu pracovníkem (`release`, status ready s důvodem) ne; u ticketu
-práce otázka dělníka a odevzdání ano, nápad ne."""
+"""Co srdce budí u ticketu práce: otázka dělníka, odevzdání a selhání (`ticket.failed` → `workFailed`) ano, nápad ne."""
 from backend.brain_opora.determinism.test_ticket import ISSUE, heart, send, worker
 from backend.canvas.canvas_service import CanvasService
 from backend.flow.catalogs.heart.inputs import resolve, wake_input
 from database.repositories import opora_events
+from database.repositories.tickets import TicketStore
 
 
 def _wakes(service):
@@ -34,11 +34,22 @@ def test_worker_question_and_delivery_of_a_work_ticket_wake_the_heart_with_their
         service.close()
 
 
-def test_failed_task_wakes_the_heart_but_a_released_one_does_not():
-    failed = {"kind": "gate.task", "data": {"taskId": "ht_1", "status": "failed"}}
-    released = {"kind": "gate.task", "data": {"taskId": "ht_1", "status": "ready", "reason": "Nestihnu to."}}
-    assert wake_input(failed) == {"type": "taskFailed", "taskId": "ht_1"}
-    assert wake_input(released) is None
+def test_failed_work_ticket_wakes_the_heart_with_its_body_and_reason(tmp_path):
+    service = CanvasService(tmp_path / "data")
+    try:
+        tid = send(service, heart(service), "ticket.issue", ISSUE)["ticket"]["ticketId"]
+        event = {"kind": "ticket.failed", "data": {"ticketId": tid, "status": "failed", "reason": "Exekuce zrušena."}}
+        item = wake_input(event)
+        assert item == {"type": "workFailed", "ticketId": tid, "reason": "Exekuce zrušena."}
+        assert resolve(service, "draft", [item]) == []  # ticket ještě není failed: vypadne
+        db = service.db_for("draft")
+        with db:
+            assert TicketStore(db, "draft").move(tid, "issued", "failed", "t")
+        (failed,) = resolve(service, "draft", [item])
+        assert failed["status"] == "failed" and failed["reason"] == "Exekuce zrušena."
+        assert failed["body"]["essence"] == ISSUE["body"]["essence"] and failed["cardId"] == "hero"
+    finally:
+        service.close()
 
 
 def test_merge_done_becomes_a_merged_input_that_resolve_keeps():

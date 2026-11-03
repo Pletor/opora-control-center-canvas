@@ -47,14 +47,18 @@ def test_authenticate_refuses_invalid_token_and_other_project(service):
     assert caught.value.code == "gate_scope"
 
 
-def test_next_answers_at_once_from_the_queue_and_a_refused_report_makes_no_ticket(service):
+def test_sync_kind_answers_at_once_and_a_refused_one_makes_no_ticket(service):
     session = worker_session(service)
-    ticket = kinds.run(service, session, {"kind": "next", "body": {}})
-    assert ticket["status"] == "answered" and ticket["answer"]["task"] is None and "plan" in ticket["answer"]
+    ticket = kinds.run(service, session, {"kind": "ticket.request", "body": {}})
+    assert ticket["status"] == "answered" and ticket["answer"] == {"ticket": None, "held": False}
     assert ticket["answeredBy"] == "gate"
     with pytest.raises(GateError) as caught:
-        kinds.run(service, session, {"kind": "report", "body": {}})
+        kinds.run(service, session, {"kind": "ticket.deliver", "body": {}})
     assert caught.value.status == 422
+    for retired in ("next", "report", "release", "task.create", "task.cancel"):
+        with pytest.raises(GateError) as caught:
+            kinds.run(service, session, {"kind": retired, "body": {}})
+        assert caught.value.code == "invalid_payload"
     assert [data["status"] for _, data in events(service)] == ["queued", "answered"]
 
 
@@ -97,7 +101,7 @@ def test_worker_reads_only_own_tickets(service):
 def test_inbox_waits_until_an_answer_arrives_or_time_runs_out(service):
     session, clock = worker_session(service), {"now": 0.0}
     ticket = kinds.run(service, session, {"kind": "ask", "body": {"question": "?"}})
-    kinds.run(service, session, {"kind": "next"})  # zodpovězený branou: do schránky nepatří
+    kinds.run(service, session, {"kind": "ticket.request"})  # zodpovězený branou: do schránky nepatří
 
     def sleep(seconds):
         clock["now"] += seconds
@@ -118,7 +122,7 @@ def test_worker_change_and_ask_record_intake_entries_but_sync_kinds_and_heart_es
     asked = kinds.run(service, session, {"kind": "ask", "body": {"question": "Jaká barva?"}})
     changed = kinds.run(service, session, {"kind": "change", "body": {"proposal": "Rozdělit kartu.", "reason": "Velká."}})
     again = kinds.run(service, session, {"kind": "change", "body": {"proposal": "rozdělit kartu", "reason": "Jinak."}})
-    kinds.run(service, session, {"kind": "next", "body": {}})
+    kinds.run(service, session, {"kind": "ticket.request", "body": {}})
     _, token = gate.tokens.issue_heart(service, "draft", "draft")
     gate.escalate(service, gate.authenticate(service, token, roles=("heart",)), "Rozhodněte prosím.")
     rows = service.db_for("draft").execute(

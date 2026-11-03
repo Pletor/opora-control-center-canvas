@@ -121,46 +121,6 @@ class IntakeSettingOut(BaseModel):
     jevPerDay: int
 
 
-class TaskBody(BaseModel):
-    why: str = ""
-    do: str
-    files: list[str] = []
-    doneWhen: list[str] = []
-    dontTouch: list[dict[str, str]] = []
-    context: dict[str, Any] = {}
-    commit: str = ""
-
-
-class TaskIn(BaseModel):
-    project: str
-    workspace: str
-    nodeId: str | None = None
-    order: int = 0
-    title: str
-    body: TaskBody
-
-
-class Task(BaseModel):
-    taskId: str
-    seq: int
-    workspaceId: str
-    nodeId: str | None
-    title: str
-    body: TaskBody
-    status: Literal["ready", "assigned", "done", "failed", "cancelled"]
-    sessionId: str | None
-    attempts: int
-    createdBy: str
-    report: Any
-    createdAt: str
-    updatedAt: str
-    order: int
-
-
-class TasksOut(BaseModel):
-    tasks: list[Task]
-
-
 class WorkTicketBody(BaseModel):
     """Tělo ticketu pro dělníka, bez ID (docs/navrhy/2026-11-03-novy-zaklad.md §3.3)."""
 
@@ -407,7 +367,6 @@ class Escalation(BaseModel):
     ticketId: str
     text: str
     createdAt: str
-    taskId: str | None = None
 
 
 class EscalationsOut(BaseModel):

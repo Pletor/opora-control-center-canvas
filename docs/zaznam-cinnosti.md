@@ -51,11 +51,11 @@ Zápisy, které mění karty, nesou `nodeIds` dotčených uzlů a čitelný popi
 | `POST /api/oporahub/changesets` (`steps`) | `changes[].nodeId` | „Kroky karty: 4 kroky“, „Návrh zadání: 2 karty“ |
 | `POST /api/project-architecture` | uzly změněné proti uložené revizi | „Architektura: pořadí 12 stránek“ |
 | `POST /api/canvas-plan` | nové uzly (`refs`), bez `dryRun` | „Plán: Přidá 1 sektor, 2 karty …“ |
-| `POST /api/brain/tasks` | `nodeId` | „Úkol do fronty: <název>“ |
+| `POST /api/gate/requests` (`ticket.issue`) | `cardId` | „Ticket práce: <první řádek build>“ |
 
 Co je známo až při zápisu (ID nových uzlů, obsah přijatého návrhu, rozdíl architektury), doplní routa
 přes `note` / `note_from`; middleware to přidá k tomu, co dá tělo. Selhání stopy nikdy neshodí zápis.
-Jediný převzatý text je název úkolu; ` | ` se v něm i v klíčích těla nahradí `/`, popisek tak nejde podvrhnout.
+Jediný převzatý text je první řádek zadání ticketu; ` | ` se v něm i v klíčích těla nahradí `/`, popisek tak nejde podvrhnout.
 
 Obsah textů (zadání, texty karet) se do záznamu nekopíruje; ten má vlastní revize. Selhání
 zápisu do záznamu nikdy neshodí samotný požadavek.

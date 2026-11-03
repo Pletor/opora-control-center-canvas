@@ -4,7 +4,7 @@ import sqlite3
 
 import pytest
 
-from database.schema.dead_tables import DEAD_TABLES, drop_dead_tables
+from database.schema.dead_tables import DEAD_TABLES, drop_dead_tables, drop_retired_tables
 from database.schema.project_initialization import initialize_project_schema
 from database.schema.project_schema import PROJECT_SCHEMA
 
@@ -115,4 +115,30 @@ def test_fresh_project_has_no_dead_tables(tmp_path):
     initialize_project_schema(db)
     assert drop_dead_tables(db) == []
     assert not dead_objects(db)
+    db.close()
+
+
+# Tabulka staré fronty úkolů mozku tak, jak ležela v project.sqlite do PR 5c (i s daty).
+HEART_TASKS_DDL = """
+CREATE TABLE heart_tasks(
+    seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+    project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT, title TEXT NOT NULL, body TEXT NOT NULL,
+    status TEXT NOT NULL, session_id TEXT, attempts INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL, report TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, task_order INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX heart_tasks_queue ON heart_tasks(project_id, workspace_id, status, seq);
+INSERT INTO heart_tasks(id,project_id,workspace_id,title,body,status,created_by,created_at,updated_at)
+    VALUES('ht_1','p','draft','Starý úkol','{}','ready','heart','t','t');
+"""
+
+
+def test_retired_heart_tasks_table_is_dropped_with_its_rows_and_index_once(tmp_path):
+    db = sqlite3.connect(tmp_path / "project.sqlite")
+    db.executescript(PROJECT_SCHEMA + HEART_TASKS_DDL)
+    initialize_project_schema(db)
+    db.commit()
+    assert not {"heart_tasks", "heart_tasks_queue"} & objects(db)
+    version = db.execute("PRAGMA schema_version").fetchone()[0]
+    assert drop_retired_tables(db) == []
+    initialize_project_schema(db)  # druhé otevření: žádné DDL
+    assert db.execute("PRAGMA schema_version").fetchone()[0] == version
     db.close()

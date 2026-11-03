@@ -15,6 +15,7 @@ from backend.api.brain_opora import models
 from backend.api.brain_opora.writer import heart_project
 from backend.brain_opora.determinism import gate, gate_setting, kinds, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, inbox_query, parse_body
+from backend.canvas.activity_log import note_scope
 
 HUMAN_HINT = "Na lístek odpovídá jen člověk v UI OPORY nebo srdce projektu."
 ROLES = ("worker", "heart")
@@ -78,6 +79,7 @@ def create_gate_router(service, heart=None):
     async def create_request(request: Request):
         try:
             session = await run_in_threadpool(session_of, request)
+            note_scope(request, session["project_id"], session["workspace_id"])
             payload = parse_body(await request.body())
             ticket = await run_in_threadpool(kinds.run, service, session, payload)
         except GateError as error:

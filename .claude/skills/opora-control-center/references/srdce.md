@@ -50,7 +50,7 @@ python "<SKILL_DIR>/scripts/opora_gate.py" tell "Záměr člověka doslova, s fo
 - `tell` = relé záměru: předá srdci slova člověka **doslova** (žádný vlastní plán) jako zprávu člověka; srdce
   ji vidí v `ZPRÁVY ČLOVĚKA` se značkou „(přes <jméno relace>)“ a budí se hned. Pak čekej na dávku
   (`/api/brain/heart/status`) a nové karty čti ve stavu.
-- `ask` = otázka, `change` = žádost o změnu plánu (`--task ht_…`, když se týká úkolu fronty). Oba lístky čekají,
+- `ask` = otázka, `change` = žádost o změnu plánu. Oba lístky čekají,
   až je srdce (nebo člověk) zodpoví; odpověď najdeš v `inbox`. Relace a token: [gate.md](gate.md).
 - Novou kartu od srdce poznáš v `opora_hub.py state`; nečekej na ni ve smyčce, dělej jinou `ready` kartu.
 

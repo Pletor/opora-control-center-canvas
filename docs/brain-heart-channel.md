@@ -21,9 +21,9 @@ The Srdce view is one column, in this order from the top:
 1. **Waiting for you:** the heart's escalations (open `ask` tickets with `for: "human"`). Each one shows its text, a
    reply field and the button **Odpovědět**. This list is the reason the channel exists, because without an answer
    the heart's plan stays blocked (eval m2).
-2. **Queue:** the tasks of the workspace, grouped `ready` / `assigned` / `done` / `failed` / `cancelled`. Each row
-   shows the title, the status and who holds the task. The row expands to the task's `do` and `doneWhen`. It is read
-   only.
+2. **Tickets:** the work tickets of the workspace (`GET /api/brain/tickets`), grouped by status (issued, claimed,
+   in progress, needs answer, delivered, verified, closed, failed, cancelled). Each row shows the title, the status and
+   who holds the ticket. The row expands to the ticket's `do` and `doneWhen`. It is read only.
 3. **Heart:** the state in one line (sleeping, working, waiting until …, error) and the last 5 batches as summaries
    with their cost. While a batch runs (`status.current`), a line "Pracuje od HH:MM · probudilo: …" and the heart's
    writes since the batch start (activity log, `agent=heart`) follow, newest first; a finished batch expands to its
@@ -38,9 +38,9 @@ The view polls every 4 s while it is visible, like the old panel. There is no SS
 
 | Route | Who | Does |
 |---|---|---|
-| `GET /api/brain/heart/escalations?project&workspace` | human only, loopback | open `ask` tickets with `for: "human"`, newest first: `{escalations: [{ticketId, text, createdAt, taskId?}]}` |
+| `GET /api/brain/heart/escalations?project&workspace` | human only, loopback | open `ask` tickets with `for: "human"`, newest first: `{escalations: [{ticketId, text, createdAt}]}` |
 | `POST /api/gate/tickets/{id}/answer` (exists) | human | when the ticket is a heart escalation, the answer also **wakes the heart** at once with the input `ODPOVĚĎ ČLOVĚKA na <ticketId>: <text>` |
-| `GET /api/brain/heart/status`, `GET /api/brain/tasks`, `POST /api/brain/heart/messages`, `POST /api/brain/gate-setting` (exist) | human | unchanged |
+| `GET /api/brain/heart/status`, `GET /api/brain/tickets`, `POST /api/brain/heart/messages`, `POST /api/brain/gate-setting` (exist) | human | unchanged |
 
 - The wake-up goes through the supervisor's `message()`, so a human answer also skips the hourly cap (#149).
 - The heart's batch message shows the answer as a human message.
@@ -99,7 +99,7 @@ deleted together with its tests, styles and docs. The work is split into two PRs
   and "new session for card"):
   - they send their prepared text to the heart (`POST /api/brain/heart/messages`);
   - they open the panel.
-- **Office:** a worker is a gate session holding a task (`sessionId` of an `assigned` task in `GET /api/brain/tasks`).
+- **Office:** a worker is a gate session holding a work ticket (`sessionId` of a ticket in claimed..delivered in `GET /api/brain/tickets`).
   The occupancy header reads the heart status.
 - **Docs:**
   - the Jev and RLM sections of `docs/asistent.md` (§13.2, §13.3) move to `backend/brain_opora/decision/README.md`;

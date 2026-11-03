@@ -1,11 +1,11 @@
 # Brain heart: contract of `brain_opora/heart` (H2)
 
-Status: contract for H2. Background is `docs/navrhy/2026-10-28-srdce-opory.md` §4. The gate and task queue it builds
+Status: contract for H2. Background is `docs/navrhy/2026-10-28-srdce-opory.md` §4. The gate and ticket of work it builds
 on are in `docs/brain-gate.md`.
 
 The heart is the project's resident model: Claude Code under the subscription, with Haiku as the main model and Opus as
 the advisor. **It turns intent into precise tasks** and answers worker questions. It never writes application code.
-Workers (`opora_gate.py next → work → report`) do the coding.
+Workers (`opora_gate.py request → claim → work → deliver`) do the coding.
 
 ## 1. Inputs that wake it
 
@@ -13,7 +13,7 @@ Workers (`opora_gate.py next → work → report`) do the coding.
 |---|---|---|
 | human message (intent, change, question) | `POST /api/brain/heart/messages {project, workspace, text}` (human, or worker relay with `via`, `docs/brain-heart-orchestrator.md` §8) | at once |
 | queued ticket `ask` / `change` | `gate.ticket` event with `status: queued` | after a 20 s batch window |
-| task `failed` (second red) | `gate.task` event with `status: failed` | after a 20 s batch window |
+| work ticket `failed` (cancelled execution) | `ticket.failed` event, input `workFailed` | after a 20 s batch window |
 | `merged` `{nodeId, executionId, mergeSha, pr}` | `merge.done` event (merged card PR or local merge) | after a 20 s batch window |
 | `commits` `{from, to, log}` | git watcher every 300 s: the source HEAD moved (`git` source after the app's own sync) | after a 20 s batch window |
 
@@ -46,7 +46,7 @@ cwd = <data>/projects/<id>/brain/       env: without ANTHROPIC_API_KEY; OPORA_BA
 - **Token.** The heart token comes from `tokens.issue_heart`, once per project. It is kept in memory and in the env
   of the process only, never on disk.
 - **Batch message.** It contains a deterministic snapshot (§3), then the inputs of this batch (human messages, queued
-  tickets, failed tasks), then the instruction to finish with `opora_heart.py done --summary`.
+  tickets, failed work tickets), then the instruction to finish with `opora_heart.py done --summary`.
 - **Output.** The JSON result gives `session_id`, `total_cost_usd`, `modelUsage`, `num_turns` and `is_error`. They
   are written to `brain/batches.jsonl` as one line per batch, together with the inputs and the cost per model.
   `claude -p --resume` reports the cost of the whole session, so for a resumed batch `costUsd` and `costByModel` hold
@@ -62,7 +62,7 @@ cwd = <data>/projects/<id>/brain/       env: without ANTHROPIC_API_KEY; OPORA_BA
 - **Limits.**
   - `is_error` with `rate_limit`, or the text "hit your … limit", puts the supervisor to sleep for 15 min and keeps
     the inputs.
-  - At most 6 automatic batches (tickets, failed tasks) per hour per project. A batch with a human message skips
+  - At most 6 automatic batches (tickets, failed work tickets) per hour per project. A batch with a human message skips
     this cap (eval m2: the cap held back the human's next brief); the subscription sleep still applies.
     Only a batch that really runs counts: a batch whose inputs were all resolved before it started (`resolve`
     is empty) does not use the cap (probe r1: phantom batches made the 7th ticket wait 53 min).
@@ -122,7 +122,7 @@ Nothing new is stored in a new table: the surroundings reuse what the applicatio
 
 ## 3b. The workshop (`brain/dilna/`): RLM and deterministic scripts (K3)
 
-The snapshot stays small (≤ 12 000 chars). Large context (all tasks with bodies and reports, the whole journal, the
+The snapshot stays small (≤ 12 000 chars). Large context (all work tickets with bodies and deliveries, the whole journal, the
 source tree, long tickets) does not go into the model's window: it lives as **data files** in the workshop and the
 heart works on it with code, the RLM way (context as a variable, the model writes code to slice, search and batch it,
 and sends only the pieces that need judgment to a cheap sub-model). What the heart learns to do once, it keeps as a
@@ -140,7 +140,7 @@ brain/dilna/
 - **Write rights.** The heart gets `Write` and `Edit` only for `brain/dilna/scripts/**` and `brain/dilna/out/**`,
   as absolute `allow` rules in the batch settings file (not in `--allowedTools`, where a space in the path would
   split the rule). Everything else stays denied (source root, secrets, the rest of `brain/`).
-- **`ctx <name>`** (deterministic, no model) writes `data/<name>.json`: `tasks` (all tasks with body and report),
+- **`ctx <name>`** (deterministic, no model) writes `data/<name>.json`: `work` (the work tickets of the workspace with body and delivery),
   `tickets` (all tickets of the workspace), `journal` (all batches), `messages`, `rules` and `decisions`
   (Desktop v3), `tree` (source files of the workspace with size and mtime, without `node_modules`, `.git` and
   build output). It prints the path, the item count and the size, never the content.
@@ -317,27 +317,11 @@ rule above), and sources like "URL (section 2)" failed the check (code cuts the 
 (2 runs) V3 covered layers slightly better (0.7 vs 0.6, judge 5.5 vs 5.0) at 2.7× the cost, so a broad intent is
 split into several focused researches instead of a wider desk. V1s became `research`; the fan-out was deleted.
 
-## 3e. Delivery channel: who takes the work (`determinism/delivery.py`)
+## 3e. Delivery channel (removed)
 
-**Superseded (2026-11-03, docs/navrhy/2026-11-03-novy-zaklad.md §3.3):** the heart gives work only as work
-tickets (`opora_heart.py task` = `ticket.issue` with `cardId`; `cancel` = `ticket.cancel`). The snapshot no longer
-prints `DORUČENÍ`; `delivery.py` and the task queue stay until their removal (PR 5c) and no new code uses them.
-The text below records the old split.
-
-The heart cannot tell from the plan alone whether anyone will pick up a card. So the snapshot carries one line,
-`DORUČENÍ`, right before `PLÁN`, computed without a model from the project database:
-
-- **`cards`**: the project has an orchestrator of cards. At least one card execution (a claim through
-  `/api/oporahub/executions`, table `opora_executions`) exists in any workspace of the project, ever. The heart gives
-  work as cards (`plan`).
-- **`gate`**: no card execution ever. Work is taken only by workers through the gate (`opora_gate.py next`), so the
-  heart gives every piece of work as a queue task (`task`, `--node` links it to a card). A card may stay as a map,
-  never instead of a task: a card without a task reaches nobody. A fresh project with nothing is `gate`. The count of
-  gate worker sessions (`gate_sessions`, role `worker`) is printed as support only and never changes the channel.
-
-There is no time window: the snapshot does not depend on time (§3), and an orchestrator that took nothing for a few
-days still exists. The channel is project-wide, so a new workspace of a project with agent-office stays `cards`.
-An unreadable table counts as zero. The prompt part „Plán“ follows this line (§6).
+**Removed in PR 5c (2026-11-03, docs/navrhy/2026-11-03-novy-zaklad.md §3.3):** the heart gives work only as work
+tickets (`opora_heart.py task` = `ticket.issue` with `cardId`; `cancel` = `ticket.cancel`). The old delivery channel
+(`delivery.py`, snapshot line `DORUČENÍ`) and the task queue are deleted; the snapshot has the section `TICKETY PRÁCE`.
 
 ## 4. The heart's tool (`heart/opora_heart.py`, stdlib, one call = one intent)
 
@@ -346,9 +330,9 @@ An unreadable table counts as zero. The prompt part „Plán“ follows this lin
 | `snapshot` | prints the snapshot again |
 | `plan --file F [--dry-run] [--no-accept]`, `plan --example` | builds cards: fresh `digest` from `GET /api/view`, then `POST /api/canvas-plan` with the heart token; one retry on a stale digest. A rejected batch puts the server's own error (and `field`/`expected`) into `hint`. A non-dry plan is then accepted by the tool itself: the first plan through canvas-plan + `propose_graph` + graph `accept` from agent-state, every later plan (graph already accepted) as a graph-addition proposal + its `accept` and the output gains `accepted: true\|false` (`code`/`hint` when false); `--no-accept` leaves acceptance to the human; `--example` prints the batch template that is also in the prompt (`docs/brain-heart-orchestrator.md` §3). `--workspace W` plans in workspace W instead of `OPORA_WORKSPACE`. In `main` of a git project only architecture passes and nothing is accepted (output `architecture: true`); the tool then adopts the changed architecture into every workspace with an accepted plan (`adopted: [ids]`), and a plan in a workspace whose architecture moved adopts it first (`acceptSteps` starts with `adopt_architecture`). An accepted plan writes its workspace to `brain/active_workspace.json` (`activeWorkspace` in `GET /api/brain/heart/status`) (§9 O7) |
 | `workspace --domain NODE [--reuse]` | git project: a workspace (git worktree on branch `work/<id>`) bound to the domain NODE (`POST /api/workspaces` with the heart token, `require_domain`); `--reuse` returns the existing workspace of that domain if there is one. Output `{workspace, branch, domain, created}` (`docs/brain-heart-orchestrator.md` §9 O7) |
-| `task --title T --do D [--why] [--file F]… [--done-when C]… [--dont-touch P]… [--node N] [--workspace W]` | `POST /api/brain/tasks` with the heart token (only for a worker that works through the gate) |
+| `task --title T --do D [--why] [--file F]… [--done-when C]… [--dont-touch P]… [--node N] [--workspace W]` | `ticket.issue` through the gate with the heart token, with the `cardId` of the card (a source-repo project: the `workspace` of the card's space) |
 | `answer --ticket ID --text T` | `POST /api/gate/tickets/{id}/answer` with the heart token |
-| `cancel --task ID` | cancels a task |
+| `cancel --task ID` | `ticket.cancel`: cancels a work ticket (`tk_…`) that no longer makes sense |
 | `escalate --text T` | records a question for the human: an `ask` ticket created by the heart, visible in the velín |
 | `done --summary S` | ends the batch; the summary goes to `batches.jsonl` |
 | `decide --text T [--node N] [--pin] [--workspace W]` | adds a decision to the workspace memory (`POST /api/desktop-v3/decision`) |
@@ -364,9 +348,9 @@ Errors print `code` and `hint`, and the exit code is not zero.
 
 ## 5. Gate changes needed by H2a (determinism)
 
-- `POST /api/brain/tasks`, `/cancel` and `POST /api/gate/tickets/{id}/answer` accept the **heart token** of the same
+- `ticket.issue`, `ticket.cancel` and `POST /api/gate/tickets/{id}/answer` accept the **heart token** of the same
   project as well as a human. `answeredBy` is then `"heart"`.
-- The `task` body gets an optional `order` field. A lower order goes first; when orders are equal, `seq` decides.
+- The work body of `ticket.issue` has an optional `order` field. A lower order goes first; when orders are equal, `seq` decides.
   This lets the heart sequence its plan.
 
 ## 6. The heart's prompt (`heart/prompt.md`, Czech)

@@ -61,8 +61,7 @@ answeredAt}`.
 - A **deterministic handler** answers in the same request (`status: answered`, `answeredBy: "gate"`); such tickets stay
   for the audit but do not appear in the inbox. `ask` and `change` have none: they stay `queued` until the heart or a
   human answers them.
-- In H1a, `next` and `report` answer with the stub `{"pending": "H1b"}`.
-- H1b replaces the stub with the task queue (`heart_tasks`) and checks on a sha.
+- The first work kinds (`next`, `report`) were a stub and then a task queue; the ticket of work replaced them in PR 5c.
 
 **Events.** Creating and answering a ticket emits `opora_events` with kind `gate.ticket` and payload
 `{ticketId, kind, status}`. Later this event wakes the heart (H2).
@@ -89,7 +88,7 @@ CREATE INDEX IF NOT EXISTS gate_tickets_inbox ON gate_tickets(session_id, answer
 CREATE INDEX IF NOT EXISTS gate_tickets_queue ON gate_tickets(project_id, workspace_id, status, seq);
 ```
 
-`heart_tasks` is added in H1b. No existing table changes.
+The task table `heart_tasks` of H1b was replaced by the ticket of work in PR 5c; `drop_retired_tables` drops it.
 
 ## 6. Steps
 
@@ -97,67 +96,25 @@ CREATE INDEX IF NOT EXISTS gate_tickets_queue ON gate_tickets(project_id, worksp
 |---|---|---|
 | H1a | §2 tokens, §4 sessions, tickets, inbox and answer (human only), §5 tables, `gate.ticket` events | targeted tests green: session → `ask` queued → human answers → inbox; foreign project 403, invalid token 401 |
 | H1a2 | §1 switch, §3 wall, heart token as full autonomy | in a project with the gate on, a write without a token is refused and a worker token can use only the gate |
-| H1b | `heart_tasks`, `next` from the queue with a fallback to the plan, `report` → checks on the sha, `opora_gate.py` client for workers | a worker finishes eval session S2 only through the gate, using hand-written tasks |
+| H1b | task queue and `opora_gate.py` client for workers (replaced by the ticket of work in PR 5c) | a worker finishes eval session S2 only through the gate, using hand-written tasks |
 | H1c | **A strong control API.** Everything an agent needs to drive OPORA goes through the gate as typed kinds: read state, plan request, task, report, decision, question. Each kind has a JSON schema, an example and a `hint` on every error. The OpenAPI document is complete. | an agent drives one eval session using only the gate API and its OpenAPI, without the skill references |
 | H1d | **MCP server on top of the gate.** The same kinds become typed MCP tools (`mcp__opora__*`), a thin layer over the HTTP gate with no logic of its own. | the same session through MCP: no shell, no permission denials |
 
-H1b in detail (the task queue):
-- **Table** in `project.sqlite`. It is new; no existing table changes.
-  ```sql
-  CREATE TABLE IF NOT EXISTS heart_tasks(
-      seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
-      project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, node_id TEXT, title TEXT NOT NULL, body TEXT NOT NULL,
-      status TEXT NOT NULL CHECK(status IN ('ready','assigned','done','failed','cancelled')),
-      session_id TEXT, attempts INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL, report TEXT,
-      created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
-  CREATE INDEX IF NOT EXISTS heart_tasks_queue ON heart_tasks(project_id, workspace_id, status, seq);
-  ```
-- **Task body**, the fixed shape a worker gets:
-  `{why, do, files[], doneWhen[], dontTouch[{path, heldBy}], context{intent?, rules[]?, pattern?}, commit, model}`.
-  `model` is the worker's model (`sonnet` | `opus` | `haiku` | `fable`), default `sonnet` (eval m6: the same quality as
-  Opus at about 55 % of the cost). The launcher (agent-office) starts the worker session with it. Tasks stored before
-  the field existed read as `sonnet`.
-  `title` and `do` are required.
-- **Writing tasks.** Only a human, or later the heart, writes tasks:
-  - `POST /api/brain/tasks {project, workspace, nodeId?, title, body}` → `201 task`;
-  - `GET /api/brain/tasks?project&workspace&status?` lists tasks, reading is free;
-  - `POST /api/brain/tasks/{id}/cancel?project=` cancels a task.
-- **`next`** (gate kind, deterministic). Body `{}`.
-  - If the session already holds an `assigned` task, it gets the same task again (idempotent).
-  - Otherwise it gets the oldest `ready` task, which becomes `assigned` to the session.
-  - With an empty queue it gets `{task: null, plan}`. `plan` lists the open cards with `{id, name, stage}` from the
-    existing agent state, at most 20.
-  - A worker session whose token has expired loses its `assigned` task, which goes back to `ready` the next time
-    anyone calls `next`.
-- **`report`** (gate kind, deterministic). Body `{taskId, sha, summary, checks: [{name, status: "green" | "red", output?}]}`.
-  - The task must be `assigned` to this session.
-  - `sha` must be 7–40 hex characters.
-  - All checks green (a `done` report): the sha must exist as a commit in the workspace source repo
-    (`WorkspaceSources.root(project, workspace)`, then `git -C <root> cat-file -e <sha>^{commit}`, 10 s timeout, run
-    outside the project lock). An unknown sha is 422 `sha_unknown` with the hint "Commitni práci a nahlas sha z
-    `git rev-parse HEAD`.". When the workspace has no source root, the root is unavailable, it is not a git repo, or
-    git cannot run, the sha is accepted as before. A report with a red check skips this (the work may not be
-    committed).
-  - `checks` must not be empty.
-  - Every check is written to `check_runs` (`CheckRuns.record`, scope `node_id`, otherwise the task id).
-  - All checks green: the task becomes `done`.
-  - Any check red: `attempts += 1`, and the task goes back to `ready`. On the second red it becomes `failed`.
-  - The answer is `{task: {id, status, attempts}}`.
-- **`release`** (gate kind, deterministic). Body `{taskId, reason}`; `reason` is a short required text (≤ 400
-  chars). The worker gives a task back instead of letting it sit `assigned` until the token expires (8 h).
-  - The task must be `assigned` to this session, otherwise 409 `task_not_assigned` (404 `task_not_found` for an
-    unknown id).
-  - The task goes back to `ready` with no session; `attempts` stay unchanged.
-  - Emits `gate.task` with `{taskId, status: "ready", reason}`. The heart is **not** woken by it (it wakes only on
-    `failed` and on queued tickets); it sees the reason in the event log and the task in its next snapshot.
-  - The answer is `{task: {id, status, attempts}}`.
-- **Event** `gate.task` with `{taskId, status}` on create, assign, done, failed, cancel and release (`reason` added).
-- **Heart snapshot.** Every `assigned` task line shows its holder and since when it is held (`updated_at`, which
-  `assign` sets; the table has no separate `assigned_at`).
+H1b (the task queue) is replaced by the ticket of work in PR 5c: `heart_tasks`, `/api/brain/tasks` and the kinds
+`next`, `report`, `release`, `task.create`, `task.cancel` are deleted without backward compatibility. Work now flows as
+a ticket (`docs/navrhy/2026-11-03-novy-zaklad.md` §3.3):
+- **Kinds.** The heart issues `ticket.issue` (cancel `ticket.cancel`, answer a question with `ticket.answer` carrying
+  a `feedbackId`). A worker or the office calls `ticket.request` → `ticket.claim` (optional `executionId`) →
+  `ticket.feedback` (bug / idea / improvement / question; a question moves the ticket to `needs_answer`) →
+  `ticket.deliver` (summary, sha). `ticket.release` gives a claimed ticket back (claimed → issued).
+- **States.** draft, issued, claimed, in_progress, needs_answer, delivered, verified, closed, failed, cancelled.
+- **Reading.** `GET /api/brain/tickets?project&workspace&status?` and `GET /api/brain/tickets/{id}?project=`.
+- **Failure.** When the execution is cancelled, `ticket_lifecycle.follow` moves the ticket to `failed` and emits the
+  outbox event `ticket.failed {ticketId, status, reason}`; the heart turns it into the input `workFailed`.
 - **Client** `.claude/skills/opora-control-center/scripts/opora_gate.py`, stdlib only:
-  - commands: `session`, `next`, `ask`, `report`, `release`, `inbox`;
-  - the token is kept in `<cwd>/.opora/gate.json`;
-  - `report --check "npm test=green"` can be repeated.
+  - commands: `session`, `request`, `claim --ticket [--execution]`, `feedback --ticket --kind TEXT`,
+    `deliver --ticket --summary [--sha]`, `release --ticket`, `ask`, `change --reason`, `inbox`, `tell`;
+  - the token is kept in `<cwd>/.opora/gate.json`.
 
 H1a2 in detail:
 - **Switch.** `settings.brain = {gate: bool, since?, by?}` lives in `project.json` next to `agentAutonomy`. Reading and

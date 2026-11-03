@@ -14,8 +14,8 @@ def step(step_id="s1", status="done", checks=(), commits=("a" * 40,), files=None
     return value
 
 
-def run(execution="e1", state="reported", steps=(), summary="Hotovo.", task=None, attempts=1, reported=True):
-    return {"executionId": execution, "taskId": task, "state": state, "summary": summary, "attempts": attempts,
+def run(execution="e1", state="reported", steps=(), summary="Hotovo.", ticket=None, attempts=1, reported=True):
+    return {"executionId": execution, "ticketId": ticket, "state": state, "summary": summary, "attempts": attempts,
             "reported": reported, "steps": list(steps)}
 
 
@@ -35,11 +35,9 @@ def test_red_twice_counts_red_check_or_failed_step_across_runs():
     assert flag["stepId"] == "s1" and flag["source"] == "det" and "2" in flag["reason"]
 
 
-def test_red_twice_for_gate_task_uses_red_report_attempts():
-    failed = run(None, state="failed", task="ht_1", attempts=2, steps=[step("ht_1", status="failed")])
-    assert "red_twice" in codes([failed])
-    retry = run(None, state="ready", task="ht_1", attempts=1, steps=[step("ht_1", status="pending")])
-    assert codes([retry]) == []
+def test_failed_work_ticket_counts_once_like_a_failed_step():
+    failed = run(None, state="failed", ticket="tk_1", attempts=0, steps=[step("tk_1", status="failed")])
+    assert "red_twice" not in codes([failed])
 
 
 def test_delivered_without_evidence_looks_at_newest_done_report_only():
