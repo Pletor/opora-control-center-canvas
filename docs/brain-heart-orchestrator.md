@@ -90,7 +90,7 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
   fronty brány (`task`), karta jen volitelná mapa, nikdy místo úkolu. Po sloučení karty srdce plán neopakuje, ale
   navazuje (další karta, oprava, výzkum).
 
-## 4. O3 – Srdce vnímá git (`heart/inputs.py`, `heart/supervisor.py`, `determinism/snapshot.py`)
+## 4. O3 – Srdce vnímá git (`flow/catalogs/heart/inputs.py`, `git_watch.py`, `determinism/snapshot.py`)
 
 | Vstup | Zdroj | Budí |
 |---|---|---|
@@ -132,7 +132,7 @@ vstupy výše; „zapne se, když je potřeba“ je výchozí chování, žádn�
 |---|---|---|
 | O1 pruh | `determinism/wall.py`, `docs/brain-gate.md` §3 | `test_wall.py` |
 | O2 srdce staví karty | `heart/opora_heart.py`, `heart/prompt.md`, `determinism/snapshot.py` (PLÁN) | `test_opora_heart*.py`, `test_snapshot.py` |
-| O3 git | `heart/inputs.py`, `heart/supervisor.py`, `determinism/snapshot.py` (GIT), `docs/brain-heart.md` §1 | `test_inputs.py`, `test_supervisor*.py`, `test_snapshot.py` |
+| O3 git | `flow/catalogs/heart/inputs.py`, `git_watch.py`, `determinism/snapshot.py` (GIT), `docs/brain-heart.md` §1 | `test_inputs.py`, `test_git_watch.py`, `test_snapshot.py` |
 | O4 skill | `.claude/skills/opora-control-center/references/srdce.md`, `SKILL.md` | lint skillu |
 | O5 zapnutí | — (klik člověka v panelu Asistent) | `GET /api/brain/gate-setting` |
 

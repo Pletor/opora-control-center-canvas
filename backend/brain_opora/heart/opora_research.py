@@ -1,6 +1,6 @@
 """Příkaz `research` srdce: výzkumný stůl nad schránkou zadání (docs/brain-heart.md §3c, §3d), jen standardní knihovna.
 
-Supervisor soubor kopíruje do `brain/` vedle `opora_heart.py` (s `research_desk.py`, `research_digest.py`,
+Dávka srdce (`command.py`) soubor kopíruje do `brain/` vedle `opora_heart.py` (s `research_desk.py`, `research_digest.py`,
 `research_fetch.py` a `opora_duel.py`); nástroj sem předá sám sebe (`tool`): volání OPORY s tokenem srdce
 (`tool.call`), proces se zabitím celého stromu (`tool._execute`, runner stolu), `Failure`, `scope`, `DILNA`
 a zápis do `dilna/runs.jsonl` (`tool.log_run`, odtud dávka sečte `subCostUsd`).
@@ -127,7 +127,7 @@ def research(args, tool):
     mcp = dilna / REA_MCP
     if browser and not mcp.is_file():
         raise tool.Failure({"error": f"Chybí {REA_MCP}.", "code": "rea_mcp_missing",
-                            "hint": "Konfiguraci REA zapisuje supervisor do dilna/ před každou dávkou."})
+                            "hint": "Konfiguraci REA zapisuje dávka srdce do dilna/ před každou dávkou."})
     claude = research_desk.need_claude(tool)
     targets = [target.strip() for target in args.target if target.strip()]
     text = args.question + ("\n\nCíle: " + ", ".join(targets) if targets else "")

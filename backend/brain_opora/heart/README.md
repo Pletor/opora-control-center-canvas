@@ -6,34 +6,13 @@ of events or a human message wakes it up. It turns intent into tasks for workers
 writes application code. Contract: `docs/brain-heart.md`.
 
 Modules (H2a):
-- `supervisor.py`: `HeartSupervisor`, a daemon thread started from the factory lifespan. It reads the event outbox of
-  projects with the gate on: a queued `ask` / `change` ticket of a worker (`gate.ticket`, not `from: heart`) and a
-  `failed` task (`gate.task`) become inputs with a 20 s batch window; a human message (`message()`) is first
-  appended to `brain/messages.jsonl` (`determinism/brain_files.py`, read by the snapshot) and is due at once.
-  Before that it is recorded by the intake gate (`determinism/intake.py`): the same sentence again (`duplicate`) is
-  kept in `messages.jsonl` with `duplicate: ie_…` but never queued, not even by the catch-up after a restart. An input
-  with an intake entry (message, `change` / `ask` ticket via `inputs.resolve`) ends its batch line with
-  `[vstup ie_… · <verdict> · jev 0.82 · oblast <area> · podobné: ie_…]`; a duplicate ticket still wakes the heart.
-  Right before the message is built, `_batch` lets `decision/intake.py` classify `pending` entries through JEV
-  (constructor argument `jev`: a callable returning `evaluate(state, questions)` with the app key, or None; the factory
-  passes it, tests inject a fake). It never blocks a message, ticket or fragment and a JEV error never stops the batch.
-  The `milestone.done` trigger (`docs/navrhy/2026-10-30-metriky-a-spoustece.md` §4) needs no new outbox event: after a
-  `card.closed` event (and on the first read of a project) `inputs.milestone_wakes` adds a `milestoneDone` input
-  (20 s window) for each met active milestone not woken yet (`heart_triggers`); the batch line is
-  `- MILNÍK SPLNĚN ms_… „…“ (oblast …): odložené požadavky k otevření: rq_… „…“`.
-  Card triggers (`determinism/triggers.py`) go the same way: `inputs.card_wakes` runs on the first read, after run
-  or plan events (`inputs.TRIGGER_EVENTS`) at most once per `CARD_GAP` (60 s) per project, and every `CARD_POLL`
-  (10 min, a stalled run sends no event); line `- SPOUŠTĚČ card.retry · <id> „…“: 2× selhal, doporučeno effort high`.
-  `inputs.human_changes` turns a human acceptance of a plan (`changeset.accepted`) into `humanChange`, once per
-  revision: `- SPOUŠTĚČ graph.human_change: člověk změnil plán (revize N)`. The prompt's section `Spouštěče` says
-  what to do with each kind.
-  At most one batch per project at a time and 6 automatic per hour (a human message skips the cap); a rate-limited batch puts the heart to sleep for 15 min
-  and keeps its inputs. It runs only when `OPORA_HEART` is not `off` and `OPORA_CANVAS_HOST` is loopback
-  (`tools/opora.py` sets it). Tests set `OPORA_HEART=off` in `backend/conftest.py`.
-  With `OPORA_FLOW_HEART=on` the thread does not start: the flow engine runs the batches (`backend/flow/catalogs/heart/`)
-  and uses `collect`, `take_due`, `message` and `status` of this class; caps come from the `agent.claude` node.
-- `inputs.py`: event → input (`wake_input`) and the fresh data of each input right before a batch (`resolve`);
-  a ticket answered in the meantime drops out.
+- Waking and scheduling are not here. What wakes the heart (event outbox, human messages, git watcher, card,
+  milestone, idle and brief triggers), the caps (one batch per project, 6 automatic per hour, a human message skips
+  the cap, 15 min sleep after a rate limit) and `GET /api/brain/heart/status` live in the flow catalog
+  `backend/flow/catalogs/heart/` (`state.py`, `wakes.py`, `git_watch.py`, `inputs.py`, see its README). The flow
+  engine runs every batch as the workflow „Srdce v1“; this folder keeps the executor the batch node calls.
+  It runs only when `OPORA_HEART` is not `off` and `OPORA_CANVAS_HOST` is loopback (`tools/opora.py` sets it).
+  Tests set `OPORA_HEART=off` in `backend/conftest.py`.
 - `batch.py`: one batch = one `claude -p` process. The message is the snapshot, the inputs and the instruction to end
   with `done`. Writes one line per batch to `brain/batches.jsonl` (inputs, session, cost per model from `modelUsage`,
   turns, error, duration, input tokens, summary from `done`). Detects `rate_limited` and `timeout` (15 min).

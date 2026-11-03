@@ -11,7 +11,7 @@ Present modules:
   entry with one JEV call and two `choice` questions: the verdict over `done | extends_in_progress | fix_for_milestone |
   changes_intent | later_extension | needs_info` (fixed criteria text) and the area over canvas nodes `kind: area`
   (id → name; left out when there are none). The sentence goes only as `state`, never into instructions.
-  `classify_pending` runs in the heart batch right before the message is built (`HeartSupervisor._batch`), never in an
+  `classify_pending` runs in the heart batch right before the message is built (node `decision.jev`, `backend/flow/catalogs/heart/nodes.py`), never in an
   HTTP request: only with the project permission `settings.brain.intake.jev` (default off,
   `determinism/intake_setting.py`), only entries of the current UTC day that JEV was not asked yet, the batch's
   entries first, at most 5 per batch and at most `jevPerDay` (default 200) calls a day, counted as the sum of

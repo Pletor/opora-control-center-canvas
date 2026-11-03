@@ -1,4 +1,4 @@
-"""Knihovna dílny srdce (docs/brain-heart.md §3b), jen standardní knihovna. Supervisor ji před každou dávkou
+"""Knihovna dílny srdce (docs/brain-heart.md §3b), jen standardní knihovna. Každá dávka srdce (`command.py`) ji
 zkopíruje do `brain/dilna/rlm.py`; skripty ze `scripts/` ji importují (`import rlm`), když běží přes
 `python opora_heart.py run`.
 

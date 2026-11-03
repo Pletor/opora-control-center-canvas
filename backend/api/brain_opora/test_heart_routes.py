@@ -1,5 +1,5 @@
 """Srdce přes skutečnou aplikaci (docs/brain-heart.md §1, §4, §5): zprávy, stav, snímek, eskalace a token srdce
-v úkolech a odpovědích. Supervisor v testech neběží (OPORA_HEART=off), žádný proces `claude` nevznikne."""
+v úkolech a odpovědích. Srdce v testech neběží (OPORA_HEART=off), žádný proces `claude` nevznikne."""
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
@@ -24,7 +24,7 @@ def gate_on(client):
 def test_messages_are_human_only_need_the_gate_and_show_in_status(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         seed(client)
-        assert client.app.state.heart.thread is None  # OPORA_HEART=off
+        assert client.app.state.flow.hooks == []  # OPORA_HEART=off: srdce nemá háček plánovače
         assert client.post("/api/brain/heart/messages", headers=AGENT, json=MESSAGE).status_code == 403
         assert code(client.post("/api/brain/heart/messages", headers=HEADERS, json=MESSAGE)) == "gate_off"
         gate_on(client)

@@ -2,7 +2,7 @@
 
 - `POST /api/brain/heart/messages {project, workspace, text}`: člověk, nebo relé záměru (docs/brain-heart-orchestrator.md
   §8): platný token pracovníka brány téhož projektu, zpráva pak nese `via` = jméno relace. Uloží se do
-  `brain/messages.jsonl` (snímek ji ukáže v `ZPRÁVY ČLOVĚKA`, §3a), pak jde jako vstup do supervisoru a budí hned.
+  `brain/messages.jsonl` (snímek ji ukáže v `ZPRÁVY ČLOVĚKA`, §3a), pak jde jako vstup srdce (`backend/flow/catalogs/heart/`) a budí hned.
 - `GET /api/brain/heart/status?project=`: relace, posledních 5 dávek, spánek, nejbližší povolený čas a `current`
   (běžící dávka `{startedAt, inputs}`, jinak `null`).
 - `GET /api/brain/heart/escalations?project&workspace`: jen člověk; otevřené otázky srdce pro člověka, od nejnovější
@@ -108,7 +108,7 @@ def _now():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
-def create_heart_router(service, supervisor):
+def create_heart_router(service, heart):
     router = APIRouter(prefix="/api/brain/heart", tags=["heart"])
 
     @router.post("/messages", openapi_extra=models.body(models.HeartMessageIn),
@@ -129,13 +129,13 @@ def create_heart_router(service, supervisor):
                                 'Zapněte bránu: POST /api/brain/gate-setting {"project": "<id>", "enabled": true}.')
         except GateError as error:
             return _refused(error)
-        pending = await run_in_threadpool(supervisor.message, project, workspace, text, None, via)
+        pending = await run_in_threadpool(heart.message, project, workspace, text, None, via)
         return {"queued": True, "pending": pending}
 
     @router.get("/status", responses={404: {"model": models.Refusal}})
     def status(project: str = ""):
         try:
-            return supervisor.status(_project(service, project))
+            return heart.status(_project(service, project))
         except GateError as error:
             return _refused(error)
 

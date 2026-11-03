@@ -1,7 +1,7 @@
-"""Běhové vazby katalogu srdce: s čím uzly pracují (služba, supervisor srdce) a jak běží mimo zámek registru.
+"""Běhové vazby katalogu srdce: s čím uzly pracují (služba, `Heart`) a jak běží mimo zámek registru.
 
 Typy uzlů jsou v registru napořád (graf jde validovat i bez srdce). Vykonat je jde jen po `bind`, který udělá
-`HeartDriver` v režimu `OPORA_FLOW_HEART=on`; bez vazby uzel selže a běh skončí `failed`.
+`HeartDriver.start` (srdce povolené, `state.enabled()`); bez vazby uzel selže a běh skončí `failed`.
 
 `detached(work)` udělá z pomalé práce (síť, zámky projektu, `claude -p`) uzel, který vrátí `{"detach": True}`,
 práci pustí ve vlastním vlákně, každých `heartbeat_seconds` pošle heartbeat a skončí `interpreter.finish` / `fail`.
@@ -23,7 +23,7 @@ def _thread(target):
 @dataclass
 class Runtime:
     service: object  # `db` a `registry_lock` registru + vše, co čte srdce (`project_ids`, `db_for`, …)
-    heart: object  # `HeartSupervisor`: vstupy, stav (`running`, `current`, `starts`, …) a exekutor dávky
+    heart: object  # `Heart` (`heart.py`): vstupy, stav (`running`, `current`, `starts`, …) a exekutor dávky
     spawn: object = _thread
     heartbeat_seconds: float | None = HEARTBEAT_SECONDS  # None = bez heartbeatu (zkoušky se synchronním `spawn`)
 
@@ -38,7 +38,7 @@ def bind(runtime):
 def current():
     runtime = _bound["runtime"]
     if runtime is None:
-        raise RuntimeError("Srdce v enginu toků není zapnuté (OPORA_FLOW_HEART=on).")
+        raise RuntimeError("Srdce v enginu toků neběží (OPORA_HEART=off nebo mimo loopback).")
     return runtime
 
 

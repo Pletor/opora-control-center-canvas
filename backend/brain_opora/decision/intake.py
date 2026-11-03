@@ -8,7 +8,7 @@ Věta člověka jde jen jako `state`, nikdy do instrukcí; instrukce a kritéria
 Jev je zrychlení, ne podmínka: vypnuté povolení projektu (`brain.intake.jev`), vyčerpaný denní strop
 (`brain.intake.jevPerDay`, součet `jev_calls` vstupů zapsaných ten UTC den), chybějící klíč, porucha nebo jistota
 pod 0,6 nechají stanovisko `pending` a rozhodne srdce. Klasifikace běží v dávce srdce před složením zprávy
-(`HeartSupervisor._batch`), nikdy v HTTP požadavku, a nikdy nevyhodí.
+(uzel `decision.jev` v `backend/flow/catalogs/heart/nodes.py`), nikdy v HTTP požadavku, a nikdy nevyhodí.
 """
 import logging
 import math

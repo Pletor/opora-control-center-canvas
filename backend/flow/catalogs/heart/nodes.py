@@ -22,9 +22,9 @@ def params(node, defaults):
 
 
 def _resolve(ctx, runtime):
-    """Spouštěč: vstupy s aktuálními daty (`heart/inputs.resolve`). Vypnutá brána nebo nic k řešení = port `empty`."""
+    """Spouštěč: vstupy s aktuálními daty (`inputs.resolve`). Vypnutá brána nebo nic k řešení = port `empty`."""
     from backend.brain_opora.determinism import gate_setting
-    from backend.brain_opora.heart.inputs import resolve
+    from backend.flow.catalogs.heart.inputs import resolve
 
     data = ctx["input"]
     if not gate_setting.is_on(runtime.service, data["project"]):
@@ -72,9 +72,9 @@ def _subcommands(tools):
 
 
 def _agent(ctx, runtime):
-    """Dávka `claude -p` stávajícím exekutorem (`heart/batch.run`); stav dávky drží supervisor jako dnes."""
+    """Dávka `claude -p` stávajícím exekutorem (`heart/batch.run`); stav dávky drží `runtime.heart` (`state.py`)."""
     from backend.brain_opora.heart import batch
-    from backend.brain_opora.heart.supervisor import _iso_utc
+    from backend.flow.catalogs.heart.state import iso_utc
 
     data, heart = ctx["input"], runtime.heart
     project, workspace, inputs = data["project"], data["workspace"], data["inputs"]
@@ -85,10 +85,10 @@ def _agent(ctx, runtime):
     models = ctx["config"].get("model") or [{"params": {}}]
     model = params(models[0], MODEL_DEFAULTS)
     if not any(item.get("type") == "message" for item in inputs):
-        with heart.lock:  # do stropu za hodinu se počítá dávka, která opravdu běží (jako supervisor)
+        with heart.lock:  # do stropu za hodinu se počítá dávka, která opravdu běží (prázdná ne)
             heart.starts.setdefault(project, deque()).append(heart.clock())
     with heart.lock:
-        heart.current[project] = {"startedAt": _iso_utc(heart.clock()), "inputs": inputs}
+        heart.current[project] = {"startedAt": iso_utc(heart.clock()), "inputs": inputs}
     spec = batch.BatchSpec(brain=heart.brain(project), claude=claude, base_url=heart.base_url,
                            token=heart._token(project, workspace), project=project, workspace=workspace,
                            snapshot=data["snapshot"], inputs=inputs, source_root=heart._source(project, workspace),
@@ -105,7 +105,7 @@ def _agent(ctx, runtime):
 
 
 def _schedule(ctx):
-    """Rozvrh (místo 10min pojistky karet supervisoru): příští čtení outboxu projde karty všech prostorů."""
+    """Rozvrh (plný průchod spouštěčů karet, dřív 10min `CARD_POLL`): příští čtení outboxu projde karty všech prostorů."""
     heart = current().heart
     heart.card_at.clear()
     heart.polled_at = float("-inf")

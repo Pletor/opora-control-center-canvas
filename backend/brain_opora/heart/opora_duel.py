@@ -3,7 +3,7 @@
 Deterministický průběh: claim B od srdce, strany a soudci jako pod-volání Haiku pod vlastními jmény, nejvýš 2 kola
 a 12 pod-volání; rozhodnutí počítá a hlídá server (`duel-decide`). Nástroj sem předá sám sebe (`tool`): volání OPORY
 s tokenem srdce a jménem aktéra, `_execute`, `Failure`, `scope`, `DILNA`, `log_run`. Odpovědi modelů jsou data.
-Supervisor soubor kopíruje do `brain/` vedle `opora_heart.py`.
+Dávka srdce (`command.py`) soubor kopíruje do `brain/` vedle `opora_heart.py`.
 """
 import time
 

@@ -11,7 +11,7 @@ from backend.brain_opora.determinism.test_brief import (  # noqa: F401 - fixture
     app,
     card,
 )
-from backend.brain_opora.heart import inputs
+from backend.flow.catalogs.heart import inputs
 from backend.canvas.test_canvas_plan import ORIGIN
 from database.repositories.intake_briefs import IntakeBriefs
 from database.repositories.intake_entries import IntakeEntries

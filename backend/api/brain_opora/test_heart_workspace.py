@@ -1,7 +1,7 @@
 """Srdce staví worktree podle práce (docs/brain-heart-orchestrator.md §9 O7) přes skutečnou aplikaci a git projekt:
 v `main` jen architektura (bez přijetí), pracovní prostor domény tokenem srdce (`POST /api/workspaces`), karty
 a jejich přijetí v prostoru (`plan --workspace`), převzetí změněné architektury do prostorů, `activeWorkspace`,
-sekce PROSTORY snímku a `ctx plan-of`. Supervisor ani model neběží."""
+sekce PROSTORY snímku a `ctx plan-of`. Plánovač srdce ani model neběží."""
 import json
 import os
 

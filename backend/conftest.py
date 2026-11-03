@@ -12,7 +12,7 @@ os.environ['OPORA_AUTO_REBASE_WORKER'] = '0'
 os.environ['OPORA_HARNESS_MEMORY_WORKER'] = '0'
 # Strážce testy řídí ručně přes run_once(now) s falešným časem (docs/strazci.md).
 os.environ['OPORA_GUARDS_WORKER'] = '0'
-# Srdce mozku (docs/brain-heart.md) testy nikdy nespouští: žádný proces `claude`, supervisor řídí test ručně.
+# Srdce mozku (docs/brain-heart.md) testy nikdy nespouští: žádný proces `claude`, plánovač srdce řídí test ručně.
 os.environ['OPORA_HEART'] = 'off'
 # Sdílené hodnoty cache čtení (karta P3) se nesmí měnit na místě: v testech to hlídá otisk
 # hodnoty při každém čtení z cache (backend/canvas/read_cache.py).

@@ -1,14 +1,13 @@
-"""Srdce řízené enginem toků (`OPORA_FLOW_HEART=on`): náhrada napevno zadrátovaného plánovače supervisoru.
+"""Srdce řízené enginem toků: jediná cesta dávek srdce (docs/navrhy/2026-11-03-novy-zaklad.md §5 bod 3).
 
-Supervisor zůstává zdrojem vstupů a stavu (`collect` čte outbox a git, `message` přijímá zprávy člověka,
-`status` je dál `GET /api/brain/heart/status`). Jeho vlákno ale neběží: místo `run_once` volá plánovač enginu
-`tick`, který splatné vstupy (`take_due`, okno 20 s) pustí jako běh aktivní verze sdíleného workflow srdce.
-Stropy (`per_hour`, `per_project`) bere z parametrů uzlu `agent.claude`, rozvrh karet z `trigger.schedule`.
+`Heart` (`heart.py`) je zdroj vstupů a stavu (`collect` čte outbox a git, `message` přijímá zprávy člověka,
+`status` je `GET /api/brain/heart/status`). Plánovač enginu volá `tick`, který splatné vstupy (`take_due`, okno 20 s)
+pustí jako běh aktivní verze sdíleného workflow srdce. Stropy (`per_hour`, `per_project`) bere z parametrů uzlu
+`agent.claude`, plný průchod spouštěčů karet z `trigger.schedule`.
 """
 
 import json
 import logging
-import os
 
 from backend.flow import interpreter
 from backend.flow.catalogs.heart import seed
@@ -19,12 +18,6 @@ LOGGER = logging.getLogger(__name__)
 OPEN = ("queued", "running", "waiting")
 
 
-def flow_heart_on(environ=None):
-    """`OPORA_FLOW_HEART=on`: srdce řídí engine a vlákno supervisoru se nespustí. Výchozí `off`."""
-    env = os.environ if environ is None else environ
-    return env.get("OPORA_FLOW_HEART", "off").strip().lower() == "on"
-
-
 class HeartDriver:
     def __init__(self, service, heart, spawn=_thread, heartbeat_seconds=HEARTBEAT_SECONDS):
         self.service, self.heart = service, heart
@@ -33,7 +26,6 @@ class HeartDriver:
 
     def start(self):
         """Vazba uzlů, idempotentní seed Srdce v1 a převzetí otevřených běhů srdce (po restartu je engine naváže)."""
-        self.heart.flow, self.heart.card_poll = True, float("inf")
         bind(self.runtime)
         with self.service.registry_lock:
             self.workflow_id, _ = seed.ensure_active(self.service.db)
@@ -52,7 +44,7 @@ class HeartDriver:
         return (row["id"], json.loads(row["graph"])) if row else (None, None)
 
     def tick(self):
-        """Jeden průchod: rozvrh, vstupy supervisoru, uvolnění hotových běhů a nové běhy na splatné vstupy."""
+        """Jeden průchod: rozvrh, vstupy srdce, uvolnění hotových běhů a nové běhy na splatné vstupy."""
         heart, now = self.heart, self.heart.clock()
         with self.service.registry_lock:
             version_id, graph = self._active()
@@ -104,7 +96,7 @@ class HeartDriver:
             self.heart.wakeup.set()
 
     def _release(self):
-        """Hotové běhy uvolní projekt (jako `finally` dávky supervisoru); chyba uzlu jde do `errors` projektu."""
+        """Hotové běhy uvolní projekt (projekt vypadne z `running`); chyba uzlu jde do `errors` projektu."""
         if not self.runs:
             return
         with self.service.registry_lock:

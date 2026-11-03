@@ -49,6 +49,6 @@ def test_each_layer_is_a_documented_package():
 
 def test_boundary_check_catches_an_upward_import(tmp_path):
     bad = tmp_path / "bad.py"
-    bad.write_text("from backend.brain_opora.heart import supervisor\nfrom ..decision import gatekeeper\n", encoding="utf-8")
+    bad.write_text("from backend.brain_opora.heart import batch\nfrom ..decision import gatekeeper\n", encoding="utf-8")
     assert {name for name in _imports(bad) if _hits("determinism", name)} == {
         "backend.brain_opora.heart", "..decision"}

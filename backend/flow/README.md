@@ -1,6 +1,6 @@
 # Engine toků
 
-Tenký engine workflow pro plátno 1 (spouští se) a plátno 2 (záměr stránky, nespouští se). Kontrakt: `docs/navrhy/2026-11-03-novy-zaklad.md` §2, §3.1 a §5 bod 1–2. Katalog uzlů srdce a Srdce v1 jsou v `catalogs/heart/` (vlastní README).
+Tenký engine workflow pro plátno 1 (spouští se) a plátno 2 (záměr stránky, nespouští se). Kontrakt: `docs/navrhy/2026-11-03-novy-zaklad.md` §2, §3.1 a §5 bod 1–3. Katalog uzlů srdce, Srdce v1 a stav srdce (vstupy, stropy, hlídač gitu) jsou v `catalogs/heart/` (vlastní README). Engine je jediná cesta dávek srdce.
 
 - `node_types.py`: registr typů uzlů v kódu (tvar `Port` / `NodeType` je v `node_spec.py`, aby ho katalogy mohly použít bez kruhového importu). Každý typ má porty (`direction`, `kind` ∈ main / model / memory / tool / subagent / approval, `cardinality`, `schema`) a funkci, která uzel vykoná. Typy v tomto PR:
   - `trigger.manual`;
@@ -24,7 +24,7 @@ Tenký engine workflow pro plátno 1 (spouští se) a plátno 2 (záměr stránk
   - Uzel typu `detached` vrátí `{"detach": true}` a zůstane `running`. Práce běží mimo zámek a hlásí se `heartbeat`, pak `finish` nebo `fail`, které běh posunou. Běh má mezitím stav `running`. `advance` takový uzel nechá být, dokud má čerstvý heartbeat. Bez heartbeatu ho prohlásí za přerušený a spustí znovu. Pozdní hlášení přerušeného pokusu se zahodí.
 - `stalls.py`: `stall_reason` je čistá funkce nad řádkem `node_run`. Prostoj je uzel, který běží bez heartbeatu nebo s heartbeatem starším než 5 min, nebo uzel, který čeká a jeho deadline vypršel. `list_stalls` ji použije na otevřené uzly.
 
-- `scheduler.py`: plánovač na pozadí (vlákno z lifespan aplikace, průchod každé 2 s nebo po `wakeup`). Zavolá `tick()` háčků (srdce v režimu `OPORA_FLOW_HEART=on`, viz `catalogs/heart/README.md`). Pak posune běhy z `due_runs`: prostoj podle `list_stalls` (vypršelý deadline, uzel bez heartbeatu) a zařazený uzel, který nikdo nevykonal. Ruční `POST /api/flow/runs/{id}/advance` zůstává.
+- `scheduler.py`: plánovač na pozadí (vlákno z lifespan aplikace, průchod každé 2 s nebo po `wakeup`). Zavolá `tick()` háčků (`HeartDriver` srdce, když je srdce povolené, viz `catalogs/heart/README.md`). Pak posune běhy z `due_runs`: prostoj podle `list_stalls` (vypršelý deadline, uzel bez heartbeatu) a zařazený uzel, který nikdo nevykonal. Ruční `POST /api/flow/runs/{id}/advance` zůstává.
 
 ## Úložiště: registry.sqlite
 

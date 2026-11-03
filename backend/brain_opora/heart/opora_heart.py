@@ -98,7 +98,7 @@ CONTEXTS = ("tasks", "tickets", "journal", "messages", "rules", "decisions", "tr
 VERDICTS = ("done", "extends_in_progress", "fix_for_milestone", "changes_intent", "later_extension", "needs_info")
 LAYERS = ("fe", "be", "db", "api", "cache", "infra", "security", "data", "ops")  # vrstvy výzkumu (§3d)
 SCRIPT = re.compile(r"[A-Za-z0-9_-]+\Z")
-SKILLS = "skills"  # složka postupů režimů vedle nástroje (supervisor ji kopíruje do `brain/`)
+SKILLS = "skills"  # složka postupů režimů vedle nástroje (dávka srdce ji kopíruje do `brain/`)
 RUN_TIMEOUT, STDOUT_LIMIT, STDERR_LIMIT = 120, 8000, 2000
 # Prostředí skriptu: bez tokenu srdce a adresy (skript OPORU nemění) a bez klíčů API (kopie command.STRIPPED,
 # nástroj je jen stdlib).
