@@ -42,8 +42,9 @@
 }
 
 /* Panel nastavení je tmavá karta kokpitu vpravo nahoře, nad HUD i popupem (Pletor je vrchol pyramidy), aby šel
-   otevřít odkudkoli. Shora dolů jde od toho, co se mění nejčastěji: mozek, přepínače čtení a poslechu,
-   nakonec tabulka hlasů. Je dlouhá jen tolik, kolik je hlasů; víc se posouvá uvnitř, nikdy nepřeteče obrazovku. */
+   otevřít odkudkoli. Záložky jdou zleva od toho, co se mění nejčastěji: mozek s přepínači čtení a poslechu,
+   tabulka hlasů, nakonec přehled LLM počítače. Panel je dlouhý jen tolik, kolik má obsah otevřená záložka;
+   víc se posouvá uvnitř, nikdy nepřeteče obrazovku. */
 .pletor-settings {
   position: fixed;
   top: 56px;
@@ -99,6 +100,38 @@
   font-weight: 400;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+}
+
+/* Záložky jsou tichá řada slov pod nadpisem: jedna otevřená, podtržená akcentem, ostatní tlumené. Panel tak drží
+   jen jednu část najednou a krátký zůstane i s přehledem LLM, který je ze všech nejdelší. */
+.pletor-settings__tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--pletor-line);
+}
+.pletor-settings__tab {
+  padding: 4px 10px 6px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--pletor-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pletor-settings__tab[aria-selected="true"] {
+  border-bottom-color: var(--pletor-accent);
+  color: var(--pletor-accent);
+}
+.pletor-settings__pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pletor-settings__section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 /* Mozek jsou dvě velká tlačítka vedle sebe: kdo mluví, je jedna volba ze dvou a aktivní svítí. Claude stojí
@@ -213,6 +246,7 @@
 .pletor-settings__voice-pick:focus-visible,
 .pletor-settings__try:focus-visible,
 .pletor-settings__brain:focus-visible,
+.pletor-settings__tab:focus-visible,
 .pletor-settings__close:focus-visible {
   outline: 2px solid var(--pletor-accent);
   outline-offset: 1px;

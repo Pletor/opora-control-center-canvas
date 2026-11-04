@@ -1,17 +1,23 @@
 import "../styles/pletor-settings.css";
 import { useEffect, useRef, useState } from "react";
-import type { PletorBrain } from "../logic/pletor-client";
+import { fetchPletorLlm, type PletorBrain } from "../logic/pletor-client";
+import type { PletorLlm } from "../logic/llm-settings";
 import { readListenPrefs, writeListenPrefs } from "../logic/listen-prefs";
 import type { usePletorVoice } from "../logic/use-pletor-voice";
 import PletorListenSwitch from "./PletorListenSwitch";
+import PletorSettingsLlm from "./PletorSettingsLlm";
 import PletorSettingsVoices from "./PletorSettingsVoices";
+
+type Tab = "brain" | "voice" | "llm";
+const TABS: [Tab, string][] = [["brain", "Mozek a čtení"], ["voice", "Hlas"], ["llm", "LLM"]];
 
 type Props = {
   voice: ReturnType<typeof usePletorVoice>; brain: PletorBrain; onBrain: (brain: PletorBrain["brain"]) => void; onClose: () => void;
 };
 
 /**
- * Nastavení Pletora za ozubeným kolem: hlas (tabulka hlasů), přepínače čtení a poslechu a mozek (Claude / Ollama).
+ * Nastavení Pletora za ozubeným kolem ve třech záložkách: mozek (Claude / Ollama) s přepínači čtení a poslechu, hlas
+ * (tabulka hlasů) a LLM na tomto počítači jen ke čtení (`GET /api/pletor/llm`, načte se při prvním otevření záložky).
  * Volby se ukládají jako dosud jednou pro aplikaci (voice-prefs, listen-prefs); mozek přepíná server (`onBrain`).
  * Zavře ho Esc, klik mimo nebo znovu kolo; HUD mezitím Esc nebere (PletorHud `settingsOpen`).
  */
@@ -20,6 +26,15 @@ export default function PletorSettingsPanel({ voice, brain, onBrain, onClose }: 
   const close = useRef(onClose);
   close.current = onClose;
   const [wakeOnly, setWakeOnly] = useState(() => readListenPrefs().wakeOnly);
+  const [tab, setTab] = useState<Tab>("brain");
+  const [llm, setLlm] = useState<{ data: PletorLlm | null; loading: boolean; error: string | null }>({ data: null, loading: false, error: null });
+
+  const loadLlm = () => {
+    setLlm((now) => ({ ...now, loading: true, error: null }));
+    fetchPletorLlm().then((data) => setLlm({ data, loading: false, error: null }),
+      (error: unknown) => setLlm((now) => ({ ...now, loading: false, error: error instanceof Error ? error.message : "Načtení selhalo." })));
+  };
+  const openTab = (next: Tab) => { setTab(next); if (next === "llm" && !llm.data && !llm.loading) loadLlm(); };
 
   useEffect(() => {
     ref.current?.focus();
@@ -44,30 +59,43 @@ export default function PletorSettingsPanel({ voice, brain, onBrain, onClose }: 
         <button type="button" className="pletor-settings__close" aria-label="Zavřít nastavení" onClick={onClose}>×</button>
       </header>
 
-      <h3 className="pletor-settings__section">Mozek</h3>
-      <div className="pletor-settings__brains" role="group" aria-label="Mozek Pletora">
-        <button type="button" className="pletor-settings__brain" aria-pressed={brain.brain === "claude"} onClick={() => onBrain("claude")}>
-          Claude (předplatné)
-        </button>
-        <button type="button" className="pletor-settings__brain" aria-pressed={brain.brain === "ollama"} disabled={!local}
-          title={local ? undefined : "Ollama nenabízí žádný model"} onClick={() => onBrain("ollama")}>
-          Lokální (Ollama · {local ?? "bez modelu"})
-        </button>
+      <div className="pletor-settings__tabs" role="tablist" aria-label="Části nastavení">
+        {TABS.map(([id, label]) => (
+          <button key={id} type="button" role="tab" className="pletor-settings__tab" aria-selected={tab === id} onClick={() => openTab(id)}>{label}</button>
+        ))}
       </div>
 
-      <h3 className="pletor-settings__section">Čtení a poslech</h3>
-      <div className="pletor-settings__switches">
-        <PletorListenSwitch tone="small" label="Hlas" title="Odpovědi čte nahlas i na psané zprávy" on={voice.prefs.voice}
-          onChange={(on) => voice.setPrefs({ voice: on })} />
-        {voice.supported && (
-          <PletorListenSwitch tone="small" label="Konverzace" title="Po odpovědi Pletor znovu poslouchá" on={voice.prefs.conversation}
-            onChange={(on) => voice.setPrefs({ conversation: on })} />
-        )}
-        <PletorListenSwitch tone="small" label="Jen na oslovení" title="Reaguje jen věta s oslovením Pletore / Jarvisi" on={wakeOnly} onChange={saveWake} />
-      </div>
+      {tab === "brain" && <div className="pletor-settings__pane" role="tabpanel" aria-label="Mozek a čtení">
+        <h3 className="pletor-settings__section">Mozek</h3>
+        <div className="pletor-settings__brains" role="group" aria-label="Mozek Pletora">
+          <button type="button" className="pletor-settings__brain" aria-pressed={brain.brain === "claude"} onClick={() => onBrain("claude")}>
+            Claude (předplatné)
+          </button>
+          <button type="button" className="pletor-settings__brain" aria-pressed={brain.brain === "ollama"} disabled={!local}
+            title={local ? undefined : "Ollama nenabízí žádný model"} onClick={() => onBrain("ollama")}>
+            Lokální (Ollama · {local ?? "bez modelu"})
+          </button>
+        </div>
 
-      <h3 className="pletor-settings__section">Hlas</h3>
-      <PletorSettingsVoices voices={voice.voices} chosen={voice.chosen} onChoose={(id) => voice.setPrefs({ ttsVoice: id })} onTry={voice.tryVoice} />
+        <h3 className="pletor-settings__section">Čtení a poslech</h3>
+        <div className="pletor-settings__switches">
+          <PletorListenSwitch tone="small" label="Hlas" title="Odpovědi čte nahlas i na psané zprávy" on={voice.prefs.voice}
+            onChange={(on) => voice.setPrefs({ voice: on })} />
+          {voice.supported && (
+            <PletorListenSwitch tone="small" label="Konverzace" title="Po odpovědi Pletor znovu poslouchá" on={voice.prefs.conversation}
+              onChange={(on) => voice.setPrefs({ conversation: on })} />
+          )}
+          <PletorListenSwitch tone="small" label="Jen na oslovení" title="Reaguje jen věta s oslovením Pletore / Jarvisi" on={wakeOnly} onChange={saveWake} />
+        </div>
+      </div>}
+
+      {tab === "voice" && <div className="pletor-settings__pane" role="tabpanel" aria-label="Hlas">
+        <PletorSettingsVoices voices={voice.voices} chosen={voice.chosen} onChoose={(id) => voice.setPrefs({ ttsVoice: id })} onTry={voice.tryVoice} />
+      </div>}
+
+      {tab === "llm" && <div className="pletor-settings__pane" role="tabpanel" aria-label="LLM">
+        <PletorSettingsLlm llm={llm.data} loading={llm.loading} error={llm.error} onRefresh={loadLlm} />
+      </div>}
     </section>
   );
 }

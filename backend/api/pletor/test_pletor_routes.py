@@ -155,3 +155,21 @@ def test_voices_and_tts(tmp_path, monkeypatch):
             assert client.post("/api/pletor/tts", headers=HEADERS, json=bad).status_code == 422
         assert client.post("/api/pletor/tts", headers=AGENT, json={"text": "Ahoj."}).status_code == 403
         assert client.get("/api/pletor/voices", headers=AGENT).status_code == 403
+
+
+def test_llm_settings_read_only(tmp_path, monkeypatch):
+    from backend.pletor import llm_settings
+
+    def broken():
+        raise OSError("disk")
+
+    sections = {"claude": broken, "codex": lambda: {"available": True}, "ollama": lambda: {"available": True},
+                "cswap": lambda: {"available": False, "installHint": "uv tool install claude-swap"}}
+    monkeypatch.setattr(llm_settings, "SECTIONS", sections)
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        answer = client.get("/api/pletor/llm", headers=HEADERS)
+        assert answer.status_code == 200
+        assert answer.json()["claude"] == {"available": False, "reason": "OSError: disk"}
+        assert answer.json()["cswap"]["installHint"] == "uv tool install claude-swap"
+        assert client.get("/api/pletor/llm", headers=AGENT).status_code == 403

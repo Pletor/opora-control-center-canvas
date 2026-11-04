@@ -82,3 +82,11 @@ class PletorVoice(BaseModel):
 
 class PletorVoicesOut(BaseModel):
     voices: list[PletorVoice]
+
+
+class PletorLlmOut(BaseModel):
+    """Sekce z `backend/pletor/llm_settings/` (každá aspoň `available`, při chybě `reason`); tvar viz README modulu."""
+    claude: dict[str, Any]
+    codex: dict[str, Any]
+    ollama: dict[str, Any]
+    cswap: dict[str, Any]

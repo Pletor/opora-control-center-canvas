@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  actionLabel, brainLabel, brainText, escalationText, fetchPletorState, heartText, parseBrain, sendPletorMessage, setPletorBrain,
+  actionLabel, brainLabel, brainText, escalationText, fetchPletorLlm, fetchPletorState, heartText, parseBrain, sendPletorMessage, setPletorBrain,
 } from "./pletor-client";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -64,6 +64,18 @@ describe("volání Pletora", () => {
     expect(write.url).toBe("/api/pletor/brain");
     expect(JSON.parse(String(write.init!.body))).toEqual({ brain: "ollama" });
     expect(result).toEqual({ ok: false, reply: "Ollama nemá model.", brain: { brain: "claude", model: "sonnet", available: [] } });
+  });
+});
+
+describe("nastavení LLM", () => {
+  it("čte GET /api/pletor/llm a doplní chybějící sekce", async () => {
+    const calls = stubFetch({ claude: { available: true, model: "opus" }, cswap: { available: false, installHint: "uv tool install claude-swap" } });
+    const llm = await fetchPletorLlm();
+    expect(calls[0].url).toBe("/api/pletor/llm");
+    expect(calls[0].init?.method ?? "GET").toBe("GET");
+    expect(llm.claude).toMatchObject({ available: true, model: "opus" });
+    expect(llm.codex).toMatchObject({ available: false, reason: "Server sekci nevrátil." });
+    expect(llm.cswap.installHint).toBe("uv tool install claude-swap");
   });
 });
 
