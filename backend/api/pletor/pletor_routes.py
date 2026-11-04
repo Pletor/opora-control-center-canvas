@@ -1,6 +1,8 @@
 """Routy Pletora (docs/navrhy/2026-11-04-pletor-jarvis.md, P1). Logika je v `backend/pletor/`.
 
 - `POST /api/pletor/messages {project, workspace, text, voice?}` → `{reply, actions: [{type, text, ok, detail?}]}`.
+- `POST /api/pletor/messages/stream` (stejné tělo a kontroly) → `application/x-ndjson`: `{"type": "delta", "text"}`
+  nula a víckrát (složené = `reply`), nakonec vždy `{"type": "done", reply, actions}`.
 - `GET /api/pletor/state?project&workspace` → `{messages, heart, escalations, brain: {brain, model, available}}`.
 - `POST /api/pletor/brain {brain: claude | ollama, model?}` → `{ok, reply, brain}` (P2; selhání = `ok: false`).
 - `GET /api/pletor/voices?warm=<id>` → `{voices: [{id, label, gender, engine, available, reason, quota}]}`: XTTS,
@@ -12,6 +14,8 @@
   ElevenLabs, cloud), `audio/pcm;rate=24000` (XTTS), streamovaně; nestažený hlas 404, nedostupný engine 503.
 Všechny jen pro člověka v UI a jen z tohoto počítače (`/api/pletor` v `backend/app/remote_access.py`).
 """
+import json
+import queue
 import threading
 
 from fastapi import APIRouter, Request
@@ -35,8 +39,7 @@ def _check(service, project, workspace):
 def create_pletor_router(service, pletor):
     router = APIRouter(prefix="/api/pletor", tags=["pletor"])
 
-    @router.post("/messages", response_model=models.PletorReplyOut)
-    async def message(body: models.PletorMessageIn, request: Request):
+    def refused(body, request):
         require_human(request.state.actor, "S Pletorem mluví jen člověk v UI.")
         try:
             _check(service, body.project, body.workspace)
@@ -44,8 +47,39 @@ def create_pletor_router(service, pletor):
                 raise invalid("text je neprázdný text.", 'Příklad: {"project": "<id>", "workspace": "main", "text": "…"}')
         except GateError as error:
             return JSONResponse(error.body(), status_code=error.status)
+        return None
+
+    @router.post("/messages", response_model=models.PletorReplyOut)
+    async def message(body: models.PletorMessageIn, request: Request):
+        if answer := refused(body, request):
+            return answer
         return await run_in_threadpool(pletor.message, body.project, body.workspace, body.text.strip(),
                                      body.voice)
+
+    @router.post("/messages/stream")
+    def message_stream(body: models.PletorMessageIn, request: Request):
+        if answer := refused(body, request):
+            return answer
+        chunks = queue.Queue()  # tah ve vlákně → řádky odpovědi; odpojený klient tah nezastaví, zpráva se uloží
+
+        def work():
+            try:
+                done = pletor.message(body.project, body.workspace, body.text.strip(), body.voice,
+                                      on_delta=lambda text: chunks.put({"type": "delta", "text": text}))
+            except Exception as error:  # noqa: BLE001 – proud musí vždy skončit řádkem done
+                done = {"reply": f"Pletor selhal: {error}", "actions": []}
+            chunks.put({"type": "done", **done})
+
+        threading.Thread(target=work, daemon=True).start()
+
+        def lines():
+            while True:
+                item = chunks.get()
+                yield json.dumps(item, ensure_ascii=False) + "\n"
+                if item["type"] == "done":
+                    return
+
+        return StreamingResponse(lines(), media_type="application/x-ndjson")
 
     @router.get("/state", response_model=models.PletorStateOut)
     def state(request: Request, project: str = "", workspace: str = ""):

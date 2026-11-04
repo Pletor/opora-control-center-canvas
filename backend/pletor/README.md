@@ -8,7 +8,10 @@ a nevolá bránu `/api/gate`. Je jeden na aplikaci, projekt z požadavku je jen 
 - `session.py` jeden tah = `claude -p` pod předplatným přes `process.run_process` srdce: bez nástrojů
   (`--tools ""`), bez MCP a háčků, klíče API odstraněné z prostředí. Relace a rotace jsou funkce srdce
   (`brain_opora/heart/session.py`) nad `<data>/pletor/session.json`. `parse_reply` čte JSON `{reply, actions}`,
-  jinak bere celý text jako odpověď bez akcí.
+  jinak bere celý text jako odpověď bez akcí. Se `--include-partial-messages` jdou za běhu řádky
+  `{"type": "stream_event", "event": {"type": "content_block_delta", "delta": {"type": "text_delta", "text"}}}`;
+  `ReplyStream` z nich průběžně dekóduje hodnotu pole `"reply"` (escape i rozdělený mezi kousky) do `on_delta`.
+  Prostý text bez JSON i odpověď Ollamy doplní `Pletor.message` po tahu jedním kouskem, takže složené kousky = `reply`.
 - `actions.py` deterministická kontrola akcí: jen `heart_message` a `vault_note`, neprázdný text do 8000 znaků,
   nejvýš 3; zbytek `ok: false` s důvodem.
 - `context.py` `build_context` blok PODKLADY do 6000 znaků, pevný strop po sekcích (ořez „…“): stav srdce

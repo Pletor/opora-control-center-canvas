@@ -26,6 +26,7 @@ VOICE = ("REŽIM: HLAS – odpověz nejvýš dvěma větami, prostým textem bez
          "Čísla piš slovy, kde to jde, a nepiš zkratky, emoji, odkazy, ID ani znaky jako * # / _ `, syntéza je čte špatně.")
 
 
+CONTEXT_TTL = 15  # s: podklady stojí ~1 s a v živém rozhovoru se mezi větami nemění; akce je zahodí
 HISTORY = brains.HISTORY + 1  # + právě uložená zpráva člověka, ta jde modelu zvlášť
 
 
@@ -35,6 +36,7 @@ class Pletor:
         self.transport = brains.http  # Ollama (P2); testy vyměňují
         self.folder = Path(service.root) / FOLDER
         self.lock = threading.Lock()  # jedna relace na aplikaci: tahy jdou po jednom
+        self.contexts = {}  # (projekt, prostor) → (čas, podklady)
 
     def _context(self, project, workspace):
         return heart_line(self.heart.status(project)), gate.escalations(self.service, project, workspace)
@@ -43,6 +45,15 @@ class Pletor:
         heart, escalations = self._context(project, workspace)
         return {"messages": store.messages(self.folder, project, workspace), "heart": heart,
                 "escalations": escalations}
+
+    def _podklady(self, project, workspace):
+        now = self.clock()
+        cached = self.contexts.get((project, workspace))
+        if cached and now - cached[0] < CONTEXT_TTL:
+            return cached[1]
+        built = build_context(self.service, self.heart, project, workspace)
+        self.contexts[(project, workspace)] = (now, built)
+        return built
 
     def _run(self, project, workspace, action):
         if action["type"] == "heart_message":
@@ -55,23 +66,34 @@ class Pletor:
                               action["text"])
         return True, f"Zapsáno do brain/{store.DECISIONS}."
 
-    def message(self, project, workspace, text, voice=False):
+    def message(self, project, workspace, text, voice=False, on_delta=None):
         """`{reply, actions: [{type, text, ok, detail?}]}`; selhání modelu je odpověď bez akcí, ne výjimka.
-        `voice` (P3): odpověď se čte nahlas, vstup modelu dostane řádek `VOICE`."""
+        `voice` (P3): odpověď se čte nahlas, vstup modelu dostane řádek `VOICE`.
+        `on_delta(text)` (stream): kousky `reply` za běhu, složené = `reply`; přepnutí mozku ani odpověď, která
+        neprodlužuje už poslané (chyba), kousek nedostane."""
         store.append_message(self.folder, _iso(self.clock()), project, workspace, "human", text)
         switch = brains.command(text)  # přepnutí mozku je věta bez modelu (P2), modelu se nepředá
         if switch:
             reply = brains.switch(self.folder, *switch, transport=self.transport)[1]
             store.append_message(self.folder, _iso(self.clock()), project, workspace, "pletor", reply)
             return {"reply": reply, "actions": []}
+        sent = []
+
+        def emit(piece):
+            sent.append(piece)
+            on_delta(piece)
+
         try:
-            context = build_context(self.service, self.heart, project, workspace) + (f"\n\n{VOICE}" if voice else "")
+            context = self._podklady(project, workspace) + (f"\n\n{VOICE}" if voice else "")
             history = store.messages(self.folder, project, workspace, HISTORY)[:-1]
             with self.lock:
                 reply, raw = brains.turn(self.folder, context, text, history, runner=self.runner, find=self.find,
-                                         transport=self.transport)
+                                         transport=self.transport, on_delta=emit if on_delta else None)
         except RuntimeError as error:
             reply, raw = str(error), []
+        so_far = "".join(sent)
+        if on_delta and reply.startswith(so_far) and reply != so_far:
+            on_delta(reply[len(so_far):])  # prostý text, Ollama nebo zbytek po ořezu: složené kousky = reply
         done = []
         for action, problem in actions.validate(raw):
             if problem is None:
@@ -82,5 +104,7 @@ class Pletor:
             else:
                 ok, detail = False, problem
             done.append({**action, "ok": ok, "detail": detail})
+        if done:
+            self.contexts.clear()  # akce změnila stav srdce nebo rozhodnutí, příští podklady se přečtou znovu
         store.append_message(self.folder, _iso(self.clock()), project, workspace, "pletor", reply)
         return {"reply": reply, "actions": done}

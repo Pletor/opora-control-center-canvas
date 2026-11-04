@@ -85,6 +85,8 @@ export default function PletorSettingsPanel({ voice, brain, onBrain, onClose }: 
             <PletorListenSwitch tone="small" label="Konverzace" title="Po odpovědi Pletor znovu poslouchá" on={voice.prefs.conversation}
               onChange={(on) => voice.setPrefs({ conversation: on })} />
           )}
+          <PletorListenSwitch tone="small" label="Přerušení hlasem" title="V Poslechu řeč člověka utne čtení odpovědi; bez sluchátek vypni" on={voice.prefs.bargeIn}
+            onChange={(on) => voice.setPrefs({ bargeIn: on })} />
           <PletorListenSwitch tone="small" label="Jen na oslovení" title="Reaguje jen věta s oslovením Pletore / Jarvisi" on={wakeOnly} onChange={saveWake} />
         </div>
       </div>}

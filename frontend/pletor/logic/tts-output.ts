@@ -5,65 +5,14 @@
  * v AudioContextu. MP3 (Edge) a WAV (Piper) se dekódují celé, PCM z XTTS hraje po kouscích, jak ho GPU vyrábí.
  * Plynulost: selže-li engine, tutéž větu přečte další hlas z řetězce (`voiceChain`), až nakonec prohlížeč.
  */
+import { audioBuffers, browserAudio, fetchSpeech, type Speech } from "./tts-audio";
 import { splitSentences, type VoiceOutput, type VoiceOutputEvents } from "./voice-output";
 
-/** Zvuk jedné věty: celý soubor k dekódování, nebo proud PCM 16 bit LE mono v dané frekvenci. */
-export type Sound = ArrayBuffer | { rate: number; chunks: AsyncIterable<Uint8Array> };
-type Speech = (text: string, voice: string, signal: AbortSignal) => Promise<Sound>;
-export type ServerOutput = VoiceOutput & { level: () => number | null };
+/** Rozpracované čtení: `push` přidá text, `end` dočte zbytek a po dohrání zavolá `onEnd`; `stop` výstupu ho utne. */
+export type VoiceStream = { push: (text: string) => void; end: () => void };
+export type ServerOutput = VoiceOutput & { level: () => number | null; begin: (events: VoiceOutputEvents) => VoiceStream };
 
 const IN_FLIGHT = 2;
-
-async function* bodyChunks(body: ReadableStream<Uint8Array>) {
-  const reader = body.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) return;
-    yield value;
-  }
-}
-
-// shortcut: cookie člověka už existuje (odpověď přišla přes api POST); po restartu serveru 428 → čte prohlížeč, dokud nepřijde další zpráva.
-export const fetchSpeech: Speech = async (text, voice, signal) => {
-  const response = await fetch("/api/pletor/tts", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, voice }), signal,
-  });
-  if (!response.ok) throw new Error(`Hlas Pletora: HTTP ${response.status}`);
-  const rate = /^audio\/pcm;\s*rate=(\d+)/.exec(response.headers.get("Content-Type") ?? "")?.[1];
-  return rate && response.body ? { rate: Number(rate), chunks: bodyChunks(response.body) } : response.arrayBuffer();
-};
-
-/** PCM 16 bit little-endian → vzorky -1…1 pro AudioBuffer. */
-export function pcmSamples(bytes: Uint8Array): Float32Array<ArrayBuffer> {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const samples = new Float32Array(bytes.byteLength >> 1);
-  for (let i = 0; i < samples.length; i++) samples[i] = view.getInt16(i * 2, true) / 32768;
-  return samples;
-}
-
-/** AudioBuffery jedné věty: soubor celý, PCM po kouscích (lichý bajt na hranici kousku počká na další). */
-async function* audioBuffers(ctx: AudioContext, sound: Sound) {
-  if (sound instanceof ArrayBuffer) { yield await ctx.decodeAudioData(sound); return; }
-  let rest = new Uint8Array(0);
-  for await (const chunk of sound.chunks) {
-    const bytes = rest.length ? new Uint8Array([...rest, ...chunk]) : chunk;
-    const even = bytes.length - (bytes.length % 2);
-    rest = bytes.slice(even);
-    if (!even) continue;
-    const samples = pcmSamples(bytes.subarray(0, even));
-    const buffer = ctx.createBuffer(1, samples.length, sound.rate);
-    buffer.copyToChannel(samples, 0);
-    yield buffer;
-  }
-}
-
-const browserAudio = () => {
-  try {
-    return typeof AudioContext === "function" ? new AudioContext() : null;
-  } catch {
-    return null;
-  }
-};
 
 /** `chain()` je řetězec hlasů ke čtení (`voiceChain`), prázdný = rovnou prohlížeč. */
 export function createServerOutput(fallback: VoiceOutput, chain: () => string[], speech: Speech = fetchSpeech,
@@ -96,19 +45,34 @@ export function createServerOutput(fallback: VoiceOutput, chain: () => string[],
     fallback.stop();
   };
 
-  const speak = (text: string, events: VoiceOutputEvents) => {
+  /** Čtení po kouscích textu (proud odpovědi): dokončená věta se hned objedná a řadí, poslední čeká na další `push` nebo `end`. */
+  const begin = (events: VoiceOutputEvents): VoiceStream => {
     stop();
+    const mine = token;
     const voices = chain();
     const sound = voices.length ? context() : null;
-    if (!sound) { fallback.speak(text, events); return; }
-    const sentences = splitSentences(text);
-    if (!sentences.length) { events.onEnd(); return; }
-    const { context: ctx, analyser } = sound;
-    const mine = token;
+    const sentences: string[] = [];
+    let text = "";
+    let ended = false;
+    let wake = () => undefined as void; // probudí přehrávač, když přibude věta nebo konec
+    let server = !!sound;
+    // Prohlížeč (bez hlasu serveru, nebo když žádný nečte) čte nasbírané věty po dávkách; konec až po `end` a poslední dávce.
+    let browser = !sound;
+    let spoken = 0;
+    let busy = false;
+    let finished = false;
+    const finish = () => { if (mine === token && !finished) { finished = true; playing = []; events.onEnd(); } };
+    const speakBrowser = () => {
+      if (!browser || busy || mine !== token) return;
+      if (spoken < sentences.length) {
+        const batch = sentences.slice(spoken).join(" ");
+        spoken = sentences.length;
+        busy = true;
+        fallback.speak(batch, { onBoundary: events.onBoundary, onEnd: () => { busy = false; speakBrowser(); } });
+      } else if (ended) finish();
+    };
     const controller = new AbortController();
     abort = controller;
-    void ctx.resume().catch(() => undefined);
-    const started = performance.now();
     const failed = new Set<string>(); // engine, který v této odpovědi selhal, se u dalších vět přeskočí
     const load = async (sentence: string) => {
       for (const id of voices) {
@@ -122,16 +86,40 @@ export function createServerOutput(fallback: VoiceOutput, chain: () => string[],
       }
       throw new Error("Žádný hlas serveru nečte");
     };
-    const fetchSentence = (sentence: string) => {
-      const loaded = load(sentence);
-      loaded.catch(() => undefined); // zrušené dopředu stažené věty nejsou chyba
-      return loaded;
+    const queue: ReturnType<typeof load>[] = [];
+    let taken = 0; // věty, které přehrávač už převzal
+    const fill = () => {
+      while (server && queue.length < sentences.length && queue.length < taken + IN_FLIGHT) {
+        const loaded = load(sentences[queue.length]);
+        loaded.catch(() => undefined); // zrušené dopředu stažené věty nejsou chyba
+        queue.push(loaded);
+      }
     };
-    const queue = sentences.slice(0, IN_FLIGHT).map(fetchSentence);
+    const add = () => {
+      const parts = text.split(/(?<=[.!?…])\s+/);
+      text = ended ? "" : parts.pop()!;
+      sentences.push(...splitSentences(parts.join(" ")));
+      fill();
+      wake();
+      speakBrowser();
+    };
+    const handle: VoiceStream = {
+      push: (more) => { if (mine === token && !ended) { text += more; add(); } },
+      end: () => { if (mine === token && !ended) { ended = true; add(); } },
+    };
+    if (!sound) return handle;
+    const { context: ctx, analyser } = sound;
+    void ctx.resume().catch(() => undefined);
+    const started = performance.now();
     void (async () => {
       let end = 0;
       let heard = false;
-      for (let i = 0; i < sentences.length; i++) {
+      for (let i = 0; ; i++) {
+        while (i >= sentences.length && !ended) {
+          await new Promise<void>((resolve) => { wake = resolve; });
+          if (mine !== token) return;
+        }
+        if (i >= sentences.length) break;
         let loaded: Awaited<ReturnType<typeof load>>;
         try {
           loaded = await queue[i];
@@ -139,12 +127,13 @@ export function createServerOutput(fallback: VoiceOutput, chain: () => string[],
         } catch {
           if (mine !== token) return;
           // Žádný engine nečte (nebo AudioContext nesmí hrát): zbytek dočte prohlížeč, až dohraje, co už zní.
-          const rest = sentences.slice(i).join(" ");
-          setTimeout(() => { if (mine === token) fallback.speak(rest, events); }, Math.max(0, end - ctx.currentTime) * 1000);
+          server = false;
+          setTimeout(() => { browser = true; spoken = i; speakBrowser(); }, Math.max(0, end - ctx.currentTime) * 1000);
           return;
         }
         if (mine !== token) return;
-        if (queue.length < sentences.length) queue.push(fetchSentence(sentences[queue.length]));
+        taken = i + 1;
+        fill();
         try {
           for await (const buffer of audioBuffers(ctx, loaded.sound)) {
             if (mine !== token) return;
@@ -163,11 +152,18 @@ export function createServerOutput(fallback: VoiceOutput, chain: () => string[],
         }
       }
       if (mine !== token) return;
-      const done = () => { if (mine === token) { playing = []; events.onEnd(); } };
       const last = playing.at(-1);
-      if (last && end > ctx.currentTime) last.onended = done;
-      else done();
+      if (last && end > ctx.currentTime) last.onended = finish;
+      else finish();
     })();
+    return handle;
+  };
+
+  /** Celá odpověď najednou = proud z jednoho kusu. */
+  const speak = (text: string, events: VoiceOutputEvents) => {
+    const reading = begin(events);
+    reading.push(text);
+    reading.end();
   };
 
   /** Hlasitost právě hraného zvuku (RMS) pro jádro HUD; mimo hlas serveru `null` a hook vezme syntetický puls. */
@@ -179,5 +175,5 @@ export function createServerOutput(fallback: VoiceOutput, chain: () => string[],
     return Math.min(1, Math.sqrt(sum / audio.data.length) * 4);
   };
 
-  return { supported: fallback.supported || typeof AudioContext === "function", speak, stop, level };
+  return { supported: fallback.supported || typeof AudioContext === "function", speak, begin, stop, level };
 }

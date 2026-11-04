@@ -7,13 +7,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PletorMessage } from "./pletor-client";
 import type { VoicePhase } from "./hud-state";
 import { createVoiceInput, openMicLevel, voiceError, type MicLevel } from "./voice-input";
-import { createServerOutput } from "./tts-output";
+import { createServerOutput, type VoiceStream } from "./tts-output";
 import { BROWSER_VOICE, chosenVoice, fetchVoices, voiceChain, type ServerVoice } from "./tts-voices";
 import { createVoiceOutput, speechLevel } from "./voice-output";
 import { readVoicePrefs, writeVoicePrefs, type VoicePrefs } from "./voice-prefs";
 import { usePletorListen } from "./use-pletor-listen";
+import { useBargeIn } from "./barge-in";
 
-type Talk = { messages: PletorMessage[]; repliedAt: number | null; send: (text: string, voice?: boolean) => Promise<boolean> };
+type Talk = {
+  messages: PletorMessage[]; repliedAt: number | null;
+  send: (text: string, voice?: boolean, onDelta?: (text: string) => void) => Promise<boolean>;
+};
 type Listen = { on: boolean; onFail: (message: string) => void };
 const NO_LISTEN: Listen = { on: false, onFail: () => undefined };
 const SAMPLE_TEXT = "Dobrý den, pane.";
@@ -43,6 +47,9 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
   const micRun = useRef(0); // mikrofon otevřený po stopu se hned zavře
   const boundaryAt = useRef(0);
   const voiceTurn = useRef(false); // poslední odeslaná zpráva vznikla hlasem
+  const streamTurn = useRef(0); // utnutí čtení číslo zvýší a zbylé delty rozpracované odpovědi se zahodí
+  const streamed = useRef(false); // odpověď už četl proud (nebo ho člověk utnul), effect na repliedAt ji nečte znovu
+  const voiceSend = useRef<(text: string) => void>(() => undefined);
 
   const closeMic = useCallback(() => {
     micRun.current++;
@@ -50,21 +57,24 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
     mic.current = null;
   }, []);
 
+  /** Barge-in: utne čtení i rozpracovaný proud odpovědi. */
+  const hush = useCallback(() => {
+    streamTurn.current++;
+    output.stop();
+  }, [output]);
+
   const stop = useCallback(() => {
     input.stop();
-    output.stop();
+    hush();
     closeMic();
     setInterim("");
     setPhase("idle");
-  }, [input, output, closeMic]);
+  }, [input, hush, closeMic]);
 
   const loop = usePletorListen(input, listenSwitch.on, {
     onListening: (on) => setPhase((current) => (on ? "listening" : current === "listening" ? "idle" : current)),
     onInterim: setInterim,
-    onCommand: (text) => {
-      voiceTurn.current = true;
-      void live.current.talk.send(text, true).then((ok) => { if (!ok) { voiceTurn.current = false; loop.resume(); } });
-    },
+    onCommand: (text) => voiceSend.current(text),
     onFail: (message) => { setError(message); live.current.listenSwitch.onFail(message); },
   });
 
@@ -80,14 +90,17 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
 
   /** Utne čtení odpovědi; v Poslechu pak po krátké prodlevě znovu poslouchá. */
   const interrupt = useCallback(() => {
-    output.stop();
+    hush();
     setPhase((current) => (current === "speaking" ? "idle" : current));
     loop.resume();
-  }, [output, loop]);
+  }, [hush, loop]);
+
+  // Poslech + čtení: řeč člověka čtení utne (potlačení ozvěny řeší mikrofon, viz barge-in.ts).
+  useBargeIn(phase === "speaking" && listenSwitch.on && prefs.bargeIn, mic, output.level, interrupt);
 
   const listen = useCallback(() => {
     if (!input.supported) return;
-    output.stop();
+    hush();
     closeMic();
     setError("");
     setInterim("");
@@ -95,14 +108,13 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
     const run = micRun.current;
     void openMicLevel().then((level) => { if (level && micRun.current === run) mic.current = level; else level?.close(); });
     input.start({
-      onSpeech: () => output.stop(),
+      onSpeech: hush,
       onInterim: setInterim,
       onFinal: (text) => {
         closeMic();
         setInterim("");
         setPhase("idle");
-        voiceTurn.current = true;
-        void live.current.talk.send(text, true).then((ok) => { if (!ok) voiceTurn.current = false; });
+        voiceSend.current(text);
       },
       onError: (code) => {
         const problem = voiceError(code);
@@ -116,28 +128,54 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
         setPhase((current) => (current === "listening" ? "idle" : current));
       },
     });
-  }, [input, output, closeMic]);
+  }, [input, hush, closeMic]);
+
+  /** Po odpovědi: v Poslechu obnoví mikrofon, v Konverzaci po hlasové zprávě znovu poslouchá. */
+  const again = useCallback((spoken: boolean) => {
+    if (loop.active()) loop.resume();
+    else if (spoken && live.current.prefs.conversation && live.current.open) listen();
+  }, [loop, listen]);
+  const reads = { onBoundary: () => { boundaryAt.current = performance.now(); } };
+
+  // Hlasová zpráva jde proudem: první delta začne číst (konec „přemýšlím“), každá dokončená věta zní hned; done čtení dokončí.
+  voiceSend.current = (text: string) => {
+    voiceTurn.current = true;
+    streamed.current = false;
+    const turn = ++streamTurn.current;
+    let reading: VoiceStream | null = null;
+    const onDelta = (chunk: string) => {
+      if (turn !== streamTurn.current) return; // utnuto (barge-in) nebo novější zpráva
+      if (!reading) {
+        if (!live.current.open || !output.supported) return;
+        streamed.current = true;
+        loop.pause();
+        setPhase("speaking");
+        reading = output.begin({ ...reads, onEnd: () => { setPhase("idle"); again(true); } });
+      }
+      reading.push(chunk);
+    };
+    void live.current.talk.send(text, true, onDelta).then((ok) => {
+      if (turn === streamTurn.current) reading?.end();
+      if (!ok) { voiceTurn.current = false; streamed.current = false; loop.resume(); }
+    });
+  };
 
   // Odpověď přišla: nahlas jen po hlasové zprávě nebo se zapnutým Hlasem; Konverzace pak znovu poslouchá.
   // V Poslechu se mikrofon při čtení pozastaví (neslyší reproduktor) a po dohrání se obnoví.
+  // Co už četl proud, se nečte podruhé (pokračování obstará konec proudu, utnutí ho nechá být).
   useEffect(() => {
-    if (talk.repliedAt === null || (!loop.active() && phaseRef.current === "listening")) return;
+    if (talk.repliedAt === null) return;
+    if (streamed.current) { streamed.current = false; voiceTurn.current = false; return; }
+    if (!loop.active() && phaseRef.current === "listening") return;
     const spoken = voiceTurn.current;
     voiceTurn.current = false;
     const { prefs: chosen, open: visible, talk: now } = live.current;
-    const again = () => {
-      if (loop.active()) loop.resume();
-      else if (spoken && live.current.prefs.conversation && live.current.open) listen();
-    };
     const reply = [...now.messages].reverse().find((message) => message.role === "pletor");
-    if (!visible || !reply || !(spoken || chosen.voice) || !output.supported) { again(); return; }
+    if (!visible || !reply || !(spoken || chosen.voice) || !output.supported) { again(spoken); return; }
     loop.pause();
     setPhase("speaking");
-    output.speak(reply.text, {
-      onBoundary: () => { boundaryAt.current = performance.now(); },
-      onEnd: () => { setPhase("idle"); again(); },
-    });
-  }, [talk.repliedAt, output, listen, loop]);
+    output.speak(reply.text, { ...reads, onEnd: () => { setPhase("idle"); again(spoken); } });
+  }, [talk.repliedAt, output, loop, again]);
 
   // Esc při poslechu nebo čtení jen utne hlas (HUD se kvůli tomu nezavře, viz `voiceBusy` v PletorHud).
   // V Poslechu Esc utne jen čtení; poslech vypíná přepínač.
@@ -176,10 +214,10 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
 
   /** „Vyzkoušet“ v nastavení: utne čtení a přečte krátkou větu daným hlasem. */
   const tryVoice = useCallback((id: string) => {
-    output.stop();
+    hush();
     sample.current = id === BROWSER_VOICE ? [] : [id];
     preview.speak(SAMPLE_TEXT, { onEnd: () => undefined });
-  }, [output, preview]);
+  }, [hush, preview]);
 
   /** Mikrofon: při poslechu stop, jinak poslouchej (čtení odpovědi se tím utne). V Poslechu jen utne čtení. */
   const toggle = useCallback(() => {

@@ -88,9 +88,9 @@ describe("speechLevel a preference", () => {
     expect(speechLevel(1000, 1000)).toBeGreaterThan(speechLevel(1400, 1000) + 0.4);
   });
   it("preference hlasu: dvě pravdivostní volby a zvolený hlas, poškozené = výchozí", () => {
-    expect(parseVoicePrefs('{"conversation":true,"voice":1}')).toEqual({ conversation: true, voice: false, ttsVoice: null });
+    expect(parseVoicePrefs('{"conversation":true,"voice":1}')).toEqual({ conversation: true, voice: false, ttsVoice: null, bargeIn: true });
     expect(parseVoicePrefs('{"ttsVoice":"browser"}')).toMatchObject({ ttsVoice: "browser" });
     expect(parseVoicePrefs('{"ttsVoice":7}')).toMatchObject({ ttsVoice: null });
-    expect(parseVoicePrefs("{")).toEqual({ conversation: false, voice: false, ttsVoice: null });
+    expect(parseVoicePrefs("{")).toEqual({ conversation: false, voice: false, ttsVoice: null, bargeIn: true });
   });
 });

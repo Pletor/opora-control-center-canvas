@@ -6,6 +6,10 @@ Tenký router pro `backend/pletor/` (docs/navrhy/2026-11-04-pletor-jarvis.md, P1
 - `POST /api/pletor/messages {project, workspace, text, voice?}` → `{reply, actions: [{type, text, ok, detail?}]}`.
   `voice: true` (P3, hlas) přidá do vstupu modelu řádek `service.VOICE`: krátká odpověď ke čtení nahlas.
   Cizí klíč nebo prázdný text 422, neznámý projekt 404 `project_not_found`.
+- `POST /api/pletor/messages/stream` (stejné tělo i kontroly) → `application/x-ndjson`, objekt JSON na řádek:
+  `{"type": "delta", "text"}` nula a víckrát (složené kousky = `reply`), nakonec vždy `{"type": "done", reply,
+  actions}` ve tvaru `/messages`. Chyba modelu i neočekávaná výjimka tahu = jen `done` s textem chyby, přepínací věta
+  mozku = jen `done`. Tah běží ve vlákně a předává kousky frontou; odpojený klient tah nezastaví, zpráva se uloží.
 - `GET /api/pletor/state?project&workspace` → `{messages: [{role, text, at}], heart: {running, pending, sleeping,
   error, idleReason, lastSummary}, escalations: [{ticketId, text, createdAt}], brain: {brain: claude | ollama, model,
   available: [modely Ollamy]}}`. `available` jde z `/api/tags` při každém čtení; neběžící Ollama = `[]`.

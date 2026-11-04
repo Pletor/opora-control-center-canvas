@@ -3,7 +3,7 @@
 // Přepnutí mozku jde z nastavení (setBrain). Odeslání hned ukáže zprávu člověka, po odpovědi drží provedené akce a čas příchodu (záblesk jádra) a požádá o nové načtení. Volá ho jen PletorWindow.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
-import { CLAUDE_BRAIN, fetchPletorState, sendPletorMessage, setPletorBrain, type PletorAction, type PletorBrain, type PletorState } from "./pletor-client";
+import { CLAUDE_BRAIN, fetchPletorState, sendPletorMessage, sendPletorMessageStream, setPletorBrain, type PletorAction, type PletorBrain, type PletorState } from "./pletor-client";
 
 const POLL_MS = 4000;
 const EMPTY: PletorState = { messages: [], heart: null, escalations: [], brain: CLAUDE_BRAIN };
@@ -32,13 +32,16 @@ export function usePletor(open: boolean, project: string, workspace: string) {
       .catch((error) => { if (scopeRef.current === asked) setFailure(messageOf(error)); });
   }, { intervalMs: POLL_MS, enabled: open && !!project && !!workspace, refreshKeys: [scopeKey] });
 
-  const send = useCallback(async (text: string, voice = false) => {
+  /** Hlasová zpráva jde proudem (`onDelta` dostává kousky odpovědi ke čtení), ostatní najednou; zápis do rozhovoru až po `done`. */
+  const send = useCallback(async (text: string, voice = false, onDelta: (text: string) => void = () => undefined) => {
     const asked = scopeKey;
     setSending(true);
     setActions([]);
     setState((current) => ({ ...current, messages: [...current.messages, { role: "human", text, at: new Date().toISOString() }] }));
     try {
-      const result = await sendPletorMessage(project, workspace, text, voice);
+      const result = voice
+        ? await sendPletorMessageStream(project, workspace, text, voice, onDelta)
+        : await sendPletorMessage(project, workspace, text, voice);
       if (scopeRef.current !== asked) return true;
       setState((current) => ({ ...current, messages: [...current.messages, { role: "pletor", text: result.reply, at: new Date().toISOString() }] }));
       setActions(result.actions);

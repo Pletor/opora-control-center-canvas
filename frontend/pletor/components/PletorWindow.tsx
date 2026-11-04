@@ -42,7 +42,9 @@ export default function PletorWindow({ mode, project, projectName, workspace, on
     return () => timers.forEach(clearTimeout);
   }, [pletor.repliedAt]);
   const work = hudWork(pletor.heart, pletor.actions, pletor.repliedAt, now);
-  const state = hudState({ sending: pletor.sending, voice: voice.phase, error: !!pletor.failure, work, repliedAt: pletor.repliedAt, now });
+  // Hlasová odpověď se čte už z proudu: „přemýšlím“ trvá do prvního kousku odpovědi, pak mluví (a mikrofon ji smí utnout).
+  const thinking = pletor.sending && voice.phase !== "speaking";
+  const state = hudState({ sending: thinking, voice: voice.phase, error: !!pletor.failure, work, repliedAt: pletor.repliedAt, now });
   const label = hudLabel(state, work);
   const gear = (tone: "bar" | "dark") => <PletorSettingsButton tone={tone} open={settings} onToggle={() => onSettings(!settings)} />;
   const panel = settings && <PletorSettingsPanel voice={voice} brain={pletor.brain} onBrain={(brain) => void pletor.setBrain(brain)} onClose={() => onSettings(false)} />;
@@ -52,7 +54,7 @@ export default function PletorWindow({ mode, project, projectName, workspace, on
       settings={gear("dark")} />
   );
   if (mode === "closed") return <>{listener}{panel}</>;
-  const mic = <PletorMicButton phase={voice.phase} supported={voice.supported} blocked={voice.blocked} disabled={pletor.sending || !project} onToggle={voice.toggle} />;
+  const mic = <PletorMicButton phase={voice.phase} supported={voice.supported} blocked={voice.blocked} disabled={thinking || !project} onToggle={voice.toggle} />;
   const voiceError = voice.error && <p className="pletor-mic__error" role="alert">{voice.error}</p>;
   if (mode === "hud") {
     return (
