@@ -32,13 +32,13 @@ export function usePletor(open: boolean, project: string, workspace: string) {
       .catch((error) => { if (scopeRef.current === asked) setFailure(messageOf(error)); });
   }, { intervalMs: POLL_MS, enabled: open && !!project && !!workspace, refreshKeys: [scopeKey] });
 
-  const send = useCallback(async (text: string) => {
+  const send = useCallback(async (text: string, voice = false) => {
     const asked = scopeKey;
     setSending(true);
     setActions([]);
     setState((current) => ({ ...current, messages: [...current.messages, { role: "human", text, at: new Date().toISOString() }] }));
     try {
-      const result = await sendPletorMessage(project, workspace, text);
+      const result = await sendPletorMessage(project, workspace, text, voice);
       if (scopeRef.current !== asked) return true;
       setState((current) => ({ ...current, messages: [...current.messages, { role: "pletor", text: result.reply, at: new Date().toISOString() }] }));
       setActions(result.actions);

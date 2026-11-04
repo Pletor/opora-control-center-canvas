@@ -10,7 +10,7 @@ from backend.brain_opora.determinism import brain_files
 from backend.brain_opora.heart.process import Outcome
 from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, seed
 from backend.pletor import session, store
-from backend.pletor.service import Pletor
+from backend.pletor.service import VOICE, Pletor
 
 
 class Runner:
@@ -75,6 +75,18 @@ def test_gate_off_refuses_heart_message_and_model_failure_is_a_reply(tmp_path):
                                                               "actions": []}
         state = pletor.state("draft", "draft")
         assert state["heart"]["pending"] == 0 and state["escalations"] == []
+
+
+def test_voice_adds_the_spoken_mode_line_only_when_asked(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        runner = Runner({"reply": "Ano.", "actions": []}, {"reply": "Ano.", "actions": []})
+        pletor = pletor_for(client, runner)
+        pletor.message("draft", "draft", "Jak to jde?", voice=True)
+        pletor.message("draft", "draft", "Jak to jde?")
+        spoken, typed = runner.calls[0]["stdin"], runner.calls[1]["stdin"]
+        assert spoken.endswith(f"{VOICE}\n\nZPRÁVA ČLOVĚKA:\nJak to jde?")
+        assert VOICE not in typed and typed.endswith("ZPRÁVA ČLOVĚKA:\nJak to jde?")
 
 
 def test_parse_reply_reads_fenced_json_and_falls_back_to_text():

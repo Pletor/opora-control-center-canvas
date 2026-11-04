@@ -33,6 +33,22 @@ def test_message_and_state(tmp_path):
         assert state["brain"] == {"brain": "claude", "model": "sonnet", "available": ["qwen3:14b"]}
 
 
+def test_voice_flag_reaches_the_model(tmp_path):
+    seen = []
+
+    def runner(command, *, cwd, env, stdin_text, timeout, on_line=None):
+        seen.append(stdin_text)
+        return fake_runner(command, cwd=cwd, env=env, stdin_text=stdin_text, timeout=timeout)
+
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        client.app.state.pletor.runner, client.app.state.pletor.find = runner, lambda: "claude"
+        assert client.post("/api/pletor/messages", headers=HEADERS, json={**SCOPE, "text": "x", "voice": True}
+                           ).status_code == 200
+        assert client.post("/api/pletor/messages", headers=HEADERS, json={**SCOPE, "text": "x"}).status_code == 200
+        assert "REŽIM: HLAS" in seen[0] and "REŽIM: HLAS" not in seen[1]
+
+
 def fake_ollama(method, path, body=None, timeout=None):
     return {"models": [{"name": "qwen3:14b"}]}
 

@@ -6,20 +6,25 @@ import { REPLY_MS, orbMode } from "../logic/pletor-orb-mode";
 import PletorActions from "./PletorActions";
 import PletorComposer from "./PletorComposer";
 import PletorHeartLine from "./PletorHeartLine";
+import { usePletorVoice } from "../logic/use-pletor-voice";
 import PletorHud from "./PletorHud";
 import PletorMessages from "./PletorMessages";
+import PletorMicButton from "./PletorMicButton";
 import PletorOrb from "./PletorOrb";
+import PletorVoiceToggles from "./PletorVoiceToggles";
 
 type Props = { mode: PletorMode; project: string; projectName: string; workspace: string; onMode: (mode: PletorMode) => void };
 
 /**
  * Rodič Pletora (docs/navrhy/2026-11-04-pletor-jarvis.md, P1): jeden chat s Pletorem nad srdcem projektu.
- * Drží stav konverzace a odesílá (`usePletor`), takže rozhovor přežije přepnutí HUD ↔ okno.
+ * Drží stav konverzace a odesílá (`usePletor`) i hlas (`usePletorVoice`, P3), takže obojí přežije přepnutí HUD ↔ okno.
+ * Příkazový řádek s mikrofonem skládá jednou a dává ho oknu i kokpitu.
  * Odvozuje i stav jádra; jediný časovač po REPLY_MS vrátí záblesk odpovědi do dýchání.
  * Režim drží App; „hud“ vykreslí kokpit (PletorHud), „window“ plovoucí okno, „closed“ nic a nic nenačítá.
  */
 export default function PletorWindow({ mode, project, projectName, workspace, onMode }: Props) {
   const pletor = usePletor(mode !== "closed", project, workspace);
+  const voice = usePletorVoice(pletor, mode !== "closed");
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (pletor.repliedAt === null) return;
@@ -29,7 +34,18 @@ export default function PletorWindow({ mode, project, projectName, workspace, on
   }, [pletor.repliedAt]);
   if (mode === "closed") return null;
   const orb = orbMode({ sending: pletor.sending, error: !!pletor.failure, lastPletorAt: pletor.repliedAt, now });
-  if (mode === "hud") return <PletorHud pletor={pletor} orb={orb} project={projectName} canSend={!!project} onWindow={() => onMode("window")} />;
+  const disabled = pletor.sending || !project;
+  // Psaná zpráva chce krátkou odpověď ke čtení jen se zapnutým Hlasem; hlasová posílá `voice` sama (usePletorVoice).
+  const composer = (
+    <PletorComposer disabled={disabled} interim={voice.interim} onSend={(text) => pletor.send(text, voice.prefs.voice)}>
+      <PletorMicButton phase={voice.phase} supported={voice.supported} blocked={voice.blocked} disabled={disabled} onToggle={voice.toggle} />
+      <PletorVoiceToggles prefs={voice.prefs} canListen={voice.supported} onChange={voice.setPrefs} />
+    </PletorComposer>
+  );
+  const voiceError = voice.error && <p className="pletor-mic__error" role="alert">{voice.error}</p>;
+  if (mode === "hud") {
+    return <PletorHud pletor={pletor} orb={orb} voice={voice} composer={composer} voiceError={voiceError} project={projectName} onWindow={() => onMode("window")} />;
+  }
   return (
     <aside className="pletor" aria-label="Pletor">
       <header className="pletor__head">
@@ -42,7 +58,8 @@ export default function PletorWindow({ mode, project, projectName, workspace, on
       <PletorMessages messages={pletor.messages} sending={pletor.sending} />
       <PletorActions actions={pletor.actions} />
       {pletor.failure && <p className="pletor__failure" role="alert">{pletor.failure}</p>}
-      <PletorComposer disabled={pletor.sending || !project} onSend={pletor.send} />
+      {voiceError}
+      {composer}
     </aside>
   );
 }
