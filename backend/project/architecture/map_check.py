@@ -15,6 +15,9 @@ Výklad pravidel:
   počítá `backend/flow/page_intents.py` z registru, ne z grafu: `check_map` ho dostane argumentem `intents`
   (`{pageId: stav}`, načte ho `map_check`); bez `intents` (`None`) pravidla nehlásí nic, stejně jako `runs`.
   Strážce mapy dá `page.intent-stale` závažnost `block`, `page.no-intent` `warn`.
+- `site.no-design` (varování, kontrakt Správy webu §4): webová doména (`site_admin.summary.is_web_domain`) v projektu
+  bez design systému (dokument neexistuje nebo nemá žádnou barvu). Nález nese `nodeId` domény. Design systém je jeden
+  na projekt a v grafu není: `check_map` dostane argument `design` (bool, načte ho `map_check`); bez něj (`None`) nic.
 - `section.unrealized`: sekce stránky (`site.sections[].id`), na kterou se neodvolává `card.section` žádné
   komponenty pod touto stránkou. Nález nese `nodeId` stránky, sekci jmenuje zpráva.
 - `section.unknown`: karta s `card.section`, kterou její nejbližší stránka nemá (sekci někdo smazal nebo
@@ -60,9 +63,11 @@ from backend.flow.page_intents import read_status
 from backend.project.architecture.journey_runs import last_runs, latest_journey_runs
 from backend.project.architecture.journeys import derive_journeys
 from backend.project.architecture.work_status import architecture_graph
+from backend.project.site_admin import store as site_store
+from backend.project.site_admin.summary import has_design, is_web_domain
 
 RULES = ("journey.broken", "journey.unrealized", "journey.via-unknown", "journey.unverified", "page.no-goal", "page.no-intent",
-         "page.intent-stale", "section.unrealized", "section.unknown", "command.no-receiver",
+         "page.intent-stale", "site.no-design", "section.unrealized", "section.unknown", "command.no-receiver",
          "state.no-error", "edge.carries-unset")
 ERROR_STATES = frozenset({"chyba", "error", "selhání"})
 
@@ -265,11 +270,20 @@ def _locate(findings, edges):
             finding["solverId"] = finding.get("nodeId") or sources.get(finding.get("edgeId"))
 
 
-def check_map(graph, runs=None, locate=False, intents=None):
+def _design_rule(nodes, design):
+    """`site.no-design` na každou webovou doménu, když projekt design systém nemá; bez `design` nic."""
+    if design is None or design:
+        return []
+    return [_finding("site.no-design", "nodeId", node["id"], "Webová doména nemá design systém (Správa webu).")
+            for node in nodes if is_web_domain(node)]
+
+
+def check_map(graph, runs=None, locate=False, intents=None, design=None):
     """{findings: [{rule, nodeId|edgeId|journeyId, message}], summary: {pravidlo: počet}} nad grafem `{nodes, edges}`.
 
     `runs` = poslední doklady cest `{(applicationId, journeyId): doklad}`; bez nich se `journey.unverified` nehodnotí.
     `intents` = stav záměru stránek `{pageId: none|pending|approved|stale}`; bez něj se záměr nehodnotí.
+    `design` = má projekt design systém (bool); bez něj se `site.no-design` nehodnotí.
     `locate=True` přidá každému nálezu `solverId` (místo řešení, viz docstring modulu)."""
     nodes = sorted(graph.get("nodes") or [], key=lambda n: n["id"])
     edges = graph.get("edges") or []
@@ -279,7 +293,7 @@ def check_map(graph, runs=None, locate=False, intents=None):
     goals, sections = _page_rules(pages, components, nodes)
     no_intent, stale = _intent_rules(pages, intents)
     receivers, errors = _command_rules(nodes, edges, components)
-    findings = [*_journey_rules(graph, by_id, runs), *goals, *no_intent, *stale, *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
+    findings = [*_journey_rules(graph, by_id, runs), *goals, *no_intent, *stale, *_design_rule(nodes, design), *sections, *_unknown_sections(nodes, by_id), *receivers, *errors, *_edge_rules(edges, components)]
     if locate:
         _locate(findings, edges)
     else:
@@ -306,4 +320,12 @@ def map_check(service, project, locate=False):
     """Kontrola přijaté architektury projektu (`GET /api/project-architecture/map-check`; `locate=1` přidá `solverId`)."""
     graph = architecture_graph(service, project)
     return check_map(graph, latest_journey_runs(service, project), locate=locate,
-                     intents=intent_states(service, project, graph))
+                     intents=intent_states(service, project, graph), design=_has_design(service, project))
+
+
+def _has_design(service, project):
+    """Má projekt design systém? Nečitelné úložiště = None (pravidlo se nehodnotí)."""
+    try:
+        return has_design(site_store.read(service, project))
+    except (AttributeError, OSError, ValueError):
+        return None

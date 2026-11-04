@@ -44,9 +44,12 @@ NEIGHBORS = {"type": "array", "items": obj({"cardId": ID, "name": {"type": "stri
 # Kritéria `intent.done` schváleného záměru stránky, která ticket naplňuje (jen zadané, plátno 2 §4).
 INTENT = obj({"workflowVersionId": ID, "nodeIds": {"type": "array", "items": ID, "minItems": 1, "maxItems": 20}},
              ("workflowVersionId", "nodeIds"))
+# Design systém webu pro kartu pod webovou doménou: revize a export `design/` (kontrakt Správy webu §4).
+DESIGN = obj({"revision": {"type": "integer"}, "export": {"type": "string"}}, ("revision", "export"))
 MACHINE = obj({"cardId": nullable(ID), "executionId": nullable(ID), "cardVersion": nullable({"type": "integer"}),
                "department": nullable(SLUG), "profile": nullable(SLUG), "successors": NEIGHBORS,
-               "predecessors": NEIGHBORS, "pins": {"type": "array", "items": PIN}, "intent": INTENT},
+               "predecessors": NEIGHBORS, "pins": {"type": "array", "items": PIN}, "intent": INTENT,
+               "design": DESIGN},
               ("cardId", "executionId", "cardVersion", "department", "profile", "successors", "predecessors", "pins"))
 FEEDBACK_KIND = {"type": "string", "enum": ["bug", "idea", "improvement", "question"]}
 FEEDBACK_ITEM = obj({"feedbackId": ID, "kind": FEEDBACK_KIND, "text": TEXT, "answer": ANY},

@@ -35,6 +35,12 @@ describe("kontrola mapy na mapě domény", () => {
     expect(mapCheckTarget({ rule: "state.no-error", nodeId: "pryc", message: "m" }, graph)).toBeNull();
     expect(mapCheckTarget({ rule: "edge.carries-unset", edgeId: "e9", message: "m" }, graph)).toBeNull();
   });
+  it("web bez design systému je nález na samotné doméně, bez cíle kliku", () => {
+    const check = normalizeMapCheck({ findings: [{ rule: "site.no-design", nodeId: "app", message: "Webová doména nemá design systém (Správa webu)." }] });
+    const groups = mapCheckGroups(check, graph, app);
+    expect(groups.map((group) => [group.rule, group.label, group.items[0].place, group.items[0].target])).toEqual([["site.no-design", "Web nemá design systém", "app", null]]);
+    expect(mapCheckGroups(check, graph, graph.nodes[5])).toEqual([]);
+  });
   it("seskupí nálezy jedné domény v pořadí pravidel a cizí doménu vynechá", () => {
     const check = normalizeMapCheck({ findings: [
       { rule: "edge.carries-unset", edgeId: "e1", message: "hrana" }, { rule: "page.no-goal", nodeId: "home", message: "home" },

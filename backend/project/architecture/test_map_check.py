@@ -217,3 +217,14 @@ def test_page_intent_rules_only_when_intents_are_given():
     assert [(f["rule"], f["nodeId"]) for f in report["findings"]] == [("page.no-intent", "c"), ("page.intent-stale", "b")]
     assert report["summary"]["page.no-intent"] == 1 and report["summary"]["page.intent-stale"] == 1
     assert check_map(graph, intents={"a": "pending", "b": "pending", "c": "approved"})["findings"] == []
+
+
+def test_site_no_design_flags_web_domains_only_when_design_is_known_missing():
+    shop = node("shop", kind="sector", site={"kind": "application", "environments": [{"name": "prod", "host": "app.x.cz"}]})
+    phone = node("phone", kind="sector", site={"kind": "application", "platform": "ios", "environments": []})
+    web = node("web", kind="sector", site={"kind": "application", "environments": []})  # bez hostu = web podle jména
+    graph = {"nodes": [APP, shop, phone, web], "edges": []}  # APP se jmenuje „app“ = aplikace
+    assert check_map(graph)["findings"] == [] and check_map(graph, design=True)["findings"] == []
+    report = check_map(graph, design=False)
+    assert rules(report) == [("site.no-design", "web")] and report["summary"]["site.no-design"] == 1
+    assert RULES.index("site.no-design") == RULES.index("page.intent-stale") + 1

@@ -34,6 +34,7 @@ from backend.canvas.opora_events import emit_event
 from backend.flow.graph_check import FlowInvalid
 from backend.flow.page_intents import intent_claims
 from backend.flow.workflows import FlowNotFound
+from backend.project.site_admin.summary import design_ref
 from database.repositories.gate_sessions import GateSessionStore
 from database.repositories.tickets import HELD, TicketStore
 
@@ -87,7 +88,8 @@ def _write(service, session, work):
 def issue(service, session, body, now=None):
     """`ticket.issue` (jen srdce): nový ticket ve stavu `issued` v prostoru karty (`workspace`, git projekt má
     karty v prostoru domény), jinak v prostoru tokenu srdce. S `cardId` doplní do strojové vrstvy následníky
-    a předchůdce karty z grafu toho prostoru (`ticket_model.neighbors`). Piny Brainu přeloží `pins.for_ticket`
+    a předchůdce karty z grafu toho prostoru (`ticket_model.neighbors`); karta pod webovou doménou projektu s design
+    systémem dostane `design = {revision, export}` (`site_admin.summary.design_ref`). Piny Brainu přeloží `pins.for_ticket`
     (neznámé ID 422). S `intent` ověří, že verze je aktivní záměr stránky projektu a uzly jsou `intent.done`, a jejich
     `claim` doplní na konec `doneCriteria` (kritérium je fakt z grafu, srdce ho do těla nepíše)."""
     worker_body, machine = issue_payload(body)
@@ -102,7 +104,10 @@ def issue(service, session, body, now=None):
                         "Použijte main, draft nebo ID pracovního prostoru projektu.")
     new_id, at = "tk_" + uuid.uuid4().hex, tokens.stamp(now)
     if machine["cardId"]:
-        machine |= neighbors(service.view(session["project_id"], workspace)["graph"], machine["cardId"])
+        graph = service.view(session["project_id"], workspace)["graph"]
+        machine |= neighbors(graph, machine["cardId"])
+        design = design_ref(service, session["project_id"], graph, machine["cardId"])
+        machine |= {"design": design} if design else {}
 
     def work(store):
         store.insert(new_id, workspace, "issued", worker_body, machine, at)

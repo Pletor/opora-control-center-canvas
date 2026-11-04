@@ -26,6 +26,15 @@ převzatá z otevřeného formátu `tokens.json` typu Design System, kód typu n
   `site/assets/<skupina>/<soubor>`, fonty `site/fonts/<soubor>`, typ podle prvních bajtů a limity velikosti.
 - `button_component.py` – komponenta `Button` jako pohled na `settings.buttons` (viz níže).
 - `fixture.py` – zkrácený vzorek systému pro testy.
+- `summary.py` – shrnutí pro srdce (sekce DESIGN snímku, `GET /api/site-admin/summary`): titulek, témata, počty
+  tokenů po rodinách, styly, komponenty a jen stav SEO/GDPR/e-mailu (vyplněno = liší se od výchozí, žádné hodnoty);
+  `has_design` (pravidlo mapy `site.no-design`), `is_web_domain` (kopie `domainKindOf === "web"`) a `design_ref`
+  (`machine.design = {revision, export}` ticketu karty pod webovou doménou).
+- `proposals.py` – návrhy srdce `site/proposals/<id>.json`: částečný dokument `{title?, settings?, design?}` (část
+  nahradí uloženou celou), hned normalizovaný, s rozdílem po listech; čeká nejvýš jeden (nový starší nahradí).
+  Přijetí jen člověk nad revizí, ze které návrh vyšel (jinak 409), zamítnutí jen stav.
+- `export.py` – `GET /api/site-admin/export?project=`: zip `design/` (tokens.css, tokens.json, components.css,
+  README.md, fonts/, assets/) uložené revize, hlavička `X-Design-Revision`. Dělník ho rozbalí do worktree jen ke čtení.
 - Router: `backend/api/project/site_admin_routes.py` (`/api/site-admin…`, včetně `components.css`).
 
 ## Komponenty a assety (M2)
