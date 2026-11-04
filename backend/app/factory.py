@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import sqlite3
@@ -133,6 +134,7 @@ from backend.project.workspace.workspace_sources import WorkspaceSources
 from backend.project.worktrees.workspace_archive import WorkspaceArchive
 from backend.semantic_retrieval.service import SemanticRetrieval
 
+LOGGER = logging.getLogger(__name__)
 WORKER_SCRIPT = re.compile(r"/assets/code-animation\.worker-[A-Za-z0-9_-]+\.js")
 
 
@@ -189,6 +191,7 @@ def create_app(data_root=None):
 
     @asynccontextmanager
     async def lifespan(app):
+        service.interrupt_orphan_jobs()
         map_refresh.start()
         reconciliation.start()
         execution_prs.start()
@@ -231,13 +234,20 @@ def create_app(data_root=None):
             described = describe(getattr(request, "_body", b""), dict(request.query_params), request.url.path,
                                  getattr(request.state, "activity_hint", None))
             used = getattr(request.state, "authority_context", None)
+        except Exception:  # záznam je doplněk, ne podmínka zápisu
+            LOGGER.exception("Záznam činnosti: nepodařilo se popsat požadavek %s.", request.url.path)
+            return
+        try:
             activity_log.record(actor=actor, agent=agent, method=request.method, path=request.url.path,
                                 described=described, status=status, autonomy=bool(used and used.used))
+        except Exception:  # selhání záznamu nesmí zastavit outbox níž
+            LOGGER.exception("Záznam činnosti selhal pro %s.", request.url.path)
+        try:
             # Živý proces: paměť a starý commit zadání nemají událost v outboxu (docs/zivy-proces.md §4).
             bridge_activity(service, method=request.method, path=request.url.path, status=status, actor=actor,
                             agent=agent, described=described)
-        except Exception:  # noqa: BLE001 - záznam je doplněk, ne podmínka zápisu
-            return
+        except Exception:  # outbox je doplněk, ne podmínka zápisu
+            LOGGER.exception("Událost činnosti do outboxu selhala pro %s.", request.url.path)
 
     def _authority(request):
         """`human | agent | unknown`; projekt bere z `project` v query, jinak z těla JSON."""

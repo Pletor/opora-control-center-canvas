@@ -60,6 +60,8 @@ def test_assets_are_sniffed_limited_and_stored_by_group(tmp_path):
     for group, name, data, message in (
             ("Logos", "fake.png", SVG, "neodpovídá"),
             ("Logos", "x.svg", SVG.replace(b"<rect/>", b'<rect onload="alert(1)"/>'), "skripty"),
+            ("Logos", "x.svg", SVG.replace(b"<rect/>", b"<svg/onload=alert(1)>"), "skripty"),
+            ("Logos", "x.svg", SVG.replace(b"<rect/>", b'<a href="jav&#x61;script:alert(1)"/>'), "skripty"),
             ("Logos", "x.exe", PNG, "neodpovídá"),
             ("..", "x.png", PNG, "Skupina"),
             ("Logos", "../x.png", PNG, "Soubor"),

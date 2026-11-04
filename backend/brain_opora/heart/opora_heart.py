@@ -298,6 +298,13 @@ def gate_ticket(args):
     return call("POST", "/api/gate/requests", {"kind": kind, "body": body})["answer"]
 
 
+def write_json(path, value):
+    """Atomický zápis (`.tmp` + `os.replace`, jako `session.record`): pád uprostřed nenechá useknutý JSON."""
+    temporary = Path(f"{path}.tmp")
+    temporary.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+    os.replace(temporary, path)
+
+
 def now():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
@@ -513,8 +520,7 @@ def remember(out):
     """Přijatý plán zapíše svůj prostor do `active_workspace.json` v cwd (`brain/`); stav srdce ho vrací jako
     `activeWorkspace` a kancelář jde za ním."""
     if out.get("accepted") is True:
-        Path(ACTIVE).write_text(json.dumps({"workspace": scope()["workspace"], "at": now()}, ensure_ascii=False),
-                                encoding="utf-8")
+        write_json(ACTIVE, {"workspace": scope()["workspace"], "at": now()})
     return out
 
 
@@ -1409,7 +1415,7 @@ def run(args):
         item = call("POST", path, payload)["item"]
         return {key: item.get(key) for key in ("id", "text", "by")}
     summary = {"summary": args.summary, "at": now()}
-    Path(LAST_DONE).write_text(json.dumps(summary, ensure_ascii=False), encoding="utf-8")
+    write_json(LAST_DONE, summary)
     return {"done": True}
 
 

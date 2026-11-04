@@ -109,9 +109,17 @@ def _failed(db, project, ticket):
 
 
 def safe_follow(db, project, execution_id, now=None):
-    """Háček exekucí: ticket navázaný na `execution_id` dožene fakta; bez ticketu nic, chyba se jen zaloguje."""
+    """Háček exekucí: ticket navázaný na `execution_id` dožene fakta; bez ticketu nic, chyba se jen zaloguje.
+
+    Běží v transakci volajícího, proto pod savepointem: při chybě se vrátí i rozpracovaný posun ticketu,
+    aby se necommitnul bez své události."""
+    db.execute("SAVEPOINT ticket_follow")
     try:
-        return follow(db, project, TicketStore(db, project).by_execution(execution_id), now)
+        status = follow(db, project, TicketStore(db, project).by_execution(execution_id), now)
     except Exception:  # ticket je doplněk, exekuce musí doběhnout jako dřív
+        db.execute("ROLLBACK TO ticket_follow")
+        db.execute("RELEASE ticket_follow")
         LOG.exception("Ticket exekuce %s se nepodařilo posunout.", execution_id)
         return None
+    db.execute("RELEASE ticket_follow")
+    return status

@@ -947,3 +947,20 @@ def test_ticket_issue_and_answer_go_through_the_gate_with_the_heart_token(server
         ("/api/gate/requests", {"kind": "ticket.answer", "body": {"ticketId": "gt_1", "text": "Ne."}}, "tok-heart")]
     code, out = run(capsys, "ticket-issue", "--file", "@chybi.json")
     assert code == 1 and json.loads(out)["code"] == "ticket_file"
+
+
+def test_done_replaces_last_done_atomically(server, capsys, tmp_path, monkeypatch):
+    target = tmp_path / opora_heart.LAST_DONE
+    target.write_text('{"summary": "staré"}', encoding="utf-8")
+    replace = os.replace
+
+    def crash(*args):
+        raise OSError("pád uprostřed zápisu")
+
+    monkeypatch.setattr(opora_heart.os, "replace", crash)
+    with pytest.raises(OSError):
+        opora_heart.main(["done", "--summary", "nové"])
+    assert json.loads(target.read_text(encoding="utf-8"))["summary"] == "staré"  # žádný useknutý JSON
+    monkeypatch.setattr(opora_heart.os, "replace", replace)
+    assert run(capsys, "done", "--summary", "nové") == (0, '{"done": true}')
+    assert json.loads(target.read_text(encoding="utf-8"))["summary"] == "nové"
