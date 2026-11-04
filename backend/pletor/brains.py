@@ -69,20 +69,24 @@ def _plain(text):
     return "".join(char for char in folded if not unicodedata.combining(char)).strip().rstrip(".!?").strip()
 
 
-_VERB = r"(?:\w+,?\s+)?(?:prepni|prepnout|switch)(?:\s+se)?(?:\s+(?:zpet|zpatky|back))?\s+(?:na|to)\s+"
-_TO_OLLAMA = re.compile(_VERB + r"(?:(?:lokalni|local)\s+(?:mozek|brain|model)|ollam[auy]?)")
-_TO_CLAUDE = re.compile(_VERB + r"(?:claude|predplatne|subscription|cloud)")
-_TO_MODEL = re.compile(_VERB + r"model\s+(\S+)")
+_ACTION = re.compile(r"\b(?:prepn\w*|zapn\w*|pouzij\w*|pust\w*|jdi|vrat\w*|switch|use)\b")
+_LOCAL = re.compile(r"\b(?:lokaln\w*|mistn\w*|local|ollam\w*|offline|zdarma)\b")
+_CLOUD = re.compile(r"\b(?:claud\w*|klaud\w*|klod\w*|kloud\w*|cloud|predplatn\w*|subscription|sonn?et\w*)\b")
+_MODEL = re.compile(r"\bmodel\s+(\S+)")
+SHORT = 8  # slov: příkaz je krátká věta, zmínka v dlouhé odpovědi se za příkaz nebere
 
 
 def command(text):
-    """Přepínací věta → `(mozek, model | None)`, jinak `None`. Celá zpráva musí být příkaz (zmínka v delší větě ne)."""
+    """Přepínací věta → `(mozek, model | None)`, jinak `None`. Řeč z mikrofonu přichází s interpunkcí, bez diakritiky a
+    s přeslechy („Klaud“), proto se hledá sloveso přepnutí + cíl v krátké větě, ne přesné znění."""
     plain = _plain(text)
-    if _TO_OLLAMA.fullmatch(plain):
+    if len(plain.split()) > SHORT or not _ACTION.search(plain):
+        return None
+    if _LOCAL.search(plain):
         return OLLAMA, None
-    if _TO_CLAUDE.fullmatch(plain):
+    if _CLOUD.search(plain):
         return CLAUDE, None
-    found = _TO_MODEL.fullmatch(plain)
+    found = _MODEL.search(plain)
     return (OLLAMA, found.group(1)) if found else None
 
 
