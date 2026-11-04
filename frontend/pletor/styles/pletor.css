@@ -120,6 +120,27 @@
 .pletor__message--pending {
   color: var(--ink-muted);
 }
+/* Místo tří statických teček za „Přemýšlí“ tři tečky jemně vlní jedna po druhé: Pletor pracuje,
+   ale nekřičí. Bez pohybu (prefers-reduced-motion) zůstanou stát jako obyčejná trojtečka. */
+.pletor__dots i {
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin-left: 2px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pletor-dot 1.2s ease-in-out infinite;
+}
+.pletor__dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.pletor__dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes pletor-dot {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
 
 /* Po odpovědi se pod rozhovorem ukážou malé chipy s tím, co Pletor opravdu udělal: poslal srdci,
    zapsal do Schránky. Člověk tak nemusí věřit slovům, vidí činy. Selhání je červené. */
@@ -163,4 +184,104 @@
   flex: 1;
   resize: vertical;
   font: inherit;
+}
+
+/* Jádro Pletora je malá svítící koule nad rozhovorem, jako Jarvis: člověk koutkem oka vidí, že Pletor
+   žije, aniž by četl. V klidu pomalu dýchá (4 s), takže nepoutá pozornost. Když přemýšlí, dech zrychlí
+   a kolem běží dva tenké prstence proti sobě, aby čekání bylo vidět jako práce, ne jako zamrznutí.
+   Příchod odpovědi ohlásí jedna krátká vlna (0,8 s) a jádro se vrátí k dechu. Chyba ho ztlumí do
+   červené a zastaví: není co oslavovat. Barva je akcent tlačítka Pletor, aby bylo jasné, čí je to hlas.
+   Kdo nechce pohyb, vidí jen změnu barvy a jasu. */
+.pletor-orb {
+  --orb: var(--accent);
+  position: relative;
+  flex: none;
+  width: 76px;
+  height: 76px;
+  margin: var(--sp-3) auto var(--sp-1);
+}
+.pletor-orb__core,
+.pletor-orb__ring,
+.pletor-orb::after {
+  position: absolute;
+  border-radius: 50%;
+}
+.pletor-orb__core {
+  inset: 22px;
+  background: radial-gradient(circle at 40% 35%, color-mix(in srgb, var(--orb) 80%, white), var(--orb) 55%, color-mix(in srgb, var(--orb) 40%, transparent));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--orb) 45%, transparent);
+  animation: pletor-orb-breathe 4s ease-in-out infinite;
+}
+.pletor-orb__ring {
+  inset: 6px;
+  border: 1px solid color-mix(in srgb, var(--orb) 55%, transparent);
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  opacity: 0.25;
+}
+.pletor-orb__ring--inner {
+  inset: 14px;
+  border-left-color: transparent;
+  border-top-color: color-mix(in srgb, var(--orb) 55%, transparent);
+}
+.pletor-orb::after {
+  content: "";
+  inset: 22px;
+  border: 2px solid var(--orb);
+  opacity: 0;
+}
+
+.pletor-orb--thinking .pletor-orb__core {
+  animation-duration: 1.4s;
+}
+.pletor-orb--thinking .pletor-orb__ring {
+  opacity: 1;
+  animation: pletor-orb-spin 2s linear infinite;
+}
+.pletor-orb--thinking .pletor-orb__ring--inner {
+  animation-duration: 1.2s;
+  animation-direction: reverse;
+}
+
+.pletor-orb--reply::after {
+  animation: pletor-orb-wave 0.8s ease-out;
+}
+.pletor-orb--reply .pletor-orb__core {
+  box-shadow: 0 0 28px color-mix(in srgb, var(--orb) 70%, transparent);
+}
+
+.pletor-orb--error {
+  --orb: color-mix(in srgb, var(--danger) 70%, var(--ink-muted));
+}
+.pletor-orb--error .pletor-orb__core {
+  animation: none;
+  opacity: 0.7;
+}
+
+@keyframes pletor-orb-breathe {
+  0%, 100% { transform: scale(0.92); opacity: 0.8; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+@keyframes pletor-orb-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pletor-orb-wave {
+  from { transform: scale(1); opacity: 0.8; }
+  to { transform: scale(2.4); opacity: 0; }
+}
+
+/* Bez pohybu: jádro stojí, prstence se netočí, vlna nebliká. Stav nese jen barva a jas. */
+@media (prefers-reduced-motion: reduce) {
+  .pletor-orb__core,
+  .pletor-orb__ring,
+  .pletor-orb::after,
+  .pletor__dots i {
+    animation: none !important;
+  }
+  .pletor-orb--thinking .pletor-orb__core {
+    filter: brightness(1.25);
+  }
+  .pletor-orb--reply .pletor-orb__core {
+    filter: brightness(1.5);
+  }
 }
