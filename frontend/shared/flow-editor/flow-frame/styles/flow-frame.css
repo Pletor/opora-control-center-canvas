@@ -1,0 +1,58 @@
+/* POZNÁMKA (blok `flow-frame`, prvek `note`)
+   Sticky poznámka leží za uzly jako papírek na stole: velký rámec „# Workflow 1 — Ingest“ obejme celou část toku,
+   menší „## Krok“ jen pár uzlů, stejně jako v šabloně n8n (image8). Barva je tlumená průhledná výplň s pevnějším
+   okrajem, aby uzly nad ní zůstaly čitelné. Nadpis prvního řádku je výrazný, zbytek textu tichý. */
+.flow-frame__note { box-sizing: border-box; width: 100%; height: 100%; overflow: hidden; padding: 10px 12px; border: 1px solid var(--fn-tone); border-radius: 8px;
+  background: color-mix(in srgb, var(--fn-tone) 14%, transparent); color: var(--ink); font-size: 12px; }
+.flow-frame__note--c1 { --fn-tone: var(--gold); }
+.flow-frame__note--c2 { --fn-tone: var(--warn); }
+.flow-frame__note--c3 { --fn-tone: var(--danger); }
+.flow-frame__note--c4 { --fn-tone: var(--ok); }
+.flow-frame__note--c5 { --fn-tone: var(--info); }
+.flow-frame__note--c6 { --fn-tone: var(--cat-agents); }
+.flow-frame__note--c7 { --fn-tone: var(--ink-muted); }
+.flow-frame__note-text { display: grid; gap: 3px; }
+.flow-frame__note-h, .flow-frame__note-p, .flow-frame__note-item { margin: 0; }
+.flow-frame__note-h { font-weight: 700; }
+.flow-frame__note-h--1 { font-size: 16px; }
+.flow-frame__note-h--2 { font-size: 13px; }
+.flow-frame__note-p, .flow-frame__note-item { color: var(--ink-2); }
+.flow-frame__note-item::before { content: "• "; }
+.flow-frame__note-edit { box-sizing: border-box; width: 100%; height: 100%; border: 0; background: var(--field); color: var(--ink); font: 12px var(--mono, monospace); resize: none; }
+.flow-frame__colors { position: absolute; top: -26px; left: 0; display: flex; gap: 4px; }
+.flow-frame__color { width: 16px; height: 16px; padding: 0; border: 1px solid var(--fn-tone); border-radius: 50%; background: var(--fn-tone); cursor: pointer; }
+.flow-frame__color[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
+.flow-frame__resize { border-color: var(--accent); }
+.flow-frame__handle { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); }
+
+/* RÁMEC SKUPINY (prvek `group`)
+   Rámec je čárkovaný obdélník kolem uzlů jednoho kroku metody s titulkem a jednou větou popisu nahoře, jak to n8n
+   dělá u Canvas Groups: oko čte metodu po krocích, ne po jednotlivých uzlech. Sbalený rámec je jedna karta s počtem
+   kroků uvnitř, takže jde zanořit od metody ke krokům. Rámec, který porušuje pravidla skupin, má červený okraj
+   a v hlavičce počet chyb; přesné věty jsou v bublině a v inspektoru rámce. */
+.flow-frame__group { box-sizing: border-box; width: 100%; height: 100%; padding: 8px 12px; border: 1.5px dashed var(--line-strong); border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent); color: var(--ink); cursor: pointer; }
+.flow-frame__group--collapsed { width: 220px; min-height: 80px; height: auto; border-style: solid; border-color: var(--accent); background: var(--surface-2); }
+.flow-frame__group--invalid { border-color: var(--danger); }
+.flow-frame__group--selected { outline: 2px solid var(--accent); outline-offset: 2px; }
+.flow-frame__group-head { display: flex; gap: 6px; align-items: center; }
+.flow-frame__group-name { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.flow-frame__group-errors { margin-left: auto; padding: 0 6px; border-radius: 4px; background: var(--danger); color: var(--surface); font-size: 10px; }
+.flow-frame__group-description { margin: 2px 0 0; color: var(--ink-muted); font-size: 11px; }
+.flow-frame__group-count { margin: 6px 0 0; color: var(--ink-2); font-size: 11px; }
+.flow-frame__toggle { padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--ink-2); font-size: 11px; cursor: pointer; }
+.flow-frame__port { width: 10px; height: 10px; border: 2px solid var(--line-strong); background: var(--surface); }
+
+/* INSPEKTOR RÁMCE (prvek `inspector`)
+   Stejný pravý sloupec jako inspektor uzlu, aby člověk nemusel hledat jiné místo: jméno, popis s počítadlem do 145
+   znaků, seznam uzlů, chyby skupiny a dvě akce dole. */
+.flow-frame__inspector { box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; width: 320px; flex: none; overflow: auto; padding: 12px;
+  border-left: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 12px; }
+.flow-frame__inspector-head { display: flex; justify-content: space-between; }
+.flow-frame__close { border: 0; background: none; color: var(--ink-muted); font-size: 18px; cursor: pointer; }
+.flow-frame__field { display: grid; gap: 4px; font-weight: 600; }
+.flow-frame__input { box-sizing: border-box; width: 100%; padding: 5px 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--field); color: var(--ink); font: inherit; font-weight: 400; }
+.flow-frame__muted { margin: 0; color: var(--ink-muted); font-size: 11px; font-weight: 400; }
+.flow-frame__errors { margin: 0; padding-left: 16px; color: var(--danger); font-size: 11px; }
+.flow-frame__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.flow-frame__button { padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { heartGraph, TYPES } from "./flow-fixtures";
+import { heartGraph, LIBRARY, TYPES } from "./flow-fixtures";
 import { addConnected, addNode, connect, moveNode, nextNodeId, removeEdge, removeNode, setParam } from "./graph-edit";
 
 describe("graph edits return a new graph and leave the version untouched", () => {
@@ -35,5 +35,11 @@ describe("graph edits return a new graph and leave the version untouched", () =>
     expect(moveNode(graph, "jev", { x: 1.6, y: 2.2 }).nodes[1].position).toEqual({ x: 2, y: 2 });
     expect(setParam(graph, "srdce", "per_hour", 3).nodes[2].params).toEqual({ per_hour: 3 });
     expect(setParam(graph, "srdce", "per_hour", undefined).nodes[2].params).toEqual({});
+  });
+  it("adds a type from the plus through its variant with the variant params", () => {
+    const graph = { nodes: [{ id: "agent", type: "ai.agent", position: { x: 0, y: 0 } }], edges: [] };
+    const next = addConnected(graph, LIBRARY, "ai.vectorStore", { nodeId: "agent", port: "tool", direction: "in" });
+    expect(next.nodes[1]).toMatchObject({ id: "vectorstore", params: { mode: "retrieveAsTool" }, position: { x: 0, y: 200 } });
+    expect(next.edges[0]).toMatchObject({ source_node: "vectorstore", source_port: "tool", target_node: "agent", target_port: "tool", kind: "tool" });
   });
 });

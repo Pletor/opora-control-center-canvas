@@ -1,0 +1,10 @@
+/* PŘEVZATÁ PLÁTNA TOKU (blok `project-flows`)
+   Na kartě domény a stránky je převzaté plátno jedna tichá řádka se znakem ⇄ (kopie z knihovny), která otevře
+   plátno, a pod ní drobně, z čeho vychází. Novější verze v knihovně je zlatá: nic není rozbité, jen čeká rozhodnutí,
+   jestli kopii dorovnat. Fialový tón patří knihovně stejně jako v panelu Komponenty. */
+.project-flows { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; }
+.project-flows__item { display: grid; gap: 1px; padding: 4px 6px; border-left: 2px solid var(--ae-tone-backend, var(--accent)); }
+.project-flows__open { justify-self: start; padding: 0; border: 0; background: none; color: var(--ae-tone-backend, var(--accent)); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.project-flows__open:hover { text-decoration: underline; }
+.project-flows__from { color: var(--ae-muted, var(--ink-muted)); font-size: 10px; }
+.project-flows__newer { color: var(--gold); font-size: 10px; font-weight: 600; }

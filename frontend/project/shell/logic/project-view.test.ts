@@ -6,6 +6,7 @@ it("restores studio, intent and site admin links and sends heart, graphify, old 
   expect(readProjectView("studio")).toBe("studio");
   expect(readProjectView("intent")).toBe("intent");
   expect(readProjectView("site")).toBe("site");
+  expect(readProjectView("library")).toBe("library");
   expect(readProjectView("heart")).toBe("architecture");
   expect(readProjectView("graphify")).toBe("architecture");
   expect(readProjectView("archify")).toBe("architecture");

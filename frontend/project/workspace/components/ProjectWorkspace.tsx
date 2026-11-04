@@ -3,9 +3,11 @@ import ArchitectureEditor, {type ArchitectureLiveProps} from '@/project/architec
 import Studio from '@/project/studio/components/Studio';
 import IntentCanvas from '@/project/intent-canvas/components/IntentCanvas';
 import SiteAdmin from '@/project/site-admin/components/SiteAdmin';
+import LibraryCanvas from '@/project/library-canvas/components/LibraryCanvas';
+import type {Project} from '@/shared/types/logic/types';
 
 /** Hlavní stránka skládá hotové komponenty; kontext a dokumentový editor zůstávají v Editoru. */
-export default function ProjectWorkspace({project,workspace,mapKind,intentPage,onCloseIntent,onCloseSite,projectName,onGraphChanged,onOpenEditor,onOpenArchitecture,architectureLive}:{
+export default function ProjectWorkspace({project,workspace,mapKind,intentPage,onCloseIntent,onCloseSite,libraryFlow,projects=[],onOpenLibraryFlow,projectName,onGraphChanged,onOpenEditor,onOpenArchitecture,architectureLive}:{
   projectName?:string;
   mapKind:ProjectMapKind;
   /** Stránka plátna záměru (`page` v adrese); bez ní se záměr neotevře. */
@@ -14,6 +16,10 @@ export default function ProjectWorkspace({project,workspace,mapKind,intentPage,o
   onCloseIntent?:()=>void;
   /** Zpět ze Správy webu (`projectView=site`) do Architektury projektu. */
   onCloseSite?:()=>void;
+  /** Plátno toku v knihovně (`flow` v adrese) a projekty pro „Převzít do projektu“; zpět jde stejně jako ze Správy webu. */
+  libraryFlow?:string;
+  projects?:Project[];
+  onOpenLibraryFlow?:(id:string)=>void;
   project:string;workspace:string;
   onGraphChanged:()=>void;
   onOpenEditor:(id:string)=>void;
@@ -27,6 +33,8 @@ export default function ProjectWorkspace({project,workspace,mapKind,intentPage,o
   // Záměr stránky (plátno 2) patří jedné stránce projektu; zpět vede do Architektury s jejím zachovaným rozsahem.
   if (mapKind === 'intent' && intentPage) return <IntentCanvas key={project+':'+intentPage} project={project} page={intentPage} onBack={()=>onCloseIntent?.()}/>;
   // Správa webu: jeden dokument na projekt (design systém a nastavení webu), sdílený všemi doménami.
+  // Plátno toku v knihovně: globální (napříč projekty), otevřené z panelu Komponenty nebo od domény či stránky.
+  if (mapKind === 'library' && libraryFlow) return <LibraryCanvas key={libraryFlow} flowId={libraryFlow} project={project} projects={projects} onOpenFlow={(id)=>onOpenLibraryFlow?.(id)} onBack={()=>onCloseSite?.()}/>;
   if (mapKind === 'site') return <SiteAdmin key={project} project={project} onBack={()=>onCloseSite?.()}/>;
   // Editor architektury se klíčuje jen projektem: přepnutí worktree nechá otevřenou doménu i stránku a jen znovu načte obsah (docs/domeny-a-worktree.md §10).
   return <ArchitectureEditor key={JSON.stringify([project])} project={project} workspace={workspace} projectName={projectName} onGraphChanged={onGraphChanged} onOpenEditor={onOpenEditor} live={architectureLive}/>;

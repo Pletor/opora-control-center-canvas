@@ -26,7 +26,9 @@ export default function FlowNodeCard({ data, selected }: NodeProps<FlowCardNode>
     </div>
     {data.role !== "agent" && <div className="flow-node__caption">
       <b className="flow-node__name">{data.nodeId}</b><small className="flow-node__type">{data.name}</small>
+      {data.subtitle && <small className="flow-node__subtitle" data-testid={`flow-node-subtitle-${data.nodeId}`}>{data.subtitle}</small>}
     </div>}
+    {data.role === "agent" && data.subtitle && <small className="flow-node__subtitle flow-node__subtitle--above" data-testid={`flow-node-subtitle-${data.nodeId}`}>{data.subtitle}</small>}
     {run?.status === "waiting" && <p className="flow-node__waiting">čeká na {run.waitingFor ?? "?"}{run.deadline ? ` do ${new Date(run.deadline).toLocaleString("cs-CZ")}` : ""}</p>}
     {run?.stall && <p className="flow-node__stall">prostoj · {run.stall}</p>}
     {run && run.costUsd > 0 && <span className="flow-node__cost">{formatCost(run.costUsd)}{run.model ? ` · ${run.model}` : ""}</span>}

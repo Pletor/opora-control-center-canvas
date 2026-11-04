@@ -1,20 +1,21 @@
 import { useState } from "react";
 import { fieldRows, parseField, parseNewParam, type FieldRow } from "../logic/inspector-fields";
 
-type Props = { params: Record<string, unknown> | undefined; readOnly: boolean; onParam: (key: string, value: unknown) => void };
+/** `hints`: popis parametrů z registru (klíč → nápověda, např. „insert | load | retrieve“), ukáže se pod klíčem. */
+type Props = { params: Record<string, unknown> | undefined; hints?: Record<string, string> | null; readOnly: boolean; onParam: (key: string, value: unknown) => void };
 
 /** Parametry uzlu jako pole podle druhu hodnoty. Zápis se ověří při opuštění pole (číslo, JSON); chyba zůstane u pole
  * a do grafu nejde. Na konci řádek pro nový parametr. V režimu běhu jen ke čtení. */
-export default function ParamFields({ params, readOnly, onParam }: Props) {
+export default function ParamFields({ params, hints, readOnly, onParam }: Props) {
   const rows = fieldRows(params);
   return <div className="node-inspector__fields">
     {!rows.length && <p className="node-inspector__muted">Uzel nemá parametry.</p>}
-    {rows.map((row) => <ParamField key={row.key + row.raw} row={row} readOnly={readOnly} onParam={onParam}/>)}
+    {rows.map((row) => <ParamField key={row.key + row.raw} row={row} hint={hints?.[row.key]} readOnly={readOnly} onParam={onParam}/>)}
     {!readOnly && <NewParam params={params} onParam={onParam}/>}
   </div>;
 }
 
-function ParamField({ row, readOnly, onParam }: { row: FieldRow; readOnly: boolean; onParam: Props["onParam"] }) {
+function ParamField({ row, hint, readOnly, onParam }: { row: FieldRow; hint?: string; readOnly: boolean; onParam: Props["onParam"] }) {
   const [raw, setRaw] = useState(row.raw), [error, setError] = useState("");
   const commit = (text: string) => {
     if (text === row.raw) return;
@@ -23,6 +24,7 @@ function ParamField({ row, readOnly, onParam }: { row: FieldRow; readOnly: boole
   };
   return <label className="node-inspector__field">
     <span className="node-inspector__key">{row.key}<small className="node-inspector__kind">{row.kind}</small></span>
+    {hint && <small className="node-inspector__hint">{hint}</small>}
     {row.kind === "boolean"
       ? <input type="checkbox" disabled={readOnly} checked={raw === "true"} onChange={(event) => { const text = String(event.target.checked); setRaw(text); commit(text); }}/>
       : row.kind === "json"

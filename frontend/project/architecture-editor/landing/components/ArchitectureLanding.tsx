@@ -35,8 +35,10 @@ const newDomain = (): ProductDraft => ({ parentId: null, name: "", purpose: "", 
 /** Step 1: pick an environment and a domain; Production and Development rows, one card per domain, and the Components
  *  library to the right (read-only, its data are read by `useComponentShelf`). */
 /** `lockReason` = proč jsou úpravy domén zakázané (věta stojí v `DomainLockNote` pod hlavičkou editoru, tady jde do `title`). */
-export default function ArchitectureLanding({ project, workspace, graph, disabled, lockReason = "", live, onOpen, onManageSite, onSave, onSplit }: {
+export default function ArchitectureLanding({ project, workspace, graph, disabled, lockReason = "", live, onOpen, onOpenFlow, onManageSite, onSave, onSplit }: {
   project: string; workspace: string; graph: Graph; disabled: boolean; lockReason?: string; live?: LandingLive; onOpen: (id: string) => void;
+  /** Otevře plátno knihovny (`projectView=library&flow=`). */
+  onOpenFlow?: (flowId: string) => void;
   /** Správa webu projektu; na kartě se nabídne jen webové doméně. */
   onManageSite?: () => void;
   onSave: (draft: ProductDraft) => Promise<void>; onSplit: (id: string, host: string) => Promise<void>;
@@ -91,7 +93,7 @@ export default function ArchitectureLanding({ project, workspace, graph, disable
     {!!work?.unassigned.length && <UnassignedWorktrees worktrees={work.unassigned} choices={choices} stale={workStale} nav={live?.nav} onAssign={live?.onAssign}/>}
     {live?.worktreeLive && <ArchiveShelf shelf={live.shelf} choices={choices} onLoad={live.onLoadShelf}/>}
     </div>
-    <ComponentShelf data={shelf}/>
+    <ComponentShelf data={shelf} onOpenFlow={onOpenFlow}/>
     </div>
     {split && <SplitConfirm host={split.host} error={error} disabled={disabled} onConfirm={confirmSplit} onCancel={() => setSplit(null)}/>}
   </main>;

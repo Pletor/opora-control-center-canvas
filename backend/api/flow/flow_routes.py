@@ -30,7 +30,7 @@ from backend.canvas.activity_log import require_human
 from backend.canvas.canvas_service import ProjectNotFound
 from backend.flow import interpreter, page_intents, workflows
 from backend.flow.canvas_log import log_canvas
-from backend.flow.graph_check import FlowInvalid, graph_errors
+from backend.flow.graph_check import FlowInvalid, graph_errors, node_ports
 from backend.flow.node_types import catalog
 from backend.flow.run_log import read_log
 from backend.flow.stalls import list_stalls
@@ -59,6 +59,18 @@ class CandidateIn(BaseModel):
 class GraphCheckIn(BaseModel):
     kind: Kind
     graph: Any
+
+
+class NodePortsIn(BaseModel):
+    kind: Kind | None = None
+    type: str = Field(min_length=1, max_length=200)
+    params: dict[str, Any] = Field(default_factory=dict)
+    onError: str | None = Field(default=None, max_length=32)
+
+
+def _port_json(p):
+    return {"name": p.name, "direction": p.direction, "kind": p.kind, "cardinality": p.cardinality,
+            "schema": p.schema, "required": p.required, "label": p.label or p.name}
 
 
 class RunIn(BaseModel):
@@ -130,10 +142,19 @@ def create_flow_router(service):
         return {"node_types": [
             {"type": t.type, "version": t.version, "trigger": t.trigger, "params": t.params,
              "category": t.category, "dynamicPorts": t.dynamic is not None,
-             "ports": [{"name": p.name, "direction": p.direction, "kind": p.kind, "cardinality": p.cardinality,
-                        "schema": p.schema, "required": p.required, "label": p.label or p.name} for p in t.ports]}
+             "ports": [_port_json(p) for p in t.ports]}
             for t in catalog(kind).values()
         ]}
+
+    @router.post("/node-ports")
+    def node_port_list(body: NodePortsIn):
+        """Porty uzlu pro konkrétní `params` (a `onError: errorOutput` = výstup `error`), aby editor po změně
+        parametru překreslil porty dynamického typu (`dynamicPorts`). Neznámý typ = 404."""
+        node_type = catalog(body.kind).get(body.type)
+        if node_type is None:
+            raise HTTPException(404, f"Neznámý typ uzlu {body.type!r}.")
+        node = {"params": body.params, "onError": body.onError}
+        return {"type": body.type, "ports": [_port_json(p) for p in node_ports(node_type, node, body.kind)]}
 
     @router.post("/graph-check")
     def graph_check(body: GraphCheckIn):

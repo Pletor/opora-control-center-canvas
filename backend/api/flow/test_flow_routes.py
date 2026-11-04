@@ -240,3 +240,19 @@ def test_gate_wall_guards_flow_writes_with_project_id_or_by_id(tmp_path):
         vid = made.json()["id"]
         assert c.post(f"/api/flow/versions/{vid}/activate", headers=agent, json={}).json()["code"] == "gate_required"
         assert c.post(f"/api/flow/versions/{vid}/activate", headers={**agent, tokens.HEADER: heart}, json={}).status_code == 409
+
+
+def test_node_ports_follow_params_of_dynamic_types():
+    c, _ = client()
+    url, kind = "/api/flow/node-ports", "library_flow"
+    insert = c.post(url, json={"kind": kind, "type": "ai.vectorStore", "params": {"mode": "insert"}}).json()["ports"]
+    assert {(p["name"], p["direction"]) for p in insert} == {("main", "in"), ("embedding", "in"), ("document", "in"),
+                                                            ("main", "out")}
+    tool = c.post(url, json={"kind": kind, "type": "ai.vectorStore", "params": {"mode": "retrieveAsTool"}}).json()
+    assert [(p["name"], p["direction"], p["required"]) for p in tool["ports"]] == [
+        ("embedding", "in", True), ("reranker", "in", False), ("tool", "out", False)]
+    parser = c.post(url, json={"kind": kind, "type": "ai.agent", "params": {"hasOutputParser": True}}).json()["ports"]
+    assert any(p["name"] == "outputParser" and p["label"] == "Výstupní parser" for p in parser)
+    error = c.post(url, json={"kind": kind, "type": "action.http", "params": {}, "onError": "errorOutput"}).json()
+    assert [p["name"] for p in error["ports"] if p["direction"] == "out"] == ["main", "error"]
+    assert c.post(url, json={"kind": kind, "type": "nope"}).status_code == 404

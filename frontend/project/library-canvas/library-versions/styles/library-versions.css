@@ -1,0 +1,16 @@
+/* LIŠTA VERZÍ PLÁTNA TOKU (blok `library-versions`)
+   Tenký pás pod hlavičkou plátna: vlevo výběr verze z historie (od nejnovější), vedle štítek stavu zobrazené verze
+   a vpravo jediná akce, která teď dává smysl. Neuložená úprava je zlatá, protože jen ona se může ztratit; aktivní
+   verze zelená, draft čárkovaný jako rozpracovaný, historie šedá. */
+.library-versions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--surface); font-size: 12px; }
+.library-versions__history { display: flex; gap: 6px; align-items: center; color: var(--ink-muted); }
+.library-versions__select { padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--field); color: var(--ink); font: inherit; }
+.library-versions__status { padding: 1px 7px; border: 1px solid var(--line-strong); border-radius: 10px; font-size: 11px; }
+.library-versions__status--active { border-color: var(--ok); color: var(--ok); }
+.library-versions__status--draft { border-style: dashed; }
+.library-versions__status--retired { color: var(--ink-muted); }
+.library-versions__actions { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+.library-versions__dirty { color: var(--gold); }
+.library-versions__button { padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; }
+.library-versions__button--primary { border-color: var(--accent); color: var(--accent); }
+.library-versions__button:disabled { cursor: progress; opacity: .6; }

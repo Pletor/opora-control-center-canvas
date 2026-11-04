@@ -1,20 +1,26 @@
 import { useState } from "react";
-import type { FlowNode, NodeRun, NodeTypeSpec } from "../../logic/flow-types";
+import type { FlowNode, FlowNodeDetail, NodeRun, NodeTypeSpec } from "../../logic/flow-types";
 import { formatCost, formatTokens, STATUS_LABEL } from "../../logic/run-overlay";
 import { prettyRef } from "../logic/inspector-fields";
 import ParamFields from "./ParamFields";
+import { NodeDataTab, NodeErrorTab, NodeNoteTab } from "./NodeDetailTabs";
 import "../styles/node-inspector.css";
 
-type Tab = "params" | "input" | "output";
+type Tab = "params" | "input" | "output" | "data" | "errors" | "note";
+const TAB_LABEL: Record<Tab, string> = { params: "Parametry", input: "Vstup", output: "Výstup", data: "Data", errors: "Chyby", note: "Poznámka" };
 type Props = {
   node: FlowNode; spec: NodeTypeSpec | undefined; run: NodeRun | null; stall: string | null; readOnly: boolean;
   onParam: (key: string, value: unknown) => void; onRemove: () => void; onClose: () => void;
+  /** Pole uzlu plátna toku (data, chyby, poznámka); bez něj inspektor ukazuje běh (Vstup, Výstup). */
+  onField?: <K extends keyof FlowNodeDetail>(key: K, value: FlowNodeDetail[K] | undefined) => void;
 };
 
-/** Inspektor uzlu jako postranní panel (ne modál jako NDV v n8n), aby graf zůstal vidět. Tři záložky: Parametry,
- * Vstup a Výstup vybraného běhu. Nad nimi stav uzlu v běhu: pokus, model, tokeny, cena, čekání, prostoj a chyba. */
-export default function NodeInspector({ node, spec, run, stall, readOnly, onParam, onRemove, onClose }: Props) {
+/** Inspektor uzlu jako postranní panel (ne modál jako NDV v n8n), aby graf zůstal vidět. U běhu tři záložky: Parametry,
+ * Vstup a Výstup vybraného běhu, nad nimi stav uzlu v běhu (pokus, model, tokeny, cena, čekání, prostoj a chyba). Plátno
+ * toku (`onField`) má záložky Parametry, Data (schémata a příklad), Chyby a Poznámka. */
+export default function NodeInspector({ node, spec, run, stall, readOnly, onParam, onRemove, onClose, onField }: Props) {
   const [tab, setTab] = useState<Tab>("params");
+  const tabs: Tab[] = onField ? ["params", "data", "errors", "note"] : ["params", "input", "output"];
   const ref = tab === "input" ? run?.input_ref : run?.output_ref;
   return <aside className="node-inspector" aria-label={`Uzel ${node.id}`} data-testid="node-inspector">
     <header className="node-inspector__head">
@@ -31,12 +37,14 @@ export default function NodeInspector({ node, spec, run, stall, readOnly, onPara
       {stall && <><dt className="node-inspector__term">Prostoj</dt><dd className="node-inspector__value node-inspector__stall">{stall}</dd></>}
       {run.error && <><dt className="node-inspector__term">Chyba</dt><dd className="node-inspector__value node-inspector__error">{run.error}</dd></>}
     </dl>}
-    <nav className="node-inspector__tabs" aria-label="Záložky inspektoru">
-      {(["params", "input", "output"] as const).map((id) => <button key={id} type="button" className="node-inspector__tab" aria-pressed={tab === id}
-        onClick={() => setTab(id)}>{id === "params" ? "Parametry" : id === "input" ? "Vstup" : "Výstup"}</button>)}
+    <nav className={`node-inspector__tabs node-inspector__tabs--${tabs.length}`} aria-label="Záložky inspektoru">
+      {tabs.map((id) => <button key={id} type="button" className="node-inspector__tab" aria-pressed={tab === id} data-testid={`node-inspector-tab-${id}`}
+        onClick={() => setTab(id)}>{TAB_LABEL[id]}</button>)}
     </nav>
-    {tab === "params"
-      ? <ParamFields key={node.id} params={node.params} readOnly={readOnly} onParam={onParam}/>
+    {tab === "params" ? <ParamFields key={node.id} params={node.params} hints={spec?.params} readOnly={readOnly} onParam={onParam}/>
+      : onField && tab === "data" ? <NodeDataTab node={node} readOnly={readOnly} onField={onField}/>
+      : onField && tab === "errors" ? <NodeErrorTab node={node} readOnly={readOnly} onField={onField}/>
+      : onField && tab === "note" ? <NodeNoteTab node={node} readOnly={readOnly} onField={onField}/>
       : run ? <pre className="node-inspector__data">{prettyRef(ref) || "— bez dat —"}</pre>
         : <p className="node-inspector__muted">Vyberte běh, ve kterém uzel proběhl.</p>}
     {node.pinned_output !== undefined && node.pinned_output !== null && <p className="node-inspector__muted">Připnutý výstup: uzel se v běhu nevykoná.</p>}

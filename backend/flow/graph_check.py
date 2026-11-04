@@ -41,7 +41,7 @@ def graph_errors(graph, registry=NODE_TYPES, kind=None):
             errors.append(f"Uzel {nid} má neznámý typ {node.get('type')!r}.")
         else:
             types[nid] = registry[node["type"]]
-            ports[nid] = _node_ports(types[nid], node, kind)
+            ports[nid] = node_ports(types[nid], node, kind)
             valid.append(node)
     seen, usage, links = set(), Counter(), []
     for edge in edges:
@@ -77,8 +77,8 @@ def graph_errors(graph, registry=NODE_TYPES, kind=None):
         errors += [f"Záměr stránky potřebuje aspoň jeden uzel {t}." for t in REQUIRED_TYPES if t not in present]
     if kind == LIBRARY:
         connected = {key[:3] for key in usage}
-        errors += [f"Uzel {nid}: povinný port {p.name} není připojený." for nid, node_ports in ports.items()
-                   for p in node_ports if p.required and (nid, p.name, p.direction) not in connected]
+        errors += [f"Uzel {nid}: povinný port {p.name} není připojený." for nid, found in ports.items()
+                   for p in found if p.required and (nid, p.name, p.direction) not in connected]
         errors += [error for node in valid for error in _node_field_errors(node, types)]
         errors += _note_errors(graph.get("notes", [])) + _group_errors(graph.get("groups", []), types, links)
     return errors
@@ -90,7 +90,7 @@ def check_graph(graph, registry=NODE_TYPES, kind=None):
         raise FlowInvalid("; ".join(errors))
 
 
-def _node_ports(node_type, node, kind):
+def node_ports(node_type, node, kind):
     """Porty uzlu podle jeho `params`; plátno toku s `onError: errorOutput` má navíc výstup `error`."""
     params = node.get("params") if isinstance(node.get("params"), dict) else {}
     found = node_type.ports_for(params)
