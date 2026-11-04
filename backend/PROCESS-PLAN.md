@@ -64,7 +64,7 @@ Registr odmítne druhý projekt se stejným zdrojem (URL nebo kanonická cesta, 
 
 | Vrstva | Nové | Mění se | Test |
 |---|---|---|---|
-| 1 | `canvas/project_folder.py` (`ProjectFolder`: cesty uvnitř složky, `project.json`), `canvas/project_registry.py` (registry.sqlite, deduplikace) | – | `test_project_folder.py`, `test_project_registry.py` |
+| 1 | `canvas/project_folder.py` (`ProjectFolder`: cesty uvnitř složky, `project.json`) | – | `test_project_folder.py` |
 | 2 | `editor/process/process_store.py`, `process_lifecycle.py` | – | `test_process_store.py`, `test_process_lifecycle.py` (každý zakázaný přechod) |
 | 3 | `editor/process/process_reports.py`, `api/editor/process_routes.py` | `app/factory.py` (include router) | `test_process_reports.py`, `test_process_routes.py` |
 | 4 | `project/worktrees/worktree_manager.py` | – | `test_worktree_manager.py` (reálný git v tmp) |

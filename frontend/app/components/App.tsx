@@ -55,7 +55,7 @@ import ProjectHome from "@/project-setup/components/ProjectHome";
 import HeartScreen from "@/project/heart-screen/components/HeartScreen";
 import StoryboardWorkspace from "@/editor/storyboard/components/StoryboardWorkspace";
 import TextWorkspace, { type TextSubtab } from "@/editor/node-detail/content/components/TextWorkspace";
-import type { AgentTaskRequest } from "@/editor/llm-control/editor-context/components/context-actions";
+import type { AgentTaskRequest } from "@/editor/llm-control/editor-context/components/TaskHandoff";
 import TaskHandoff from "@/editor/llm-control/editor-context/components/TaskHandoff";
 import SkeletonActions from "@/editor/skeleton/components/SkeletonActions";
 import { appendSkeleton } from "@/editor/skeleton/logic/skeleton";

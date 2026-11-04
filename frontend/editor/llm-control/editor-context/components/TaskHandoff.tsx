@@ -4,9 +4,21 @@ import { api } from "@/shared/types/logic/types";
 import type { NodeBrief } from "@/shared/desktop-state/logic/types";
 import { orientationSummary } from "@/editor/node-detail/agent-workspace/logic/agent-orientation";
 import { asRecord } from "../logic/handoff";
-import type { AgentTaskRequest } from "./context-actions";
 import ResultSubmission from "./ResultSubmission";
 import "../styles/handoff.css";
+
+/** Kontextová akce „úkol pro agenta“: připraví typovaný scope, nespouští žádný běh. */
+export type AgentTaskRequest = {
+  project: string;
+  workspace: string;
+  /** Vrstva plátna, ve které člověk pracuje; null je kořen projektu. */
+  layer: string | null;
+  nodeId: string;
+  nodeName: string;
+  source: "block" | "journal" | "canvas";
+  text: string;
+  requestedAt: string;
+};
 
 export default function TaskHandoff({ request, onClose, onSaved }: { request: AgentTaskRequest; onClose: () => void; onSaved: () => void }) {
   const [brief, setBrief] = useState<NodeBrief | null>(null);

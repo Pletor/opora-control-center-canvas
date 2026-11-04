@@ -10,23 +10,16 @@ Neplatná hodnota se zahodí s poznámkou, neznámé pole je 422.
 import copy
 import re
 
-from backend.project.site_admin.tokens import ALIAS, color_literal, length, shape
+from backend.project.site_admin.tokens import ASSET, color_or_alias, length, shape
 
 STYLE_FIELDS = {"size": "fontSize", "weight": "fontWeight", "lineHeight": "lineHeight",
                 "letterSpacing": "letterSpacing"}
 DEFAULT_SIZES = {"h1": "2.5rem", "h2": "2rem", "h3": "1.5rem", "h4": "1.25rem", "h5": "1.125rem", "h6": "1rem",
                  "subheading": "1.25rem", "body": "1rem"}
-ASSET = re.compile(r"^assets/[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}/[A-Za-z0-9][A-Za-z0-9 _.-]{0,132}$")
 STACK = re.compile(r"^[^;{}<>\\()]{1,200}$")
 PATTERNS = ("dots", "grid", "lines", "diagonal")
 MARKERS = ("disc", "circle", "square", "decimal", "decimal-leading-zero", "lower-alpha", "upper-alpha",
            "lower-roman", "upper-roman", "none")
-
-
-def _color(value):
-    if isinstance(value, str) and ALIAS.match(value.strip()):
-        return value.strip()
-    return color_literal(value)
 
 
 def _enum(*allowed):
@@ -59,7 +52,7 @@ def _line_height(value):
 # Cesta pole → (druh, cíl, kontrola). Druhy: color = barevný token, family = rodina písma (`type.families`),
 # plain = token vlastní rodiny, style = pole typografického stylu (skupina, styl, pole).
 FIELDS = {
-    "background.color": ("color", "surface", _color),
+    "background.color": ("color", "surface", color_or_alias),
     "background.image.asset": ("plain", ("background", "bg-image"), lambda v: v if isinstance(v, str) and ASSET.match(v) else None),
     "background.image.size": ("plain", ("background", "bg-size"), _enum("cover", "contain", "auto")),
     "background.image.position": ("plain", ("background", "bg-position"),
@@ -69,26 +62,26 @@ FIELDS = {
                                 _enum("no-repeat", "repeat", "repeat-x", "repeat-y")),
     "background.image.attachment": ("plain", ("background", "bg-attachment"), _enum("scroll", "fixed")),
     "background.pattern.preset": ("plain", ("background", "bg-pattern"), _enum(*PATTERNS)),
-    "background.pattern.color": ("color", "pattern", _color),
+    "background.pattern.color": ("color", "pattern", color_or_alias),
     "background.pattern.scale": ("plain", ("background", "bg-pattern-scale"), _number(0.25, 8)),
-    "background.overlay.color": ("color", "overlay", _color),
+    "background.overlay.color": ("color", "overlay", color_or_alias),
     "background.overlay.opacity": ("plain", ("background", "bg-overlay-opacity"), _number(0, 1)),
     "text.heading.font": ("family", "heading", _stack),
     "text.subheading.font": ("family", "subheading", _stack),
     "text.subheading.size": ("style", ("Text", "subheading", "fontSize"), length),
     "text.body.font": ("family", "body", _stack),
     "text.body.size": ("style", ("Text", "body", "fontSize"), length),
-    "colors.text": ("color", "ink", _color),
-    "colors.textInverse": ("color", "ink-inverse", _color),
-    "colors.link": ("color", "link", _color),
-    "colors.linkHover": ("color", "link-hover", _color),
-    "colors.focus": ("color", "focus", _color),
+    "colors.text": ("color", "ink", color_or_alias),
+    "colors.textInverse": ("color", "ink-inverse", color_or_alias),
+    "colors.link": ("color", "link", color_or_alias),
+    "colors.linkHover": ("color", "link-hover", color_or_alias),
+    "colors.focus": ("color", "focus", color_or_alias),
     **{f"headings.h{level}.{field}": ("style", ("Nadpisy", f"h{level}", target),
                                       {"fontSize": length, "fontWeight": _weight, "lineHeight": _line_height,
                                        "letterSpacing": length}[target])
        for level in range(1, 7) for field, target in STYLE_FIELDS.items()},
     "lists.marker": ("plain", ("list", "list-style"), _enum(*MARKERS)),
-    "lists.color": ("color", "list-marker", _color),
+    "lists.color": ("color", "list-marker", color_or_alias),
     "lists.indent": ("plain", ("list", "list-indent"), length),
     "layout.contentSize": ("plain", ("layout", "layout-content"), length),
     "layout.wideSize": ("plain", ("layout", "layout-wide"), length),
