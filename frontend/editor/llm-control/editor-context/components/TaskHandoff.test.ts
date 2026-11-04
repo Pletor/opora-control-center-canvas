@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import TaskHandoff from "./TaskHandoff";
-import type { AgentTaskRequest } from "./context-actions";
+import type { AgentTaskRequest } from "./TaskHandoff";
 
 vi.mock("@/shared/types/logic/types", () => ({ api: vi.fn() }));
 vi.mock("@/shared/desktop-state/logic/api", () => ({ fetchNodeBrief: vi.fn(() => new Promise(() => {})) }));

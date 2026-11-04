@@ -171,7 +171,6 @@
 :root[data-theme="light"] .node-links h4,
 :root[data-theme="light"] .node-links em,
 :root[data-theme="light"] .board-hint,
-:root[data-theme="light"] .agent-task-notice dt,
 :root[data-theme="light"] .drawing-note { color: var(--ink-muted); }
 :root[data-theme="light"] .error { background: var(--danger-soft); color: var(--danger); }
 :root[data-theme="light"] .menu { box-shadow: var(--shadow-pop); }
@@ -182,15 +181,13 @@
 :root[data-theme="light"] .modal { box-shadow: 0 20px 60px rgba(30, 25, 15, 0.22); }
 :root[data-theme="light"] .block-outline { border-color: var(--line); background: var(--surface); }
 :root[data-theme="light"] .block-row:focus-within { background: var(--accent-soft); }
-:root[data-theme="light"] .block-input, :root[data-theme="light"] .block-menu button,
-:root[data-theme="light"] .agent-task-notice dd { color: var(--ink); }
+:root[data-theme="light"] .block-input, :root[data-theme="light"] .block-menu button { color: var(--ink); }
 :root[data-theme="light"] .block-input::placeholder { color: var(--ink-muted); }
 :root[data-theme="light"] .block-link { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
 :root[data-theme="light"] .block-link.unresolved { border-color: var(--gold-line); background: var(--gold-soft); color: var(--gold); }
 :root[data-theme="light"] .block-menu { border-color: var(--line-strong); background: var(--surface); box-shadow: var(--shadow-pop); }
 :root[data-theme="light"] .block-menu button.active, :root[data-theme="light"] .block-menu button:hover { background: var(--surface-3); }
 :root[data-theme="light"] .block-menu kbd { color: var(--ink-2); border-color: var(--line-strong); }
-:root[data-theme="light"] .agent-task-notice { border-color: var(--line-strong); background: var(--surface); box-shadow: var(--shadow-pop); }
 :root[data-theme="light"] .agent-badge-ok { background: var(--ok-soft); color: #2d6a3e; border-color: #9ccaa9; }
 :root[data-theme="light"] .agent-badge-warn { background: var(--gold-soft); color: var(--gold); border-color: var(--gold-line); }
 :root[data-theme="light"] .agent-badge-bad { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-line); }

@@ -24,6 +24,8 @@ PLAIN = re.compile(r"^[A-Za-z0-9 #%(),./+_-]{1,200}$")
 STACK_FORBIDDEN = re.compile(r"[;{}<>\\()]")
 FONT_FILE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,127}\.(?:woff2|woff|ttf|otf|ttc)$", re.IGNORECASE)
 WEIGHT = re.compile(r"^(\d{1,4})(?: (\d{1,4}))?$")
+# Soubor nahraný do projektu (`assets/<skupina>/<soubor>`); jediná povolená URL obrázku i vlastního CSS.
+ASSET = re.compile(r"^assets/[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}/[A-Za-z0-9][A-Za-z0-9 _.-]{0,132}$")
 INLINE_FUNCTION = re.compile(r"\b(?:" + "|".join(COLOR_FUNCTIONS) + r")\([^()]*\)", re.IGNORECASE)
 
 MAX_THEMES, MAX_COLORS, MAX_FONTS, MAX_FAMILIES = 8, 600, 4096, 12
@@ -177,7 +179,7 @@ def _per_theme(value, themes, check, label, notes):
     return kept
 
 
-def _color_or_alias(value):
+def color_or_alias(value):
     if isinstance(value, str) and ALIAS.match(value.strip()):
         return value.strip()
     return color_literal(value)
@@ -244,7 +246,7 @@ def _colors(raw, notes, used):
         name = _named(item, "color", used | set(colors), notes)
         if name is None:
             continue
-        value = _per_theme(item.get("value"), themes, _color_or_alias, f"Barva {name}", notes)
+        value = _per_theme(item.get("value"), themes, color_or_alias, f"Barva {name}", notes)
         colors[name] = {"name": name, "value": value}
         usage = clamp(item.get("usage"), MAX_USAGE, f"Barva {name} usage", notes)
         if usage:

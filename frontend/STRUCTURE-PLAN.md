@@ -66,11 +66,9 @@ frontend/
 │   └── styles/      project-home.css
 │
 ├── project/                           PROSTŘEDÍ PROJEKT: pohled na main
-│   ├── shell/       components/ProjectLayout.tsx          levý strom + navigace map
-│   │                styles/project-layout.css
+│   ├── shell/       components/ProjectMapNavigation.tsx   přepínač pohledů v horní liště
+│   │                styles/project-map-navigation.css
 │   ├── source-tree/ components/SourceExplorer.tsx         strom složek a souborů projektu
-│   ├── maps/        components/GraphifyMap.tsx · MapUpdateMenu.tsx
-│   │                styles/map-view.css · map-update-menu.css
 │   └── workspace/   components/ProjectWorkspace.tsx
 │
 ├── editor/                            PROSTŘEDÍ EDITOR: řízení vývoje
@@ -100,7 +98,7 @@ frontend/
 │   └── llm-control/                   PRAVÁ STRANA: ovládání Claude Code
 │       ├── README (dříve layout/right-bar/)              skills, commandy, agenti
 │       ├── project-memory/  components/ProjectMemoryPanel.tsx   pravidla, rozhodnutí, nastavení
-│       ├── editor-context/  components/ContextShelf.tsx · context-actions.tsx  reference a „úkol pro agenta“
+│       ├── editor-context/  components/TaskHandoff.tsx · ResultSubmission.tsx  předání zadání a výsledku
 │       └── agent-packet/    components/AgentPacketPanel.tsx     podklady pro agenta: náhled, snímek, export
 │
 ├── hub/                               PROSTŘEDÍ OPORAHUB: plán a dokumentace 1:1 s kódem
@@ -112,7 +110,6 @@ frontend/
 │   ├── hooks/            logic/use-pending-edits.ts
 │   ├── contexts/         components/ScopeContext.tsx
 │   ├── desktop-state/    logic/api.ts · state-store.ts · types.ts   stav panelů (paměť, workflow, podklady)
-│   ├── selection/        logic/workspace-selection.ts               vybraný zdroj, reference, poznámka
 │   └── surface-settings/ logic/workspace-settings.ts                mřížka, přichytávání, aktuální mód
 │
 └── ui-kit/                            prvky bez domény

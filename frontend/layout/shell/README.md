@@ -1,4 +1,4 @@
-Styly pracovní plochy: přepínač prostředí, dok Podklady pro agenta, živá lišta (desktop-workspaces.css) a záložky módů plátna s rámem prostředí (workspace-modes.css). Komponentu ProjectLayout najdeš v project/shell.
+Styly pracovní plochy: přepínač prostředí, dok Podklady pro agenta, živá lišta (desktop-workspaces.css) a záložky módů plátna s rámem prostředí (workspace-modes.css). Kostra prostředí Projekt (`ProjectMapNavigation`) je v `project/shell`.
 
 **Rám prostředí (`.editor-frame`, workspace-modes.css)** je vše pod horní lištou a lištou nástrojů. Obsah prostředí (`workspace-shell` v Editoru, `project-home` na úvodní obrazovce) zabírá celou šířku — vedle něj už nestojí lišta módů, Knihovna ani Agenti a postupy. Rám je `position: relative`, protože do něj v Editoru u levého okraje vyjíždí menu ☰ s lištou ikon a panelem sekce (`layout/panel-dock/`): leží nad plátnem, ne vedle něj. Kontrakt je `docs/menu-a-katalog.md` a `docs/rozvrzeni-editoru.md`; nahradil skladbu sloupců z `docs/panely-editoru.md`, Doladění bod 1.
 
