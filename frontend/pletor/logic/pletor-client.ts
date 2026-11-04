@@ -26,6 +26,15 @@ export function parseBrain(value: unknown): PletorBrain {
 /** Readout mozku do rohu HUD: `claude`, nebo `ollama · <model>`. */
 export const brainText = (brain: PletorBrain) => (brain.brain === "ollama" && brain.model ? `ollama · ${brain.model}` : brain.brain);
 
+const CLAUDE_NAMES: Record<string, string> = { sonnet: "Claude Sonnet 5.5", opus: "Claude Opus 5.5", haiku: "Claude Haiku 5.5" };
+
+/** Co člověk vidí pod jádrem: který model mluví a kdo ho platí. Claude jede pod předplatným, Ollama je lokální a zdarma. */
+export function brainLabel(brain: PletorBrain): { name: string; plan: string; local: boolean } {
+  if (brain.brain === "ollama") return { name: brain.model ?? "lokální model", plan: "lokální · zdarma", local: true };
+  const alias = brain.model ?? "sonnet";
+  return { name: CLAUDE_NAMES[alias] ?? `Claude ${alias}`, plan: "cloud · předplatné", local: false };
+}
+
 const scope = (project: string, workspace: string) =>
   `project=${encodeURIComponent(project)}&workspace=${encodeURIComponent(workspace)}`;
 
