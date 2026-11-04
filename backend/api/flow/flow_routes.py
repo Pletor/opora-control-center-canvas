@@ -154,7 +154,8 @@ def create_flow_router(service):
         `graph-check`)."""
         return {"node_types": [
             {"type": t.type, "version": t.version, "trigger": t.trigger, "params": t.params,
-             "category": t.category, "dynamicPorts": t.dynamic is not None,
+             "category": t.category, "dynamicPorts": t.dynamic is not None, "layer": t.layer,
+             "use": t.use, "avoid": t.avoid, "intents": list(t.intents),
              "ports": [_port_json(p) for p in t.ports]}
             for t in catalog(kind).values()
         ]}

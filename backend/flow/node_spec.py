@@ -6,6 +6,10 @@ from dataclasses import dataclass
 PORT_KINDS = ("main", "model", "memory", "tool", "subagent", "approval", "data", "outputParser", "embedding",
               "document", "textSplitter", "retriever", "vectorStore", "reranker")
 
+LAYERS = ("fe", "be", "db", "infra", "ai", "neutral")
+INTENTS = ("input", "validate", "compute", "store", "call-service", "show", "decide", "repeat", "trigger", "notify",
+           "ai")
+
 
 @dataclass(frozen=True)
 class Port:
@@ -28,6 +32,10 @@ class NodeType:
     detached: bool = False  # běží mimo zámek: `running` s čerstvým heartbeatem = „běží jinde“, ne „přerušeno“
     params: dict | None = None  # parametry uzlu pro editor ({jméno: popis}); katalog záměru je jen popisný
     category: str = ""  # kategorie palety editoru (katalog toků dat)
+    layer: str = "neutral"  # výchozí vrstva (`LAYERS`); uzel ji smí přepsat polem `layer`
+    use: str = ""  # „použij, když…“ (paleta, průvodce, LLM)
+    avoid: str = ""  # „nepoužívej, když…“
+    intents: tuple = ()  # štítky z `INTENTS` pro průvodce „Co chci udělat?“
     dynamic: object = None  # porty podle parametrů uzlu: `dynamic(params) -> tuple[Port]`; `ports` = výchozí params
 
     def ports_for(self, params=None):

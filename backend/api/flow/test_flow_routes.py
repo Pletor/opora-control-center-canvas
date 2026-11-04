@@ -121,6 +121,17 @@ def test_node_types_expose_ports_for_the_editor():
         "approved", "rejected", "timeout"]
 
 
+def test_node_types_library_flow_carry_layer_and_guidance():
+    c, _ = client()
+    types = {t["type"]: t for t in c.get("/api/flow/node-types", params={"kind": "library_flow"}).json()["node_types"]}
+    assert {types[n]["layer"] for n in ("fe.click", "be.endpoint", "db.read", "infra.api", "ai.agent", "flow.if")} == {
+        "fe", "be", "db", "infra", "ai", "neutral"}
+    endpoint = types["be.endpoint"]
+    assert endpoint["use"].startswith("Použij") and endpoint["avoid"].startswith("Nepoužívej")
+    assert endpoint["intents"] == ["input", "call-service"] and set(endpoint["params"]) >= {"method", "path"}
+    assert not any(name.startswith("action.") for name in types)
+
+
 def test_node_types_filter_page_intent_catalog():
     c, _ = client()
     types = {t["type"]: t for t in c.get("/api/flow/node-types", params={"kind": "page_intent"}).json()["node_types"]}
@@ -253,6 +264,6 @@ def test_node_ports_follow_params_of_dynamic_types():
         ("embedding", "in", True), ("reranker", "in", False), ("tool", "out", False)]
     parser = c.post(url, json={"kind": kind, "type": "ai.agent", "params": {"hasOutputParser": True}}).json()["ports"]
     assert any(p["name"] == "outputParser" and p["label"] == "Výstupní parser" for p in parser)
-    error = c.post(url, json={"kind": kind, "type": "action.http", "params": {}, "onError": "errorOutput"}).json()
+    error = c.post(url, json={"kind": kind, "type": "infra.api", "params": {}, "onError": "errorOutput"}).json()
     assert [p["name"] for p in error["ports"] if p["direction"] == "out"] == ["main", "error"]
     assert c.post(url, json={"kind": kind, "type": "nope"}).status_code == 404

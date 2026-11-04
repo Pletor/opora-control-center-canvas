@@ -6,8 +6,15 @@ zleva doprava; výstupy `main` mohou mít jméno (`true`/`false`, `loop`/`done`,
 `memory`, `tool` …) vedou vždy ze sub-uzlu (výstup) do kořenového uzlu (vstup) a nesou kind svého portu. Porty, které
 závisí na parametrech (režim vektorového úložiště, `hasOutputParser` agenta, větve Switch a Merge), počítá
 `dynamic(params)`; `ports` jsou porty výchozích parametrů. `onError: errorOutput` přidá výstup `error` (`graph_check`).
+
+Vrstvy (`layer`), kroky FE/BE/DB/Infra (`process_layers.py`) a „kdy použít“ (`guidance.py`):
+`docs/navrhy/2026-11-04-platno-procesu.md` §1.
 """
 
+from dataclasses import replace
+
+from backend.flow.catalogs.guidance import GUIDANCE
+from backend.flow.catalogs.process_layers import PROCESS_TYPES
 from backend.flow.node_spec import NodeType, Port
 
 MAIN_IN, MAIN_OUT = Port("main", "in"), Port("main", "out")
@@ -106,11 +113,6 @@ FLOW_TYPES = {
         _type("flow.subflow", "flow", (MAIN_IN, MAIN_OUT),
               {"flowId": "id plátna toku", "mode": "perItem | once", "inputMapping": "{pole: výraz}", "wait": "bool"}),
         _type("flow.stopError", "flow", (MAIN_IN,), {"message": "text chyby"}),
-        _type("action.http", "action", (MAIN_IN, MAIN_OUT), {"method": "GET | POST | …", "url": "adresa",
-                                                             "body": "tělo"}),
-        _type("action.db", "action", (MAIN_IN, MAIN_OUT), {"operation": "select | insert | update | delete",
-                                                           "query": "dotaz"}),
-        _type("action.file", "action", (MAIN_IN, MAIN_OUT), {"operation": "read | write", "path": "cesta"}),
         _type("ai.agent", "ai", (), {"prompt": "výraz vstupu", "systemMessage": "systémová zpráva",
                                      "hasOutputParser": "true | false"}, _agent),
         _type("ai.chain", "ai", (), {"chainType": " | ".join(CHAIN_TYPES), "prompt": "výraz vstupu",
@@ -132,4 +134,11 @@ FLOW_TYPES = {
         _type("human.approval", "human", (MAIN_IN, *outs("approved", "rejected", "timeout")),
               {"channel": "kde člověk schvaluje", "message": "co schvaluje", "timeoutSeconds": "limit"}),
     )
+}
+
+FLOW_TYPES.update({t.type: t for t in PROCESS_TYPES})
+FLOW_TYPES = {
+    name: replace(t, layer="ai" if name.startswith("ai.") else t.layer, **dict(zip(("use", "avoid", "intents"),
+                                                                                  GUIDANCE[name])))
+    for name, t in FLOW_TYPES.items()
 }
