@@ -73,6 +73,7 @@ from backend.api.editor.sync_routes import create_sync_router
 from backend.api.brain.brain_registry_routes import create_brain_registry_router
 from backend.api.flow.flow_routes import create_flow_router
 from backend.api.flow.library_routes import create_library_router
+from backend.api.pletor.pletor_routes import create_pletor_router
 from backend.api.project.design_system_routes import create_design_system_router
 from backend.api.project.graphify_routes import create_graphify_router
 from backend.api.project.map_refresh_routes import create_map_refresh_router
@@ -129,6 +130,7 @@ from backend.integrations.typesafe_client import evaluate as typesafe_evaluate
 from backend.library.harness_memory import HarnessMemory
 from backend.memory.memory_service import AppSettings, MemoryService
 from backend.paths import DIST_DIR, REPO_ROOT
+from backend.pletor.service import Pletor
 from backend.project.architecture.web_status import WebStatusService
 from backend.project.maps.map_refresh import MapRefresh
 from backend.project.workspace.workspace_sources import WorkspaceSources
@@ -217,6 +219,7 @@ def create_app(data_root=None):
     app.state.map_refresh = map_refresh
     app.state.reconciliation = reconciliation
     app.state.heart = heart
+    app.state.pletor = Pletor(service, heart)  # Jarvis nad srdcem (docs/navrhy/2026-11-04-pletor-jarvis.md)
     app.state.flow = flow
 
     # Vzdálený přístup přes tunel; bez obou proměnných prostředí je hranice přesně dnešní.
@@ -474,6 +477,7 @@ def create_app(data_root=None):
     app.include_router(create_gate_router(service, heart))  # brána mozku (docs/brain-gate.md §4)
     app.include_router(create_brain_router(service))  # přepínač brány (docs/brain-gate.md §1)
     app.include_router(create_heart_router(service, heart))  # srdce mozku (docs/brain-heart.md §1)
+    app.include_router(create_pletor_router(service, app.state.pletor))  # Pletor, P1
     app.include_router(create_intake_router(service))  # vstupní brána (docs/navrhy/2026-10-30-vstupni-brana.md)
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)
