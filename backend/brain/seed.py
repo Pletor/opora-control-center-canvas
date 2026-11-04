@@ -1,7 +1,7 @@
 """Idempotentní naplnění Brainu při startu (§3.4): pluginy `opora-heart` a `opora-control-center` z repa a `ponytail`
 z instalace.
 
-`opora-heart` leží v `seed/opora-heart/` (skilly `heart` = systémový prompt srdce, `vyslech` = postup výslechu),
+`opora-heart` leží v `seed/opora-heart/` (skilly `heart` = systémový prompt srdce, `vyslech` = postup výslechu, `proces-na-platne` = stavba plátna procesu),
 `opora-control-center` v `seed/opora-control-center/` (skill práce s plátnem přes OporaHub, se skripty a jejich testy).
 `ponytail` (MIT) se bere z nainstalovaného pluginu Claude Code (nejvyšší verze v cache), do Brainu jdou jeho skilly
 a licence; když na stroji není, seed ho přeskočí a zaloguje. Plugin, který už v Brainu je, seed nepřepisuje, a artefakt
@@ -58,12 +58,25 @@ def _fill_evals(store, plugin, files):
         store.write(plugin, evals, f"seed: evals {plugin}")
 
 
+def _fill_skills(store, plugin, files):
+    """Nový skill repa na existující instalaci: celou jeho složku commitne do Brainu, aby aktivní verze měla co číst.
+    Skill, který v Brainu už je, seed nepřepisuje (změny jdou přes registr)."""
+    base = store.root / "plugins" / plugin
+    new = {rel.split("/")[1] for rel in files
+           if rel.count("/") == 2 and rel.startswith("skills/") and rel.endswith("/SKILL.md") and not (base / rel).is_file()}
+    added = {rel: text for rel, text in files.items() if rel.startswith("skills/") and rel.split("/")[1] in new}
+    if added:
+        return store.write(plugin, added, f"seed: skill {', '.join(sorted(new))}")
+    return None
+
+
 def _register(db, store, plugin, files):
     sha = store.version(plugin)
     if sha is None:
         sha = store.write(plugin, files, MESSAGE.format(plugin=plugin))
     else:
         _fill_evals(store, plugin, files)
+        sha = _fill_skills(store, plugin, files) or sha  # evals nejsou obsah skillu, verzi skillů nemění
     for relpath in sorted(files):
         parts = relpath.split("/")
         if len(parts) != 3 or parts[0] != "skills" or parts[2] != "SKILL.md":

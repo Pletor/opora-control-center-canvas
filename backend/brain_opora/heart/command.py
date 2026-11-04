@@ -8,7 +8,7 @@ vše mimo povolení, Write/Edit jsou povolené jen pravidly `allow` v nastavení
 (`--add-dir`) a nad zbytkem `brain/`, háčky jsou vypnuté a MCP je prázdné. Nastavení a MCP jdou do souborů
 v `brain/`, ne do řádky (cmd.exe láme uvozovky v JSON).
 Systémový prompt a postupy režimů jsou skilly v Brainu (`backend/brain/`, §3.4): dávka bere aktivní verzi
-`opora:brain:skill:heart` a `opora:brain:skill:vyslech` (`heart_skills`) a zapíše je do `brain/` projektu.
+`opora:brain:skill:heart` a skilly režimů `MODE_SKILLS` (`heart_skills`) a zapíše je do `brain/` projektu.
 """
 import json
 import os
@@ -29,7 +29,7 @@ RLM_FILE = HEART_DIR / "rlm.py"
 # Postupy režimů (docs/navrhy/2026-10-30-vyslech-srdce.md §5): skilly Brainu zapsané do `brain/skills/NAME.md`,
 # srdce je čte jen na vyžádání (`opora_heart.py skill NAME`), do systémového promptu se nevkládají.
 SKILLS_NAME = "skills"
-MODE_SKILLS = {"vyslech": "opora:brain:skill:vyslech"}
+MODE_SKILLS = {"vyslech": "opora:brain:skill:vyslech", "proces-na-platne": "opora:brain:skill:proces-na-platne"}
 # Moduly vedle nástroje: výzkum a duel (§3c, §3d: příkaz, stůl, digest, stažení a ověření, duel), záměr stránky, design systém webu a knihovna pláten toku.
 RESEARCH_NAMES = ("opora_research.py", "research_desk.py", "research_digest.py", "research_fetch.py",
                   "research_verify.py", "research_browser.py", "opora_duel.py", "opora_intent.py", "opora_site.py",

@@ -75,7 +75,7 @@ def test_message_runs_the_whole_batch_and_frees_the_project(heart_env):
     assert spec.snapshot == "SNÍMEK p1" and spec.inputs[0]["jev"] is True
     assert (spec.model, spec.advisor_model, spec.subcommands) == ("haiku", "opus", None)
     assert spec.skills.prompt.startswith("# Srdce projektu OPORA")  # skilly srdce z aktivní verze v Brainu
-    assert set(spec.skills.pins) == {"heart", "vyslech"} and "vyslech" in spec.skills.modes
+    assert set(spec.skills.pins) == {"heart", "vyslech", "proces-na-platne"} and "vyslech" in spec.skills.modes
     assert env.heart.running == set() and not env.heart.starts.get("p1")  # zpráva člověka strop nepočítá
 
 

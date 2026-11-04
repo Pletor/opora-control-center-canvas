@@ -31,10 +31,11 @@ def test_heart_reads_prompt_and_modes_from_the_active_brain_version(tmp_path):
     source = seed.SEED_DIR / "opora-heart" / "skills"
     assert skills.prompt == command.skill_body((source / "heart" / "SKILL.md").read_text(encoding="utf-8"))
     assert skills.prompt.startswith("# Srdce projektu OPORA") and "name: heart" not in skills.prompt
-    assert list(skills.modes) == ["vyslech"] and skills.modes["vyslech"].startswith("# Výslech")
+    assert list(skills.modes) == ["vyslech", "proces-na-platne"] and skills.modes["vyslech"].startswith("# Výslech")
     sha = Store(tmp_path).version("opora-heart")
     assert skills.pins == {"heart": f"opora:brain:skill:heart@{sha[:12]}",
-                           "vyslech": f"opora:brain:skill:vyslech@{sha[:12]}"}
+                           "vyslech": f"opora:brain:skill:vyslech@{sha[:12]}",
+                           "proces-na-platne": f"opora:brain:skill:proces-na-platne@{sha[:12]}"}
     newer = Store(tmp_path).write("opora-heart", {"skills/heart/SKILL.md": "---\nname: heart\n---\nJiné srdce\n"}, "v2")
     version = registry.add_version(db, "opora:brain:skill:heart", newer, "skills/heart/SKILL.md")
     assert command.heart_skills(db, tmp_path).prompt == skills.prompt  # kandidát srdce nemění
@@ -167,3 +168,18 @@ def test_interrogation_skill_lands_in_brain_and_is_read_only_on_demand(tmp_path)
     missing = subprocess.run([sys.executable, "-I", "opora_heart.py", "skill", "nic"], cwd=tmp_path / "brain",
                              capture_output=True, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     assert missing.returncode == 1 and json.loads(missing.stdout.decode("utf-8"))["code"] == "skill_missing"
+
+
+def test_process_skill_lands_in_brain_and_is_printed_by_the_tool(tmp_path):
+    """Skill `proces-na-platne` se zapíše do `brain/skills/` a `opora_heart.py skill proces-na-platne` ho vypíše."""
+    import subprocess
+    import sys
+
+    skills = command.heart_skills(seeded(tmp_path / "data"), tmp_path / "data")
+    text = skills.modes["proces-na-platne"]
+    assert text.startswith("# Proces na plátně") and "Uložit BMI" in text and "library case run" in text
+    command.write_config(tmp_path / "brain", skills)
+    assert (tmp_path / "brain" / "skills" / "proces-na-platne.md").read_text(encoding="utf-8") == text
+    done = subprocess.run([sys.executable, "-I", "opora_heart.py", "skill", "proces-na-platne"], cwd=tmp_path / "brain",
+                          capture_output=True, check=True, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    assert done.stdout.decode("utf-8").replace("\r\n", "\n").strip() == text.strip()

@@ -32,13 +32,14 @@ def test_seed_without_ponytail_creates_repo_skills_once(tmp_path):
     conn = db()
     seed.ensure(conn, tmp_path, ponytail_cache=tmp_path / "chybi")
     ids = [artifact["id"] for artifact in registry.list_artifacts(conn)]
-    assert ids == ["opora:brain:skill:opora-control-center", "opora:brain:skill:heart", "opora:brain:skill:vyslech"]
+    assert ids == ["opora:brain:skill:opora-control-center", "opora:brain:skill:heart", "opora:brain:skill:proces-na-platne",
+           "opora:brain:skill:vyslech"]
     heart = registry.active(conn, "opora:brain:skill:heart")
     expected = (seed.SEED_DIR / "opora-heart" / "skills" / "heart" / "SKILL.md").read_text(encoding="utf-8")
     assert Store(tmp_path).read("opora-heart", heart["content_ref"], heart["version"]) == expected
     count = conn.execute("SELECT COUNT(*) FROM brain_artifact_versions").fetchone()[0]
     seed.ensure(conn, tmp_path, ponytail_cache=tmp_path / "chybi")
-    assert conn.execute("SELECT COUNT(*) FROM brain_artifact_versions").fetchone()[0] == count == 3
+    assert conn.execute("SELECT COUNT(*) FROM brain_artifact_versions").fetchone()[0] == count == 4
     assert registry.active(conn, "opora:brain:skill:heart") == heart
 
 
@@ -86,7 +87,17 @@ def test_seed_fills_missing_evals_without_a_new_artifact_version(tmp_path):
     assert filled != old
     assert store.read("opora-heart", "evals/ticket-s-kriteriem/prompt.md", filled) == \
         files["evals/ticket-s-kriteriem/prompt.md"]
-    assert conn.execute("SELECT COUNT(*) FROM brain_artifact_versions").fetchone()[0] == 3
+    assert conn.execute("SELECT COUNT(*) FROM brain_artifact_versions").fetchone()[0] == 4
     edited = store.write("opora-heart", {"evals/ticket-s-kriteriem/prompt.md": "jiná sada\n"}, "ruční úprava")
     seed.ensure(conn, tmp_path, ponytail_cache=tmp_path / "chybi")
     assert store.version("opora-heart") == edited  # existující evals/ seed nepřepíše
+
+
+def test_seed_adds_a_new_repo_skill_to_an_existing_brain(tmp_path):
+    """Instalace, kde plugin už je bez skillu `proces-na-platne`: seed skill doplní a aktivuje, ostatní nechá být."""
+    conn, store = db(), Store(tmp_path)
+    old = {rel: text for rel, text in seed._files(seed.SEED_DIR / "opora-heart").items() if "proces-na-platne" not in rel}
+    store.write("opora-heart", old, "starý seed")
+    seed.ensure(conn, tmp_path, ponytail_cache=tmp_path / "chybi")
+    active = registry.active(conn, "opora:brain:skill:proces-na-platne")
+    assert store.read("opora-heart", active["content_ref"], active["version"]).startswith("---\nname: proces-na-platne")
