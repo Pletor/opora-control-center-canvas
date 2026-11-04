@@ -1,6 +1,7 @@
 """Rozhraní Správy webu: dokument projektu, odvozené soubory, assety a fonty (kontrakt Správy webu §2).
 
-Čte kdokoli, zapisuje jen člověk v UI (`require_human`); srdce jako návrh přijde v S-5. Logika
+Čte kdokoli, zapisuje jen člověk v UI (`require_human`). Srdce (token ověřený zdí, `heart_project`) smí jen podat
+návrh změny (`POST /proposals`); přijme ho nebo zamítne jen člověk (S-5, `proposals.py`). Logika
 `backend/project/site_admin/`. Stejný Origin a JSON zápisu (i DELETE) a strop těla hlídá middleware aplikace.
 """
 
@@ -8,11 +9,14 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
 from starlette.concurrency import run_in_threadpool
 
+from backend.api.brain_opora.writer import heart_project
 from backend.canvas.activity_log import require_human
 from backend.canvas.canvas_service import ProjectNotFound
 from backend.project.site_admin import compile as compiled
-from backend.project.site_admin import store
+from backend.project.site_admin import proposals, store
+from backend.project.site_admin.export import export_zip
 from backend.project.site_admin.store import SiteAdminConflict, SiteFileMissing
+from backend.project.site_admin.summary import summary
 from backend.project.site_admin.tokens import SiteAdminInvalid
 
 PROJECT = Query(min_length=1, max_length=64)
@@ -116,5 +120,48 @@ def create_site_admin_router(service):
         # Náhled komponenty běží v iframu `sandbox=""` s neprůhledným původem; @font-face potřebuje CORS (bez cookies).
         return FileResponse(path, media_type=media, headers={"Content-Security-Policy": FILE_CSP,
                                                              "Access-Control-Allow-Origin": "*"})
+
+    @router.get("/summary")
+    def site_admin_summary(project: str = PROJECT):
+        """Krátký přehled pro srdce (`opora_heart.py site show`) a počet čekajících návrhů."""
+        return {**summary(document(project)), "pendingProposals": len(_errors(lambda: proposals.pending(service, project)))}
+
+    @router.get("/export")
+    def site_admin_export(project: str = PROJECT):
+        revision, data = _errors(lambda: export_zip(service, project))
+        return Response(data, media_type="application/zip", headers={
+            "Content-Disposition": 'attachment; filename="design.zip"', "X-Design-Revision": str(revision)})
+
+    @router.get("/proposals")
+    def proposal_list(project: str = PROJECT):
+        found = _errors(lambda: proposals.pending(service, project))
+        return {"proposals": [{key: value for key, value in item.items() if key != "document"} for item in found]}
+
+    @router.post("/proposals")
+    async def proposal_create(request: Request, payload: dict):
+        if not isinstance(payload, dict) or not {"project", "changes"} <= set(payload) <= {"project", "changes", "note"}:
+            raise HTTPException(422, "Tělo je {project, changes, note?}.")
+        project = payload["project"]
+        heart = heart_project(request) == project
+        if not heart:
+            _human(request, "Návrh Správy webu")
+        found = await run_in_threadpool(_errors, lambda: proposals.propose(
+            service, project, payload["changes"], payload.get("note"), "heart" if heart else "human"))
+        return {key: value for key, value in found.items() if key != "document"}
+
+    @router.post("/proposals/{proposal_id}/accept")
+    async def proposal_accept(request: Request, proposal_id: str, payload: dict):
+        _human(request, "Návrh Správy webu")
+        body = _body(payload, {"project", "expectedRevision"})
+        saved, notes, found = await run_in_threadpool(_errors, lambda: proposals.accept(
+            service, body["project"], proposal_id, body["expectedRevision"]))
+        return {"revision": saved["revision"], "document": saved, "notes": notes, "proposal": found["id"]}
+
+    @router.post("/proposals/{proposal_id}/reject")
+    def proposal_reject(request: Request, proposal_id: str, payload: dict):
+        _human(request, "Návrh Správy webu")
+        body = _body(payload, {"project"})
+        found = _errors(lambda: proposals.reject(service, body["project"], proposal_id))
+        return {"proposal": found["id"], "status": found["status"]}
 
     return router

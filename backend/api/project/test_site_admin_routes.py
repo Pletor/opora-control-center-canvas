@@ -104,3 +104,39 @@ def test_assets_and_fonts_upload_read_and_delete(tmp_path):
                               headers={**AGENT, "content-type": "application/json"}).status_code == 403
         assert client.request("DELETE", f"{URL}/fonts", params={**DRAFT, "name": "inter.woff2"},
                               headers={**HEADERS, "content-type": "application/json"}).status_code == 200
+
+
+def test_heart_shows_and_proposes_and_only_a_human_accepts(tmp_path, monkeypatch):
+    """Srdce přes nástroj `site show|propose` (token ověřený zdí), člověk přijme na stránce; export `design/`."""
+    from backend.api.brain_opora.test_heart_vault import caller
+    from backend.brain_opora.determinism import tokens
+    from backend.brain_opora.heart import opora_heart
+    monkeypatch.setenv("OPORA_PROJECT", "draft")
+    (tmp_path / "zmena.json").write_text('{"title": "Ember 2"}', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    app = create_app(tmp_path / "app")
+    with TestClient(app, base_url=ORIGIN) as client:
+        client.put(URL, params=DRAFT, headers=HEADERS, json={"expectedRevision": 0, "document": ember()})
+        assert client.post("/api/brain/gate-setting", headers=HEADERS, json={"project": "draft", "enabled": True}
+                           ).status_code == 200
+        _, token = tokens.issue_heart(app.state.service, "draft", "draft")
+        monkeypatch.setattr(opora_heart, "call", caller(client, token))
+        shown = opora_heart.run(opora_heart.parser().parse_args(["site", "show", "--tokens"]))
+        assert shown["title"] == "Ember" and shown["pendingProposals"] == 0 and shown["tokensJson"]["version"] == 1
+        assert "secretRef" not in str(shown["settings"]) and shown["settings"]["email"] is True
+        proposed = opora_heart.run(opora_heart.parser().parse_args(["site", "propose", "--file", "zmena.json"]))
+        assert proposed["diff"] == [{"path": "title", "before": "Ember", "after": "Ember 2"}]
+        assert client.get(URL, params=DRAFT).json()["document"]["title"] == "Ember"  # srdce dokument nezměnilo
+        pid = proposed["proposalId"]
+        listed = client.get(f"{URL}/proposals", params=DRAFT).json()["proposals"]
+        assert [item["id"] for item in listed] == [pid] and "document" not in listed[0]
+        assert client.post(f"{URL}/proposals", headers=AGENT, json={**DRAFT, "changes": {"title": "X"}}
+                           ).status_code == 403  # jiný agent návrh nepodá
+        heart_headers = {**HEADERS, tokens.HEADER: token, "X-Opora-Actor": "agent; name=heart"}
+        body = {**DRAFT, "expectedRevision": 1}
+        assert client.post(f"{URL}/proposals/{pid}/accept", headers=heart_headers, json=body).status_code == 403
+        accepted = client.post(f"{URL}/proposals/{pid}/accept", headers=HEADERS, json=body)
+        assert accepted.status_code == 200 and accepted.json()["revision"] == 2
+        assert client.post(f"{URL}/proposals/{pid}/reject", headers=HEADERS, json=DRAFT).status_code == 409
+        exported = client.get(f"{URL}/export", params=DRAFT)
+        assert exported.headers["content-type"] == "application/zip" and exported.headers["x-design-revision"] == "2"

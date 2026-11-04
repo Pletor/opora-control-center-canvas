@@ -308,7 +308,7 @@ tabulka zápisů je tu, abys věděl, co se stalo a jak to ověřit.
 |---|---|
 | `/api/project-architecture?project=` | `{graph, revision, digest}` jen s uzly architektury |
 | `/api/project-architecture/work-status?project=` | `{domains:[{id, name, environment, counts, worktrees:[{id, branch, actor, state, reasons[], sessions[], cards[{nodeId, name}]}]}], unassigned[]}`; `state` = `running` / `waiting` / `stopped` / `none` (prahy 120 s / 300 s, §7) |
-| `/api/project-architecture/map-check?project=` | `{findings:[{rule, nodeId\|edgeId\|journeyId, message}], summary:{pravidlo: počet}}`; kontrola mapy bez modelu nad přijatou architekturou (`journey.broken`, `journey.unrealized`, `journey.via-unknown`, `journey.unverified`, `page.no-goal`, `page.no-intent`, `page.intent-stale`, `section.unrealized`, `section.unknown`, `command.no-receiver`, `state.no-error`, `edge.carries-unset`), pořadí podle pravidla a id |
+| `/api/project-architecture/map-check?project=` | `{findings:[{rule, nodeId\|edgeId\|journeyId, message}], summary:{pravidlo: počet}}`; kontrola mapy bez modelu nad přijatou architekturou (`journey.broken`, `journey.unrealized`, `journey.via-unknown`, `journey.unverified`, `page.no-goal`, `page.no-intent`, `page.intent-stale`, `site.no-design`, `section.unrealized`, `section.unknown`, `command.no-receiver`, `state.no-error`, `edge.carries-unset`), pořadí podle pravidla a id |
 | `/api/project-architecture/map-check/worktrees?project=` | `{main:[nález s solverId], worktrees:[{workspaceId, branch, actor, domainId, closed:[klíč], opened:[nález s solverId]}]}`; díry mainu a co s nimi dělá každý aktivní worktree (`docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md`): `closed` = klíče `rule\|nodeId\|edgeId\|journeyId\|solverId\|message` děr mainu, které worktree zalepil, `opened` = nové díry worktree (max 50); `journey.unverified` se ve worktree nehodnotí; projekt bez Gitu `worktrees: []` |
 | `/api/project-architecture/journeys?project=` | `{journeys:[{applicationId, id, name, purpose?, actor?, pointA?, pointB?, steps:[{id, page, path?, missing?, label?, shift?, objection?, via?, after?}], segments:[{from, to, line, realized}], line, lastRun?:{at, passed, stale, command, failed, firstFailure?}, running:{runId, at, segment:{from, to, ok?}\|null}\|null} \| {…, steps, broken}]}`; `running` = cesta se právě přehrává (`docs/brana-cesty.md` §3a, jen v paměti serveru, TTL 120 s od heartbeatu); cesty zákazníka jako trychtýř stránek (`docs/architektura-pro-agenty.md` §3.2, §6): proměnu zákazníka A → B a kroky zadal člověk, přechody mezi nimi odvodí stroj bez modelu; `realized: false` = mapa přechod vazbou nenese (práce pro agenty, cestu nerozbíjí); `via {do: open\|click\|submit, section?, text?}` = co zákazník udělá na stránce předchozího kroku; počty lidí se neukládají; rozbitá cesta (chybí stránka kroku) nese důvod `broken` |
 | `/api/project-architecture/journey-plan?project=&journey=&application=` | `{schema: "opora.journey-plan/1", applicationId, journeyId, name, baseUrl?, digest, segments:[{from, to, open, scope, do, text?, expectPath}]}`; plán přehrání cesty pro výbavu harnessu (`docs/brana-cesty.md` §2); 404 neznámá cesta, 409 rozbitá nebo nejednoznačná (pak `application`) |
@@ -359,7 +359,10 @@ Kontrakt `docs/navrhy/2026-11-04-sprava-webu-design-system.md` §2. Jeden dokume
 customCss}, design: {readme, sections, tokens, components, assetGroups, cover}}`; tokeny v gramatice formátu
 `tokens.json` typu Design System. Při vývoji webu čti `README.md` (brand book a „Jak systém použít“), načti
 `tokens.css` a po něm `components.css` (tlačítka `ds-btn ds-btn--<varianta> ds-btn--sm|md|lg`); hodnoty nikdy nepiš
-natvrdo. Design jen čteš, mění ho člověk na stránce Správa webu.
+natvrdo. Design jen čteš, mění ho člověk na stránce Správa webu. Srdce smí jen navrhnout změnu (`opora_heart.py site
+propose`), přijme ji nebo zamítne člověk. Ticket karty pod webovou doménou nese `machine.design = {revision, export}`:
+z `export` stáhni zip složky `design/` do worktree jen ke čtení. `site.no-design` v kontrole mapy = webová doména
+v projektu bez design systému (dokument neexistuje nebo nemá barvu).
 
 | Cesta | Parametry / tělo → odpověď | Kdo |
 |---|---|---|
@@ -375,6 +378,12 @@ natvrdo. Design jen čteš, mění ho člověk na stránce Správa webu.
 | POST `/api/site-admin/fonts` | `{project, name, data (base64)}` → `{file: "fonts/<name>", size, type}` | člověk |
 | DELETE `/api/site-admin/fonts?project=&name=` | → `{deleted}` | člověk |
 | GET `/api/site-admin/fonts/{name}?project=` | soubor fontu | kdokoli |
+| GET `/api/site-admin/summary?project=` | → `{revision, title, themes, tokens: {rodina: počet}, styles, components, settings: {seo, gdpr, email: vyplněno?}, pendingProposals}`; bez hodnot nastavení | kdokoli |
+| GET `/api/site-admin/export?project=` | zip `design/` (tokens.css, tokens.json, components.css, README.md, fonts/, assets/) uložené revize, hlavička `X-Design-Revision` | kdokoli |
+| GET `/api/site-admin/proposals?project=` | → `{proposals: [{id, status: pending, baseRevision, changes, diff: [{path, before, after}], diffTotal, notes, note, by, at}]}`; čeká nejvýš jeden | kdokoli |
+| POST `/api/site-admin/proposals` | `{project, changes: {title?, settings?, design?}, note?}` → návrh; uvedená část nahradí uloženou celou, neplatný 422, bez změny 422; nový nahradí čekající (`superseded`) | srdce téhož projektu, člověk |
+| POST `/api/site-admin/proposals/{proposal_id}/accept` | `{project, expectedRevision}` → `{revision, document, notes, proposal}`; 409 když návrh nečeká nebo se dokument od `baseRevision` změnil | člověk |
+| POST `/api/site-admin/proposals/{proposal_id}/reject` | `{project}` → `{proposal, status: rejected}` | člověk |
 
 Tajemství (heslo, token, klíč) v `settings` je 422; e-mail nese jen `secretRef` (`env:SMTP_PASSWORD`). Neplatná
 hodnota tokenu (pojmenovaná barva, `var()`, alias bez cíle nebo v cyklu…) se zahodí s poznámkou, chyba tvaru je 422.

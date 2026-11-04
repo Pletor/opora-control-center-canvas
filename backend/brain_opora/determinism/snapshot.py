@@ -3,6 +3,7 @@
 `collect` přečte fakta (identita projektu, zprávy člověka, pravidla a rozhodnutí z paměti Desktop v3, stránky,
 oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu), stav záměru každé stránky z registru
 (sekce ZÁMĚRY STRÁNEK, `backend/flow/page_intents.py`, docs/navrhy/2026-11-03-platno-2-zamer-stranky.md §4),
+design systém webu (sekce DESIGN, `backend/project/site_admin/summary.py`, kontrakt Správy webu §4),
 tickety práce (sekce TICKETY PRÁCE, docs/navrhy/2026-11-03-novy-zaklad.md §3.3), čekající lístky, otevřené eskalace srdce pro člověka (sekce OTÁZKY U ČLOVĚKA), poslední vstupy vstupní brány (sekce VSTUPY), aktivní milníky s kritérii (hotovo/celkem a karty) a splněné
 milníky s odloženými požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY),
 otevřené konflikty auto-rebase (sekce KONFLIKTY NÁVRHŮ, docs/oporahub-auto-rebase.md), poslední kontroly, deník dávek;
@@ -35,6 +36,8 @@ from backend.editor.brief_vault.brief_vault_gate_rules import gate_state
 from backend.editor.brief_vault.brief_vault_model import effective_disciplines, latest_rows
 from backend.editor.brief_vault.brief_vault_tree import live_ids
 from backend.flow.page_intents import read_status
+from backend.project.site_admin import proposals as site_proposals
+from backend.project.site_admin.summary import read_summary
 from backend.project.workspace.workspace_sources import WorkspaceSources
 from database.repositories.gate_tickets import GateTicketStore
 from database.repositories.intake_milestones import IntakeMilestones
@@ -345,6 +348,15 @@ def _conflicts(db, project, workspace):
         return [], 0
 
 
+def _design(service, project):
+    """Shrnutí design systému a počet čekajících návrhů; bez uloženého dokumentu nebo nečitelné = None."""
+    try:
+        found = read_summary(service, project)
+        return found and {**found, "pending": len(site_proposals.pending(service, project))}
+    except UNREADABLE:
+        return None
+
+
 def collect(service, project, workspace):
     """Fakta snímku jednoho pracovního prostoru. Neexistující projekt je 404 `project_not_found`."""
     if not service.project_exists(project):
@@ -372,7 +384,8 @@ def collect(service, project, workspace):
     return {"workTickets": work_tickets, "conflicts": conflicts, "conflictsTotal": conflicts_total, "runs": runs, "intake": entries, "milestones": reached, "active_milestones": active, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
             "tickets": tickets, "escalations": escalations, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
-            "research": _research(service, project, workspace), "vault": _vault(service, project, workspace)}
+            "research": _research(service, project, workspace), "vault": _vault(service, project, workspace),
+            "design": _design(service, project)}
 
 
 def _intent(facts):
@@ -622,6 +635,21 @@ def _conflict_lines(facts):
     return ["KONFLIKTY NÁVRHŮ:", *rows] if rows else []
 
 
+def _design_lines(facts):
+    """DESIGN: krátké shrnutí design systému webu (detail `opora_heart.py site show`); bez dokumentu sekce chybí."""
+    design = facts.get("design")
+    if not design:
+        return []
+    state = {part: "vyplněno" if filled else "nevyplněno" for part, filled in design["settings"].items()}
+    tokens = ", ".join(f"{family} {count}" for family, count in design["tokens"].items())
+    head = f"- „{_short(design['title'], 80)}“ · revize {design['revision']} · témata {', '.join(design['themes'])}"
+    styles = _short(", ".join(design["styles"]) or "—", 200)
+    components = _short(", ".join(design["components"]) or "—", 200)
+    settings = f"- SEO {state['seo']} · GDPR {state['gdpr']} · e-mail {state['email']}"
+    return ["DESIGN:", f"{head} · tokeny {tokens}", f"- styly {styles} · komponenty {components}",
+            f"{settings} · návrhy čekající {design['pending']} · detail: opora_heart.py site show"]
+
+
 def _git_lines(facts):
     rows, size = [], 0
     for line in (facts.get("git") or [])[:GIT_COMMITS]:
@@ -654,7 +682,7 @@ def render(facts, limit=LIMIT):
     """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
              f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts), *_escalation_lines(facts),
-             "PLÁN:", *_plan(facts), *_intent_lines(facts), *_work_ticket_lines(facts), *_vault_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
+             "PLÁN:", *_plan(facts), *_intent_lines(facts), *_design_lines(facts), *_work_ticket_lines(facts), *_vault_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
     lines += _intake_lines(facts) + _requirement_lines(facts) + _milestone_lines(facts) + _conflict_lines(facts)

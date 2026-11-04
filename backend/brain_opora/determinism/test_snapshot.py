@@ -55,6 +55,20 @@ def test_render_has_the_fixed_sections_in_order():
     assert snapshot.render(FACTS) == text
 
 
+def test_design_section_is_short_and_only_with_a_saved_design_system(service):
+    from backend.project.site_admin import proposals, store
+    from backend.project.site_admin.fixture import ember
+    assert "DESIGN:" not in snapshot.render(FACTS)
+    assert snapshot.collect(service, "draft", "draft")["design"] is None  # bez uloženého dokumentu sekce chybí
+    store.write(service, "draft", 0, ember())
+    proposals.propose(service, "draft", {"title": "Ember 2"})
+    text = snapshot.render(snapshot.collect(service, "draft", "draft"))
+    assert ("DESIGN:\n- „Ember“ · revize 1 · témata light, dark · tokeny color 4, type 3, spacing 2, radius 1, shadow 1,"
+            " size 1\n- styly display, body, code · komponenty Button, Card\n- SEO vyplněno · GDPR vyplněno · e-mail"
+            " vyplněno · návrhy čekající 1 · detail: opora_heart.py site show") in text
+    assert "SMTP_PASSWORD" not in text and text.index("PLÁN:") < text.index("DESIGN:") < text.index("LÍSTKY ČEKAJÍCÍ:")
+
+
 def test_render_prefers_project_goal_and_falls_back_to_cards():
     facts = {**FACTS, "goal": "Prodat sazenice.", "pages": []}
     text = snapshot.render(facts)

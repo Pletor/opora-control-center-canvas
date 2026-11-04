@@ -104,6 +104,19 @@ schvaluje jen člověk v UI ([flow.md](flow.md)):
 | `intent propose PAGE --file F [--dry-run]` | `POST /api/flow/workflows` (když chybí), `POST …/versions`, `POST /api/flow/versions/{id}/candidate` | uloží graf `{nodes, edges}` jako draft a navrhne kandidáta; `--dry-run` jen `POST /api/flow/graph-check` |
 | `intent diff PAGE` | jako `show` | přidané, odebrané a změněné uzly a vazby kandidáta proti aktivní verzi |
 
+## Design systém webu jako nástroj srdce
+
+Snímek nese sekci `DESIGN` (jen když projekt design systém uložil): titulek, revize, témata, počty tokenů po rodinách,
+styly, komponenty a stav SEO, GDPR a e-mailu (`vyplněno` / `nevyplněno`, nikdy hodnoty) a počet čekajících návrhů.
+Detail si načti nástrojem; dokument mění jen člověk ([api.md](api.md), Správa webu):
+
+| Příkaz | Cesta | Co vrátí |
+|---|---|---|
+| `site show [--tokens]` | `GET /api/site-admin/summary`, s `--tokens` i `GET /api/site-admin/tokens.json` | shrnutí jako sekce DESIGN, `pendingProposals`, volitelně `tokensJson` |
+| `site propose --file F [--note N]` | `POST /api/site-admin/proposals` | uloží návrh `{title?, settings?, design?}` (část nahradí uloženou celou) a vrátí `proposalId`, `baseRevision`, prvních 20 řádků `diff` a `notes`; dokument se nemění, přijme ho člověk |
+
+Ticket karty pod webovou doménou dostane od serveru `machine.design = {revision, export}`; srdce ho do těla nepíše.
+
 Rozklad schváleného záměru: ticket karty, která kritérium naplňuje, nese `intent: {workflowVersionId, nodeIds}`
 (`ticket-issue --file`); server ověří, že verze je aktivní `page_intent` projektu a uzly jsou `intent.done`, a jejich
 `claim` doplní do `doneCriteria` (422 `ticket_intent`). Kritérium do těla nepiš.
