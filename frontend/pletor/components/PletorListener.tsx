@@ -1,6 +1,6 @@
 import "../styles/pletor-listener.css";
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type MouseEvent } from "react";
-import type { HudState } from "../logic/hud-palette";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type MouseEvent, type ReactNode } from "react";
+import type { HudState } from "../logic/hud-state";
 import type { PletorMessage } from "../logic/pletor-client";
 import { readListenPrefs, writeListenPrefs, type ListenPrefs } from "../logic/listen-prefs";
 import { clampPosition, defaultPosition, type Size } from "../logic/popup-position";
@@ -8,8 +8,8 @@ import PletorListenerBody from "./PletorListenerBody";
 import PletorListenSwitch from "./PletorListenSwitch";
 
 type Props = {
-  state: HudState; level: () => number | null; interim: string; messages: PletorMessage[]; error: string;
-  onListening: (on: boolean) => void; onInterrupt: () => void; onFullscreen: () => void;
+  state: HudState; label: string; level: () => number | null; interim: string; messages: PletorMessage[]; error: string;
+  onListening: (on: boolean) => void; onInterrupt: () => void; onFullscreen: () => void; settings: ReactNode;
 };
 
 const LOG_SIZE = 6;
@@ -18,10 +18,11 @@ const DRAG_PX = 4; // menší pohyb je klik (na jádro = přerušit řeč), ne p
 /**
  * Plovoucí popup „Pletor poslouchá“ (přepínač Poslech zapnutý a HUD zavřený): po ruce ukazuje, co Pletor dělá,
  * bez pevného chatu. Jádro, stav, živý přepis a poslední odpověď skládá PletorListenerBody; přepis zpráv je
- * sbalený pod tlačítkem. Přetahuje se za záhlaví nebo jádro (myš i dotyk), drží se v okně, poloha a volba
- * „jen na oslovení“ se pamatují pro aplikaci (listen-prefs); dvojklik na záhlaví ho vrátí do výchozího rohu.
+ * sbalený pod tlačítkem. Přetahuje se za záhlaví nebo jádro (myš i dotyk), drží se v okně, poloha se pamatuje
+ * pro aplikaci (listen-prefs); dvojklik na záhlaví ho vrátí do výchozího rohu. V záhlaví vedle přepínače Poslech
+ * stojí ozubené kolo nastavení (`settings` od rodiče), kde je i volba „jen na oslovení“.
  */
-export default function PletorListener({ state, level, interim, messages, error, onListening, onInterrupt, onFullscreen }: Props) {
+export default function PletorListener({ state, label, level, interim, messages, error, onListening, onInterrupt, onFullscreen, settings }: Props) {
   const ref = useRef<HTMLElement>(null);
   const [prefs, setPrefs] = useState<ListenPrefs>(readListenPrefs);
   const [size, setSize] = useState<Size>({ w: 0, h: 0 });
@@ -48,11 +49,12 @@ export default function PletorListener({ state, level, interim, messages, error,
   }, []);
 
   const at = prefs.position ? clampPosition(prefs.position, size, viewport) : defaultPosition(size, viewport);
-  const save = (next: ListenPrefs) => { setPrefs(next); writeListenPrefs(next); };
+  // Ukládá jen polohu nad tím, co je v úložišti: „jen na oslovení“ mezitím mohlo změnit nastavení.
+  const save = (next: ListenPrefs) => { setPrefs(next); writeListenPrefs({ ...readListenPrefs(), position: next.position }); };
 
   function down(event: PointerEvent<HTMLElement>) {
     if (event.button !== 0 || !(event.target as Element).closest("[data-drag]")) return;
-    if ((event.target as Element).closest("[role=switch], .pletor-listener__button")) return;
+    if ((event.target as Element).closest("[role=switch], [data-pletor-settings-toggle], .pletor-listener__button")) return;
     dragged.current = false;
     event.currentTarget.setPointerCapture(event.pointerId);
     drag.current = { dx: event.clientX - at.x, dy: event.clientY - at.y, x: event.clientX, y: event.clientY, moved: false };
@@ -66,7 +68,7 @@ export default function PletorListener({ state, level, interim, messages, error,
   }
   function up() {
     dragged.current = !!drag.current?.moved;
-    if (dragged.current) writeListenPrefs(prefsRef.current);
+    if (dragged.current) save(prefsRef.current);
     drag.current = null;
   }
   // Klik po přetažení (pustit myš nad jádrem) nesmí utnout řeč.
@@ -83,12 +85,11 @@ export default function PletorListener({ state, level, interim, messages, error,
         onDoubleClick={() => save({ ...prefs, position: null })}>
         <strong className="pletor-listener__title">Pletor poslouchá</strong>
         <PletorListenSwitch on onChange={onListening} />
+        {settings}
       </header>
-      <PletorListenerBody state={state} level={level} interim={interim} reply={reply} onInterrupt={onInterrupt} />
+      <PletorListenerBody state={state} label={label} level={level} interim={interim} reply={reply} onInterrupt={onInterrupt} />
       {error && <p className="pletor-listener__error" role="alert">{error}</p>}
       <div className="pletor-listener__tools">
-        <PletorListenSwitch tone="small" label="jen na oslovení" on={prefs.wakeOnly}
-          title="Reaguje jen věta s oslovením Pletore / Jarvisi" onChange={(wakeOnly) => save({ ...prefs, wakeOnly })} />
         <button type="button" className="pletor-listener__button" aria-expanded={log} onClick={() => setLog((open) => !open)}>Přepis</button>
         <button type="button" className="pletor-listener__button" disabled={state !== "speaking"} onClick={onInterrupt}>Přerušit</button>
         <button type="button" className="pletor-listener__button" aria-label="Plná obrazovka" title="Plná obrazovka (HUD)" onClick={onFullscreen}>⛶</button>

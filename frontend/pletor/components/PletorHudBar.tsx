@@ -10,7 +10,7 @@ function uptime(now: number): string {
   return h ? `${h}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}` : `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
 }
 
-/** Horní lišta kokpitu: značka, čas, uptime, stav srdce, přepínač Poslech (`children`) a vstup do OPORY (HUD se složí do okna). */
+/** Horní lišta kokpitu: značka, čas, uptime, stav srdce, přepínač Poslech s ozubeným kolem nastavení (`children`) a vstup do OPORY (HUD se složí do okna). */
 export default function PletorHudBar({ heart, onEnter, children }: { heart: string; onEnter: () => void; children?: ReactNode }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {

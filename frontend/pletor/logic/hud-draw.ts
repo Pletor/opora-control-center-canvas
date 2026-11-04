@@ -1,4 +1,5 @@
-import { hudMotion, type HudPalette, type HudState } from "./hud-palette";
+import { hudMotion, type HudPalette } from "./hud-palette";
+import type { HudState } from "./hud-state";
 
 /** Jeden snímek kokpitu: rozměr v CSS px, čas v s, natočení a amplituda (mění je `stepHud`), písmo štítků. */
 export type HudFrame = { w: number; h: number; t: number; rot: number; amp: number; font: string };
@@ -9,18 +10,26 @@ const N_BARS = 96;
 const SEEDS = Array.from({ length: N_BARS }, (_, i) => (Math.sin(i * 12.9898) * 43758.5453) % 1);
 const rgba = (c: string, a: number) => `rgba(${c},${a})`;
 
+/** Pod tímto poloměrem (px) je jádro malé (popup Poslechu, okno): přemýšlení a práce se tu točí rychleji a pulzují víc. */
+export const SMALL_R = 120;
+const radius = (frame: HudFrame) => Math.min(frame.w, frame.h) * 0.46;
+
 /**
  * Posune natočení a amplitudu o dt (s); bez pohybu (reduced) se otáčí jen nepatrně a vlny stojí nízko.
  * `level` (0–1, P3) je hlasitost mikrofonu při poslechu nebo puls slov při čtení; jádro pak dýchá s hlasem.
+ * Přemýšlení jádro rychle pulzuje, práce srdce pomaleji; v malém jádru je pohyb větší, aby byl vůbec vidět.
  */
 export function stepHud(frame: HudFrame, dt: number, state: HudState, reduced: boolean, level: number | null = null): void {
   const motion = hudMotion(state);
+  const busy = state === "thinking" || state === "working";
+  const boost = busy && radius(frame) < SMALL_R ? 1.6 : 1;
   let target = motion.amp;
   if (state === "idle") target += Math.sin(frame.t * 1.1) * 0.04;
   if (level !== null && (state === "listening" || state === "speaking")) target = motion.amp * 0.5 + level * 0.7;
-  if (state === "thinking") target = 0.25 + Math.abs(Math.sin(frame.t * 6)) * 0.25;
+  if (state === "thinking") target = 0.3 + Math.abs(Math.sin(frame.t * 5)) * 0.4 * boost;
+  if (state === "working") target = 0.3 + Math.abs(Math.sin(frame.t * 2.5)) * 0.25 * boost;
   if (reduced) target = Math.min(target, 0.1);
-  frame.rot += dt * 0.25 * motion.speed * (reduced ? 0.02 : 1);
+  frame.rot += dt * 0.25 * motion.speed * boost * (reduced ? 0.02 : 1);
   frame.amp += (target - frame.amp) * Math.min(1, dt * 6);
 }
 
@@ -120,7 +129,7 @@ function drawRings(ctx: Ctx, cx: number, cy: number, R: number, f: HudFrame, p: 
   ctx.setLineDash([]);
 }
 
-/** Vlnové čárky kolem jádra, jádro se září, trojice oblouků, tečka uprostřed a skener při přemýšlení. */
+/** Vlnové čárky kolem jádra, jádro se září, trojice oblouků, tečka uprostřed; skener při přemýšlení, oběžnice při práci. */
 function drawCore(ctx: Ctx, cx: number, cy: number, R: number, f: HudFrame, p: HudPalette, state: HudState) {
   const { rot, t, amp } = f;
   const base = R * 0.34;
@@ -159,14 +168,35 @@ function drawCore(ctx: Ctx, cx: number, cy: number, R: number, f: HudFrame, p: H
   ctx.arc(cx, cy, Math.max(2, coreR * (0.12 + amp * 0.12)), 0, TAU);
   ctx.fill();
 
-  if (state === "thinking" && typeof ctx.createConicGradient === "function") {
-    const sweep = ctx.createConicGradient(rot * 4, cx, cy);
-    sweep.addColorStop(0, rgba(p.scan, 0.35));
-    sweep.addColorStop(0.15, rgba(p.scan, 0));
+  if (state === "thinking") drawScanner(ctx, cx, cy, R, rot, p);
+  if (state === "working") drawOrbit(ctx, cx, cy, R, rot, p);
+}
+
+/** Přemýšlení: zářící kuželový skener s jasnou náběžnou hranou obíhá jádro. */
+function drawScanner(ctx: Ctx, cx: number, cy: number, R: number, rot: number, p: HudPalette) {
+  const a = rot * 4;
+  if (typeof ctx.createConicGradient === "function") {
+    const sweep = ctx.createConicGradient(a, cx, cy);
+    sweep.addColorStop(0, rgba(p.scan, 0.6));
+    sweep.addColorStop(0.18, rgba(p.scan, 0));
     sweep.addColorStop(1, rgba(p.scan, 0));
     ctx.fillStyle = sweep;
     ctx.beginPath();
     ctx.arc(cx, cy, R * 0.72, 0, TAU);
+    ctx.fill();
+  }
+  ring(ctx, cx, cy, R * 0.72, a - 0.05, a + 0.05, Math.max(3, R * 0.03), rgba(p.core, 1), 16);
+}
+
+/** Práce srdce: tři svítící body s ohonem rychle obíhají okruh mezi jádrem a hladinou. */
+function drawOrbit(ctx: Ctx, cx: number, cy: number, R: number, rot: number, p: HudPalette) {
+  const r = R * 0.56;
+  for (let k = 0; k < 3; k++) {
+    const a = rot * 3 + k * (TAU / 3);
+    ring(ctx, cx, cy, r, a - 0.7, a, Math.max(2, R * 0.02), rgba(p.line, 0.75), 10);
+    ctx.fillStyle = rgba(p.core, 1);
+    ctx.beginPath();
+    ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, Math.max(3, R * 0.03), 0, TAU);
     ctx.fill();
   }
 }
@@ -176,7 +206,7 @@ export function drawHud(ctx: Ctx, frame: HudFrame, palette: HudPalette, state: H
   ctx.clearRect(0, 0, frame.w, frame.h);
   const cx = frame.w / 2;
   const cy = frame.h / 2;
-  const R = Math.min(frame.w, frame.h) * 0.46;
+  const R = radius(frame);
   if (R <= 0) return;
   drawRings(ctx, cx, cy, R, frame, palette);
   drawCore(ctx, cx, cy, R, frame, palette, state);

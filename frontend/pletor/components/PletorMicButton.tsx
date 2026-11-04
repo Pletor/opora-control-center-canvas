@@ -1,9 +1,9 @@
-import type { VoicePhase } from "../logic/hud-palette";
+import type { VoicePhase } from "../logic/hud-state";
 
 type Props = { phase: VoicePhase; supported: boolean; blocked: boolean; disabled: boolean; onToggle: () => void };
 
 /**
- * Mikrofon vedle pole: klik = poslouchej, druhý klik (nebo Esc) = stop; při čtení odpovědi ji klik utne a poslouchá.
+ * Mikrofon (v HUD velké kulaté tlačítko pod jádrem, v okně vedle ozubeného kola): klik = poslouchej, druhý klik (nebo Esc) = stop; při čtení odpovědi ji klik utne a poslouchá.
  * Bez rozpoznávání řeči (Firefox) jen tichá značka s vysvětlením; zakázaný mikrofon tlačítko vypne.
  */
 export default function PletorMicButton({ phase, supported, blocked, disabled, onToggle }: Props) {

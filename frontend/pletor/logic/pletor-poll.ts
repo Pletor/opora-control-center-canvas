@@ -1,9 +1,9 @@
 // Vazba okna Pletor na React a síť: stav konverzace, srdce a eskalací jednoho prostoru se načítá
 // sdíleným pollerem každé 4 s, jen když je okno otevřené (ve skryté záložce poller stojí), jako panel srdce.
-// Odeslání hned ukáže zprávu člověka, po odpovědi drží provedené akce a čas příchodu (záblesk jádra) a požádá o nové načtení. Volá ho jen PletorWindow.
+// Přepnutí mozku jde z nastavení (setBrain). Odeslání hned ukáže zprávu člověka, po odpovědi drží provedené akce a čas příchodu (záblesk jádra) a požádá o nové načtení. Volá ho jen PletorWindow.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
-import { CLAUDE_BRAIN, fetchPletorState, sendPletorMessage, type PletorAction, type PletorState } from "./pletor-client";
+import { CLAUDE_BRAIN, fetchPletorState, sendPletorMessage, setPletorBrain, type PletorAction, type PletorBrain, type PletorState } from "./pletor-client";
 
 const POLL_MS = 4000;
 const EMPTY: PletorState = { messages: [], heart: null, escalations: [], brain: CLAUDE_BRAIN };
@@ -54,5 +54,16 @@ export function usePletor(open: boolean, project: string, workspace: string) {
     }
   }, [project, workspace, scopeKey, poll]);
 
-  return { ...state, actions, sending, failure, repliedAt, send };
+  /** Přepnutí mozku z nastavení: nový stav hned ukáže řádek MOZEK, selhání (např. bez modelu Ollamy) jde do `failure`. */
+  const setBrain = useCallback(async (brain: PletorBrain["brain"]) => {
+    try {
+      const result = await setPletorBrain(brain);
+      setState((current) => ({ ...current, brain: result.brain }));
+      setFailure(result.ok ? "" : result.reply);
+    } catch (error) {
+      setFailure(messageOf(error));
+    }
+  }, []);
+
+  return { ...state, actions, sending, failure, repliedAt, send, setBrain };
 }
