@@ -46,3 +46,33 @@ export const LIBRARY_TYPES: NodeTypeSpec[] = [
   { type: "flow.if", version: 1, trigger: false, category: "flow", ports: [port("main", "in"), port("true", "out"), port("false", "out")] },
 ];
 export const LIBRARY = nodeTypeMap(LIBRARY_TYPES);
+
+/** Výřez katalogu plátna procesů (vrstvy, `use` / `avoid`, `intents`) a ukázkový případ „Uložit BMI“ s uzly všech vrstev. */
+const typed = (type: string, layer: NodeTypeSpec["layer"], intents: string[], use: string, avoid: string, trigger = false): NodeTypeSpec =>
+  ({ type, version: 1, trigger, layer, intents, use, avoid, ports: trigger ? [port("main", "out")] : step });
+export const PROCESS_TYPES: NodeTypeSpec[] = [
+  typed("trigger.manual", "neutral", ["input"], "proces začíná ručně", "má začít událost", true),
+  typed("fe.form", "fe", ["input"], "uživatel zadává hodnoty do formuláře", "hodnoty přicházejí ze serveru"),
+  typed("fe.click", "fe", ["input", "show"], "uživatel spouští akci tlačítkem", "akce běží sama"),
+  typed("fe.notify", "fe", ["notify", "show"], "uživatel má vidět potvrzení nebo chybu", "stačí zápis do logu"),
+  typed("be.endpoint", "be", ["input", "call-service"], "FE volá server", "volání zůstává uvnitř serveru"),
+  typed("be.validate", "be", ["validate", "decide"], "vstup se musí ověřit před zpracováním", "ověření dělá DB omezením"),
+  typed("be.function", "be", ["compute"], "je třeba spočítat hodnotu", "stačí přesun dat"),
+  typed("db.write", "db", ["store"], "výsledek se má uložit trvale", "stačí dočasná hodnota"),
+  typed("infra.api", "infra", ["call-service"], "voláš vnější službu", "služba je uvnitř aplikace"),
+  { ...typed("ai.agent", "ai", ["ai"], "rozhoduje model", "stačí pravidlo"), category: "ai" },
+  { ...typed("flow.if", "neutral", ["decide"], "tok se větví podle podmínky", "podmínka je v ověření"), category: "flow" },
+];
+export const PROCESS = nodeTypeMap(PROCESS_TYPES);
+
+export function processGraph(): FlowGraph {
+  const node = (id: string, type: string, x: number, y: number) => ({ id, type, type_version: 1, params: {}, position: { x, y } });
+  const edge = (id: string, source: string, target: string, via?: "http" | "sql" | "event" | "call" | "render") =>
+    ({ id, source_node: source, source_port: "main", target_node: target, target_port: "main", kind: "main" as const, label: "", ...(via ? { via } : {}) });
+  return {
+    nodes: [node("formular", "fe.form", 0, 40), node("tlacitko", "fe.click", 260, 220), node("endpoint", "be.endpoint", 520, 60), node("kontrola", "be.validate", 780, 300),
+      node("bmi", "be.function", 1040, 120), node("zapis", "db.write", 1300, 20), node("oznameni", "fe.notify", 1560, 260)],
+    edges: [edge("e1", "formular", "tlacitko"), edge("e2", "tlacitko", "endpoint", "http"), edge("e3", "endpoint", "kontrola"), edge("e4", "kontrola", "bmi"),
+      edge("e5", "bmi", "zapis", "sql"), edge("e6", "zapis", "oznameni", "event")],
+  };
+}

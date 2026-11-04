@@ -9,7 +9,7 @@ import { handleId } from "./flow-view";
 export type FlowNoteNode = Node<{ note: FlowNote; readOnly: boolean }, "flow-note">;
 export type FlowGroupNode = Node<{ group: FlowGroup; errors: string[]; collapsed: boolean; selected: boolean }, "flow-group">;
 
-const SIZE = { main: [76, 116], trigger: [76, 116], agent: [220, 120], sub: [64, 104] } as const;
+export const SIZE = { main: [76, 116], trigger: [76, 116], agent: [220, 120], sub: [64, 104] } as const;
 const PAD = 36, HEAD = 56;
 export const NOTE_PREFIX = "note:", GROUP_PREFIX = "group:";
 

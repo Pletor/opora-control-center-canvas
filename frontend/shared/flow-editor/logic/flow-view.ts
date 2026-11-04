@@ -2,9 +2,10 @@
 // rozdílu verzí a zvýraznění vybraného uzlu (třeba z logu). Handle má id `<směr>:<port>`, protože port `main` bývá
 // na uzlu jako vstup i výstup.
 import type { Edge, Node } from "@xyflow/react";
-import { specOf, type FlowGraph, type FlowNode, type NodeTypes, type PortDirection, type PortRef } from "./flow-types";
+import { specOf, type FlowGraph, type FlowNode, type Layer, type NodeTypes, type PortDirection, type PortRef } from "./flow-types";
 import type { GraphDiff, NodeMark } from "./graph-diff";
 import { nodeGlyph, nodeRole, portPlaces, typeLabel, type NodeRole, type PortPlace } from "./node-role";
+import { effectiveLayer } from "../flow-lanes/logic/layers";
 import { edgeLabel, type NodeOverlay, type RunOverlay } from "./run-overlay";
 
 export type PortView = PortPlace & { handleId: string; connected: number };
@@ -13,6 +14,8 @@ export type FlowCardData = {
   run: NodeOverlay | null; mark: NodeMark | null; ghost: boolean; highlighted: boolean; issue: boolean; pinned: boolean; readOnly: boolean;
   /** Poznámka uzlu s `notesInFlow` jako podtitulek na kartě (n8n „Display note in flow“). */
   subtitle?: string;
+  /** Efektivní vrstva uzlu (`node.layer` ?? vrstva typu); bez ní karta nemá barevný pruh. */
+  layer?: Layer;
 };
 export type FlowCardNode = Node<FlowCardData, "flow-card">;
 /** `hidden`: uzly sbalených rámců, místo nich stojí na plátně jeden uzel rámce (`frame-view.ts`). */
@@ -35,7 +38,7 @@ function card(node: FlowNode, graph: FlowGraph, types: NodeTypes, options: ViewO
     data: { nodeId: node.id, family, name, glyph: nodeGlyph(spec), role: nodeRole(spec), ports, run: ghost ? null : options.overlay?.get(node.id) ?? null,
       mark: options.diff?.nodes.get(node.id) ?? null, ghost, highlighted: options.highlighted === node.id, issue: options.issues?.has(node.id) ?? false,
       pinned: node.pinned_output !== undefined && node.pinned_output !== null, readOnly: ghost || !!options.readOnly,
-      ...(node.notesInFlow && node.notes ? { subtitle: node.notes } : {}) },
+      ...(node.notesInFlow && node.notes ? { subtitle: node.notes } : {}), ...(effectiveLayer(node, spec) ? { layer: effectiveLayer(node, spec) } : {}) },
   };
 }
 
@@ -53,7 +56,7 @@ export function flowEdges(graph: FlowGraph, options: ViewOptions = {}): Edge[] {
     const tone = added.has(edge.id) ? " flow-edge--added" : "";
     return { id: edge.id, source: edge.source_node, target: edge.target_node,
       sourceHandle: handleId("out", edge.source_port), targetHandle: handleId("in", edge.target_port),
-      type: edge.kind === "main" ? "default" : "straight", label: label || edge.label || undefined,
+      type: edge.kind === "main" ? "default" : "straight", label: label || edge.label || edge.via || undefined,
       animated: target?.status === "running", className: `flow-edge flow-edge--${edge.kind === "main" ? "main" : "sub"}${tone}`,
       selectable: !options.readOnly };
   });

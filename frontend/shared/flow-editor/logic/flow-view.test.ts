@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { heartGraph, TYPES } from "./flow-fixtures";
+import { PROCESS, processGraph, heartGraph, TYPES } from "./flow-fixtures";
 import { flowEdges, flowNodes, handleId, parseHandle } from "./flow-view";
 import { graphDiff } from "./graph-diff";
 import { removeNode } from "./graph-edit";
@@ -28,5 +28,13 @@ describe("graph to React Flow", () => {
   it("round-trips handle ids", () => {
     expect(parseHandle("a", handleId("in", "model"))).toEqual({ nodeId: "a", direction: "in", port: "model" });
     expect(parseHandle("a", null)).toBeNull();
+  });
+  it("puts the effective layer on the card and the via label on the edge", () => {
+    const graph = processGraph();
+    graph.nodes[2] = { ...graph.nodes[2], layer: "fe" };
+    const cards = flowNodes(graph, PROCESS);
+    expect(cards.map((c) => c.data.layer)).toEqual(["fe", "fe", "fe", "be", "be", "db", "fe"]);
+    expect(flowNodes(heartGraph(), TYPES)[0].data.layer).toBeUndefined();
+    expect(flowEdges(graph).map((e) => e.label)).toEqual([undefined, "http", undefined, undefined, "sql", "event"]);
   });
 });

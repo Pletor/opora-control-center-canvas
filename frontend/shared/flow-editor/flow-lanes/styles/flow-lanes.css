@@ -1,0 +1,18 @@
+/* BARVY VRSTEV A PRUHY (blok `flow-lanes`)
+   Každá vrstva procesu má svou barvu a ta platí všude stejně: karta uzlu má pruh a štítek v ní, plátno má za uzly
+   vodorovný pruh v téže barvě. FE je zelená, BE růžová, DB modrá, Infra žlutá, AI fialová a neutrální šedá. Barvy jsou
+   tlumené a na tmavém tématu světlejší, aby text na pruhu zůstal čitelný; ladí se jen tady, v tokenech `--layer-*`. */
+:root[data-theme="dark"] { --layer-fe: #7fcf8e; --layer-be: #ee8fb4; --layer-db: #78aef0; --layer-infra: #e8cf6a; --layer-ai: #b99bef; --layer-neutral: #9a9fa6; }
+:root[data-theme="light"] { --layer-fe: #2f8f46; --layer-be: #c2417a; --layer-db: #2f6fc0; --layer-infra: #a8860f; --layer-ai: #7a4fc4; --layer-neutral: #6b7078; }
+
+/* Pruh je klidné pozadí: osmina barvy vrstvy a tenký okraj, s názvem vrstvy vlevo nahoře drobným písmem. Nekreslí se
+   pro vrstvu bez uzlů, aby plátno nebylo plné prázdných barevných pásů. */
+.flow-lanes__lane { box-sizing: border-box; width: 100%; height: 100%; border: 1px solid color-mix(in srgb, var(--lane-tone) 45%, transparent); border-radius: 10px;
+  background: color-mix(in srgb, var(--lane-tone) 12%, transparent); }
+.flow-lanes__name { position: absolute; top: 6px; left: 12px; color: var(--lane-tone); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.flow-lanes__lane--fe { --lane-tone: var(--layer-fe); }
+.flow-lanes__lane--be { --lane-tone: var(--layer-be); }
+.flow-lanes__lane--db { --lane-tone: var(--layer-db); }
+.flow-lanes__lane--infra { --lane-tone: var(--layer-infra); }
+.flow-lanes__lane--ai { --lane-tone: var(--layer-ai); }
+.flow-lanes__lane--neutral { --lane-tone: var(--layer-neutral); }

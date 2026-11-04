@@ -1,7 +1,7 @@
 // Úpravy grafu verze jako čisté funkce: každá vrací nový graf, původní (neměnná verze) zůstává. Rodič z výsledku
 // udělá draft; editor sám nic neukládá.
 import { compatiblePort, edgeFor } from "./connection-policy";
-import { specOf, type FlowGraph, type FlowNode, type FlowNodeDetail, type NodeTypes, type Point, type PortRef, type PortSpec } from "./flow-types";
+import { specOf, type EdgeVia, type FlowGraph, type FlowNode, type FlowNodeDetail, type NodeTypes, type Point, type PortRef, type PortSpec } from "./flow-types";
 
 /** Stálé čitelné id nového uzlu z posledního článku typu (`agent.claude` → `claude`, `claude-2`, …). */
 export function nextNodeId(graph: FlowGraph, type: string): string {
@@ -58,6 +58,15 @@ export function removeNode(graph: FlowGraph, nodeId: string): FlowGraph {
 
 export function removeEdge(graph: FlowGraph, edgeId: string): FlowGraph {
   return { ...graph, edges: graph.edges.filter((edge) => edge.id !== edgeId) };
+}
+
+/** Přechod hrany mezi vrstvami (`via`); `undefined` ho odebere. */
+export function setEdgeVia(graph: FlowGraph, edgeId: string, via: EdgeVia | undefined): FlowGraph {
+  return { ...graph, edges: graph.edges.map((edge) => {
+    if (edge.id !== edgeId) return edge;
+    const { via: _old, ...rest } = edge;
+    return via ? { ...rest, via } : rest;
+  }) };
 }
 
 export function moveNode(graph: FlowGraph, nodeId: string, position: Point): FlowGraph {
