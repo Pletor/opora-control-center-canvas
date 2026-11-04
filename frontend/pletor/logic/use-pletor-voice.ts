@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PletorMessage } from "./pletor-client";
 import type { VoicePhase } from "./hud-palette";
 import { createVoiceInput, openMicLevel, voiceError, type MicLevel } from "./voice-input";
-import { chosenVoice, createPiperOutput, fetchVoices, NO_VOICES } from "./tts-piper";
+import { createServerOutput } from "./tts-output";
+import { chosenVoice, fetchVoices, voiceChain, type ServerVoice } from "./tts-voices";
 import { createVoiceOutput, speechLevel } from "./voice-output";
 import { readVoicePrefs, writeVoicePrefs, type VoicePrefs } from "./voice-prefs";
 
@@ -14,20 +15,21 @@ type Talk = { messages: PletorMessage[]; repliedAt: number | null; send: (text: 
 export function usePletorVoice(talk: Talk, open: boolean) {
   const input = useMemo(() => createVoiceInput(), []);
   const [prefs, setPrefsState] = useState(readVoicePrefs);
-  const [voices, setVoices] = useState(NO_VOICES);
+  const [voices, setVoices] = useState<ServerVoice[]>([]);
   const chosen = chosenVoice(prefs.ttsVoice, voices);
+  const chain = useMemo(() => voiceChain(chosen, voices), [chosen, voices]);
   const [phase, setPhase] = useState<VoicePhase>("idle");
   const [interim, setInterim] = useState("");
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState(false);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
-  const live = useRef({ talk, prefs, open, chosen });
-  live.current = { talk, prefs, open, chosen };
-  // Piper (P3b), když je zvolený stažený hlas; jinak a při chybě serveru prohlížečová syntéza.
-  const output = useMemo(() => createPiperOutput(createVoiceOutput(), () => live.current.chosen), []);
-  // Seznam hlasů při otevření; backend přitom načte výchozí hlas do paměti, aby první odpověď nečekala.
-  useEffect(() => { if (open) void fetchVoices().then(setVoices); }, [open]);
+  const live = useRef({ talk, prefs, open, chain });
+  live.current = { talk, prefs, open, chain };
+  // Hlas serveru (XTTS / Edge / Piper) se zálohami v pořadí; bez hlasu serveru a nakonec vždy prohlížeč.
+  const output = useMemo(() => createServerOutput(createVoiceOutput(), () => live.current.chain), []);
+  // Seznam hlasů při otevření; backend přitom načte zvolený hlas dopředu (XTTS do GPU), aby první odpověď nečekala.
+  useEffect(() => { if (open) void fetchVoices(live.current.prefs.ttsVoice).then(setVoices); }, [open]);
   const mic = useRef<MicLevel | null>(null);
   const micRun = useRef(0); // mikrofon otevřený po stopu se hned zavře
   const boundaryAt = useRef(0);
@@ -112,7 +114,7 @@ export function usePletorVoice(talk: Talk, open: boolean) {
   useEffect(() => { if (!open) stop(); }, [open, stop]);
   useEffect(() => () => { input.stop(); output.stop(); mic.current?.close(); }, [input, output]);
 
-  /** Amplituda jádra HUD: mikrofon (nebo syntetická vlna, když AnalyserNode není), při čtení hlasitost Piperu,
+  /** Amplituda jádra HUD: mikrofon (nebo syntetická vlna, když AnalyserNode není), při čtení hlasitost hlasu serveru,
    *  u prohlížečového hlasu puls slov. */
   const level = useCallback((): number | null => {
     const now = performance.now();
@@ -132,5 +134,5 @@ export function usePletorVoice(talk: Talk, open: boolean) {
   /** Mikrofon: při poslechu stop, jinak poslouchej (čtení odpovědi se tím utne). */
   const toggle = useCallback(() => (phaseRef.current === "listening" ? stop() : listen()), [stop, listen]);
 
-  return { supported: input.supported, phase, interim, error, blocked, prefs, setPrefs, toggle, level, voices: voices.available, chosen };
+  return { supported: input.supported, phase, interim, error, blocked, prefs, setPrefs, toggle, level, voices, chosen };
 }

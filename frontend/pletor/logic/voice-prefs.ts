@@ -2,7 +2,8 @@
  * Preference hlasu okna Pletor jsou volba aplikace, ne projektu: jeden klíč pro všechny projekty.
  * `conversation`: po domluvení se mikrofon sám znovu zapne (jinak „push“: jedna věta a konec).
  * `voice`: odpovědi se čtou nahlas i na psané zprávy.
- * `ttsVoice` (P3b): hlas Piperu (`cs_CZ-jirka-medium`…), `browser` = prohlížeč, `null` = výchozí stažený hlas.
+ * `ttsVoice` (P3b): id hlasu serveru (`xtts:default`, `edge:cs-CZ-AntoninNeural`, `cs_CZ-jirka-medium`…),
+ * `browser` = prohlížeč, `null` = nejlepší dostupný (XTTS → Edge → Piper).
  */
 export const VOICE_PREFS_KEY = "opora:pletor:voice:v1";
 

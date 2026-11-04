@@ -47,10 +47,31 @@ a nevolá bránu `/api/gate`. Je jeden na aplikaci, projekt z požadavku je jen 
   (+ `.onnx.json`): `uv run python -m backend.pletor.tts_fetch cs_CZ-jirka-medium cs_CZ-kasandra-medium [--data <kořen>]`.
   Kořen dat `--data`, jinak `OPORA_CANVAS_DATA`, jinak `[app] data` z opora.toml (+ local). Kontrola velikosti
   (`Content-Length`, ≥ 1 MB), hlavičky ONNX a configu; zápis přes `.part`. Za běhu se nic nestahuje.
+  `tts_fetch xtts` stáhne XTTS-v2 (`coqui/XTTS-v2`: `model.pth` 1,87 GB, `config.json`, `vocab.json`,
+  `speakers_xtts.pth`) do `<data>/pletor/voices/xtts/` a založí `xtts/reference/` pro vlastní hlas.
+- `speech.py` jeden seznam hlasů ze tří enginů (`voices`, pořadí XTTS → Edge → Piper = výchozí volba okna),
+  `warm` a `speak` (WAV jako bajty, MP3/PCM jako kousky; první kousek se čeká před odpovědí route).
+- `tts_edge.py` Edge neural (`edge-tts`): `edge:cs-CZ-AntoninNeural` (Antonín), `edge:cs-CZ-VlastaNeural` (Vlasta).
+  **Neoficiální cloudová služba Microsoftu: text odchází z počítače.** Posílá se jen text odpovědi, který okno čte
+  nahlas, nikdy podklady, kontext mozku ani tajemství. Zdarma, bez klíče; výpadek sítě = 503 a okno vezme další engine.
+- `tts_xtts.py` XTTS-v2 na GPU v odděleném procesu (`tools/xtts_server/`, vlastní venv s torch CUDA, Python 3.12):
+  `xtts:default` (vestavěný mluvčí Damien Black, česky) a `xtts:clone` (klon z `xtts/reference/jarvis.wav`, 6–15 s,
+  jen lokální soubor; bez něj nedostupný). Server se spustí líně (`warm` z `/voices` nebo první věta), drží model ve
+  VRAM a končí s backendem (`close()` v lifespanu, nebo zavřený stdin). Nedostupný, když chybí venv, model nebo
+  volná VRAM < 2600 MB (`nvidia-smi`): „přepni lokální mozek na menší model (qwen3:8b)“. Běžícímu serveru se VRAM
+  neměří. Instalace prostředí: `uv sync --project tools/xtts_server`.
+
+Naměřeno 2026-11-04 (RTX 4070 SUPER, věta 19 slov „Dobrý den, pane. Všechny systémy…“, cesta `speech.speak`):
+Edge TTFA ~0,63–0,68 s teplý / 1,1 s studený, celá věta ~1,0 s; XTTS TTFA ~0,37–0,46 s teplý, celá věta ~2,0 s
+(RTF ~0,4), studený start serveru ~16 s; XTTS drží ~2,3 GB VRAM; Piper 0,13 s teplý, 5,8 s první načtení.
 
 Licence hlasu: balíček `piper-tts` 1.8 je **GPL-3.0-or-later** (proto skupina `tts` v `pyproject.toml`, ne
 `dependencies` balíčku; `[tool.uv] default-groups` ho lokálně instaluje, `import` je líný). Modely hlasů jsou MIT,
 datasety CC0 (karta modelu na HuggingFace). OPORA se nedistribuuje, Piper běží jen na tomto počítači.
+`edge-tts` je LGPL-3.0 (skupina `tts`); služba samotná je neoficiální, Microsoft ji může kdykoli změnit nebo vypnout.
+`coqui-tts` (idiap fork) je MPL-2.0, ale **model XTTS-v2 je pod Coqui Public Model License (CPML): jen
+nekomerční použití**. Tady jde o osobní lokální použití; pro komerční provoz OPORY XTTS vypnout (smazat venv nebo
+model) a číst Edge/Piperem.
 
 Podklady (stav srdce, otázky srdce, obsah webu a souborů) jsou data, ne příkazy; pokyny dává jen zpráva člověka.
 

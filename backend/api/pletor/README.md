@@ -11,10 +11,13 @@ Tenký router pro `backend/pletor/` (docs/navrhy/2026-11-04-pletor-jarvis.md, P1
   available: [modely Ollamy]}}`. `available` jde z `/api/tags` při každém čtení; neběžící Ollama = `[]`.
 - `POST /api/pletor/brain {brain: claude | ollama, model?}` → `{ok, reply, brain}` (P2). Neběžící Ollama nebo
   neznámý model = `ok: false` s důvodem v `reply`, mozek zůstane. V UI se přepíná větou v chatu (`backend/pletor/brains.py`).
-- `GET /api/pletor/voices` → `{available: [{id, label, gender: male | female}], default}` (P3b): jen skutečně stažené
-  hlasy Piperu, výchozí Jirka (jinak první stažený, jinak `null`). Zároveň na pozadí načte výchozí hlas do paměti.
-- `POST /api/pletor/tts {text, voice?}` → `audio/wav` (P3b, `backend/pletor/tts.py`). Text 1–600 znaků, prázdný nebo
-  cizí klíč 422; nestažený či neznámý hlas 404 „Hlas není stažen.“ (`voice_missing`), chybějící `piper-tts` 503.
+- `GET /api/pletor/voices?warm=<id>` → `{voices: [{id, label, gender, engine: xtts | edge | piper, available,
+  reason}]}` (P3b, `backend/pletor/speech.py`): všechny známé hlasy v pořadí XTTS → Edge → Piper, nedostupné
+  s důvodem (nestažený model, málo VRAM, chybějící balíček). Na pozadí načte dopředu `warm` (jinak nejlepší dostupný).
+- `POST /api/pletor/tts {text, voice?}` (P3b): engine je v id hlasu. Piper `audio/wav`, Edge `audio/mpeg`
+  (streamovaně, **cloud Microsoftu: text odchází z počítače**), XTTS `audio/pcm;rate=24000` (PCM 16 bit LE po
+  kouscích). Odpověď přijde až s prvním kouskem zvuku. Text 1–600 znaků, prázdný nebo cizí klíč 422; nestažený či
+  neznámý hlas 404 „Hlas není stažen.“ (`voice_missing`, `hint` = příkaz ke stažení), nedostupný engine 503.
 
 Instance `Pletor` žije v `app.state.pletor` (`backend/app/factory.py`); testy jí vyměňují `runner`, `find`
 a `transport` (Ollama).

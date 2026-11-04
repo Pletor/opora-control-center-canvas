@@ -61,15 +61,17 @@ class PletorBrainOut(BaseModel):
 class PletorSpeechIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     text: str = Field(min_length=1, max_length=tts.TEXT_LIMIT)  # jedna nebo pár vět; frontend posílá po větách
-    voice: str | None = Field(default=None, min_length=1, max_length=100)
+    voice: str | None = Field(default=None, min_length=1, max_length=100)  # id z /voices, engine je v id
 
 
 class PletorVoice(BaseModel):
     id: str
     label: str
     gender: Literal["male", "female"]
+    engine: Literal["xtts", "edge", "piper"]
+    available: bool
+    reason: str | None  # proč hlas nejde (nestažený model, málo VRAM…); u dostupného None
 
 
 class PletorVoicesOut(BaseModel):
-    available: list[PletorVoice]
-    default: str | None
+    voices: list[PletorVoice]

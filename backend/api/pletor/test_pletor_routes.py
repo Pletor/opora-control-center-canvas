@@ -80,18 +80,38 @@ def test_refusals(tmp_path):
         assert client.get("/api/pletor/state", headers=HEADERS, params={"project": "draft"}).status_code == 422
 
 
+def available(client):
+    voices = client.get("/api/pletor/voices", headers=HEADERS).json()["voices"]
+    return [voice["id"] for voice in voices if voice["available"]]
+
+
 def test_voices_and_tts(tmp_path, monkeypatch):
-    from backend.pletor import test_tts, tts
+    from backend.pletor import test_tts, test_tts_edge, tts, tts_edge, tts_xtts
 
     monkeypatch.setattr(tts, "_load", lambda path: test_tts.FakeVoice())
+    monkeypatch.setattr(tts_xtts, "python", lambda: tmp_path / "bez-prostredi.exe")
+    monkeypatch.setattr(tts_xtts, "free_vram_mb", lambda: 400)
+    cloud, seen = test_tts_edge.fake_cloud([{"type": "audio", "data": b"ID3mp3"}])
+    monkeypatch.setattr(tts_edge, "_communicate", cloud)
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         seed(client)
         folder = client.app.state.pletor.folder
-        assert client.get("/api/pletor/voices", headers=HEADERS).json() == {"available": [], "default": None}
+        voices = client.get("/api/pletor/voices", headers=HEADERS).json()["voices"]
+        assert [voice["engine"] for voice in voices] == ["xtts", "xtts", "edge", "edge", "piper", "piper"]
+        assert "uv sync --project tools/xtts_server" in voices[0]["reason"]
+        assert available(client) == list(tts_edge.VOICES)  # Edge je nainstalovaný (skupina tts), Piper nestažený
+        edge = client.post("/api/pletor/tts", headers=HEADERS, json={"text": "Ahoj.", "voice": "edge:cs-CZ-VlastaNeural"})
+        assert edge.status_code == 200 and edge.headers["content-type"] == "audio/mpeg" and edge.content == b"ID3mp3"
+        assert seen == [("Ahoj.", "cs-CZ-VlastaNeural")]
+        monkeypatch.setattr(tts_edge, "_communicate", test_tts_edge.fake_cloud([], ConnectionError("offline"))[0])
+        offline = client.post("/api/pletor/tts", headers=HEADERS, json={"text": "Ahoj.", "voice": "edge:cs-CZ-VlastaNeural"})
+        assert offline.status_code == 503 and "offline" in offline.json()["error"]
+        xtts = client.post("/api/pletor/tts", headers=HEADERS, json={"text": "Ahoj.", "voice": "xtts:default"})
+        assert xtts.status_code == 404 and "tts_fetch xtts" in xtts.json()["hint"]
         missing = client.post("/api/pletor/tts", headers=HEADERS, json={"text": "Ahoj."})
         assert missing.status_code == 404 and missing.json()["error"] == "Hlas není stažen."
         test_tts.seed(folder, tts.DEFAULT)
-        assert client.get("/api/pletor/voices", headers=HEADERS).json()["default"] == tts.DEFAULT
+        assert available(client) == [*tts_edge.VOICES, tts.DEFAULT]
         audio = client.post("/api/pletor/tts", headers=HEADERS, json={"text": " Ahoj. "})
         assert audio.status_code == 200 and audio.headers["content-type"] == "audio/wav"
         assert audio.content[:4] == b"RIFF"
