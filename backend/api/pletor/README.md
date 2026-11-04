@@ -18,6 +18,9 @@ Tenký router pro `backend/pletor/` (docs/navrhy/2026-11-04-pletor-jarvis.md, P1
   (streamovaně, **cloud Microsoftu: text odchází z počítače**), XTTS `audio/pcm;rate=24000` (PCM 16 bit LE po
   kouscích). Odpověď přijde až s prvním kouskem zvuku. Text 1–600 znaků, prázdný nebo cizí klíč 422; nestažený či
   neznámý hlas 404 „Hlas není stažen.“ (`voice_missing`, `hint` = příkaz ke stažení), nedostupný engine 503.
+- `GET /api/pletor/llm` → `{claude, codex, ollama, cswap}` (M1 nastavení LLM, jen ke čtení,
+  `backend/pletor/llm_settings/`). Sekce se čtou souběžně a každá selže zvlášť jako `{available: false, reason}`, route
+  nikdy 500. Žádné parametry, cesty jen z `Path.home()`; tokeny ani úplné e-maily v odpovědi nejsou.
 
 Instance `Pletor` žije v `app.state.pletor` (`backend/app/factory.py`); testy jí vyměňují `runner`, `find`
 a `transport` (Ollama).

@@ -6,6 +6,8 @@
 - `GET /api/pletor/voices?warm=<id>` → `{voices: [{id, label, gender, engine, available, reason, quota}]}`: XTTS,
   ElevenLabs, Edge, Piper v pořadí výchozí volby; `quota` `{tier, character_count, character_limit}` jen u ElevenLabs;
   `warm` (jinak nejlepší dostupný) se načte dopředu.
+- `GET /api/pletor/llm` → `{claude, codex, ollama, cswap}` jen ke čtení (docs/navrhy/2026-11-04-pletor-nastaveni-llm.md,
+  M1); každá sekce selže zvlášť jako `{available: false, reason}`, cesty od klienta se nepřijímají.
 - `POST /api/pletor/tts {text, voice?}` → zvuk podle enginu v id hlasu: `audio/wav` (Piper), `audio/mpeg` (Edge,
   ElevenLabs, cloud), `audio/pcm;rate=24000` (XTTS), streamovaně; nestažený hlas 404, nedostupný engine 503.
 Všechny jen pro člověka v UI a jen z tohoto počítače (`/api/pletor` v `backend/app/remote_access.py`).
@@ -20,7 +22,7 @@ from backend.api.pletor import models
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
-from backend.pletor import brains, speech, tts
+from backend.pletor import brains, llm_settings, speech, tts
 
 
 def _check(service, project, workspace):
@@ -69,6 +71,11 @@ def create_pletor_router(service, pletor):
         if any(voice["id"] == target and voice["available"] for voice in found):
             threading.Thread(target=speech.warm, args=(pletor.folder, target), daemon=True).start()
         return {"voices": found}
+
+    @router.get("/llm", response_model=models.PletorLlmOut)
+    def llm(request: Request):
+        require_human(request.state.actor, "Nastavení LLM na tomto počítači čte jen člověk v UI.")
+        return llm_settings.read_all()
 
     @router.post("/tts")
     async def say(body: models.PletorSpeechIn, request: Request):

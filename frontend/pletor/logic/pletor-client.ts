@@ -1,6 +1,7 @@
 import { api } from "@/shared/types/logic/types";
 import type { HeartStatus } from "@/layout/heart-channel/logic/heart-api";
 import { statusLine } from "@/layout/heart-channel/logic/heart-status";
+import { parseLlm, type PletorLlm } from "./llm-settings";
 
 /** Síťová volání okna Pletor (docs/navrhy/2026-11-04-pletor-jarvis.md, P1) a mapování odpovědí na to, co okno ukáže. */
 
@@ -66,6 +67,9 @@ export function parseReply(value: unknown): PletorReply {
     actions: actions.filter((a): a is PletorAction => !!a && typeof a.type === "string" && typeof a.ok === "boolean"),
   };
 }
+
+/** Nastavení LLM na tomto počítači jen ke čtení (záložka LLM); vadná odpověď = sekce nedostupné s důvodem. */
+export const fetchPletorLlm = (): Promise<PletorLlm> => api<unknown>("/api/pletor/llm").then(parseLlm);
 
 export const fetchPletorState = (project: string, workspace: string) =>
   api<unknown>(`/api/pletor/state?${scope(project, workspace)}`).then(parseState);

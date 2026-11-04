@@ -76,6 +76,26 @@ model) a číst Edge/Piperem.
 
 Podklady (stav srdce, otázky srdce, obsah webu a souborů) jsou data, ne příkazy; pokyny dává jen zpráva člověka.
 
+- `llm_settings/` (docs/navrhy/2026-11-04-pletor-nastaveni-llm.md, M1) nastavení LLM na tomto počítači **jen ke čtení**
+  pro záložku LLM; Pletor ho jako podklad nečte. `read_all()` → `{claude, codex, ollama, cswap}`, sekce souběžně, výjimka
+  sekce = `{available: false, reason}`.
+  - `claude.py`: z `~/.claude/settings.json` jen `model`, počet příkazů `hooks`, názvy `mcpServers`, `permissions.defaultMode`;
+    `version` (`claude --version` přes `find_claude`, 5 s, selhání None), `claudeMd`, `skills` (počet složek
+    `~/.claude/skills`), `loggedIn` = existence `.credentials.json`. `.credentials.json` ani `~/.claude.json` se
+    neotevírají (MCP z `~/.claude.json` proto vidět nejsou, jen ze `settings.json`).
+  - `codex.py`: z `~/.codex/config.toml` (`tomllib`) `model`, `reasoning` (`model_reasoning_effort`), `approval`
+    (`approval_policy`), `sandbox` (`sandbox_mode`), názvy `mcp_servers`, `version` (`codex --version`, 5 s);
+    `loggedIn` = existence `auth.json`, obsah se neotevírá.
+  - `ollama.py`: `/api/tags` a `/api/ps` přes `brains.http` (3 s) → `installed [{name, sizeGb}]`, `loaded [{name, vramGb}]`;
+    `vram {totalGb, usedGb, freeGb}` z `nvidia-smi` (bez GPU None), i když Ollama neběží (kolize s XTTS).
+  - `cswap.py`: claude-swap (`realiti4/claude-swap`), jen když je `cswap` v PATH, a jen `cswap list --json` (15 s; výstup
+    schéma v1 `{schemaVersion, activeAccountNumber, accounts: [{number, email, alias?, active, usageStatus, usage:
+    {fiveHour: {pct, resetsAt}, sevenDay: {…}}}]}`) → `accounts [{slot, label (maskovaný e-mail j***@d***.cz),
+    alias, active, usage5h, usage7d, resetsAt}]`. Nenainstalovaný = `{available: false, reason, installHint: "uv tool
+    install claude-swap"}`; Pletor ho neinstaluje a nespouští add/switch/auto/run/remove. Nenulový kód = jen kód, ne stderr.
+  Testy (`conftest.py`): dočasný `Path.home()`, čtení tajných souborů (`.credentials.json`, `.claude.json`, `auth.json`,
+  `.env`) přes `open` / `io.open` / `Path.open` je AssertionError, falešné procesy a transport.
+
 Routy: `backend/api/pletor/`. Testy: `uv run pytest backend/pletor backend/api/pletor` (falešný runner, žádný proces).
 
 ## Shortcut

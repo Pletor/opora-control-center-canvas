@@ -1,0 +1,160 @@
+/* Přehled LLM počítače jsou čtyři karty pod sebou ve stejném pořadí, v jakém člověk na modely myslí: Claude Code,
+   Codex, Ollama, nakonec účty. Nahoře jedna věta stavu a tlačítko Obnovit; čtení trvá pár sekund (verze CLI, cswap),
+   proto se nečte samo při každém otevření. Je to přehled, ne formulář: žádné pole se tu nedá upravit. */
+.pletor-llm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pletor-llm__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pletor-llm__note {
+  margin: 0;
+  color: var(--pletor-dim);
+  font-size: 11px;
+}
+.pletor-llm__head .pletor-llm__note {
+  margin-right: auto;
+}
+.pletor-llm__refresh {
+  flex: none;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pletor-ink);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.pletor-llm__refresh:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+.pletor-llm__refresh:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+  outline-offset: 1px;
+}
+
+/* Karta má jméno nástroje a vpravo drobný stav. Dostupná má zelený stav, nedostupná zešedne a pod jménem řekne
+   proč, u cswap i příkaz k instalaci, který si člověk spustí sám, až bude chtít. Údaje jsou dvousloupcová
+   tabulka název – hodnota, aby se oko svezlo dolů po levém sloupci. */
+.pletor-llm__card {
+  padding: 8px 10px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 8px;
+}
+.pletor-llm__card-title {
+  display: flex;
+  align-items: baseline;
+  margin: 0 0 4px;
+  color: var(--pletor-ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+.pletor-llm__state {
+  margin-left: auto;
+  color: var(--pletor-accent);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.pletor-llm__card--off .pletor-llm__state {
+  color: var(--pletor-dim);
+}
+.pletor-llm__card--off {
+  opacity: 0.8;
+}
+.pletor-llm__reason {
+  margin: 0 0 4px;
+  color: var(--pletor-error);
+  font-size: 11px;
+}
+.pletor-llm__hint {
+  display: block;
+  margin-bottom: 4px;
+  color: #e8c46a;
+  font-size: 11px;
+}
+.pletor-llm__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 10px;
+  margin: 0;
+  font-size: 11px;
+}
+.pletor-llm__fact-name {
+  color: var(--pletor-dim);
+}
+.pletor-llm__fact-value {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Účty z cswap: řádek na účet, aktivní má akcentní rámeček, protože na něm právě běží Claude Code. Pod jménem dva
+   pruhy využití, 5h a 7d, barevné jako HUD: zelená je klid, jantarová blížící se limit, červená limit za dveřmi.
+   Neznámé využití (token vypršel) je prázdný šedý pruh s otazníkem, ne nula, aby nelhal. */
+.pletor-llm__accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pletor-llm__account {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+}
+.pletor-llm__account--active {
+  border-color: var(--pletor-accent);
+  background: var(--pletor-accent-soft);
+}
+.pletor-llm__account-name {
+  font-size: 12px;
+}
+.pletor-llm__account-mail {
+  color: var(--pletor-dim);
+}
+.pletor-llm__account-active {
+  color: var(--pletor-accent);
+  font-weight: 400;
+}
+.pletor-llm__usage {
+  display: grid;
+  grid-template-columns: 22px 1fr 40px;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.pletor-llm__usage-label,
+.pletor-llm__pct {
+  color: var(--pletor-dim);
+}
+.pletor-llm__pct {
+  text-align: right;
+}
+.pletor-llm__bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.pletor-llm__fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+.pletor-llm__bar--ok .pletor-llm__fill { background: var(--pletor-accent); }
+.pletor-llm__bar--warn .pletor-llm__fill { background: #e8c46a; }
+.pletor-llm__bar--high .pletor-llm__fill { background: var(--pletor-error); }
+.pletor-llm__bar--unknown .pletor-llm__fill { background: transparent; }
