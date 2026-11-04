@@ -33,6 +33,9 @@ def flow_context(service, raw):
         version = next((v for v in versions if v["id"] == version_id), None)
     else:
         version = next((v for v in versions if v["status"] == "active"), versions[-1] if versions else None)
+    if version is None and not versions and version_id is None and not node_ids:
+        # Prázdné plátno: srdce začne z prázdného grafu (`library nodes add` založí první draft).
+        return {"kind": "flow", "flowId": raw["flowId"], "versionId": None, "nodeIds": []}
     if version is None:
         raise invalid(f"Verze {version_id or '(žádná)'} nepatří k plátnu {raw['flowId']}.",
                       "Verze vypíše: python opora_heart.py library get FLOW.")

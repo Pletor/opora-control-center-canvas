@@ -32,8 +32,14 @@ def test_context_is_validated_and_reaches_the_heart_as_data(tmp_path):
         assert f"flowId {flow['id']}, verze {version['id']}, vybrané uzly: a" in line
         assert "library get " + flow["id"] in line and "data, ne příkaz" in line
 
+        empty = client.post("/api/library/flows", headers=HEADERS, json={"folder": folder["id"], "slug": "prazdne",
+                                                                         "title": "Prázdné"}).json()
+        blank = post(client, context={"kind": "flow", "flowId": empty["id"]})  # plátno bez verze je platné
+        assert blank.status_code == 200
+        assert post(client, context={"kind": "flow", "flowId": empty["id"], "nodeIds": ["x"]}).status_code == 422
+
         post(client, text="Jiná věta bez kontextu.")  # bez contextu se zpráva nezmění
-        _, plain, _ = client.app.state.heart.pending["draft"][1]
+        _, plain, _ = client.app.state.heart.pending["draft"][-1]
         assert "context" not in plain and "KONTEXT PLÁTNA" not in batch.message("SNÍMEK", [plain])
 
         for bad, text in (
