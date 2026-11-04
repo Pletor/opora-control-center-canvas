@@ -1,0 +1,166 @@
+/* Tlačítko Pletor stojí v horní liště hned vedle Asistenta a vypadá stejně tiše: obrysové, jen jméno.
+   Oko ho najde na stejném místě ve všech projektech; otevřené se obarví akcentem, aby bylo vidět,
+   že rozhovor s Pletorem je rozevřený. */
+.pletor__toggle {
+  flex: none;
+  margin-left: var(--sp-3);
+  padding-inline: var(--sp-3);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pletor__toggle:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.pletor__toggle--open,
+.pletor__toggle--open:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+/* Okno Pletor je jeden úzký sloupec vpravo pod horní lištou, nad panelem Asistenta: člověk s Pletorem
+   řeší záměry a rozhodnutí a srdce pracuje pod ním. Je tiché a věcné jako papír: hlavička se jménem,
+   řádek se stavem srdce, rozhovor a dole pole pro zprávu. Pod 900 px zabere celou šířku, protože
+   úzký sloupec se nedá číst. */
+.pletor {
+  position: fixed;
+  top: var(--topbar-h);
+  right: 0;
+  bottom: 0;
+  z-index: 31;
+  display: flex;
+  flex-direction: column;
+  width: min(420px, 100%);
+  background: var(--surface);
+  border-left: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-pop);
+  color: var(--ink);
+  font-size: var(--fs-2);
+}
+@media (max-width: 900px) {
+  .pletor {
+    width: 100%;
+  }
+}
+
+/* Hlavička je nízká: vlevo jméno, vpravo křížek. Nic víc, oko má sjet k rozhovoru. */
+.pletor__head {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--sp-2) 0 var(--sp-4);
+  border-bottom: 1px solid var(--line);
+}
+.pletor__title {
+  margin-right: auto;
+  font-size: var(--fs-3);
+}
+.pletor__close {
+  width: 30px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--fs-3);
+}
+.pletor__close:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* Řádek srdce je drobný šedý text pod hlavičkou: jednou větou, co srdce dělá a kolik otázek
+   čeká na člověka. Je to kontext rozhovoru, ne jeho obsah, proto nekřičí. */
+.pletor__heart {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+
+/* Rozhovor teče shora dolů. Zprávy člověka stojí vpravo na jemném akcentním podkladu, Pletor
+   odpovídá vlevo na šedém, takže je na první pohled jasné, kdo mluví, bez jmen a avatarů.
+   Bublina má nejvýš čtyři pětiny šířky, aby se střídání stran dalo číst. */
+.pletor__messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+}
+.pletor__empty {
+  margin: 0;
+  color: var(--ink-muted);
+}
+.pletor__message {
+  max-width: 80%;
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-lg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pletor__message--human {
+  align-self: flex-end;
+  background: var(--accent-soft);
+}
+.pletor__message--pletor {
+  align-self: flex-start;
+  background: var(--surface-2);
+}
+.pletor__message--pending {
+  color: var(--ink-muted);
+}
+
+/* Po odpovědi se pod rozhovorem ukážou malé chipy s tím, co Pletor opravdu udělal: poslal srdci,
+   zapsal do Schránky. Člověk tak nemusí věřit slovům, vidí činy. Selhání je červené. */
+.pletor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0 var(--sp-4) var(--sp-2);
+  list-style: none;
+}
+.pletor__action {
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--ok-line);
+  border-radius: var(--radius-lg);
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-size: var(--fs-1);
+}
+.pletor__action--failed {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.pletor__failure {
+  margin: 0;
+  padding: 0 var(--sp-4) var(--sp-2);
+  color: var(--danger);
+  font-size: var(--fs-1);
+}
+
+/* Pole pro zprávu je dole jako v každém chatu: široké pole a vedle něj jedno tlačítko Odeslat. */
+.pletor__composer {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-end;
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+.pletor__input {
+  flex: 1;
+  resize: vertical;
+  font: inherit;
+}
