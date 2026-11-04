@@ -44,6 +44,20 @@ describe("createVoiceInput", () => {
     expect(on.onEnd).toHaveBeenCalledOnce();
   });
 
+  it("trvalý poslech pošle každou novou hotovou větu jednou", () => {
+    const on = events();
+    createVoiceInput(Ctor).start(on, { continuous: true });
+    const rec = FakeRecognition.last;
+    expect(rec.continuous).toBe(true);
+    rec.say([["první", true]]);
+    rec.say([["první", true], ["dru", false]]);
+    rec.say([["první", true], ["druhá věta", true]]);
+    expect(on.onFinal).toHaveBeenNthCalledWith(1, "první");
+    expect(on.onFinal).toHaveBeenNthCalledWith(2, "druhá věta");
+    expect(on.onFinal).toHaveBeenCalledTimes(2);
+    expect(on.onInterim).toHaveBeenCalledWith("dru");
+  });
+
   it("stop poslech utne a starý poslech už nic nehlásí", () => {
     const on = events();
     const input = createVoiceInput(Ctor);

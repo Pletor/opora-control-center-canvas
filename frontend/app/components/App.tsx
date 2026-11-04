@@ -64,6 +64,7 @@ import AssistantButton from "@/layout/assistant-panel/components/AssistantButton
 import AssistantPanel from "@/layout/assistant-panel/components/AssistantPanel";
 import PletorButton from "@/pletor/components/PletorButton";
 import PletorWindow from "@/pletor/components/PletorWindow";
+import PletorListenSwitch from "@/pletor/components/PletorListenSwitch";
 import type { PletorMode } from "@/pletor/logic/pletor-client";
 import { sendHeartMessage, type HeartRequest } from "@/layout/heart-channel/logic/heart-api";
 import type { CardRequest } from "@/project/architecture-editor/live-status/logic/session-state";
@@ -203,6 +204,9 @@ export default function App() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   // Pletor startuje s OPOROU vždy v kokpitu (HUD) přes celou obrazovku; režim se neukládá.
   const [pletorMode, setPletorMode] = useState<PletorMode>("hud");
+  // Poslech Pletora: po startu vždy vypnutý (mikrofon se nezapne sám), neukládá se; chyba mikrofonu jde do tooltipu přepínače.
+  const [pletorListen, setPletorListen] = useState({ on: false, error: "" });
+  const onPletorListen = (on: boolean, error = "") => setPletorListen({ on, error });
   // Doména předvyplněná v modalu „Nový worktree“ z živého panelu; jinak se bere vybraný uzel.
   const [worktreeDomain, setWorktreeDomain] = useState<string | null>(null);
   // Podzáložka stránky Text (Uživatel/Agenti); resetuje se na Uživatel při přechodu na jinou vrstvu.
@@ -1044,7 +1048,7 @@ export default function App() {
     );
   }
   // Pletor leží nad každou obrazovkou (úvod, srdce, plátno) jako nejvyšší vrstva.
-  const pletorLayer = <PletorWindow mode={pletorMode} project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name ?? project} workspace={workspace} onMode={setPletorMode} />;
+  const pletorLayer = <PletorWindow mode={pletorMode} project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name ?? project} workspace={workspace} onMode={setPletorMode} listening={pletorListen.on} onListening={onPletorListen} />;
   // Úvodní obrazovka má týž rám jako zbytek aplikace, ale bez menu Editoru: nemá plátno ani vybranou kartu.
   if (screen === "home") return <>
     <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
@@ -1100,7 +1104,7 @@ export default function App() {
     <SaveScopeProvider project={project} workspace={workspace}><div className="app desktop-v2 desktop-v3">
       <TopBar
         onHome={() => setScreen("home")}
-        trailing={<><PletorButton open={pletorMode !== "closed"} onToggle={(full) => setPletorMode(full || pletorMode === "window" ? "hud" : "window")} /><AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} request={activityRequest} />}{versionsEnabled && <SaveVersionsTools key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
+        trailing={<><PletorButton open={pletorMode !== "closed"} onToggle={(full) => setPletorMode(full || pletorMode === "window" ? "hud" : "window")} /><PletorListenSwitch tone="bar" on={pletorListen.on} error={pletorListen.error} onChange={(on) => onPletorListen(on)} /><AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} request={activityRequest} />}{versionsEnabled && <SaveVersionsTools key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
         projectNavigation={environment === "project" ? <ProjectMapNavigation value={projectMapKind} onChange={(kind) => { if (!saveAllBusy) setProjectMapKind(kind); }}/> : null}
         projects={projects}
         draftProject={draftProject}

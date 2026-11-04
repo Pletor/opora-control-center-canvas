@@ -15,7 +15,8 @@ export type VoiceInputEvents = {
   /** Poslech skončil (věta, ticho, chyba nebo stop). */
   onEnd: () => void;
 };
-export type VoiceInput = { supported: boolean; start: (events: VoiceInputEvents) => void; stop: () => void };
+/** `continuous` (přepínač Poslech): poslech neskončí první větou, každá hotová věta přijde zvlášť. */
+export type VoiceInput = { supported: boolean; start: (events: VoiceInputEvents, options?: { continuous?: boolean }) => void; stop: () => void };
 
 type Alternative = { transcript: string };
 type Result = { isFinal: boolean; 0: Alternative };
@@ -35,7 +36,8 @@ export function recognitionCtor(scope: object = globalThis): RecognitionCtor | n
   return value.SpeechRecognition ?? value.webkitSpeechRecognition ?? null;
 }
 
-/** Jedna věta na start (`continuous: false`): prohlížeč sám pozná ticho a pošle finální přepis. */
+/** Výchozí je jedna věta na start (`continuous: false`): prohlížeč sám pozná ticho a pošle finální přepis.
+ *  Trvalý poslech posílá každou novou hotovou větu; výsledky už poslané se přeskočí. */
 export function createVoiceInput(Ctor: RecognitionCtor | null = recognitionCtor()): VoiceInput {
   let current: Recognition | null = null;
   const stop = () => {
@@ -43,24 +45,26 @@ export function createVoiceInput(Ctor: RecognitionCtor | null = recognitionCtor(
     current = null;
     try { rec?.abort(); } catch { /* už neběží */ }
   };
-  const start = (events: VoiceInputEvents) => {
+  const start = (events: VoiceInputEvents, { continuous = false } = {}) => {
     stop();
     if (!Ctor) { events.onError("not-supported"); events.onEnd(); return; }
     const rec = new Ctor();
     current = rec;
     rec.lang = "cs-CZ";
     rec.interimResults = true;
-    rec.continuous = false;
+    rec.continuous = continuous;
     rec.maxAlternatives = 1;
     let sent = false;
+    let done = 0; // trvalý poslech: výsledky před tímto indexem už odešly jako věty
     rec.onspeechstart = () => { if (current === rec) events.onSpeech(); };
     rec.onresult = (event) => {
       if (current !== rec || sent) return;
       let final = "", interim = "";
-      for (const result of Array.from(event.results)) {
-        if (result.isFinal) final += result[0].transcript; else interim += result[0].transcript;
+      const results = Array.from(event.results);
+      for (let i = done; i < results.length; i++) {
+        if (results[i].isFinal) { final += results[i][0].transcript; if (continuous) done = i + 1; } else interim += results[i][0].transcript;
       }
-      if (final.trim()) { sent = true; events.onFinal(final.trim()); } else if (interim.trim()) events.onInterim(interim.trim());
+      if (final.trim()) { sent = !continuous; events.onFinal(final.trim()); } else if (interim.trim()) events.onInterim(interim.trim());
     };
     rec.onerror = (event) => { if (current === rec) events.onError(event.error); };
     rec.onend = () => { if (current === rec) { current = null; events.onEnd(); } };
