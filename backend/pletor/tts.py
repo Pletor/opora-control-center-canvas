@@ -53,7 +53,7 @@ def _load(path):
 def _voice(folder, name, load):
     path = _model(folder, name)
     if path is None:
-        raise VoiceMissing("Hlas není stažen.")
+        raise VoiceMissing(f"uv run python -m backend.pletor.tts_fetch {name if name in VOICES else DEFAULT}")
     with _lock:
         if path not in _cache:
             _cache[path] = (load or _load)(path)

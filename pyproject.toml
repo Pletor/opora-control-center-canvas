@@ -22,7 +22,10 @@ packages = ["backend", "tools", "database"]
 dev = ["pytest>=8,<9", "httpx>=0.27,<1", "ruff>=0.9"]
 # Hlas Pletora (backend/pletor/tts.py). piper-tts je GPL-3: drží se mimo dependencies balíčku, lokálně se
 # instaluje s výchozími skupinami; bez něj /api/pletor/tts vrací 503 a okno čte prohlížečovým hlasem.
-tts = ["piper-tts>=1.8,<2"]
+tts = [
+    "edge-tts>=7.2,<8",
+    "piper-tts>=1.8,<2",
+]
 [tool.uv]
 default-groups = ["dev", "tts"]
 [tool.pytest.ini_options]

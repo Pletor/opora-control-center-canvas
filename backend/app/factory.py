@@ -131,6 +131,7 @@ from backend.library.harness_memory import HarnessMemory
 from backend.memory.memory_service import AppSettings, MemoryService
 from backend.monitoring.monitor import Monitor
 from backend.paths import DIST_DIR, REPO_ROOT
+from backend.pletor import tts_xtts
 from backend.pletor.service import Pletor
 from backend.project.architecture.web_status import WebStatusService
 from backend.project.maps.map_refresh import MapRefresh
@@ -218,6 +219,7 @@ def create_app(data_root=None):
         guardian.close()
         monitor.close()
         service.close()
+        tts_xtts.close()  # hlas XTTS: pomocný proces uvolní VRAM
 
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.service = service
