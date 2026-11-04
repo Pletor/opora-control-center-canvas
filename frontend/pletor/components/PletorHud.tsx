@@ -2,7 +2,7 @@ import "../styles/pletor-hud.css";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { usePletor } from "../logic/pletor-poll";
 import type { usePletorVoice } from "../logic/use-pletor-voice";
-import { brainText, escalationText, heartText } from "../logic/pletor-client";
+import { brainLabel, escalationText, heartText } from "../logic/pletor-client";
 import type { PletorOrbMode } from "../logic/pletor-orb-mode";
 import { hudState } from "../logic/hud-palette";
 import PletorActions from "./PletorActions";
@@ -48,7 +48,7 @@ export default function PletorHud({ pletor, orb, voice, composer, voiceError, pr
       <div className="pletor-hud__main">
         <section className="pletor-hud__stage">
           <PletorHudCanvas state={state} level={voice.level} onFps={setFps} />
-          <PletorHudCorners project={project} brain={brainText(pletor.brain)} state={state} escalations={pletor.escalations.length} fps={fps} />
+          <PletorHudCorners project={project} brain={brainLabel(pletor.brain)} state={state} escalations={pletor.escalations.length} fps={fps} />
         </section>
         <aside className="pletor-hud__console" aria-label="Konzole Pletora">
           <div className="pletor-hud__console-head">Protokol relace · {escalationText(pletor.escalations.length)}</div>

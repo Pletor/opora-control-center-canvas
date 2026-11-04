@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  actionLabel, brainText, escalationText, fetchPletorState, heartText, parseBrain, sendPletorMessage,
+  actionLabel, brainLabel, brainText, escalationText, fetchPletorState, heartText, parseBrain, sendPletorMessage,
 } from "./pletor-client";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -76,5 +76,11 @@ describe("mapování pro okno", () => {
     expect(actionLabel({ type: "heart_message", text: "x", ok: true })).toEqual({ ok: true, text: "Poslal jsem srdci" });
     expect(actionLabel({ type: "vault_note", text: "x", ok: true })).toEqual({ ok: true, text: "Zapsal do Schránky" });
     expect(actionLabel({ type: "vault_note", text: "x", ok: false, detail: "revize" })).toEqual({ ok: false, text: "Selhalo: revize" });
+  });
+
+  it("brainLabel: Claude je cloud na předplatném, Ollama lokální zdarma", () => {
+    expect(brainLabel(parseBrain({ brain: "claude", model: "sonnet" }))).toEqual({ name: "Claude Sonnet 5.5", plan: "cloud · předplatné", local: false });
+    expect(brainLabel(parseBrain(undefined)).name).toBe("Claude Sonnet 5.5");
+    expect(brainLabel(parseBrain({ brain: "ollama", model: "qwen3:14b" }))).toEqual({ name: "qwen3:14b", plan: "lokální · zdarma", local: true });
   });
 });
