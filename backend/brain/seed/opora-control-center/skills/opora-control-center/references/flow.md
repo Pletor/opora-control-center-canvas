@@ -50,6 +50,6 @@ server ověří verzi a uzly a jejich `claim` doplní do `doneCriteria`.
 | `/api/flow/runs/{run_id}` | `GET` detail běhu a jeho uzlů |
 | `/api/flow/runs/{run_id}/log` | `GET ?seq=&limit=` → `{events}` záznam běhu od pořadí `seq` |
 | `/api/flow/runs/{run_id}/advance` | `POST` navázání: vypršelé čekání pokračuje větví `timeout`, přerušený uzel se spustí znovu |
-| `/api/flow/node-runs/{node_run_id}/decision` | `POST {decision: approved\|rejected, actor?}` rozhodnutí schvalovacího uzlu |
+| `/api/flow/node-runs/{node_run_id}/decision` | `POST {decision: approved\|rejected}` rozhodnutí schvalovacího uzlu, jen člověk v UI |
 | `/api/flow/log` | `POST {project, canvas: 2\|3\|4, kind, payload}` → `{seq, canvas, kind}` vstup logu pláten 2–4 (`flow_log_events` bez běhu, payload doplní `project` a `author`); `kind` končící `.failed` zapíše do outboxu `canvas.failed` a probudí srdce; píše člověk, srdce projektu nebo relace brány téhož projektu (`X-Opora-Gate-Token`, dělník i srdce), jinak 401/403 jako brána; 404 neznámý projekt, 422 tvar |
 | `/api/flow/stalls` | `GET` → `{stalls}` zaseklé běhy |

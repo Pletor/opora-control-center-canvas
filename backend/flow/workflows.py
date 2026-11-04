@@ -81,6 +81,15 @@ def workflow_kind(db, workflow_id):
     return row["kind"]
 
 
+def project_of(db, workflow_id=None, version_id=None, run_id=None):
+    """Projekt workflow podle jeho ID, verze nebo běhu (zeď brány); neznámé ID i workflow bez projektu = ""."""
+    row = db.execute(
+        "SELECT w.project_id FROM flow_workflows w LEFT JOIN flow_workflow_versions v ON v.workflow_id=w.id "
+        "LEFT JOIN flow_runs r ON r.workflow_version_id=v.id WHERE w.id=? OR v.id=? OR r.id=? LIMIT 1",
+        (workflow_id, version_id, run_id)).fetchone()
+    return (row["project_id"] if row else None) or ""
+
+
 def get_version(db, version_id):
     row = db.execute("SELECT * FROM flow_workflow_versions WHERE id=?", (version_id,)).fetchone()
     if row is None:

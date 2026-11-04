@@ -31,6 +31,9 @@ GATE_PREFIX = "/api/gate"
 HEART_PREFIX = "/api/brain/heart"
 # Klíče Jev a povolení kontroly bran mění jen člověk doma (docs/brain-heart-channel.md §5).
 JEV_PREFIX = "/api/brain/jev"
+# Graphify spouští extrakci na tomto stroji a toky (/api/flow) běží uzly a mění workflow; přes tunel ne.
+GRAPHIFY_PREFIX = "/api/graphify"
+FLOW_PREFIX = "/api/flow"
 # Bez těchhle tří by se přihlašovací obrazovka neměla jak zeptat ani přihlásit.
 OPEN_PATHS = frozenset({"/api/access/status", "/api/access/login", "/api/access/logout"})
 
@@ -87,7 +90,8 @@ def bearer_token(authorization):
 def is_loopback_only(path):
     return path in LOOPBACK_ONLY_PATHS or any(
         path == prefix or path.startswith(prefix + "/")
-        for prefix in (RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX, HEART_PREFIX, JEV_PREFIX))
+        for prefix in (RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX, HEART_PREFIX, JEV_PREFIX, GRAPHIFY_PREFIX,
+                       FLOW_PREFIX))
 
 
 def requires_token(path):

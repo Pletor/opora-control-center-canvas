@@ -8,9 +8,11 @@ from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
 from backend.api.flow.flow_routes import create_flow_router
-from backend.brain_opora.determinism import gate
+from backend.app.factory import create_app
+from backend.brain_opora.determinism import gate, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.activity_log import HumanRequired
+from backend.canvas.test_canvas_plan import HEADERS, ORIGIN
 from database.schema.opora_event_schema import SCHEMA as EVENT_SCHEMA
 from database.schema.opora_event_schema import ensure_process_columns
 from backend.flow.page_intents import page_digest
@@ -88,9 +90,13 @@ def test_workflow_versions_run_decision_and_log():
     assert run["status"] == "waiting"
     assert c.get("/api/flow/stalls").json()["stalls"][0]["node_id"] == "a"
     approval = next(r for r in run["node_runs"] if r["node_id"] == "a")
-    done = c.post(f"/api/flow/node-runs/{approval['id']}/decision", json={"decision": "approved"}).json()
+    decision = f"/api/flow/node-runs/{approval['id']}/decision"
+    human = {"x-test-actor": "human"}
+    agent = c.post(decision, json={"decision": "approved", "actor": "human"})  # autor z těla nic neodemkne
+    assert agent.status_code == 403 and agent.json()["humanRequired"] is True
+    done = c.post(decision, json={"decision": "approved"}, headers=human).json()
     assert done["status"] == "succeeded"
-    again = c.post(f"/api/flow/node-runs/{approval['id']}/decision", json={"decision": "rejected"})
+    again = c.post(decision, json={"decision": "rejected"}, headers=human)
     assert again.status_code == 409
     assert c.get(f"/api/flow/runs/{run['id']}").json()["status"] == "succeeded"
     assert [r["id"] for r in c.get("/api/flow/runs", params={"workflow": wid}).json()["runs"]] == [run["id"]]
@@ -213,3 +219,24 @@ def test_page_intents_list_every_page_with_its_state_and_graph_check():
     assert c.post("/api/flow/graph-check", json={"kind": "page_intent", "graph": INTENT}).json() == {"ok": True, "errors": []}
     bad = c.post("/api/flow/graph-check", json={"kind": "page_intent", "graph": GRAPH}).json()
     assert bad["ok"] is False and any("intent.done" in error for error in bad["errors"])
+
+
+def test_gate_wall_guards_flow_writes_with_project_id_or_by_id(tmp_path):
+    """Brána zapnutá: agent bez tokenu nezaloží workflow s `project_id` ani nemění workflow podle ID; srdce smí."""
+    agent = {**HEADERS, "X-Opora-Actor": "agent; name=dev"}
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as c:
+        pid = c.post("/api/empty-project", headers=HEADERS, json={"name": "Tok", "confirmed": True}).json()["id"]
+        assert c.post("/api/brain/gate-setting", headers=HEADERS, json={"project": pid, "enabled": True}).status_code == 200
+        body = {"kind": "heart", "name": "Tok", "project_id": pid}
+        refused = c.post("/api/flow/workflows", headers=agent, json=body)
+        assert refused.status_code == 403 and refused.json()["code"] == "gate_required"
+        wid = c.post("/api/flow/workflows", headers=HEADERS, json=body).json()["id"]
+        draft = c.post(f"/api/flow/workflows/{wid}/versions", headers=agent, json={"graph": GRAPH})
+        assert draft.status_code == 403 and draft.json()["code"] == "gate_required"
+        assert c.post(f"/api/flow/workflows/{wid}/rollback", headers=agent, json={}).json()["code"] == "gate_required"
+        _, heart = tokens.issue_heart(c.app.state.service, pid, "draft")
+        made = c.post(f"/api/flow/workflows/{wid}/versions", headers={**agent, tokens.HEADER: heart}, json={"graph": GRAPH})
+        assert made.status_code == 200, made.text
+        vid = made.json()["id"]
+        assert c.post(f"/api/flow/versions/{vid}/activate", headers=agent, json={}).json()["code"] == "gate_required"
+        assert c.post(f"/api/flow/versions/{vid}/activate", headers={**agent, tokens.HEADER: heart}, json={}).status_code == 409
