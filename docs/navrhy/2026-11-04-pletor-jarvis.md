@@ -36,7 +36,7 @@ Neověřeno: posledních ~10 min videa (instalace, prompt pack), ten je placený
 ## Milníky (jen aktuální, po každém stop)
 - **P1 jádro (text)**: `backend/pletor/` (relace, osobnost z Brainu, kontext = stav srdce + Schránka), `POST /api/pletor/messages`, předání záměru srdci, zápis rozhodnutí do Schránky. `frontend/pletor/` jedno okno s chatem. Test u každého modulu.
 - **P2 přepínač mozku**: předplatné (Claude Code) ↔ Ollama, příkazem v chatu.
-- **P3 hlas**: prohlížečové STT (`SpeechRecognition`, cs-CZ) a TTS (`speechSynthesis`) za rozhraními `VoiceInput`/`VoiceOutput`, mikrofon v příkazovém řádku, režim Konverzace, barge-in, `voice: true` v `POST /api/pletor/messages` pro krátkou odpověď ke čtení. **P3b**: lokální Whisper a TTS přes backend za stejnými rozhraními.
+- **P3 hlas**: prohlížečové STT (`SpeechRecognition`, cs-CZ) a TTS (`speechSynthesis`) za rozhraními `VoiceInput`/`VoiceOutput`, mikrofon v příkazovém řádku, režim Konverzace, barge-in, `voice: true` v `POST /api/pletor/messages` pro krátkou odpověď ke čtení. **P3b**: lokální Whisper a TTS přes backend za stejnými rozhraními. TTS hotovo: Piper na CPU, hlasy Jirka a Kasandra (`backend/pletor/tts.py`, `GET /api/pletor/voices`, `POST /api/pletor/tts`), prohlížeč zůstává zálohou; Whisper zbývá.
 - **P4 nástroje**: MCP (kalendář, mail), potvrzení zápisů.
 - **P5 proaktivita**: Pletor sám upozorní na eskalace srdce a výpadky z plátna 4.
 

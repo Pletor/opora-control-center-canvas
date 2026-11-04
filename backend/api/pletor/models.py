@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.pletor import tts
 from backend.pletor.actions import TEXT_LIMIT
 
 
@@ -55,3 +56,20 @@ class PletorBrainOut(BaseModel):
     ok: bool
     reply: str
     brain: PletorBrain
+
+
+class PletorSpeechIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=tts.TEXT_LIMIT)  # jedna nebo pár vět; frontend posílá po větách
+    voice: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+class PletorVoice(BaseModel):
+    id: str
+    label: str
+    gender: Literal["male", "female"]
+
+
+class PletorVoicesOut(BaseModel):
+    available: list[PletorVoice]
+    default: str | None

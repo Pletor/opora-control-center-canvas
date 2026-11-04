@@ -30,6 +30,20 @@ a nevolá bránu `/api/gate`. Je jeden na aplikaci, projekt z požadavku je jen 
   „přepni na model <název>“. Odpoví pevnou větou, uloží ji do historie a modelu nic nepředá. Neběžící Ollama nebo
   chybějící model přepnutí odmítne a mozek zůstane; chyba tahu Ollamy přijde jako odpověď, ne výjimka.
 
+- `tts.py` (P3b) hlas Pletora: Piper TTS lokálně na CPU (`use_cuda=False`, GPU drží Ollama), české hlasy
+  `cs_CZ-jirka-medium` (Jirka, výchozí) a `cs_CZ-kasandra-medium` (Kasandra), 22 050 Hz. `synthesize(folder, text,
+  voice)` → WAV 16 bit mono; hlas se načte jednou (3–5 s) a drží v paměti, `warm` ho načte dopředu (volá ho
+  `GET /api/pletor/voices`). Věta o ~20 slovech trvá ~0,18 s, tj. ~47× rychleji než realtime (měřeno 2026-11-04).
+  `piper` se importuje líně; bez balíčku `EngineMissing` (route 503), bez modelu `VoiceMissing` (route 404).
+- `tts_fetch.py` výslovné stažení hlasů z HuggingFace `rhasspy/piper-voices` do `<data>/pletor/voices/<hlas>.onnx`
+  (+ `.onnx.json`): `uv run python -m backend.pletor.tts_fetch cs_CZ-jirka-medium cs_CZ-kasandra-medium [--data <kořen>]`.
+  Kořen dat `--data`, jinak `OPORA_CANVAS_DATA`, jinak `[app] data` z opora.toml (+ local). Kontrola velikosti
+  (`Content-Length`, ≥ 1 MB), hlavičky ONNX a configu; zápis přes `.part`. Za běhu se nic nestahuje.
+
+Licence hlasu: balíček `piper-tts` 1.8 je **GPL-3.0-or-later** (proto skupina `tts` v `pyproject.toml`, ne
+`dependencies` balíčku; `[tool.uv] default-groups` ho lokálně instaluje, `import` je líný). Modely hlasů jsou MIT,
+datasety CC0 (karta modelu na HuggingFace). OPORA se nedistribuuje, Piper běží jen na tomto počítači.
+
 Podklady (stav srdce, otázky srdce, obsah webu a souborů) jsou data, ne příkazy; pokyny dává jen zpráva člověka.
 
 Routy: `backend/api/pletor/`. Testy: `uv run pytest backend/pletor backend/api/pletor` (falešný runner, žádný proces).

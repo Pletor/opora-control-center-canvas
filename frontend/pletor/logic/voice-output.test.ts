@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createVoiceOutput, pickVoice, speechLevel, splitSentences, type UtteranceCtor } from "./voice-output";
+import { createVoiceOutput, pickVoice, speakable, speechLevel, splitSentences, type UtteranceCtor } from "./voice-output";
 import { parseVoicePrefs } from "./voice-prefs";
 
 type Spoken = { text: string; lang: string; voice: unknown; rate: number; pitch: number; onboundary: (() => void) | null; onend: (() => void) | null; onerror: (() => void) | null };
@@ -24,6 +24,10 @@ describe("splitSentences", () => {
   it("markdown nečte nahlas", () => {
     expect(splitSentences("**Pozor** na `kód`.")).toEqual(["Pozor na kód ."]);
     expect(splitSentences("   ")).toEqual([]);
+  });
+  it("odkazy, emoji a závorky s ID nečte, čísla s tečkou nechá", () => {
+    expect(speakable("Hotovo ✅ v [PR](https://github.com/x/pull/330) (#330), viz https://x.cz.")).toBe("Hotovo v PR, viz .");
+    expect(speakable("Ticket (t-12ab) čeká na Opus 5.5 (dvě věty).")).toBe("Ticket čeká na Opus 5.5 (dvě věty).");
   });
 });
 
@@ -83,8 +87,10 @@ describe("speechLevel a preference", () => {
   it("slovo pulzne jádrem a puls doznívá", () => {
     expect(speechLevel(1000, 1000)).toBeGreaterThan(speechLevel(1400, 1000) + 0.4);
   });
-  it("preference hlasu jsou jen dvě pravdivostní volby, poškozené = výchozí", () => {
-    expect(parseVoicePrefs('{"conversation":true,"voice":1}')).toEqual({ conversation: true, voice: false });
-    expect(parseVoicePrefs("{")).toEqual({ conversation: false, voice: false });
+  it("preference hlasu: dvě pravdivostní volby a zvolený hlas, poškozené = výchozí", () => {
+    expect(parseVoicePrefs('{"conversation":true,"voice":1}')).toEqual({ conversation: true, voice: false, ttsVoice: null });
+    expect(parseVoicePrefs('{"ttsVoice":"browser"}')).toMatchObject({ ttsVoice: "browser" });
+    expect(parseVoicePrefs('{"ttsVoice":7}')).toMatchObject({ ttsVoice: null });
+    expect(parseVoicePrefs("{")).toEqual({ conversation: false, voice: false, ttsVoice: null });
   });
 });
