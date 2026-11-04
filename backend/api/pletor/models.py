@@ -64,13 +64,20 @@ class PletorSpeechIn(BaseModel):
     voice: str | None = Field(default=None, min_length=1, max_length=100)  # id z /voices, engine je v id
 
 
+class PletorQuota(BaseModel):
+    tier: str | None
+    character_count: int | None
+    character_limit: int | None
+
+
 class PletorVoice(BaseModel):
     id: str
     label: str
     gender: Literal["male", "female"]
-    engine: Literal["xtts", "edge", "piper"]
+    engine: Literal["xtts", "elevenlabs", "edge", "piper"]
     available: bool
-    reason: str | None  # proč hlas nejde (nestažený model, málo VRAM…); u dostupného None
+    reason: str | None  # proč hlas nejde (nestažený model, málo VRAM, tarif…); u dostupného None
+    quota: PletorQuota | None = None  # jen ElevenLabs: znaky z tarifu uživatele
 
 
 class PletorVoicesOut(BaseModel):

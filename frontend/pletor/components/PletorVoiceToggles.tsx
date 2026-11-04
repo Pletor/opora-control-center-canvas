@@ -1,10 +1,10 @@
-import { BROWSER_VOICE, voiceGroups, type ServerVoice } from "../logic/tts-voices";
+import { BROWSER_VOICE, voiceGroups, voiceLabel, voiceTitle, type ServerVoice } from "../logic/tts-voices";
 import type { VoicePrefs } from "../logic/voice-prefs";
 
 /**
  * Dva přepínače vedle mikrofonu: Konverzace (po domluvení se mikrofon sám zapne, jinak jedna věta a konec)
- * a Hlas (odpovědi nahlas i na psané zprávy). Pod nimi volba hlasu seskupená podle enginu (XTTS, Edge, Piper,
- * Prohlížeč); nedostupný hlas je vidět, ale nejde zvolit, a důvod ukáže tooltip. `chosen` je hlas, kterým se
+ * a Hlas (odpovědi nahlas i na psané zprávy). Pod nimi volba hlasu seskupená podle enginu (XTTS, ElevenLabs, Edge,
+ * Piper, Prohlížeč); nedostupný hlas je vidět, ale nejde zvolit, a důvod ukáže tooltip; ElevenLabs ukazuje zbývající znaky. `chosen` je hlas, kterým se
  * skutečně čte (`null` = prohlížeč). Uložení drží rodič; bez mikrofonu Konverzace chybí.
  */
 export default function PletorVoiceToggles({ prefs, canListen, voices, chosen, onChange }: {
@@ -27,8 +27,8 @@ export default function PletorVoiceToggles({ prefs, canListen, voices, chosen, o
         {voiceGroups(voices).map((group) => (
           <optgroup key={group.id} label={group.label}>
             {group.voices.map((voice) => (
-              <option key={voice.id} value={voice.id} disabled={!voice.available} title={voice.reason ?? undefined}>
-                {voice.available ? voice.label : `${voice.label} (nedostupný)`}
+              <option key={voice.id} value={voice.id} disabled={!voice.available} title={voiceTitle(voice)}>
+                {voiceLabel(voice)}
               </option>
             ))}
           </optgroup>

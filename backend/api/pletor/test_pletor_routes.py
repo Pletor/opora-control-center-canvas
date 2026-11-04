@@ -87,7 +87,13 @@ def available(client):
 
 def test_voices_and_tts(tmp_path, monkeypatch):
     from backend.pletor import test_tts, test_tts_edge, tts, tts_edge, tts_xtts
+    from backend.pletor.elevenlabs import client as eleven
+    from backend.pletor.elevenlabs import test_client as fake_eleven
 
+    for name in ("ELEVENLABS_API_KEY", "ELEVENLABS_VOICE", "ELEVENLABS_VOICE_ID"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(eleven, "ENV_FILE", tmp_path / "bez.env")  # skutečný klíč z .env se do testu nedostane
+    eleven.reset()
     monkeypatch.setattr(tts, "_load", lambda path: test_tts.FakeVoice())
     monkeypatch.setattr(tts_xtts, "python", lambda: tmp_path / "bez-prostredi.exe")
     monkeypatch.setattr(tts_xtts, "free_vram_mb", lambda: 400)
@@ -97,8 +103,23 @@ def test_voices_and_tts(tmp_path, monkeypatch):
         seed(client)
         folder = client.app.state.pletor.folder
         voices = client.get("/api/pletor/voices", headers=HEADERS).json()["voices"]
-        assert [voice["engine"] for voice in voices] == ["xtts", "xtts", "edge", "edge", "piper", "piper"]
+        assert [voice["engine"] for voice in voices] == ["xtts", "xtts", "elevenlabs", "edge", "edge", "piper", "piper"]
         assert "uv sync --project tools/xtts_server" in voices[0]["reason"]
+        assert voices[2]["label"] == "ElevenLabs · Pletor_MH" and voices[2]["reason"].startswith("chybí ELEVENLABS")
+        # Profesionální hlas na tarifu free: nedostupný s důvodem a kvótou, syntéza 503 (nikdy 500), klíč nikde.
+        (tmp_path / "bez.env").write_text(f"ELEVENLABS_API_KEY={fake_eleven.KEY}\n", encoding="utf-8")
+        eleven.reset()
+        urlopen, _ = fake_eleven.fake_api(speak=(403, json.dumps(fake_eleven.DENIED).encode()))
+        monkeypatch.setattr(eleven.urllib.request, "urlopen", urlopen)
+        paid = client.get("/api/pletor/voices", headers=HEADERS)
+        voice = paid.json()["voices"][2]
+        assert not voice["available"] and voice["reason"] == "hlas Pletor_MH vyžaduje tarif Creator"
+        assert voice["quota"] == {"tier": "free", "character_count": 1600, "character_limit": 10000}
+        denied = client.post("/api/pletor/tts", headers=HEADERS, json={"text": "Ahoj.", "voice": eleven.VOICE})
+        assert denied.status_code == 503 and "tarif Creator" in denied.json()["error"]
+        assert fake_eleven.KEY not in paid.text + denied.text
+        (tmp_path / "bez.env").unlink()
+        eleven.reset()
         assert available(client) == list(tts_edge.VOICES)  # Edge je nainstalovaný (skupina tts), Piper nestažený
         edge = client.post("/api/pletor/tts", headers=HEADERS, json={"text": "Ahoj.", "voice": "edge:cs-CZ-VlastaNeural"})
         assert edge.status_code == 200 and edge.headers["content-type"] == "audio/mpeg" and edge.content == b"ID3mp3"
