@@ -37,7 +37,8 @@
 /* Seznam odkazů je tabulka bez čar: popisek, druh cíle, cíl a nástroje na jednom řádku, aby se menu četlo shora
    dolů ve stejném pořadí, v jakém ho uvidí návštěvník. Chyba řádku visí přímo pod ním výstražnou barvou. */
 .site-fields__links { display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1; }
-.site-fields__link-row { display: grid; grid-template-columns: minmax(120px, 1fr) 96px minmax(140px, 1.4fr) auto; gap: 6px; align-items: center; }
+.site-fields__link-row { display: grid; grid-template-columns: minmax(80px, 1fr) 90px minmax(100px, 1.4fr) auto; gap: 6px; align-items: center; }
+.site-fields__link-row > * { min-width: 0; }
 .site-fields__row-tools { display: inline-flex; gap: 2px; }
 .site-fields__icon { min-width: 30px; min-height: 30px; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; color: var(--ink-2); font: inherit; cursor: pointer; }
 .site-fields__icon:disabled { opacity: 0.4; cursor: default; }

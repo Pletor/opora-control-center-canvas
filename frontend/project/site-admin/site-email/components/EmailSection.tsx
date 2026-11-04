@@ -39,7 +39,7 @@ export default function EmailSection({ settings, onChange }: { settings: Record<
       <div className="site-email__message">
         <span className="site-email__row"><b className="site-email__key">Od</b>{fromHeader(email)}</span>
         {email.replyTo && <span className="site-email__row"><b className="site-email__key">Odpovědět</b>{email.replyTo}</span>}
-        <span className="site-email__row"><b className="site-email__key">Přes</b><code>{email.host || "—"}:{email.port}</code> {email.security === "none" ? "bez šifrování" : email.security.toUpperCase()}</span>
+        <span className="site-email__row"><b className="site-email__key">Přes</b><span><code>{email.host || "—"}:{email.port}</code> {email.security === "none" ? "bez šifrování" : email.security.toUpperCase()}</span></span>
         <span className="site-email__row"><b className="site-email__key">Heslo</b>{email.secretRef ? <code>{email.secretRef}</code> : "bez přihlášení heslem"}</span>
       </div>
       {advice.length > 0 && <ul className="site-email__advice" role="status">{advice.map((item) => <li key={item}>{item}</li>)}</ul>}

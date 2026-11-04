@@ -5,4 +5,4 @@
 .site-header { display: flex; flex-direction: column; gap: var(--sp-4); }
 .site-header__preview { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); }
 .site-header__stage { height: 220px; overflow: auto; background: #fff; color: #1a1a1a; }
-.site-header__page { padding-block: var(--sp-4) 320px; }
+.site-header__page { padding: var(--sp-4) var(--sp-4) 320px; }

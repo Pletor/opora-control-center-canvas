@@ -4,7 +4,7 @@
    které vrátí návštěvníka na začátek nebo rovnou otevřou přepínače kategorií. Vzhled lišty dává `components.css`. */
 .site-cookie-bar__preview { display: flex; flex-direction: column; gap: var(--sp-2); }
 .site-cookie-bar__stage { position: relative; height: 420px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; color: #1a1a1a; }
-.site-cookie-bar__page { padding-block: var(--sp-4); }
+.site-cookie-bar__page { padding: var(--sp-4); }
 .site-cookie-bar__result { padding: 8px 10px; border-radius: 6px; background: #eef6ee; font-size: 13px; }
 .site-cookie-bar__tools { display: flex; flex-wrap: wrap; gap: 6px; }
 .site-cookie-bar__advice { margin: 0; padding: 8px 10px 8px 26px; border: 1px solid var(--danger-line); border-radius: var(--radius); background: var(--danger-soft); color: var(--danger); font-size: var(--fs-1); }
