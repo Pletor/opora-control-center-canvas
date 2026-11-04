@@ -60,7 +60,7 @@ def test_save_checks_the_graph_creates_the_agent_flow_and_activates_it(api, caps
     flow = shown["agent"]["folders"][0]
     assert flow["title"] == "AI a RAG" and flow["flows"][0]["activeN"] == 2  # titulek složky převzatý od člověka
     code, graph = run(capsys, "library", "get", out["flowId"], "--version", "1")
-    assert graph["meta"]["learnedFrom"]["result"] == "verified" and set(graph["graph"]) == {"nodes", "edges", "notes", "groups"}
+    assert graph["meta"]["learnedFrom"]["result"] == "verified" and set(graph["graph"]) == {"nodes", "edges", "notes", "groups", "cases"}
 
 
 def test_propose_leaves_a_draft_for_the_human_and_refuses_the_agent_part(api, capsys, tmp_path):

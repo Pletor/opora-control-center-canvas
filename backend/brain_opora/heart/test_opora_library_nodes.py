@@ -94,3 +94,32 @@ def test_set_changes_the_node_and_agent_flow_stays_writable_but_not_active(api, 
     assert c.post(f"/api/flow/versions/{out['versionId']}/activate", json={}, headers={"X-Opora-Actor": "agent; name=x"}
                   ).status_code >= 400
     assert [v["status"] for v in c.get(f"/api/library/flows/{flow['id']}").json()["versions"]][-1] == "draft"
+
+
+def test_case_add_and_run_use_the_draft_and_the_simulator(api, capsys, tmp_path):
+    from backend.flow.test_simulate import BAD_CASE, OK_CASE, bmi_graph
+
+    c, _ = api
+    flow = human_flow(c)
+    (tmp_path / "graph.json").write_text(json.dumps(bmi_graph()), encoding="utf-8")
+    code, proposed = run(capsys, "library", "propose", flow["id"], "--file", "graph.json")
+    assert code == 0
+    (tmp_path / "ok.json").write_text(json.dumps(OK_CASE), encoding="utf-8")
+    (tmp_path / "bad.json").write_text(json.dumps(BAD_CASE), encoding="utf-8")
+    code, added = run(capsys, "library", "case", "add", flow["id"], "--file", "ok.json")
+    assert code == 0 and added["caseId"] == "ok" and added["n"] == proposed["n"] + 1
+    code, added = run(capsys, "library", "case", "add", flow["id"], "--file", "bad.json")
+    code, again = run(capsys, "library", "case", "add", flow["id"], "--file", "ok.json")  # stejné id = nahradí
+    code, shown = run(capsys, "library", "get", flow["id"], "--version", str(again["n"]))
+    assert [x["id"] for x in shown["graph"]["cases"]] == ["bad", "ok"]
+
+    code, ran = run(capsys, "library", "case", "run", flow["id"], "--case", "ok")
+    assert code == 0 and ran["ok"] and ran["expect"] == {"ok": True, "diffs": []} and ran["trace"][3]["out"]["bmi"] == 24.7
+    code, ran = run(capsys, "library", "case", "run", flow["id"], "--case", "bad")
+    assert ran["notify"] == "Neplatná výška" and ran["trace"][2]["branch"] == "false"
+    code, missing = run(capsys, "library", "case", "run", flow["id"], "--case", "nic")
+    assert code == 1 and "nemá případ" in json.dumps(missing, ensure_ascii=False)
+    (tmp_path / "wrong.json").write_text(json.dumps({**OK_CASE, "id": "w", "start": "nope"}), encoding="utf-8")
+    code, refused = run(capsys, "library", "case", "add", flow["id"], "--file", "wrong.json")
+    assert code == 1 and refused["code"] == "library_graph_check"
+    assert refused["errors"] == ["Případ w: start 'nope' není uzel grafu."]

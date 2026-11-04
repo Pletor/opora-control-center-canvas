@@ -6,12 +6,14 @@ Záměr stránky (`kind = page_intent`) navíc musí mít aspoň jeden `intent.e
 Plátno toku (`kind = library_flow`, `docs/navrhy/2026-11-04-knihovna-platna-toku.md` §1–§2) má porty podle `params`
 uzlu (`NodeType.ports_for`), výstup `error` při `onError: errorOutput`, pole uzlu z §1, `notes[]` a `groups[]`;
 kontrola hlídá povinné sub-porty, pravidla skupin a odkazy `$('<id uzlu>')`, vrstvu uzlu (`layer`) a hranu
-mezi vrstvami (`via`, tvar `data`; `docs/navrhy/2026-11-04-platno-procesu.md` §1–§2). Ostatní druhy pole navíc ignorují.
+mezi vrstvami (`via`, tvar `data`; `docs/navrhy/2026-11-04-platno-procesu.md` §1–§2) a případy `cases[]` (§3,
+`cases.py`). Ostatní druhy pole navíc ignorují.
 """
 
 import re
 from collections import Counter
 
+from backend.flow.cases import case_errors
 from backend.flow.catalogs.page_intent import REQUIRED_TYPES
 from backend.flow.layer_check import edge_errors
 from backend.flow.node_spec import LAYERS, Port
@@ -86,6 +88,7 @@ def graph_errors(graph, registry=NODE_TYPES, kind=None):
                    for p in found if p.required and (nid, p.name, p.direction) not in connected]
         errors += [error for node in valid for error in _node_field_errors(node, types)]
         errors += _note_errors(graph.get("notes", [])) + _group_errors(graph.get("groups", []), types, links)
+        errors += case_errors(graph.get("cases", []), types.keys())
     return errors
 
 

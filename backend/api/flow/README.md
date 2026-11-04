@@ -4,6 +4,7 @@ Router engine toků (`backend/flow/`, kontrakt `docs/navrhy/2026-11-03-novy-zakl
 |---|---|
 | `GET /api/flow/node-types?kind=` | registr typů uzlů s `params` a porty (`name`, `direction`, `kind`, `cardinality`, `schema`) pro editor toků; `kind=page_intent` vrátí katalog záměru stránky |
 | `POST /api/flow/node-ports` `{kind, type, params, onError?}` | porty uzlu pro konkrétní `params` (`dynamicPorts`, `onError: errorOutput` = výstup `error`) → `{type, ports}`; editor je volá po změně parametru |
+| `POST /api/flow/simulate` `{graph, caseId?, case?}` | přehraje případ plátna procesu (čtení, žádný zápis ani `require_human`) → `{ok, result, trace, expect, tables, notify}`; 422 česky při špatném vstupu |
 | `POST /api/flow/graph-check` `{kind, graph}` | ověření grafu bez zápisu podle katalogu druhu → `{ok, errors}` (srdce `intent propose --dry-run`) |
 | `GET /api/flow/page-intents?project=` | `{pages: [{pageId, state, workflowId?, activeN?, candidateN?, doneCount}]}` pro každou stránku přijatého grafu projektu (`site.kind = page`), `state` ∈ `none` / `pending` / `approved` / `stale` (`backend/flow/page_intents.py`); neznámý projekt 404 |
 | `GET /api/flow/workflows?project=&kind=&owner_ref=` | sdílená workflow a workflow projektu, u každého aktivní verze |
