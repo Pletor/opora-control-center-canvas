@@ -12,6 +12,8 @@ import ProposalBar from "../library-versions/components/ProposalBar";
 import { pendingProposal, pickFlowVersion } from "../library-versions/logic/library-versions";
 import CommandBar from "../command-bar/components/CommandBar";
 import DrawingBar from "../command-bar/components/DrawingBar";
+import EmptyPrompt from "../command-bar/components/EmptyPrompt";
+import { showsEmptyPrompt } from "../command-bar/logic/empty-prompt";
 import { commandNodeIds } from "../command-bar/logic/command-bar";
 import { useCommandBar } from "../command-bar/logic/use-command-bar";
 import BriefDialog from "../library-brief/components/BriefDialog";
@@ -64,6 +66,8 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
   const command = useCommandBar({ project, workspace, flowId, viewing, nodeIds, versions, reload: data.reload,
     onWrote: () => { if (!edited) setViewId(null); setNotice("Srdce nakreslilo návrh do draftu."); } });
 
+  const emptyPrompt = showsEmptyPrompt(graph.nodes.length, play.active, command.phase !== "idle");
+
   const run = async <T,>(action: () => Promise<T>, done: (result: T) => void) => {
     setBusy(true);
     try { done(await action()); } catch (error) { setNotice(error instanceof Error ? error.message : String(error)); } finally { setBusy(false); }
@@ -97,19 +101,22 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
     {proposal && <ProposalBar proposal={proposal} summary={diff && diffSummary(diff)} viewing={showsProposal} busy={busy} onView={() => view(proposal.id)}
       onAccept={() => write(() => activateVersion(proposal), `Návrh srdce přijat, v${proposal.n} je aktivní.`)}
       onReject={() => { const reason = window.prompt("Proč návrh srdce zamítnout?", "Návrh zamítnut člověkem."); if (reason?.trim()) write(() => rejectVersion(proposal.id, reason.trim()), "Návrh srdce zamítnut."); }}/>}
-    {command.open && <CommandBar selection={nodeIds} busy={command.busy} error={command.error} onSubmit={command.send} onClose={() => command.setOpen(false)}/>}
+    {command.open && !emptyPrompt && <CommandBar selection={nodeIds} busy={command.busy} error={command.error} onSubmit={command.send} onClose={() => command.setOpen(false)}/>}
     {command.phase !== "idle" && <DrawingBar phase={command.phase} seconds={command.seconds} onCancel={command.cancel} onOpenAssistant={onOpenAssistant}/>}
     <LibraryVersionBar versions={versions} viewing={viewing} dirty={!!edited} busy={busy} readOnly={false} onView={view} onDiscard={() => setEdited(null)}
       onSaveDraft={() => edited && write(() => saveFlowDraft(flowId, edited, viewing?.id ?? null), "Uloženo jako nový draft.")}
       onActivate={() => viewing && write(() => activateVersion(viewing), `Verze v${viewing.n} je aktivní.`)}
       onRollback={() => write(() => rollbackFlow(flowId), "Vráceno na předchozí verzi.")}/>
+    {graph.nodes.length > 0 && <div className="library-canvas__run">
     <FlowCasesBar cases={cases} nodes={graph.nodes} selectedId={current?.id ?? null} marks={marks} disabled={play.active}
       onSelect={setCaseId} onAdd={() => { const made = addCase(graph); setEdited(made.graph); setCaseId(made.added.id); }}
       onRemove={(id) => setEdited(removeCase(graph, id))} onChange={(item) => setEdited(setCase(graph, item))}/>
     <FlowPlayBar play={play} canRun={!!current} onRun={() => current && play.run(current)}/>
+    </div>}
     <div className="library-canvas__editor">
+      {emptyPrompt && <EmptyPrompt busy={command.busy} error={command.error} onSubmit={command.send}/>}
       <FlowEditor graph={graph} types={data.types} readOnly={false} diff={diff} selected={node} onSelect={setNode} onChange={setEdited}
-        frames play={play} onPick={setPicked} tools={<button type="button" className="flow-editor__tool" data-testid="library-command-open" title="Zadání pro srdce (klávesa / nebo Ctrl+K)" onClick={() => command.setOpen(true)}>Zadání</button>} nodePorts={checks.nodePorts} checkErrors={checks.errors ?? []}/>
+        frames play={play} onPick={setPicked} tools={<button type="button" className="flow-editor__tool flow-editor__tool--primary" data-testid="library-command-open" title="Zadání pro srdce (klávesa / nebo Ctrl+K)" onClick={() => command.setOpen(true)}>Zadání</button>} nodePorts={checks.nodePorts} checkErrors={checks.errors ?? []}/>
     </div>
     {briefOpen && <BriefDialog flowId={flowId} version={viewing?.n ?? null} onClose={() => setBriefOpen(false)}/>}
   </section>;

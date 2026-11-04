@@ -6,6 +6,8 @@
 .flow-editor__main { position: relative; display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .flow-editor__tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 12px; }
 .flow-editor__tool { padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; }
+/* Hlavní tlačítko pásu (u knihovny „Zadání“): akcentový okraj a tučně, aby se mezi ostatními nástroji nehledalo. */
+.flow-editor__tool--primary { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .flow-editor__tool:hover { border-color: var(--accent); }
 .flow-editor__edge { display: flex; gap: 8px; align-items: center; color: var(--ink-2); font-family: var(--mono, monospace); }
 .flow-editor__message { color: var(--danger); }
