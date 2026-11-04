@@ -153,3 +153,27 @@ def test_worktree_gives_up_when_every_folder_is_taken(tmp_path, monkeypatch):
     monkeypatch.setattr(canvas_service.uuid, "uuid4", lambda: uuid_module.UUID(taken))
     with pytest.raises(ValueError):
         s._add_worktree(p["id"], "node1", "Agent A")
+
+
+def test_only_server_start_interrupts_jobs_of_a_previous_process(tmp_path):
+    first = CanvasService(tmp_path / "data")
+    with first.db:
+        first.db.execute("INSERT INTO jobs VALUES('j1','sync','running','Probíhá.',NULL,'2026-11-04T00:00:00Z')")
+    first.close()
+    tool = CanvasService(tmp_path / "data")  # nástroj nad stejnými daty živého serveru
+    assert tool.bootstrap()["jobs"][0]["status"] == "running"
+    tool.interrupt_orphan_jobs()  # start serveru (lifespan v backend/app/factory.py)
+    assert tool.bootstrap()["jobs"][0]["status"] == "interrupted"
+    tool.close()
+
+
+def test_unexpected_job_error_fails_the_job_instead_of_leaving_it_running(tmp_path):
+    service = CanvasService(tmp_path / "data")
+
+    def broken():
+        raise RuntimeError("neočekávané")
+
+    service.job("sync", broken)
+    service.pool.shutdown(wait=True)
+    assert service.bootstrap()["jobs"][0]["status"] == "failed"
+    service.close()

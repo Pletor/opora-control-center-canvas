@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import sqlite3
@@ -49,6 +50,7 @@ from database.repositories.opora_context_bindings import install as install_cont
 from database.schema.project_initialization import initialize_project_schema
 from database.schema.project_schema import REGISTRY_SCHEMA, ensure_flow_owner_ref
 
+LOGGER = logging.getLogger(__name__)
 # Vrstva kresby skici momentu storyboardu: sb/<nodeId>/<momentId>.
 _SKETCH_LAYER = re.compile(r"sb/(?P<node>[A-Za-z0-9_-]{1,80})/(?P<moment>m-[0-9a-f]{8})")
 # Verzovaný graf v cílovém repu se už jen čte (main = Git HEAD). Pracovní prostory mají graf v datech plátna.
@@ -137,10 +139,6 @@ class CanvasService:
         self.drawing_files = DrawingFileStore(self)
         self.specs = NodeSpecStore(self)
         self.removals = RemovalService(self)
-        self.db.execute(
-            "UPDATE jobs SET status='interrupted',message='Proces skončil před dokončením.' WHERE status IN ('queued','running')"
-        )
-        self.db.commit()
         self.project_hub = ProjectHub(self)
         self.texts = NodeTextStore(self)
         self.workspace_sources = WorkspaceSources(self)
@@ -1012,6 +1010,13 @@ class CanvasService:
                 return wid, directory
         raise ValueError("Nepodařilo se najít volnou složku pro pracovní prostor; zkuste to znovu.")
 
+    def interrupt_orphan_jobs(self):
+        """Jen start serveru: úlohy z minulého procesu už nikdo nedokončí. Nástroje nad stejnými daty to nevolají."""
+        with self.registry_lock, self.db:
+            self.db.execute(
+                "UPDATE jobs SET status='interrupted',message='Proces skončil před dokončením.' WHERE status IN ('queued','running')"
+            )
+
     def job(self, kind, action, pid=None):
         with self.registry_lock, self.db:
             self.db.execute("BEGIN IMMEDIATE")
@@ -1037,7 +1042,9 @@ class CanvasService:
             try:
                 result = action()
                 update("complete", "Dokončeno a ověřeno.", result or pid)
-            except (OSError, ValueError, subprocess.SubprocessError):
+            except Exception as error:
+                if not isinstance(error, (OSError, ValueError, subprocess.SubprocessError)):
+                    LOGGER.exception("Úloha %s (%s) spadla na neočekávané chybě.", jid, kind)
                 update(
                     "failed",
                     "Operace selhala; ověřte přístup ke GitHubu, stav repozitáře a dostupnost sítě. Žádný push nebo merge nebyl proveden.",

@@ -66,3 +66,18 @@ def test_disabled_heart_leaves_the_engine_without_the_heart_hook(tmp_path):
     app = create_app(tmp_path / "data")  # OPORA_HEART=off (backend/conftest.py)
     with TestClient(app, base_url="http://127.0.0.1:8740"):
         assert app.state.flow.hooks == []
+
+
+def test_failed_activity_record_still_writes_the_outbox_event(tmp_path, monkeypatch):
+    from backend.app import factory
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("záznam")
+
+    bridged = []
+    monkeypatch.setattr(factory.ActivityLog, "record", broken)
+    monkeypatch.setattr(factory, "bridge_activity", lambda *args, **kwargs: bridged.append(kwargs["path"]))
+    origin = "http://127.0.0.1:8740"
+    with TestClient(factory.create_app(tmp_path / "data"), base_url=origin) as client:
+        assert client.post("/api/neznama-cesta", headers={"origin": origin}, json={}).status_code == 404
+    assert bridged == ["/api/neznama-cesta"]

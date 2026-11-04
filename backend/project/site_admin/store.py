@@ -21,7 +21,7 @@ from backend.project.site_admin.tokens import SiteAdminInvalid
 FILE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,126}[A-Za-z0-9_-]\.[A-Za-z0-9]{2,5}$|^[A-Za-z0-9]\.[A-Za-z0-9]{2,5}$")
 RESERVED = {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(10)), *(f"lpt{i}" for i in range(10))}
 ASSET_LIMIT, SVG_LIMIT, FONT_LIMIT = 10 * 1024 * 1024, 2 * 1024 * 1024, 2 * 1024 * 1024
-UNSAFE_SVG = re.compile(rb"<script|<foreignobject|\son[a-z]+\s*=|javascript:|<iframe|<embed|<object", re.IGNORECASE)
+UNSAFE_SVG = re.compile(rb"<script|<foreignobject|[\s/\"']on[a-z]+\s*=|javascript:|&#|<iframe|<embed|<object", re.IGNORECASE)
 ASSET_TYPES = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "gif": "image/gif",
                "webp": "image/webp", "svg": "image/svg+xml", "mp4": "video/mp4", "webm": "video/webm",
                "pdf": "application/pdf"}

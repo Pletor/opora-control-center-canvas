@@ -108,6 +108,23 @@ def test_cancelled_execution_fails_the_ticket_and_without_ticket_nothing_happens
     assert failed["executionId"] == record["executionId"]
 
 
+def test_failed_event_error_rolls_back_the_ticket_move(service, authority, monkeypatch):  # noqa: F811
+    office, tid = worker(service), issued(service)
+    record = claim_execution(authority)
+    send(service, office, "ticket.claim", {"ticketId": tid, "executionId": record["executionId"]})
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("outbox")
+
+    monkeypatch.setattr(ticket_lifecycle, "emit_event", broken)
+    db = service.db_for("draft")
+    with db:
+        db.execute("UPDATE opora_executions SET record=json_set(record,'$.state','cancelled') WHERE id=?",
+                   (record["executionId"],))
+        assert ticket_lifecycle.safe_follow(db, "draft", record["executionId"]) is None
+    assert status(service, tid) == "claimed"  # posun bez události se necommitne
+
+
 def test_release_returns_a_claimed_ticket_to_the_queue(service, authority):  # noqa: F811
     office, other, tid = worker(service), worker(service, "office-2"), issued(service)
     record = claim_execution(authority)
