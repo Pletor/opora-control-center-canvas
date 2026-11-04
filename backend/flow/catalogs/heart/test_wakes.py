@@ -6,6 +6,7 @@ import pytest
 from backend.brain_opora.determinism import brain_files, gate, gate_setting, kinds
 from backend.brain_opora.heart import batch
 from backend.brain_opora.heart.process import Outcome
+from backend.app.remote_access import is_loopback_only
 from backend.canvas.canvas_service import CanvasService
 from backend.flow.catalogs.heart import state, wakes
 from backend.flow.catalogs.heart.conftest import OK, Clock, Runner
@@ -370,8 +371,9 @@ def test_status_shows_the_running_batch_with_its_inputs_and_clears_it_after(setu
     _, heart, _, _, engine = setup
     seen = []
 
-    def watching(line, *, cwd, env, stdin_text, timeout):
-        seen.append(heart.status("draft")["current"])
+    def watching(line, *, cwd, env, stdin_text, timeout, on_line=None):
+        on_line(json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": "Čtu snímek."}]}}))
+        seen.append(json.loads(json.dumps(heart.status("draft")["current"])))  # kopie: seznam kroků dál roste
         return Outcome(0, json.dumps(OK), "")
 
     heart.runner = watching
@@ -381,4 +383,8 @@ def test_status_shows_the_running_batch_with_its_inputs_and_clears_it_after(setu
     assert seen[0]["startedAt"] == "1970-01-12T13:46:40Z"
     assert [(item["type"], item["text"]) for item in seen[0]["inputs"]] == [("message", "Přidej stránku kontaktů.")]
     assert seen[0]["startedAt"] == heart.status("draft")["batches"][-1]["at"]  # stejný čas jako deník dávek
+    assert [(step["kind"], step["text"]) for step in seen[0]["steps"]] == [("text", "Čtu snímek.")]  # kroky za běhu
     assert heart.status("draft")["current"] is None
+    assert heart.status("draft")["typicalMs"] is not None  # medián z jedné úspěšné dávky se zprávou
+    assert heart.status("draft")["batches"][-1]["steps"][0]["text"] == "Čtu snímek."
+    assert is_loopback_only("/api/brain/heart/status")  # kroky nejdou přes tunel

@@ -91,13 +91,14 @@ def _agent(ctx, runtime):
     with service.registry_lock:  # skilly srdce = aktivní verze v Brainu (pin jde do záznamu dávky)
         skills = command.heart_skills(service.db, service.root)
     with heart.lock:
-        heart.current[project] = {"startedAt": iso_utc(heart.clock()), "inputs": inputs}
+        heart.current[project] = {"startedAt": iso_utc(heart.clock()), "inputs": inputs, "steps": []}
     spec = batch.BatchSpec(brain=heart.brain(project), claude=claude, base_url=heart.base_url,
                            token=heart._token(project, workspace), project=project, workspace=workspace,
                            snapshot=data["snapshot"], skills=skills, inputs=inputs,
                            source_root=heart._source(project, workspace),
                            model=model["model"], advisor_model=model["advisor"],
-                           subcommands=_subcommands(ctx["config"].get("tool") or []))
+                           subcommands=_subcommands(ctx["config"].get("tool") or []),
+                           steps=heart.current[project]["steps"])
     entry = batch.run(spec, heart.runner, heart.clock)
     heart.errors.pop(project, None)
     if entry["status"] == "rate_limited":

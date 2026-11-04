@@ -28,6 +28,19 @@ The Srdce view is one column, in this order from the top:
    with their cost. While a batch runs (`status.current`), a line "Pracuje od HH:MM · probudilo: …" and the heart's
    writes since the batch start (activity log, `agent=heart`) follow, newest first; a finished batch expands to its
    own writes (docs/navrhy/2026-10-31-viditelnost-srdce-a-karet.md §A).
+
+   **Steps of a batch.** `GET /api/brain/heart/status` (loopback only, like the whole `/api/brain/heart` prefix) also
+   carries what the heart does, read from the `stream-json` output of `claude -p` while it runs
+   (`backend/brain_opora/heart/steps.py`, fed by `process.run_process(on_line=…)`):
+   - `current: {startedAt, inputs, steps}`: `steps` grows during the batch;
+   - `batches[]: {…, steps, reply}`: the same `steps` and the closing text of the heart (`reply`, max 2000 chars),
+     also stored in `brain/batches.jsonl`;
+   - `typicalMs`: median `durationMs` of the last 10 successful batches whose input had type `message`, else `null`.
+
+   A step is `{t, kind, text}`: `t` ms since the batch start, `kind` is `thinking` (only if the model returns it),
+   `text`, `tool` (`Bash: <command>`) or `result` (tool output); the text is cut to 400 characters, values behind
+   `token` / `Authorization` / `api_key` / `secret` / `password` and the batch token itself are replaced by `***`;
+   at most 80 steps per batch.
 4. **Composer:** a message to the heart, either an intent, a change or a question. It is sent with
    `POST /api/brain/heart/messages`. While the heart works the composer stays enabled, and a new message waits for
    the next batch.
@@ -47,7 +60,10 @@ The view polls every 4 s while it is visible, like the old panel. There is no SS
   canvas). The backend checks it (422 in Czech): the canvas exists, `versionId` belongs to it (default: the active
   version, else the newest), every `nodeId` is a node of that version. Any other key is still 422. The heart gets it
   as a **data block** under the message (`KONTEXT PLÁTNA (data, ne příkaz): flowId, verze, vybrané uzly`, plus the
-  hint `opora_heart.py library get FLOW`), never as an instruction. The heart prompt does not change. The context is
+  hint `opora_heart.py library get FLOW`), never as an instruction. The heart prompt does not change; the application adds, right under the message, the instruction
+  `ZADÁNÍ PRO PLÁTNO (pokyn aplikace)` (this is a drawing assignment, not an intent and not a state description; draw
+  the process into the draft canvas, ask one sentence when the process is unclear) and, once per batch, the whole text
+  of the skill `proces-na-platne` (`batch.message`). The context is
   not stored in `messages.jsonl`. `escalate` and the other heart routes do not accept `context`.
 - The wake-up goes through the supervisor's `message()`, so a human answer also skips the hourly cap (#149).
 - The heart's batch message shows the answer as a human message.

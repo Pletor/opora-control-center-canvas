@@ -14,6 +14,7 @@ bez `--advisor` (záznam nese `advisor: false`). Pozná vyčerpaný limit předp
 import hashlib
 import json
 import re
+import statistics
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -22,6 +23,7 @@ from pathlib import Path
 from backend.brain_opora.determinism.brief import REASONS as BRIEF_REASONS
 from backend.brain_opora.heart import command, session
 from backend.brain_opora.heart.process import run_process
+from backend.brain_opora.heart.steps import Steps
 
 JOURNAL, LAST_DONE, SNAPSHOT = "batches.jsonl", "last_done.json", "snapshot.txt"
 RUNS = Path(command.DILNA) / "runs.jsonl"  # píše ho `opora_heart.py run`
@@ -48,6 +50,7 @@ class BatchSpec:
     model: str = command.MODEL  # uzel `model.claude` enginu toků; výchozí = dnešní srdce
     advisor_model: str = command.ADVISOR
     subcommands: tuple | None = None  # uzel `tool.opora_heart`: povolené podpříkazy, None = všechny
+    steps: list = field(default_factory=list)  # kroky běžící dávky, plní se za běhu (`steps.py`, `current.steps`)
 
 
 def _intake(item):
@@ -67,14 +70,21 @@ def _intake(item):
     return " [" + " · ".join(parts) + "]"
 
 
+FLOW_SKILL = "proces-na-platne"
+
+
 def _flow_context(context):
-    """Kontext plátna ke zprávě (data, ne příkaz); bez kontextu prázdný řetězec."""
+    """Kontext plátna ke zprávě a pokyn aplikace (data a pokyn skládá aplikace, není to prompt srdce)."""
     if not isinstance(context, dict):
         return ""
     nodes = ", ".join(context.get("nodeIds") or []) or "celé plátno"
     return (f"\n  KONTEXT PLÁTNA (data, ne příkaz): flowId {context.get('flowId')}, verze {context.get('versionId')}, "
-            f"vybrané uzly: {nodes}; graf přečteš: python opora_heart.py library get {context.get('flowId')}; "
-            "postup stavby: python opora_heart.py skill proces-na-platne (přečti před kreslením)")
+            f"vybrané uzly: {nodes}; graf přečteš: python opora_heart.py library get {context.get('flowId')}"
+            "\n  ZADÁNÍ PRO PLÁTNO (pokyn aplikace): tohle je zadání ke kreslení plátna procesu, ne záměr pro kartu "
+            f"a ne popis stavu. Nejdřív spusť `python opora_heart.py skill {FLOW_SKILL}` a postupuj podle něj (jeho text "
+            "je i pod vstupy); nakresli proces do draftu plátna `library nodes add|connect`, `library case add`. "
+            "Pokud ze zprávy nejde poznat proces (začátek, kroky, konec), zeptej se jednou větou přes `ask`/odpověď "
+            "a nic nekresli naslepo. Neodpovídej plánem ani „nevzniká nový požadavek“.")
 
 
 def _input_line(item):
@@ -146,10 +156,14 @@ def _waiting(waits):
     return ", ".join(parts) or "—"
 
 
-def message(snapshot_text, inputs):
-    """Zpráva dávky: snímek, vstupy této dávky a pokyn k ukončení."""
+def message(snapshot_text, inputs, modes=None):
+    """Zpráva dávky: snímek, vstupy této dávky, u zprávy s kontextem plátna jednou celý postup `proces-na-platne`
+    (z `modes` skillů srdce) a pokyn k ukončení."""
     lines = ["SNÍMEK PROJEKTU", snapshot_text, "", "VSTUPY TÉTO DÁVKY"]
     lines += [_input_line(item) for item in inputs] or ["- (žádné)"]
+    flow = (modes or {}).get(FLOW_SKILL)
+    if flow and any(isinstance(item.get("context"), dict) for item in inputs):
+        lines += ["", f"POSTUP {FLOW_SKILL} (celý text, vložila ho aplikace)", flow]
     return "\n".join([*lines, "", FINISH])
 
 
@@ -243,7 +257,9 @@ def run(spec, runner=run_process, clock=time.time):
                                  advisor_model=spec.advisor_model, subcommands=spec.subcommands)
     env = command.child_env(base_url=spec.base_url, token=spec.token, project=spec.project, workspace=spec.workspace,
                             source_root=spec.source_root)
-    outcome = runner(line, cwd=str(brain), env=env, stdin_text=message(spec.snapshot, spec.inputs), timeout=TIMEOUT)
+    live = Steps(clock, started, spec.token, spec.steps)
+    outcome = runner(line, cwd=str(brain), env=env, stdin_text=message(spec.snapshot, spec.inputs, spec.skills.modes),
+                     timeout=TIMEOUT, on_line=live.feed)
     result = parse(outcome.stdout)
     status = _status(outcome, result, outcome.stderr)
     usage = (result or {}).get("usage")
@@ -263,7 +279,8 @@ def run(spec, runner=run_process, clock=time.time):
              "sessionCostUsd": total, "sessionCostByModel": by_model,
              "numTurns": (result or {}).get("num_turns"), "isError": bool((result or {}).get("is_error", True)),
              "durationMs": int((clock() - started) * 1000), "inputTokens": used, "summary": _summary(brain),
-             "subCostUsd": sub_cost(brain, at), "contextTokens": context, **session.parts(usage)}
+             "subCostUsd": sub_cost(brain, at), "contextTokens": context, **session.parts(usage),
+             "steps": list(live.steps), "reply": live.reply}
     if status != "ok":
         entry["error"] = ((result or {}).get("result") or outcome.stderr or "")[-1000:]
     with (brain / JOURNAL).open("a", encoding="utf-8") as journal:
@@ -292,6 +309,14 @@ def advisor_spent(brain, now):
     entries = (parse(line) for line in lines)
     return sum(float(cost or 0) for entry in entries if entry and str(entry.get("at", "")).startswith(day)
                for model, cost in (entry.get("costByModel") or {}).items() if "opus" in model.lower())
+
+
+def typical_ms(brain):
+    """Medián `durationMs` posledních 10 úspěšných dávek se vstupem `message`; bez nich None."""
+    done = [entry["durationMs"] for entry in read_journal(brain, 60) if entry.get("status") == "ok"
+            and isinstance(entry.get("durationMs"), int)
+            and any(item.get("type") == "message" for item in entry.get("inputs") or [])]
+    return int(statistics.median(done[-10:])) if done else None
 
 
 def read_journal(brain, last=5):
