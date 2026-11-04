@@ -4,7 +4,7 @@ import type { VoicePrefs } from "../logic/voice-prefs";
 /**
  * Dva přepínače vedle mikrofonu: Konverzace (po domluvení se mikrofon sám zapne, jinak jedna věta a konec)
  * a Hlas (odpovědi nahlas i na psané zprávy). Pod nimi volba hlasu seskupená podle enginu (XTTS, ElevenLabs, Edge,
- * Piper, Prohlížeč); nedostupný hlas je vidět, ale nejde zvolit, a důvod ukáže tooltip; ElevenLabs ukazuje zbývající znaky. `chosen` je hlas, kterým se
+ * Piper, Prohlížeč); nedostupný hlas je vidět, ale nejde zvolit, a důvod ukáže tooltip; skupina ElevenLabs (Brian, Bill, vlastní hlas) ukazuje zbývající znaky účtu. `chosen` je hlas, kterým se
  * skutečně čte (`null` = prohlížeč). Uložení drží rodič; bez mikrofonu Konverzace chybí.
  */
 export default function PletorVoiceToggles({ prefs, canListen, voices, chosen, onChange }: {

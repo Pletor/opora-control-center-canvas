@@ -1,6 +1,7 @@
 """Hlasy Pletora ze čtyř enginů za jedním seznamem a jednou routou (`GET /api/pletor/voices`, `POST /api/pletor/tts`).
 
-Pořadí je zároveň výchozí volba okna: XTTS (lokální GPU, nejkvalitnější) → ElevenLabs (placený cloud) → Edge
+Pořadí je zároveň výchozí volba okna: XTTS (lokální GPU, nejkvalitnější) → ElevenLabs (placený cloud; Brian, Bill,
+`custom` z `.env`) → Edge
 (cloud) → Piper (lokální CPU). Id hlasu nese engine (`xtts:…`, `elevenlabs:…`, `edge:…`, jinak Piper), takže
 stačí jedno pole `voice`.
 """
@@ -13,7 +14,7 @@ from backend.pletor.elevenlabs import client as eleven
 def engine(voice):
     if voice in tts_xtts.VOICES:
         return "xtts"
-    if voice == eleven.VOICE:
+    if voice.startswith(eleven.PREFIX):
         return "elevenlabs"
     return "edge" if voice in tts_edge.VOICES else "piper"
 
@@ -24,8 +25,8 @@ def voices(folder, vram=None):
     free = (vram or tts_xtts.free_vram_mb)()
     found = [(voice, label, gender, "xtts", tts_xtts.reason(folder, voice, lambda: free), None)
              for voice, (label, gender) in tts_xtts.VOICES.items()]
-    reason, quota = eleven.status()
-    found.append((eleven.VOICE, eleven.label(), "male", "elevenlabs", reason, quota))
+    found += [(eleven.PREFIX + key, label, "male", "elevenlabs", *eleven.status(key))
+              for key, (_, label) in eleven.voices().items()]
     edge = tts_edge.reason()
     found += [(voice, label, gender, "edge", edge, None) for voice, (label, gender) in tts_edge.VOICES.items()]
     downloaded = {voice["id"] for voice in tts.available(folder)["available"]}
@@ -64,7 +65,7 @@ async def speak(folder, text, voice):
                 yield chunk
         return "audio/mpeg", rest()
     if engine(voice) == "elevenlabs":
-        return "audio/mpeg", await run_in_threadpool(eleven.stream, text)
+        return "audio/mpeg", await run_in_threadpool(eleven.stream, text, voice)
     if engine(voice) == "xtts":
         return tts_xtts.MEDIA, await run_in_threadpool(tts_xtts.stream, folder, text, voice)
     return "audio/wav", await run_in_threadpool(tts.synthesize, folder, text, voice)

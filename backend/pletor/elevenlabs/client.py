@@ -2,8 +2,9 @@
 
 Klíč `ELEVENLABS_API_KEY` je tajný: bere se z prostředí procesu, jinak z `.env` v kořeni repa (jen řádky
 `ELEVENLABS_*`), posílá se jen v hlavičce `xi-api-key` a nikdy se nevrací klientovi ani nepíše do logu či chyb.
-Dostupnost se ověřuje bez spotřeby znaků (`GET /v1/voices` + `GET /v1/user/subscription`, cache 60 s);
-selhání syntézy (403 tarif, 401 klíč, limit) hlas do dalšího ověření označí za nedostupný s důvodem.
+Hlasů je víc (`elevenlabs:brian`, `elevenlabs:bill`, `elevenlabs:custom` z `.env`). Dostupnost se ověřuje bez
+spotřeby znaků (`GET /v1/user/subscription` jednou za účet, `GET /v1/voices` za hlas, cache 60 s); selhání syntézy
+(403 tarif, 401 klíč, limit) do dalšího ověření označí za nedostupný jen ten hlas, který selhal.
 """
 import json
 import os
@@ -14,11 +15,13 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from backend.pletor.tts import EngineMissing
+from backend.pletor.tts import EngineMissing, VoiceMissing
 
 API = "https://api.elevenlabs.io/v1"
 ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
-VOICE = "elevenlabs:voice"
+PREFIX = "elevenlabs:"
+LEGACY = "elevenlabs:voice"  # jediný hlas do #334; uložená volba se mapuje na `custom`, jinak na `brian`
+PREMADE = {"brian": ("Brian", "Brian · hluboký, konejšivý"), "bill": ("Bill", "Bill · moudrý, vyrovnaný")}
 TTL = 60
 CHECK_TIMEOUT = 5
 SPEAK_TIMEOUT = 20
@@ -26,7 +29,8 @@ FORMAT = "mp3_44100_128"  # MP3 jako Edge: okno ho dekóduje stejně
 PAID_VOICES = {"free", "starter"}  # profesionální klon (PVC) chce tarif Creator a výš
 
 _lock = threading.Lock()
-_state = {"voice_id": None, "category": None, "checked": 0.0, "reason": None, "quota": None}
+_account = {"checked": 0.0, "reason": None, "quota": None}  # klíč, síť a kvóta platí pro všechny hlasy
+_voices = {}  # klíč hlasu → {voice_id, category, checked, reason}: selhání jednoho hlasu nezhasne ostatní
 
 
 def settings(environ=None, env_file=None):
@@ -44,11 +48,28 @@ def settings(environ=None, env_file=None):
                   if key.startswith("ELEVENLABS_") and value})
     return {"key": found.get("ELEVENLABS_API_KEY", ""), "voice": found.get("ELEVENLABS_VOICE") or "Pletor_MH",
             "voice_id": found.get("ELEVENLABS_VOICE_ID") or None,
-            "model": found.get("ELEVENLABS_MODEL") or "eleven_flash_v2_5"}
+            "custom": bool(found.get("ELEVENLABS_VOICE") or found.get("ELEVENLABS_VOICE_ID")),
+            "model": found.get("ELEVENLABS_MODEL") or "eleven_multilingual_v2"}
 
 
-def label():
-    return f"ElevenLabs · {settings()['voice']}"
+def voices(cfg=None):
+    """`{klíč: (jméno na účtu, štítek)}` v pořadí výchozí volby: Brian, Bill, a `custom` jen z `.env`."""
+    cfg = cfg or settings()
+    found = dict(PREMADE)
+    if cfg["custom"]:
+        found["custom"] = (cfg["voice"], cfg["voice"])
+    return found
+
+
+def key(voice, cfg=None):
+    """Id hlasu (`elevenlabs:brian`) → klíč; stará volba `elevenlabs:voice` → `custom`, jinak `brian`."""
+    cfg = cfg or settings()
+    if voice == LEGACY:
+        return "custom" if cfg["custom"] else "brian"
+    name = voice.removeprefix(PREFIX)
+    if name not in voices(cfg):
+        raise VoiceMissing(f"ElevenLabs hlas {voice} nezná (známé: {', '.join(PREFIX + k for k in voices(cfg))})")
+    return name
 
 
 def problem(status, body, voice):
@@ -71,12 +92,12 @@ def problem(status, body, voice):
     return f"ElevenLabs vrátil HTTP {status}"
 
 
-def _open(path, cfg, urlopen, body=None, timeout=CHECK_TIMEOUT):
+def _open(path, cfg, urlopen, body=None, timeout=CHECK_TIMEOUT, voice=""):
     request = urllib.request.Request(f"{API}{path}", body, {"xi-api-key": cfg["key"], "Content-Type": "application/json"})
     try:
         return (urlopen or urllib.request.urlopen)(request, timeout=timeout)
     except urllib.error.HTTPError as error:
-        raise EngineMissing(problem(error.code, error.read(), cfg["voice"])) from None
+        raise EngineMissing(problem(error.code, error.read(), voice)) from None
     except OSError as error:  # síť, DNS, timeout; text chyby neobsahuje hlavičky ani klíč
         raise EngineMissing(f"ElevenLabs neodpověděl: {error.__class__.__name__}") from None
 
@@ -86,69 +107,95 @@ def _json(path, cfg, urlopen):
         return json.loads(response.read())
 
 
-def _voice_id(cfg, urlopen):
-    """Id hlasu: `ELEVENLABS_VOICE_ID`, jinak podle jména přes `GET /v1/voices` (jednou, pak z paměti)."""
-    if cfg["voice_id"]:
+def _state(name):
+    return _voices.setdefault(name, {"voice_id": None, "category": None, "checked": 0.0, "reason": None})
+
+
+def _voice_id(cfg, name, urlopen):
+    """Id hlasu: u `custom` `ELEVENLABS_VOICE_ID`, jinak podle jména přes `GET /v1/voices` (jednou, pak z paměti)."""
+    if name == "custom" and cfg["voice_id"]:
         return cfg["voice_id"]
-    if _state["voice_id"] is None:
+    state, wanted = _state(name), voices(cfg)[name][0]
+    if state["voice_id"] is None:
         for voice in _json("/voices", cfg, urlopen).get("voices", []):
-            name = str(voice.get("name", ""))  # premade hlasy se jmenují „Daniel - Steady Broadcaster“
-            if cfg["voice"].casefold() in (name.casefold(), re.split(r"\s[-–]\s", name, maxsplit=1)[0].casefold()):
-                _state.update(voice_id=voice["voice_id"], category=voice.get("category"))
+            title = str(voice.get("name", ""))  # premade hlasy se jmenují „Brian - Deep, Resonant and Comforting“
+            if wanted.casefold() in (title.casefold(), re.split(r"\s[-–]\s", title, maxsplit=1)[0].casefold()):
+                state.update(voice_id=voice["voice_id"], category=voice.get("category"))
                 break
         else:
-            raise EngineMissing(f"hlas {cfg['voice']} na účtu ElevenLabs není")
-    return _state["voice_id"]
+            raise EngineMissing(f"hlas {wanted} na účtu ElevenLabs není")
+    return state["voice_id"]
 
 
-def _check(cfg, urlopen):
-    """`(důvod, kvóta)` bez spotřeby znaků: hlas existuje, tarif ho smí a zbývají znaky."""
+def _check_account(cfg, urlopen):
+    """`(důvod, kvóta)` účtu bez spotřeby znaků: klíč platí a zbývají znaky."""
     if not cfg["key"]:
         return "chybí ELEVENLABS_API_KEY (prostředí nebo .env v kořeni repa)", None
     try:
         sub = _json("/user/subscription", cfg, urlopen)
         quota = {key: sub.get(key) for key in ("tier", "character_count", "character_limit")}
-        _voice_id(cfg, urlopen)
     except EngineMissing as error:
         return str(error), None
-    except (ValueError, KeyError, TypeError, AttributeError):
+    except (ValueError, TypeError, AttributeError):
         return "ElevenLabs vrátil nečekanou odpověď", None
     if isinstance(quota["character_limit"], int) and (quota["character_count"] or 0) >= quota["character_limit"]:
         return "vyčerpán limit znaků ElevenLabs", quota
-    if _state["category"] == "professional" and quota["tier"] in PAID_VOICES:
-        return f"hlas {cfg['voice']} vyžaduje tarif Creator", quota
     return None, quota
 
 
-def status(urlopen=None, now=time.monotonic):
-    """`(důvod nebo None, kvóta {tier, character_count, character_limit} nebo None)`, cache 60 s."""
-    with _lock:
-        if not _state["checked"] or now() - _state["checked"] >= TTL:
-            reason, quota = _check(settings(), urlopen)
-            _state.update(checked=now(), reason=reason, quota=quota)
-        return _state["reason"], _state["quota"]
+def _check_voice(cfg, name, quota, urlopen):
+    """Proč tenhle hlas nejde (není na účtu, PVC na free tarifu), jinak `None`."""
+    try:
+        _voice_id(cfg, name, urlopen)
+    except EngineMissing as error:
+        return str(error)
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return "ElevenLabs vrátil nečekanou odpověď"
+    if _state(name)["category"] == "professional" and (quota or {}).get("tier") in PAID_VOICES:
+        return f"hlas {voices(cfg)[name][0]} vyžaduje tarif Creator"
+    return None
 
 
-def _remember(reason, now=time.monotonic):
-    """Výsledek skutečné syntézy platí místo kontroly dalších 60 s (403 za tarif tak zůstane vidět)."""
-    with _lock:
-        _state.update(reason=reason, checked=now())
-
-
-def stream(text, urlopen=None):
-    """Text → kousky MP3, jak je cloud posílá. Chyba (tarif, klíč, limit, síť) je `EngineMissing` dřív, než route
-    pošle 200, a do dalšího ověření hlas označí za nedostupný."""
+def status(name, urlopen=None, now=time.monotonic):
+    """`(důvod nebo None, kvóta {tier, character_count, character_limit} nebo None)` hlasu `name`, cache 60 s.
+    Účet (klíč, síť, kvóta) je společný všem hlasům, důvod hlasu má každý vlastní."""
     cfg = settings()
+    with _lock:
+        if not _account["checked"] or now() - _account["checked"] >= TTL:
+            reason, quota = _check_account(cfg, urlopen)
+            _account.update(checked=now(), reason=reason, quota=quota)
+        if _account["reason"]:
+            return _account["reason"], _account["quota"]
+        state = _state(name)
+        if not state["checked"] or now() - state["checked"] >= TTL:
+            state.update(checked=now(), reason=_check_voice(cfg, name, _account["quota"], urlopen))
+        return state["reason"], _account["quota"]
+
+
+def _remember(name, reason, now=time.monotonic):
+    """Výsledek skutečné syntézy platí pro tenhle hlas místo kontroly dalších 60 s (403 za tarif zůstane vidět)."""
+    with _lock:
+        _state(name).update(reason=reason, checked=now())
+
+
+def stream(text, voice, urlopen=None):
+    """Text → kousky MP3 hlasem `voice` (`elevenlabs:brian`…), jak je cloud posílá. Neznámý hlas je `VoiceMissing`,
+    chyba (tarif, klíč, limit, síť) `EngineMissing` dřív, než route pošle 200, a do dalšího ověření zhasne jen
+    tenhle hlas."""
+    cfg = settings()
+    name = key(voice, cfg)
     if not cfg["key"]:
         raise EngineMissing("chybí ELEVENLABS_API_KEY (prostředí nebo .env v kořeni repa)")
     body = json.dumps({"text": text, "model_id": cfg["model"]}).encode()
     try:
-        response = _open(f"/text-to-speech/{_voice_id(cfg, urlopen)}/stream?output_format={FORMAT}", cfg, urlopen,
-                         body, SPEAK_TIMEOUT)
+        with _lock:
+            voice_id = _voice_id(cfg, name, urlopen)
+        response = _open(f"/text-to-speech/{voice_id}/stream?output_format={FORMAT}", cfg, urlopen, body,
+                         SPEAK_TIMEOUT, voices(cfg)[name][0])
     except EngineMissing as error:
-        _remember(str(error))
+        _remember(name, str(error))
         raise
-    _remember(None)
+    _remember(name, None)
 
     def chunks():
         with response:
@@ -158,6 +205,7 @@ def stream(text, urlopen=None):
 
 
 def reset():
-    """Zapomene id hlasu, kvótu i důvod (testy, změna nastavení)."""
+    """Zapomene id hlasů, kvótu i důvody (testy, změna nastavení)."""
     with _lock:
-        _state.update(voice_id=None, category=None, checked=0.0, reason=None, quota=None)
+        _account.update(checked=0.0, reason=None, quota=None)
+        _voices.clear()
