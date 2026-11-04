@@ -23,6 +23,8 @@ Router engine toků (`backend/flow/`, kontrakt `docs/navrhy/2026-11-03-novy-zakl
 | `POST /api/flow/log` `{project, canvas: 2\|3\|4, kind, payload}` | vstup logu pláten 2–4 (`backend/flow/canvas_log.py`); `kind` končící `.failed` probudí srdce; člověk, srdce projektu nebo relace brány téhož projektu (`X-Opora-Gate-Token`), jinak 401/403 jako brána |
 | `GET /api/flow/stalls` | prostoje s důvodem |
 
+Knihovna pláten toku (`library_routes.py`, `backend/flow/library.py`, kontrakt `docs/navrhy/2026-11-04-knihovna-platna-toku.md` §3): `GET /api/library?owner=human|agent`, `POST /api/library/folders`, `PATCH`/`DELETE /api/library/folders/{id}`, `POST /api/library/flows {folder, slug, title}`, `GET /api/library/flows/{id}`, `POST …/adopt {project, nodeId?}`, `…/contribute {folder, slug, title}`, `…/promote {folder?}`. Do části `human` píše jen člověk (`require_human`), do části `agent` člověk nebo relace brány (`X-Opora-Gate-Token`, `worker` / `heart`); `promote` jen člověk, `adopt` jde přes zeď brány projektu. Stejné pravidlo části knihovny hlídá `walled` u zápisů verzí plátna knihovny v `/api/flow/*`; `POST /api/flow/workflows` plátno knihovny bez projektu nezaloží (422).
+
 409 se strojovým důvodem vrací `{error, code}`, ostatní 409 `{detail}`. Člověka pozná router podle `request.state.actor == "human"` (relační doklad UI, `backend/app/human_session.py`) jako ostatní akce „jen člověk“ (`require_human`): token srdce nebo dělníka dostane 403, požadavek bez dokladu 428.
 
 Zápisy procházejí middlewarem aplikace: musí mít stejný Origin a `Content-Type: application/json`. U zápisu bez těla stačí poslat `{}`.

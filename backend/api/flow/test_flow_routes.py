@@ -115,7 +115,7 @@ def test_node_types_expose_ports_for_the_editor():
     assert not any(name.startswith("intent.") for name in types)
     agent = {(p["name"], p["direction"]): p for p in types["agent.claude"]["ports"]}
     assert agent[("model", "in")] == {"name": "model", "direction": "in", "kind": "model", "cardinality": "one",
-                                      "schema": None}
+                                      "schema": None, "required": False, "label": "model"}
     assert agent[("tool", "in")]["cardinality"] == "many"
     assert [p["name"] for p in types["approval.human"]["ports"] if p["direction"] == "out"] == [
         "approved", "rejected", "timeout"]
