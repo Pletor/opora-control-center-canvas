@@ -1,22 +1,27 @@
 /**
- * Hlasy Pletora z backendu (`GET /api/pletor/voices`): XTTS (lokální GPU), Edge (cloud Microsoftu), Piper
- * (lokální CPU) a prohlížeč jako poslední záloha. Pořadí enginů je zároveň výchozí volba a řetězec záloh:
- * nejlepší dostupný hlas čte, a když jeho engine selže, větu přečte další engine v pořadí.
+ * Hlasy Pletora z backendu (`GET /api/pletor/voices`): XTTS (lokální GPU), ElevenLabs (placený cloud), Edge
+ * (cloud Microsoftu), Piper (lokální CPU) a prohlížeč jako poslední záloha. Pořadí enginů je zároveň výchozí
+ * volba a řetězec záloh: nejlepší dostupný hlas čte, a když jeho engine selže, větu přečte další engine v pořadí.
+ * Zvolený lokální hlas nikdy nepadá do cloudu: text, který měl zůstat v počítači, neodejde ani při výpadku.
  */
 import { api } from "@/shared/types/logic/types";
 
-export type Engine = "xtts" | "edge" | "piper";
+export type Engine = "xtts" | "elevenlabs" | "edge" | "piper";
+export type Quota = { tier: string | null; character_count: number | null; character_limit: number | null };
 export type ServerVoice = {
   id: string; label: string; gender: "male" | "female"; engine: Engine; available: boolean; reason: string | null;
+  quota?: Quota | null;
 };
 
 export const BROWSER_VOICE = "browser";
 export const ENGINES: { id: Engine; label: string }[] = [
   { id: "xtts", label: "XTTS · lokální GPU" },
+  { id: "elevenlabs", label: "cloud · ElevenLabs · text opouští počítač" },
   { id: "edge", label: "Edge · cloud · Microsoft · text opouští počítač" },
   { id: "piper", label: "Piper · lokální CPU" },
 ];
 const ORDER = ENGINES.map((engine) => engine.id);
+const CLOUD: Engine[] = ["elevenlabs", "edge"];
 
 /** Platné hlasy seřazené podle enginu (XTTS → Edge → Piper); neznámý engine se zahodí. */
 export function parseVoices(value: unknown): ServerVoice[] {
@@ -32,19 +37,24 @@ export function parseVoices(value: unknown): ServerVoice[] {
 export const fetchVoices = (warm: string | null) =>
   api<unknown>(`/api/pletor/voices${warm ? `?warm=${encodeURIComponent(warm)}` : ""}`).then(parseVoices, () => []);
 
-/** Hlas ke čtení, nebo `null` = prohlížeč. Bez volby (nebo s nedostupným hlasem) nejlepší dostupný podle pořadí. */
+/** Hlas ke čtení, nebo `null` = prohlížeč. Bez volby (nebo s nedostupným hlasem) nejlepší dostupný podle pořadí;
+ *  za nedostupný lokální hlas jen jiný lokální. */
 export function chosenVoice(pref: string | null, voices: ServerVoice[]): string | null {
   if (pref === BROWSER_VOICE) return null;
-  const usable = voices.filter((voice) => voice.available);
+  const saved = voices.find((voice) => voice.id === pref);
+  const localOnly = !!saved && !CLOUD.includes(saved.engine);
+  const usable = voices.filter((voice) => voice.available && !(localOnly && CLOUD.includes(voice.engine)));
   return usable.find((voice) => voice.id === pref)?.id ?? usable[0]?.id ?? null;
 }
 
 /** Zvolený hlas a za ním po jednom dostupném hlasu z každého dalšího enginu v pořadí (raději stejný rod).
- *  Prázdný = prohlížeč. */
+ *  Za lokálním hlasem jen lokální enginy, za cloudovým další cloud a nakonec lokální. Prázdný = prohlížeč. */
 export function voiceChain(chosen: string | null, voices: ServerVoice[]): string[] {
   const first = voices.find((voice) => voice.id === chosen);
   if (!first) return [];
-  const later = ORDER.slice(ORDER.indexOf(first.engine) + 1).map((engine) => {
+  const local = !CLOUD.includes(first.engine);
+  const engines = ORDER.slice(ORDER.indexOf(first.engine) + 1).filter((engine) => !local || !CLOUD.includes(engine));
+  const later = engines.map((engine) => {
     const usable = voices.filter((voice) => voice.engine === engine && voice.available);
     return (usable.find((voice) => voice.gender === first.gender) ?? usable[0])?.id;
   });
@@ -55,4 +65,23 @@ export function voiceChain(chosen: string | null, voices: ServerVoice[]): string
 export function voiceGroups(voices: ServerVoice[]) {
   return ENGINES.map((engine) => ({ ...engine, voices: voices.filter((voice) => voice.engine === engine.id) }))
     .filter((group) => group.voices.length);
+}
+
+/** Popisek hlasu ve výběru: nedostupný s poznámkou, ElevenLabs se zbývajícími znaky (pod 10 % s varováním). */
+export function voiceLabel(voice: ServerVoice): string {
+  if (!voice.available) return `${voice.label} (nedostupný)`;
+  const { character_count: used, character_limit: limit } = voice.quota ?? {};
+  if (typeof used !== "number" || typeof limit !== "number" || limit <= 0) return voice.label;
+  const left = Math.max(0, limit - used);
+  const text = `zbývá ${left.toLocaleString("cs-CZ")} znaků`;
+  return `${voice.label} · ${left < limit / 10 ? `pozor, ${text}` : text}`;
+}
+
+/** Tooltip hlasu: proč nejde, jinak tarif a spotřeba ElevenLabs. */
+export function voiceTitle(voice: ServerVoice): string | undefined {
+  if (voice.reason) return voice.reason;
+  const quota = voice.quota;
+  return quota && typeof quota.character_limit === "number"
+    ? `tarif ${quota.tier ?? "?"} · ${(quota.character_count ?? 0).toLocaleString("cs-CZ")} / ${quota.character_limit.toLocaleString("cs-CZ")} znaků tento měsíc`
+    : undefined;
 }

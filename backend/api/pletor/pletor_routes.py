@@ -3,10 +3,11 @@
 - `POST /api/pletor/messages {project, workspace, text, voice?}` → `{reply, actions: [{type, text, ok, detail?}]}`.
 - `GET /api/pletor/state?project&workspace` → `{messages, heart, escalations, brain: {brain, model, available}}`.
 - `POST /api/pletor/brain {brain: claude | ollama, model?}` → `{ok, reply, brain}` (P2; selhání = `ok: false`).
-- `GET /api/pletor/voices?warm=<id>` → `{voices: [{id, label, gender, engine, available, reason}]}`: XTTS, Edge,
-  Piper v pořadí výchozí volby; `warm` (jinak nejlepší dostupný) se načte dopředu.
+- `GET /api/pletor/voices?warm=<id>` → `{voices: [{id, label, gender, engine, available, reason, quota}]}`: XTTS,
+  ElevenLabs, Edge, Piper v pořadí výchozí volby; `quota` `{tier, character_count, character_limit}` jen u ElevenLabs;
+  `warm` (jinak nejlepší dostupný) se načte dopředu.
 - `POST /api/pletor/tts {text, voice?}` → zvuk podle enginu v id hlasu: `audio/wav` (Piper), `audio/mpeg` (Edge,
-  cloud), `audio/pcm;rate=24000` (XTTS), streamovaně; nestažený hlas 404, nedostupný engine 503.
+  ElevenLabs, cloud), `audio/pcm;rate=24000` (XTTS), streamovaně; nestažený hlas 404, nedostupný engine 503.
 Všechny jen pro člověka v UI a jen z tohoto počítače (`/api/pletor` v `backend/app/remote_access.py`).
 """
 import threading
