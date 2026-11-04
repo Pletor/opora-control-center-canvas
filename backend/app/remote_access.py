@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hmac
 import os
+import re
 
 COOKIE_NAME = "opora_access"
 MIN_TOKEN_LENGTH = 24
@@ -31,9 +32,10 @@ GATE_PREFIX = "/api/gate"
 HEART_PREFIX = "/api/brain/heart"
 # Klíče Jev a povolení kontroly bran mění jen člověk doma (docs/brain-heart-channel.md §5).
 JEV_PREFIX = "/api/brain/jev"
-# Graphify spouští extrakci na tomto stroji a toky (/api/flow) běží uzly a mění workflow; přes tunel ne.
+# Graphify spouští extrakci na tomto stroji; přes tunel ne.
 GRAPHIFY_PREFIX = "/api/graphify"
-FLOW_PREFIX = "/api/flow"
+# Běh toku pouští uzly (critic → codex, brain_eval → claude) na tomto stroji; čtení a úpravy grafu přes tunel smí.
+FLOW_RUN = re.compile(r"^/api/flow/(versions/[^/]+/runs|runs/[^/]+/advance)/?$")
 # Bez těchhle tří by se přihlašovací obrazovka neměla jak zeptat ani přihlásit.
 OPEN_PATHS = frozenset({"/api/access/status", "/api/access/login", "/api/access/logout"})
 
@@ -88,10 +90,9 @@ def bearer_token(authorization):
 
 
 def is_loopback_only(path):
-    return path in LOOPBACK_ONLY_PATHS or any(
+    return path in LOOPBACK_ONLY_PATHS or bool(FLOW_RUN.match(path)) or any(
         path == prefix or path.startswith(prefix + "/")
-        for prefix in (RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX, HEART_PREFIX, JEV_PREFIX, GRAPHIFY_PREFIX,
-                       FLOW_PREFIX))
+        for prefix in (RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX, HEART_PREFIX, JEV_PREFIX, GRAPHIFY_PREFIX))
 
 
 def requires_token(path):
