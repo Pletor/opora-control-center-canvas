@@ -46,7 +46,11 @@ export function heartText(heart: unknown): string {
   if (typeof heart === "string" && heart.trim()) return heart;
   if (heart && typeof heart === "object") {
     const value = heart as Record<string, unknown>;
-    if (typeof value.running === "boolean") return statusLine(value as unknown as HeartStatus).text;
+    // Backend vrací jen {running, pending, sleeping, error, …}; chybějící pole srdce doplníme, jinak by `enabled` chybělo a řádek lhal.
+    if (typeof value.running === "boolean") {
+      const base = { enabled: true, pending: 0, batches: [], sleeping: false, sleepingUntil: null, nextAllowedAt: null, error: null };
+      return statusLine({ ...base, ...value } as unknown as HeartStatus).text;
+    }
     if (typeof value.state === "string") return value.state;
     if (typeof value.status === "string") return value.status;
   }
