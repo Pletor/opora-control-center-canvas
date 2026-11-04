@@ -1,0 +1,43 @@
+/* KOMPONENTY DESIGN SYSTÉMU (blok `ds-components`)
+   Katalog jako v typu Design System: nahoře jen téma náhledů a „+ Komponenta“, pod tím skupiny (Actions, Layout…)
+   s tichým nadpisem. Každá komponenta je karta, kde vlevo žije skutečný náhled webu v rámečku a vpravo jméno,
+   jedna věta a cesta do editoru. Náhled dostane víc místa (2 : 1), protože člověk nejdřív kouká, jak věc vypadá,
+   a teprve pak čte, kdy ji použít. Editor se rozbalí pod kartou přes celou šířku, aby HTML a README měly kam dýchat. */
+.ds-components { display: flex; flex-direction: column; gap: var(--sp-4); }
+.ds-components__bar { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.ds-components__theme { display: flex; align-items: center; gap: 6px; font-size: var(--fs-1); color: var(--ink-muted); }
+.ds-components__select { padding: 3px 6px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font-size: var(--fs-2); }
+.ds-components__hint { flex: 1; font-size: var(--fs-1); color: var(--ink-muted); }
+.ds-components__add { padding: 4px 12px; border: 1px solid var(--accent-line); border-radius: var(--radius); background: var(--accent-soft); color: var(--ink); font: inherit; font-size: var(--fs-2); cursor: pointer; }
+.ds-components__empty { margin: 0; padding: var(--sp-4); border: 1px dashed var(--line-strong); border-radius: var(--radius); color: var(--ink-muted); }
+
+/* Skupina: nadpis jako štítek sekce, karty pod sebou s rytmem jedné mezery. */
+.ds-components__group { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ds-components__group-title { margin: 0; font-size: var(--fs-1); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-muted); }
+
+/* Karta: náhled a popis vedle sebe; rámeček náhledu je bílé plátno webu, ne barva OPORY, aby téma náhledu
+   rozhodovalo samo. Na úzké obrazovce jde popis pod náhled. */
+.ds-components__card { display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.ds-components__frame { width: 100%; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.ds-components__about { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
+.ds-components__name { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-3); }
+.ds-components__badge { padding: 1px 8px; border-radius: 999px; background: var(--info-soft); color: var(--ink-2); font-size: 10px; font-weight: 400; }
+.ds-components__summary { margin: 0; color: var(--ink-2); font-size: var(--fs-2); }
+.ds-components__toggle { padding: 3px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; color: var(--ink-2); font: inherit; font-size: var(--fs-1); cursor: pointer; }
+.ds-components__toggle:hover { color: var(--ink); border-color: var(--line-strong); }
+.ds-components__details { grid-column: 1 / -1; font-size: var(--fs-2); color: var(--ink-2); }
+@media (max-width: 900px) { .ds-components__card { grid-template-columns: 1fr; } }
+
+/* Editor: řada krátkých polí nahoře, pod nimi HTML náhledu v mono a README s náhledem vedle, stejně jako
+   brand book v Overview. Chyba svítí u pole, které ji způsobilo, a řekne, co server odmítne. */
+.ds-components__editor { grid-column: 1 / -1; display: flex; flex-direction: column; gap: var(--sp-3); padding-top: var(--sp-3); border-top: 1px dashed var(--line); }
+.ds-components__fields { display: grid; grid-template-columns: repeat(3, minmax(140px, 1fr)); gap: var(--sp-3); }
+.ds-components__field { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-1); color: var(--ink-muted); }
+.ds-components__field--wide { grid-column: 1 / -1; }
+.ds-components__input { padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font: inherit; font-size: var(--fs-2); }
+.ds-components__input--problem { border-color: var(--danger); }
+.ds-components__problem { color: var(--danger); }
+.ds-components__code { padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font-family: var(--mono, ui-monospace, monospace); font-size: var(--fs-2); line-height: 1.5; resize: vertical; }
+.ds-components__readme { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+.ds-components__readme-preview { padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); overflow: auto; max-height: 320px; }
+.ds-components__remove { align-self: flex-start; padding: 3px 10px; border: 1px solid var(--danger-line); border-radius: var(--radius); background: transparent; color: var(--danger); font: inherit; font-size: var(--fs-1); cursor: pointer; }

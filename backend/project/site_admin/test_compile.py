@@ -45,7 +45,8 @@ def test_readme_carries_brand_book_and_generated_usage():
     book, generated = text.split("\n---\n")
     assert book.startswith("# Ember\n\nKrátké věty")
     assert "## Jak systém použít" in generated and "`light`, `dark`" in generated
-    assert "- **Button** (Actions): Jedna primární akce na pohled." in generated
+    assert "- **Button** (Actions): Tlačítko webu ve variantách primary." in generated  # z Tlačítek webu
+    assert "- **Card** (Layout): Jeden nápoj na kartě." in generated
     assert "- Logos: `assets/Logos/mark.svg`" in generated
     assert "`.display`, `.body`, `.code`" in generated and "fonts/inter.woff2" in generated
 

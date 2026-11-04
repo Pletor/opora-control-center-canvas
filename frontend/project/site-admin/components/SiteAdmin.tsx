@@ -3,6 +3,8 @@ import { useSiteAdmin } from "../logic/use-site-admin";
 import { readSiteSection, type SiteSection } from "../site-menu/logic/site-sections";
 import SiteMenu from "../site-menu/components/SiteMenu";
 import { TokensStyle } from "../ds-preview/components/TokensScope";
+import DsSearch from "../ds-search/components/DsSearch";
+import { useHighlight } from "../ds-search/logic/use-highlight";
 import SitePanel from "./SitePanel";
 import SiteSaveBar from "./SiteSaveBar";
 import "../styles/site-admin.css";
@@ -14,6 +16,8 @@ export default function SiteAdmin({ project, onBack }: { project: string; onBack
   const state = useSiteAdmin(project);
   const [section, setSection] = useState<SiteSection>(() => readSiteSection(new URLSearchParams(location.search).get("siteSection")));
   const [preview, setPreview] = useState("");
+  const [hit, setHit] = useState({ target: "", stamp: 0 });
+  useHighlight(hit.target, hit.stamp);
   const themes = state.draft?.design.tokens.color.themes ?? [];
   const theme = themes.some((item) => item.id === preview) ? preview : themes[0]?.id ?? "light";
   const back = () => { if (!state.dirty || window.confirm("Odejít bez uložení změn Správy webu?")) onBack(); };
@@ -41,12 +45,14 @@ export default function SiteAdmin({ project, onBack }: { project: string; onBack
       <button type="button" className="site-admin__alert-action" onClick={state.dismissNotes}>Rozumím</button>
     </div>}
     <div className="site-admin__body">
-      <SiteMenu value={section} onSelect={setSection}/>
+      <SiteMenu value={section} onSelect={setSection} search={state.draft && <DsSearch design={state.draft.design}
+        onPick={(found) => { setSection(found.section); setHit({ target: found.target, stamp: Date.now() }); }}/>}/>
       <main className="site-admin__main">
         {state.draft ? <SitePanel section={section} context={{
           project, document: state.draft, revision: state.revision, dirty: state.dirty, theme,
-          componentsCss: state.componentsCss, notes: state.notes, invalid: state.invalid,
-          uploading: state.uploading, uploadError: state.uploadError, change: state.change, upload: (file, record) => void state.upload(file, record), onSelect: setSection,
+          tokensCss: state.tokensCss, componentsCss: state.componentsCss, notes: state.notes, invalid: state.invalid,
+          uploading: state.uploading, uploadError: state.uploadError, change: state.change, upload: (file, record) => void state.upload(file, record),
+          uploadAssets: (group, files, record) => void state.uploadAssets(group, files, record), onSelect: setSection,
         }}/> : <p className="site-admin__loading" role="status">{state.loading ? "Načítám Správu webu…" : "Správu webu se nepodařilo načíst."}</p>}
       </main>
     </div>

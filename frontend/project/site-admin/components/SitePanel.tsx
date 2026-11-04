@@ -12,6 +12,10 @@ import FilesSection from "../ds-files/components/FilesSection";
 import AppearanceSection from "../site-appearance/components/AppearanceSection";
 import { imageAssets } from "../site-appearance/logic/appearance";
 import ButtonsSection from "../site-buttons/components/ButtonsSection";
+import ComponentsSection from "../ds-components/components/ComponentsSection";
+import AssetsSection from "../ds-assets/components/AssetsSection";
+import { withFile } from "../ds-assets/logic/assets";
+import type { AssetFile } from "../logic/site-document";
 
 const LEAD: Partial<Record<SiteSection, string>> = {
   appearance: "Jak vypadá každá stránka webu: pozadí, písmo, barvy textu a odkazů, nadpisy, odrážky a šířka. Každé pole zapisuje token design systému.",
@@ -24,15 +28,18 @@ const LEAD: Partial<Record<SiteSection, string>> = {
   radius: "Zaoblení rohů tlačítek, karet a polí.",
   shadow: "Stíny podle úrovně elevace; každé téma může mít vlastní.",
   files: "Odvozené soubory, které dostane dělník do design/.",
+  components: "Komponenty webu s živým náhledem nad tokeny a README: props, kdy použít a kdy ne. Button skládají Tlačítka webu.",
+  assets: "Loga, ikony a obrázky po skupinách s README. AI je kopíruje, nikdy je nekreslí znovu.",
 };
 
 /** Co panel potřebuje od rodiče: rozepsaný dokument, jak ho změnit, téma náhledu a stav nahrávání fontu. */
 export type SitePanelContext = {
   project: string; document: SiteDocument; revision: number; dirty: boolean; theme: string;
-  componentsCss: string; notes: string[]; invalid: SiteInvalid | null;
+  tokensCss: string; componentsCss: string; notes: string[]; invalid: SiteInvalid | null;
   uploading: boolean; uploadError: string;
   change: (update: (document: SiteDocument) => SiteDocument) => void;
   upload: (file: File, record: (path: string) => (document: SiteDocument) => SiteDocument) => void;
+  uploadAssets: (group: string, files: File[], record: (file: AssetFile) => (document: SiteDocument) => SiteDocument) => void;
   onSelect: (section: SiteSection) => void;
 };
 
@@ -68,6 +75,13 @@ function editor(section: SiteSection, context: SitePanelContext): ReactNode {
     case "buttons": return <ButtonsSection settings={document.settings} project={context.project} theme={context.theme} componentsCss={context.componentsCss}
       notes={context.notes} invalid={context.invalid} aliases={tokens.color.tokens.map((token) => token.name)} families={Object.keys(tokens.type.families)}
       onChange={({ buttons, customCss }) => change((current) => withSettings(current, { buttons, customCss: { button: customCss } }))}/>;
+    case "components": return <ComponentsSection components={document.design.components} themes={themes} theme={context.theme} project={context.project}
+      tokensCss={context.tokensCss} componentsCss={context.componentsCss} onOpenButtons={() => context.onSelect("buttons")}
+      onChange={(components) => change((current) => ({ ...current, design: { ...current.design, components } }))}/>;
+    case "assets": return <AssetsSection groups={document.design.assetGroups} uploading={context.uploading} uploadError={context.uploadError}
+      assetUrl={(group, name) => siteAdminUrls.asset(context.project, group, name)}
+      onChange={(assetGroups) => change((current) => ({ ...current, design: { ...current.design, assetGroups } }))}
+      onUpload={(group, files) => context.uploadAssets(group, files, (file) => (current) => ({ ...current, design: { ...current.design, assetGroups: withFile(current.design.assetGroups, group, file) } }))}/>;
     // Sloty pro další PR (Hlavička, Patička, SEO, Affiliate, E-mail, Cookie lišta, Components, Assets):
     // editor přidá svůj `case` a v `site-sections.ts` přepne `ready`.
     default: return null;

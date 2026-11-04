@@ -20,9 +20,14 @@ export type DesignTokens = {
   spacing?: TokenFamily; radius?: TokenFamily; shadow?: TokenFamily;
   [custom: string]: TokenFamily | ColorFamily | TypeFamily | undefined;
 };
+/** Komponenta systému: `preview` je HTML fragment pro sandbox iframe, `Button` skládá server z Tlačítek webu. */
+export type DesignComponent = { name: string; group?: string; summary?: string; readme: string; preview: string; height: number };
+/** Nahraný soubor skupiny assetů (`blob` = `assets/<skupina>/<soubor>`, záznam vrací `POST /assets`). */
+export type AssetFile = { name: string; blob: string; size: number; type: string };
+export type AssetGroup = { name: string; readme: string; files: AssetFile[] };
 export type Design = {
   readme: string; sections: { slug: string; title: string; markdown: string }[]; tokens: DesignTokens;
-  components: { name: string; group?: string }[]; assetGroups: { name: string; files: unknown[] }[]; cover: unknown;
+  components: DesignComponent[]; assetGroups: AssetGroup[]; cover: unknown;
 };
 export type SiteDocument = {
   v: number; title: string; revision: number; lastChange: { by?: string; at?: string; note?: string } | null;
