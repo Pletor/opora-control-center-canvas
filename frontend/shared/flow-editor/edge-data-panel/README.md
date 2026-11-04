@@ -1,0 +1,3 @@
+# Panel hrany (`edge-data-panel`)
+
+Data na hraně plátna procesů (kontrakt `docs/navrhy/2026-11-04-platno-procesu.md` §2): `data: {kind, schema?, example?}`. Čára hrany má barvu a styl podle druhu (`--data-*`, `styles/edge-data-panel.css`), popisek je `via · kind`. Kliknutí na hranu otevře panel „Co tu letí“ (druh, schéma, příklad; neplatný JSON se neodešle, bez vlastního příkladu se ukáže zděděný ze zdrojového uzlu). `logic/edge-data.ts` — popisek, zděděný příklad, kontrola `accepts` cíle proti druhu (stejná se použije při tažení v `connection-policy.ts`). Ukládá rodič (`FlowEditor` → `setEdgeData`). Test: `logic/edge-data.test.ts`.

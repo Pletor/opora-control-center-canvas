@@ -44,4 +44,10 @@ describe("graph to React Flow", () => {
     expect(flowNodes(heartGraph(), TYPES)[0].data.layer).toBeUndefined();
     expect(flowEdges(graph).map((e) => e.label)).toEqual([undefined, "http", undefined, undefined, "sql", "event"]);
   });
+  it("styles an edge by its data kind and labels it via · kind", () => {
+    const graph = processGraph();
+    graph.edges = graph.edges.map((edge) => edge.id === "e2" ? { ...edge, data: { kind: "json" as const } } : edge);
+    expect(flowEdges(graph).find((e) => e.id === "e2")).toMatchObject({ label: "http · json", className: "flow-edge flow-edge--main flow-edge--data flow-edge--data-json" });
+    expect(flowEdges(graph).find((e) => e.id === "e5")).toMatchObject({ label: "sql", className: "flow-edge flow-edge--main" });
+  });
 });

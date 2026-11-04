@@ -2,6 +2,7 @@
 // editor neplatnou vazbu vůbec nenabídl. Vazba vede z výstupu na vstup, oba porty mají stejný kind, port s
 // `cardinality: "one"` nese jen jednu hranu a stejná vazba nevznikne dvakrát. Zobecněno ze Studia MODEL
 // (`connectionError`), kde roli kindu hraje datový typ portu.
+import { edgeKindError } from "../edge-data-panel/logic/edge-data";
 import { specOf, type FlowEdge, type FlowGraph, type NodeTypes, type PortDirection, type PortRef, type PortSpec } from "./flow-types";
 
 export function portOf(graph: FlowGraph, types: NodeTypes, ref: PortRef): PortSpec | undefined {
@@ -53,6 +54,8 @@ export function connectionError(graph: FlowGraph, types: NodeTypes, a: PortRef, 
   return pairError(endOf(graph, types, from), endOf(graph, types, to), {
     exists: (f, t) => graph.edges.some((e) => e.source_node === f.nodeId && e.source_port === f.port && e.target_node === t.nodeId && e.target_port === t.port),
     uses: (end) => uses(graph.edges, end),
+    // Druh dat výstupu (`emits` zdroje) musí cíl přijímat (`accepts`); jen hlavní tok nese data.
+    extra: (f, t) => f.kind === "main" ? edgeKindError(graph, types, { source_node: f.nodeId, target_node: t.nodeId }) : null,
   });
 }
 

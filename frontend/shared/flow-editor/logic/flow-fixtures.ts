@@ -50,7 +50,11 @@ export const LIBRARY = nodeTypeMap(LIBRARY_TYPES);
 /** Výřez katalogu plátna procesů (vrstvy, `use` / `avoid`, `intents`) a ukázkový případ „Uložit BMI“ s uzly všech vrstev. */
 const typed = (type: string, layer: NodeTypeSpec["layer"], intents: string[], use: string, avoid: string, trigger = false): NodeTypeSpec =>
   ({ type, version: 1, trigger, layer, intents, use, avoid, ports: trigger ? [port("main", "out")] : step });
-export const PROCESS_TYPES: NodeTypeSpec[] = [
+const DATA_KINDS_OF: Record<string, Pick<NodeTypeSpec, "accepts" | "emits">> = {
+  "fe.form": { emits: "json" }, "be.endpoint": { accepts: ["json", "text"], emits: "json" }, "be.validate": { accepts: ["json"], emits: "json" },
+  "be.function": { accepts: ["json", "number"], emits: "number" }, "db.write": { accepts: ["number", "json", "table"], emits: "table" }, "fe.notify": { accepts: ["text", "event", "json"] },
+};
+export const PROCESS_TYPES: NodeTypeSpec[] = ([
   typed("trigger.manual", "neutral", ["input"], "proces začíná ručně", "má začít událost", true),
   typed("fe.form", "fe", ["input"], "uživatel zadává hodnoty do formuláře", "hodnoty přicházejí ze serveru"),
   typed("fe.click", "fe", ["input", "show"], "uživatel spouští akci tlačítkem", "akce běží sama"),
@@ -62,7 +66,8 @@ export const PROCESS_TYPES: NodeTypeSpec[] = [
   typed("infra.api", "infra", ["call-service"], "voláš vnější službu", "služba je uvnitř aplikace"),
   { ...typed("ai.agent", "ai", ["ai"], "rozhoduje model", "stačí pravidlo"), category: "ai" },
   { ...typed("flow.if", "neutral", ["decide"], "tok se větví podle podmínky", "podmínka je v ověření"), category: "flow" },
-];
+  { type: "custom.step", version: 1, trigger: false, ports: step },
+] as NodeTypeSpec[]).map((spec) => ({ ...spec, ...DATA_KINDS_OF[spec.type] }));
 export const PROCESS = nodeTypeMap(PROCESS_TYPES);
 
 export function processGraph(): FlowGraph {

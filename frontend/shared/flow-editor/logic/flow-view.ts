@@ -6,6 +6,7 @@ import { specOf, type FlowGraph, type FlowNode, type Layer, type NodeTypes, type
 import type { GraphDiff, NodeMark } from "./graph-diff";
 import { nodeGlyph, nodeRole, portPlaces, typeLabel, type NodeRole, type PortPlace } from "./node-role";
 import { effectiveLayer } from "../flow-lanes/logic/layers";
+import { dataLabel, edgeData } from "../edge-data-panel/logic/edge-data";
 import { edgeLabel, type NodeOverlay, type RunOverlay } from "./run-overlay";
 
 export type PortView = PortPlace & { handleId: string; connected: number };
@@ -60,11 +61,13 @@ export function flowEdges(graph: FlowGraph, options: ViewOptions = {}): Edge[] {
   const added = new Set(options.diff?.addedEdges.map((edge) => edge.id));
   const live = graph.edges.map((edge): Edge => {
     const target = overlay.get(edge.target_node), label = edgeLabel(edge, overlay);
-    const tone = added.has(edge.id) ? " flow-edge--added" : "";
+    const tone = added.has(edge.id) ? " flow-edge--added" : "", data = edgeData(edge);
+    const dataClass = data ? ` flow-edge--data flow-edge--data-${data.kind}` : "";
     return { id: edge.id, source: edge.source_node, target: edge.target_node,
       sourceHandle: handleId("out", edge.source_port), targetHandle: handleId("in", edge.target_port),
-      type: edge.kind === "main" ? "default" : "straight", label: label || edge.label || edge.via || undefined,
-      animated: target?.status === "running", className: `flow-edge flow-edge--${edge.kind === "main" ? "main" : "sub"}${tone}`,
+      type: edge.kind === "main" ? "default" : "straight", label: label || edge.label || dataLabel(edge) || undefined,
+      ...(data ? { labelStyle: { fill: `var(--data-${data.kind})` } } : {}),
+      animated: target?.status === "running", className: `flow-edge flow-edge--${edge.kind === "main" ? "main" : "sub"}${dataClass}${tone}`,
       selectable: !options.readOnly };
   });
   const removed = (options.diff?.removedEdges ?? []).map((edge): Edge => {
