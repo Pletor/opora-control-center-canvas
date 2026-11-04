@@ -130,6 +130,9 @@ def test_node_types_library_flow_carry_layer_and_guidance():
     assert endpoint["use"].startswith("Použij") and endpoint["avoid"].startswith("Nepoužívej")
     assert endpoint["intents"] == ["input", "call-service"] and set(endpoint["params"]) >= {"method", "path"}
     assert not any(name.startswith("action.") for name in types)
+    assert (endpoint["accepts"], endpoint["emits"]) == (["json", "event"], "json")
+    assert (types["db.read"]["accepts"], types["db.read"]["emits"]) == ([], "table")
+    assert (types["flow.if"]["accepts"], types["flow.if"]["emits"]) == ([], None)
 
 
 def test_node_types_filter_page_intent_catalog():

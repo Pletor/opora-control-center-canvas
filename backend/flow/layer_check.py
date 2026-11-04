@@ -20,6 +20,11 @@ def edge_errors(edge, source, target, types):
     if data is not None and not (isinstance(data, dict) and data.get("kind") in DATA_KINDS
                                  and isinstance(data.get("schema", {}), dict)):
         errors.append(f"Hrana {eid}: data je {{kind: {' | '.join(DATA_KINDS)}, schema?: objekt, example?}}.")
+    kind = data["kind"] if isinstance(data, dict) and data.get("kind") in DATA_KINDS else types[source["id"]].emits
+    accepts = types[target["id"]].accepts
+    if kind and accepts and kind not in accepts:
+        errors.append(f"Hrana {eid}: {source['id']} → {target['id']}: {target['id']} nepřijímá data druhu '{kind}' "
+                      f"(přijímá: {', '.join(accepts)}).")
     if set(pair) == {"fe", "db"}:
         errors.append(f"Hrana {eid}: frontend nesmí sahat do databáze přímo, vlož krok BE.")
     if via is not None and via not in VIA_ALL:

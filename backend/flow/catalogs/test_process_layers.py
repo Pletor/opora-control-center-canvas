@@ -72,6 +72,18 @@ def test_edge_data_shape_and_unknown_via():
     assert check(nodes, [{**edge("1", "a", "b"), "via": "carrier-pigeon"}])
 
 
+def test_edge_data_kind_must_be_accepted_by_target():
+    nodes = [node("r", "db.read"), node("e", "be.endpoint"), node("f", "be.function"), node("w", "db.write")]
+    bad = ["Hrana 1: r → e: e nepřijímá data druhu 'table' (přijímá: json, event)."]
+    with_data = {**edge("1", "r", "e"), "data": {"kind": "table", "example": [1, {"a": None}]}}
+    assert check(nodes, [{**with_data, "data": {"kind": "json", "example": [1, {"a": None}]}}]) == []
+    assert check(nodes, [with_data]) == bad
+    assert check(nodes, [edge("1", "r", "e")]) == bad  # bez data.kind rozhoduje emits zdroje (db.read = table)
+    assert check(nodes, [edge("1", "r", "w")]) == []
+    assert check(nodes, [edge("1", "e", "f")]) == []  # cíl bez accepts přijme cokoli
+    assert check(nodes, [{**edge("1", "r", "f"), "data": {"kind": "file"}}]) == []
+
+
 def test_custom_step_needs_layer_and_title_and_branches_become_ports():
     assert check([node("c", "custom.step")], []) == [
         "Uzel c: krok na míru (custom.step) musí mít vrstvu (layer).",
