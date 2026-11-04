@@ -191,32 +191,12 @@ export const edgeReports = (state: DesktopState): Record<string, EdgeReport> => 
 
 export type StateResponse = { revision: number; state: DesktopState; readOnly: boolean; graphChanged?: boolean };
 
-export type SourceManifestEntry = {
-  kind: string;
-  ownerId: string;
-  revision: number | null;
-  included: boolean;
-  reason: string;
-};
-
-export type Packet = {
-  schema: "opora.packet/1";
-  scope: { project: string; workspace: string; nodeId: string; path: string; sessionId: string };
-  task: Record<string, unknown>;
-  context: Record<string, unknown>;
-  sourceManifest: SourceManifestEntry[];
-  warnings: string[];
-  [key: string]: unknown;
-};
-
 /**
  * Balíček pro model (`GET /api/desktop-v3/node-brief`): jeden JSON, který model čte odshora dolů.
  * Tvar drží backend podle `docs/karta-pro-agenty.md`; frontend ho jen zobrazuje a kopíruje.
  */
 export type NodeBrief = { schema: string } & Record<string, unknown>;
 
-export type PacketPreviewResponse = { digest: string; packet: Packet };
-export type PacketSnapshotResponse = { id: string; digest: string; packet: Packet };
 
 
 /** Levný souhrn paměti jedné karty: kolik z pěti polí je vyplněno, kdo psal naposled a kdy. */

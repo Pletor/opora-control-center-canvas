@@ -20,7 +20,7 @@ import re
 import tinycss2
 from tinycss2.ast import IdentToken
 
-from backend.project.site_admin.tokens import SiteAdminInvalid
+from backend.project.site_admin.tokens import ASSET, SiteAdminInvalid
 
 MAX_COMPONENT, MAX_TOTAL, MAX_DECLARATIONS, MAX_DEPTH, MIN_DURATION_MS = 16_000, 64_000, 200, 3, 100
 GROUPING = ("media", "supports", "container")
@@ -33,7 +33,6 @@ OUTSIDE_SELECTOR = re.compile(r"^(?::scope\s*)?[~+]|:has\(|.:scope", re.IGNORECA
 PRELUDE_TOKENS = {"ident", "hash", "literal", "string", "function", "number", "percentage", "dimension",
                   "whitespace", "[] block", "() block"}
 FRAME = re.compile(r"^(?:from|to|\d{1,3}(?:\.\d+)?%)(?:\s*,\s*(?:from|to|\d{1,3}(?:\.\d+)?%))*$", re.IGNORECASE)
-ASSET_URL = re.compile(r"^assets/[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}/[A-Za-z0-9][A-Za-z0-9 _.-]{0,132}$")
 
 
 class CustomCssInvalid(SiteAdminInvalid):
@@ -77,11 +76,11 @@ def _check_value(component, declaration):
     for token in tokens:
         if token.type == "error":
             component.fail(declaration, f"Chyba syntaxe v hodnotě {declaration.name} ({token.message}).")
-        if token.type == "url" and not ASSET_URL.match(token.value):
+        if token.type == "url" and not ASSET.match(token.value):
             component.fail(declaration, f"url({token.value}) míří mimo assets/ projektu.")
         if token.type == "function" and token.lower_name in ("url", "src", "image-set", "image", "cross-fade"):
             strings = [arg.value for arg in token.arguments if arg.type == "string"]
-            if not strings and token.lower_name in ("url", "src") or not all(map(ASSET_URL.match, strings)):
+            if not strings and token.lower_name in ("url", "src") or not all(map(ASSET.match, strings)):
                 component.fail(declaration, f"{token.lower_name}() míří mimo assets/ projektu.")
     if FORBIDDEN_VALUE.search(tinycss2.serialize(declaration.value)):
         component.fail(declaration, f"Hodnota {declaration.name} obsahuje zakázaný výraz.")

@@ -18,14 +18,3 @@ export type RuleReviewDecision = "approve" | "reject";
 export function ruleReviewRequest(project: string, workspace: string, rule: Rule, decision: RuleReviewDecision) {
   return { url: "/api/desktop-v3/rule-review", body: { project, workspace, id: rule.id, decision, expected: rule } };
 }
-
-/** Strop jedné dávky posouzení; server větší dávku odmítne. */
-export const MAX_RULE_REVIEW_BATCH = 500;
-
-/** Hromadné posouzení vybraných návrhů jedním krokem: všechno, nebo nic (CAS každého přečteného návrhu). */
-export function ruleReviewBatchRequest(project: string, workspace: string, rules: Rule[], decision: RuleReviewDecision) {
-  return {
-    url: "/api/desktop-v3/rule-review-batch",
-    body: { project, workspace, decision, items: rules.map((rule) => ({ id: rule.id, expected: rule })) },
-  };
-}

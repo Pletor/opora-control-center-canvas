@@ -48,7 +48,7 @@ opora-canvas/
       project_setup/    # project_routes: nastavení, lokální/prázdný projekt, connect
       project/          # project_workspace_routes, workspace_routes, graphify_routes, map_refresh_routes
       editor/           # canvas_routes, node_routes, desktop_v3_routes, claude_code_routes
-    canvas/             # základ plátna: canvas_service (registr + db_for(projekt), git sync, graf), graph, project_folder (projects/<id>/), project_registry, migrate_to_project_folders
+    canvas/             # základ plátna: canvas_service (registr + db_for(projekt), git sync, graf), graph, project_folder (projects/<id>/), migrate_to_project_folders
     project_setup/      # KROK 1: project_hub (připojení repozitáře, založení projektu)
     project/            # PROSTŘEDÍ PROJEKT
       workspace/        # strom zdrojů, otevírání souborů, dokumentace k cestám
