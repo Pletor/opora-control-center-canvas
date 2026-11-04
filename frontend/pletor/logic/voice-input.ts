@@ -113,7 +113,7 @@ export type MicLevel = { level: () => number; close: () => void };
 export async function openMicLevel(): Promise<MicLevel | null> {
   let stream: MediaStream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
   } catch {
     return null;
   }

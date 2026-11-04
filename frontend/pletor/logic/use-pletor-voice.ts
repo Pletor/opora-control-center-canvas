@@ -12,6 +12,7 @@ import { BROWSER_VOICE, chosenVoice, fetchVoices, voiceChain, type ServerVoice }
 import { createVoiceOutput, speechLevel } from "./voice-output";
 import { readVoicePrefs, writeVoicePrefs, type VoicePrefs } from "./voice-prefs";
 import { usePletorListen } from "./use-pletor-listen";
+import { useBargeIn } from "./barge-in";
 
 type Talk = {
   messages: PletorMessage[]; repliedAt: number | null;
@@ -93,6 +94,9 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
     setPhase((current) => (current === "speaking" ? "idle" : current));
     loop.resume();
   }, [hush, loop]);
+
+  // Poslech + čtení: řeč člověka čtení utne (potlačení ozvěny řeší mikrofon, viz barge-in.ts).
+  useBargeIn(phase === "speaking" && listenSwitch.on && prefs.bargeIn, mic, output.level, interrupt);
 
   const listen = useCallback(() => {
     if (!input.supported) return;
