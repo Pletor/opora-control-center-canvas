@@ -8,16 +8,20 @@ jen server (`store.py`), z těla se zahodí. Chyba tvaru (neznámý klíč, špa
 
 Tajemství do dokumentu nepatří: klíč, který zní jako heslo, token nebo API klíč, je 422 kdekoli v `settings`;
 `settings.email` smí nést jen odkaz `secretRef` (např. `env:SMTP_PASSWORD`), nikdy hodnotu.
+
+Komponenty a assety (náhled bez skriptů, `Button` z Tlačítek webu, mazání assetů): README „Komponenty a assety“.
 """
 
 import re
 
-from backend.project.site_admin import appearance, buttons, custom_css
-from backend.project.site_admin.tokens import SiteAdminInvalid, clamp, normalize_tokens, shape
+from backend.project.site_admin import appearance, button_component, buttons, custom_css
+from backend.project.site_admin.tokens import NAME, SiteAdminInvalid, clamp, normalize_tokens, shape
 
 SECRET = re.compile(r"pass|heslo|secret|token|api.?key|credential", re.IGNORECASE)
 SECRET_REF = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,15}:[A-Za-z0-9_./-]{1,200}$")
-IDENT = re.compile(r"^[A-Za-z_$][A-Za-z0-9_$]{0,63}$")
+# Stejný filtr jako SVG asset (`store.UNSAFE_SVG`): sandbox iframu skripty nespustí, server je ani neuloží.
+UNSAFE_MARKUP = re.compile(r"<script|<foreignobject|[\s/\"']on[a-z]+\s*=|javascript:|&#|<iframe|<embed|<object",
+                           re.IGNORECASE)
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 GROUP = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,62}[A-Za-z0-9_-]$|^[A-Za-z0-9]$")
 MAX_README, MAX_SECTIONS, MAX_COMPONENTS = 200_000, 24, 200
@@ -137,12 +141,14 @@ def _sections(raw):
     return out
 
 
-def _components(raw, notes):
+def _components(raw, button, notes):
     out = []
     for item in _list(raw, MAX_COMPONENTS, "design.components"):
         name = item.get("name")
-        shape(isinstance(name, str) and IDENT.match(name), f"Komponenta {name!r}: jméno musí být identifikátor JS.")
+        shape(isinstance(name, str) and NAME.match(name), f"Komponenta {name!r}: jméno písmena, číslice, _ . - (≤ 64).")
         shape(all(component["name"] != name for component in out), f"Komponenta {name}: duplicitní jméno.")
+        if name == button_component.NAME:  # skládá ji server z Tlačítek webu
+            continue
         height = item.get("height", 120)
         if not (isinstance(height, int) and not isinstance(height, bool) and 40 <= height <= 4000):
             notes.append(f"Komponenta {name}: výška {height!r} mimo 40–4000, použito 120.")
@@ -152,10 +158,13 @@ def _components(raw, notes):
             value = clamp(item.get(field), limit, f"Komponenta {name} {field}", notes)
             if value:
                 component[field] = value
-        component["readme"] = _text_field(item.get("readme"), MAX_COMPONENT_README, f"README komponenty {name}")
+        component["readme"] = _text_field(item.get("readme"), MAX_README, f"README komponenty {name}")
         component["preview"] = _text_field(item.get("preview"), MAX_PREVIEW, f"Náhled komponenty {name}")
+        shape(not UNSAFE_MARKUP.search(component["preview"]),
+              f"Náhled komponenty {name}: bez skriptů, obsluh událostí (on…=), javascript: a vnořeného obsahu.")
         out.append(component)
-    return out
+    shape(len(out) + bool(button) <= MAX_COMPONENTS, f"Nejvýš {MAX_COMPONENTS} komponent včetně Button.")
+    return ([button] if button else []) + out
 
 
 def _asset_groups(raw):
@@ -179,7 +188,7 @@ def _asset_groups(raw):
     return out
 
 
-def _design(raw, tokens, notes):
+def _design(raw, tokens, settings, notes):
     unknown = sorted(set(raw) - {"readme", "sections", "tokens", "components", "assetGroups", "cover"})
     shape(not unknown, f"design: neznámé pole {', '.join(unknown)}.")
     cover = raw.get("cover")
@@ -188,7 +197,7 @@ def _design(raw, tokens, notes):
         "readme": _text_field(raw.get("readme"), MAX_README, "design.readme"),
         "sections": _sections(raw.get("sections")),
         "tokens": tokens,
-        "components": _components(raw.get("components"), notes),
+        "components": _components(raw.get("components"), button_component.component(settings["buttons"]), notes),
         "assetGroups": _asset_groups(raw.get("assetGroups")),
         "cover": {"preview": _text_field(cover.get("preview"), MAX_PREVIEW, "design.cover.preview")} if cover else None,
     }
@@ -210,7 +219,7 @@ def normalize(document, base=None):
     shape(isinstance(design, dict), "design musí být objekt.")
     tokens = normalize_tokens(design.get("tokens"), notes)
     settings, tokens = _settings(document.get("settings"), tokens, base and base["design"]["tokens"], notes)
-    return {"v": 1, "title": title, "settings": settings, "design": _design(design, tokens, notes)}, notes
+    return {"v": 1, "title": title, "settings": settings, "design": _design(design, tokens, settings, notes)}, notes
 
 
 def empty():

@@ -1,7 +1,7 @@
 // Rozhraní Správy webu (`backend/api/project/site_admin_routes.py`). Čte kdokoli, zapisuje jen člověk: doklad UI
 // (cookie `opora_ui`) obstará sdílené `api` u každého zápisu samo. Uložení nese `expectedRevision`; jiná revize = 409.
 import { api, ApiError } from "@/shared/types/logic/types";
-import type { SiteDocument } from "./site-document";
+import type { AssetFile, SiteDocument } from "./site-document";
 
 const BASE = "/api/site-admin";
 const query = (project: string, extra: Record<string, string> = {}) => new URLSearchParams({ project, ...extra }).toString();
@@ -50,6 +50,11 @@ export function saveProblem(failure: unknown): { message: string; invalid: SiteI
 /** Nahraje soubor fontu do `site/fonts/`; vrátí cestu `fonts/<soubor>` pro záznam v `type.fonts`. */
 export function uploadFont(project: string, name: string, data: string) {
   return api<{ file: string; size: number; type: string }>(siteAdminUrls.fonts(), { project, name, data });
+}
+
+/** Nahraje asset do `site/assets/<skupina>/`; vrátí záznam do `design.assetGroups[].files[]`. */
+export function uploadAsset(project: string, group: string, name: string, data: string) {
+  return api<AssetFile>(`${BASE}/assets`, { project, group, name, data });
 }
 
 /** Obsah souboru jako base64 bez hlavičky `data:` (tělo `POST /fonts`). */

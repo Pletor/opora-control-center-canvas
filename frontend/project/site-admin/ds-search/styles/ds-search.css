@@ -1,0 +1,19 @@
+/* HLEDÁNÍ V DESIGN SYSTÉMU (blok `ds-search`)
+   Pole „Search“ stojí nad menu jako v `image9.png`, protože hledání je zkratka do kterékoli sekce. Výsledky se
+   rozbalí přímo pod polem a odsunou menu dolů, nic nepřekrývají: vlevo drobný druh (Color, Type, Asset…), pak jméno
+   a ztlumená hodnota, aby šlo poznat správný řádek bez otevření. Nalezená položka v sekci na chvíli zasvítí
+   akcentem a pak zhasne, takže oko ví, kam se dívat, a nic nezůstane rozsvícené. */
+.ds-search { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ds-search__input { width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font: inherit; font-size: var(--fs-2); }
+.ds-search__results { display: flex; flex-direction: column; gap: 2px; max-height: 320px; margin: 0; padding: 0; overflow: auto; list-style: none; }
+.ds-search__hit-button { display: grid; grid-template-columns: auto 1fr; column-gap: var(--sp-2); width: 100%; padding: 4px var(--sp-2); border: 0; border-radius: var(--radius); background: transparent; color: var(--ink-2); font: inherit; font-size: var(--fs-2); text-align: left; cursor: pointer; }
+.ds-search__hit-button:hover { background: var(--surface-2); color: var(--ink); }
+.ds-search__kind { grid-row: span 2; align-self: center; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); }
+.ds-search__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 600; }
+.ds-search__detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-muted); }
+.ds-search__none { padding: 4px var(--sp-2); font-size: var(--fs-1); color: var(--ink-muted); }
+
+/* Zásah: řádek v sekci krátce zasvítí; bez animace pro ty, kdo pohyb nechtějí, zůstane jen obrys. */
+.ds-search__hit { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius); animation: ds-search-flash 2.4s ease-out; }
+@keyframes ds-search-flash { from { background-color: var(--accent-soft); } to { background-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { .ds-search__hit { animation: none; } }
