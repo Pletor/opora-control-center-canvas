@@ -97,3 +97,15 @@
 .flow-node__plus--bottom { top: calc(100% + 26px); transform: translateX(-50%); }
 .flow-node__plus--right { left: calc(100% + 20px); transform: translateY(-50%); }
 .flow-node__plus--labelled { left: calc(100% + 56px); }
+
+/* Vrstva procesu: barevný pruh po horní hraně karty a malý štítek FE / BE / DB / INFRA / AI v levém dolním rohu, obojí
+   v barvě vrstvy (`--layer-*`, `flow-lanes`). Oko tak pozná, kam krok patří, i když je plátno zazoomované a pruhy
+   pozadí nejsou vidět. Neutrální vrstva má jen pruh, štítek by nic neřekl. Role (spouštěč, agent, sub) tvar nemění. */
+.flow-node__stripe { position: absolute; top: 0; right: 14px; left: 14px; z-index: 1; height: 5px; border-radius: 0 0 4px 4px; background: var(--layer-tone); pointer-events: none; }
+.flow-node__layer { position: absolute; bottom: -8px; left: -6px; padding: 0 5px; border-radius: 4px; background: var(--layer-tone); color: var(--surface); font-size: 9px; font-weight: 700; letter-spacing: .04em; }
+.flow-node--layer-fe { --layer-tone: var(--layer-fe); }
+.flow-node--layer-be { --layer-tone: var(--layer-be); }
+.flow-node--layer-db { --layer-tone: var(--layer-db); }
+.flow-node--layer-infra { --layer-tone: var(--layer-infra); }
+.flow-node--layer-ai { --layer-tone: var(--layer-ai); }
+.flow-node--layer-neutral { --layer-tone: var(--layer-neutral); }

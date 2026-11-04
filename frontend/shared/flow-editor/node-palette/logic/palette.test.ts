@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIXTURE_TYPES, LIBRARY_TYPES } from "../../logic/flow-fixtures";
+import { FIXTURE_TYPES, LIBRARY_TYPES, PROCESS_TYPES } from "../../logic/flow-fixtures";
 import { paletteGroups } from "./palette";
 
 describe("node palette", () => {
@@ -26,5 +26,11 @@ describe("node palette", () => {
     const items = paletteGroups(LIBRARY_TYPES, "", { kind: "tool", direction: "in" }).flatMap((g) => g.items);
     expect(items.map((i) => i.type)).toEqual(["ai.vectorStore"]);
     expect(items[0].summary).toMatch(/→ Nástroj$/);
+  });
+  it("groups process types by layer (FE, BE, DB, Infra, AI, triggers, AI, flow) and carries use and avoid", () => {
+    const groups = paletteGroups(PROCESS_TYPES);
+    expect(groups.map((g) => g.id)).toEqual(["layer-fe", "layer-be", "layer-db", "layer-infra", "trigger", "ai", "flow"]);
+    expect(groups[0].items.map((i) => i.type)).toEqual(["fe.form", "fe.click", "fe.notify"]);
+    expect(groups[1].items[2]).toMatchObject({ type: "be.function", use: "je třeba spočítat hodnotu", avoid: "stačí přesun dat" });
   });
 });

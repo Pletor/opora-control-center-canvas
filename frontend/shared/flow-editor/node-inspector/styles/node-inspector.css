@@ -49,3 +49,6 @@
 .node-inspector__tabs--4 { grid-template-columns: repeat(4, 1fr); }
 .node-inspector__pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .node-inspector__check { display: flex; gap: 6px; align-items: center; }
+
+/* Vrstva uzlu stojí hned pod hlavičkou: jedna řádka „Vrstva“ s výběrem, aby šlo rychle přepsat, kam krok patří. */
+.node-inspector__layer { display: grid; gap: 4px; margin-bottom: 8px; }

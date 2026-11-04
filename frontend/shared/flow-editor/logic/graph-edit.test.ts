@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { heartGraph, LIBRARY, TYPES } from "./flow-fixtures";
-import { addConnected, addNode, connect, moveNode, nextNodeId, removeEdge, removeNode, setParam } from "./graph-edit";
+import { addConnected, addNode, connect, moveNode, nextNodeId, removeEdge, removeNode, setEdgeVia, setParam } from "./graph-edit";
 
 describe("graph edits return a new graph and leave the version untouched", () => {
   it("names new nodes after the type and keeps ids unique", () => {
@@ -41,5 +41,11 @@ describe("graph edits return a new graph and leave the version untouched", () =>
     const next = addConnected(graph, LIBRARY, "ai.vectorStore", { nodeId: "agent", port: "tool", direction: "in" });
     expect(next.nodes[1]).toMatchObject({ id: "vectorstore", params: { mode: "retrieveAsTool" }, position: { x: 0, y: 200 } });
     expect(next.edges[0]).toMatchObject({ source_node: "vectorstore", source_port: "tool", target_node: "agent", target_port: "tool", kind: "tool" });
+  });
+  it("sets and clears the via of an edge", () => {
+    const graph = heartGraph(), withVia = setEdgeVia(graph, "udalost-jev", "http");
+    expect(withVia.edges[0].via).toBe("http");
+    expect("via" in setEdgeVia(withVia, "udalost-jev", undefined).edges[0]).toBe(false);
+    expect(graph.edges[0].via).toBeUndefined();
   });
 });

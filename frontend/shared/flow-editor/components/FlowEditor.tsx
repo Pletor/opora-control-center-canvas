@@ -5,7 +5,7 @@ import { nodeTypeMap, specOf, withNodePorts, type FlowGraph, type NodeRun, type 
 import { flowEdges, flowNodes } from "../logic/flow-view";
 import { foldEdges, groupNodes, hiddenNodes, noteNodes } from "../logic/frame-view";
 import type { GraphDiff } from "../logic/graph-diff";
-import { addConnected, addNode, connect, moveNode, removeEdge, removeNode, setNodeField, setParam } from "../logic/graph-edit";
+import { addConnected, addNode, connect, moveNode, removeEdge, removeNode, setEdgeVia, setNodeField, setParam } from "../logic/graph-edit";
 import { addNote, groupFromSelection, setGroup, setNote, ungroup } from "../logic/graph-frames";
 import { readinessIssues } from "../logic/readiness";
 import type { RunOverlay } from "../logic/run-overlay";
@@ -13,8 +13,10 @@ import type { PlusRequest } from "../flow-node/logic/port-actions";
 import NodePalette from "../node-palette/components/NodePalette";
 import NodeInspector from "../node-inspector/components/NodeInspector";
 import GroupInspector from "../flow-frame/components/GroupInspector";
+import { arrangeLanes, laneNodes } from "../flow-lanes/logic/lanes";
 import FlowCanvas from "./FlowCanvas";
 import FlowToolbar from "./FlowToolbar";
+import "../flow-lanes/styles/flow-lanes.css";
 import "../styles/flow-editor.css";
 
 type Props = {
@@ -49,7 +51,7 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
   const nodes = useMemo(() => {
     const cards = flowNodes(graph, registry, { overlay, diff, highlighted: selected, issues: issueNodes, readOnly });
     const shown = cards.filter((card) => !hidden.has(card.id));
-    return [...noteNodes(graph, readOnly), ...groupNodes(graph, cards, collapsed, targets.groups, group), ...shown];
+    return [...laneNodes(shown), ...noteNodes(graph, readOnly), ...groupNodes(graph, cards, collapsed, targets.groups, group), ...shown];
   }, [graph, registry, overlay, diff, selected, issueNodes, readOnly, hidden, collapsed, targets, group]);
   const edges = useMemo(() => foldEdges(flowEdges(graph, { overlay, diff, readOnly }), graph, collapsed), [graph, overlay, diff, readOnly, collapsed]);
 
@@ -73,6 +75,8 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
       {!readOnly && <FlowToolbar edge={selectedEdge} message={message} frames={frames} selection={picked.length} onPalette={() => setPalette({ port: null })}
         onRemoveEdge={() => { if (selectedEdge) apply(() => removeEdge(graph, selectedEdge.id)); setEdge(null); }}
         onNote={() => apply(() => addNote(graph, noteSpot(graph)))}
+        onLanes={frames ? () => apply(() => arrangeLanes(graph, registry)) : undefined}
+        onVia={frames && selectedEdge ? (via) => apply(() => setEdgeVia(graph, selectedEdge.id, via)) : undefined}
         onGroup={() => apply(() => { const made = groupFromSelection(graph, picked); setGroupId(made.group.id); onSelect(null); return made.graph; })}/>}
       <FlowCanvas nodes={nodes} edges={edges} readOnly={readOnly}
         frames={{ onNote: (id, patch) => apply(() => setNote(graph, id, patch)), onToggleGroup: toggle }}
@@ -90,6 +94,7 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
     </div>
     {node && <NodeInspector key={node.id} node={node} spec={specOf(registry, node)} run={run} stall={overlay?.get(node.id)?.stall ?? null} readOnly={readOnly}
       onParam={(key, value) => apply(() => setParam(graph, node.id, key, value))}
+      onLayer={frames && specOf(registry, node)?.layer ? (layer) => apply(() => setNodeField(graph, node.id, "layer", layer)) : undefined}
       onField={frames ? (key, value) => apply(() => setNodeField(graph, node.id, key, value)) : undefined}
       onRemove={() => { apply(() => removeNode(graph, node.id)); onSelect(null); }} onClose={() => onSelect(null)}/>}
     {!node && frame && <GroupInspector key={frame.id} group={frame} errors={targets.groups.get(frame.id) ?? []} collapsed={collapsed.has(frame.id)} readOnly={readOnly}

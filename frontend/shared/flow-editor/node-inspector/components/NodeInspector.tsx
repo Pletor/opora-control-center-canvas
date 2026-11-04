@@ -1,7 +1,8 @@
 import { useState } from "react";
-import type { FlowNode, FlowNodeDetail, NodeRun, NodeTypeSpec } from "../../logic/flow-types";
+import type { FlowNode, FlowNodeDetail, Layer, NodeRun, NodeTypeSpec } from "../../logic/flow-types";
 import { formatCost, formatTokens, STATUS_LABEL } from "../../logic/run-overlay";
 import { prettyRef } from "../logic/inspector-fields";
+import LayerField from "./LayerField";
 import ParamFields from "./ParamFields";
 import { NodeDataTab, NodeErrorTab, NodeNoteTab } from "./NodeDetailTabs";
 import "../styles/node-inspector.css";
@@ -12,13 +13,15 @@ type Props = {
   node: FlowNode; spec: NodeTypeSpec | undefined; run: NodeRun | null; stall: string | null; readOnly: boolean;
   onParam: (key: string, value: unknown) => void; onRemove: () => void; onClose: () => void;
   /** Pole uzlu plátna toku (data, chyby, poznámka); bez něj inspektor ukazuje běh (Vstup, Výstup). */
+  /** Plátno procesů: změna vrstvy uzlu (`undefined` = výchozí z typu); pole se ukáže, jen když typ vrstvu má. */
+  onLayer?: (layer: Layer | undefined) => void;
   onField?: <K extends keyof FlowNodeDetail>(key: K, value: FlowNodeDetail[K] | undefined) => void;
 };
 
 /** Inspektor uzlu jako postranní panel (ne modál jako NDV v n8n), aby graf zůstal vidět. U běhu tři záložky: Parametry,
  * Vstup a Výstup vybraného běhu, nad nimi stav uzlu v běhu (pokus, model, tokeny, cena, čekání, prostoj a chyba). Plátno
  * toku (`onField`) má záložky Parametry, Data (schémata a příklad), Chyby a Poznámka. */
-export default function NodeInspector({ node, spec, run, stall, readOnly, onParam, onRemove, onClose, onField }: Props) {
+export default function NodeInspector({ node, spec, run, stall, readOnly, onParam, onRemove, onClose, onField, onLayer }: Props) {
   const [tab, setTab] = useState<Tab>("params");
   const tabs: Tab[] = onField ? ["params", "data", "errors", "note"] : ["params", "input", "output"];
   const ref = tab === "input" ? run?.input_ref : run?.output_ref;
@@ -27,6 +30,7 @@ export default function NodeInspector({ node, spec, run, stall, readOnly, onPara
       <span className="node-inspector__title"><b>{node.id}</b><small className="node-inspector__muted">{node.type} · v{node.type_version ?? spec?.version ?? 1}</small></span>
       <button type="button" className="node-inspector__close" aria-label="Zavřít inspektor" onClick={onClose}>×</button>
     </header>
+    {onLayer && spec?.layer && <LayerField value={node.layer} typeLayer={spec.layer} readOnly={readOnly} onLayer={onLayer}/>}
     {!spec && <p className="node-inspector__error">Typ uzlu není v registru.</p>}
     {run && <dl className="node-inspector__run">
       <dt className="node-inspector__term">Stav</dt><dd className={`node-inspector__status node-inspector__status--${run.status}`}>{STATUS_LABEL[run.status]} · pokus {run.attempt}</dd>

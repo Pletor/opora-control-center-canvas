@@ -15,7 +15,15 @@ export type PortVariant = { params: Record<string, unknown>; ports: PortSpec[] }
 /** `params`: popis parametrů typu (klíč → nápověda), u katalogu záměru stránky; nový uzel je dostane prázdné.
  * `category`: kategorie palety (katalog toků dat); `dynamicPorts`: porty závisí na `params` (`POST /api/flow/node-ports`). */
 export type NodeTypeSpec = { type: string; version: number; trigger: boolean; ports: PortSpec[]; params?: Record<string, string> | null;
-  category?: string; dynamicPorts?: boolean; variants?: PortVariant[] };
+  category?: string; dynamicPorts?: boolean; variants?: PortVariant[];
+  /** Plátno procesů (kontrakt `2026-11-04-platno-procesu.md` §1): výchozí vrstva typu, „kdy použít / nepoužít“ a štítky záměrů průvodce. */
+  layer?: Layer; use?: string; avoid?: string; intents?: string[] };
+
+export const LAYERS = ["fe", "be", "db", "infra", "ai", "neutral"] as const;
+export type Layer = typeof LAYERS[number];
+/** Druh přechodu hrany mezi vrstvami; kontrolu dvojic dělá server (`graph-check`). */
+export const EDGE_VIA = ["http", "sql", "event", "call", "render"] as const;
+export type EdgeVia = typeof EDGE_VIA[number];
 export type NodeTypes = ReadonlyMap<string, NodeTypeSpec>;
 
 export type Point = { x: number; y: number };
@@ -24,12 +32,16 @@ export type Point = { x: number; y: number };
 export type FlowNodeDetail = {
   notes?: string; notesInFlow?: boolean; inputSchema?: Record<string, unknown>; outputSchema?: Record<string, unknown>; example?: unknown;
   mode?: "perItem" | "once"; onError?: "stop" | "continue" | "errorOutput"; retry?: { maxTries: number; waitMs: number };
+  /** Přepis výchozí vrstvy typu (výpočet smí běžet ve FE i v BE). */
+  layer?: Layer;
 };
 export type FlowNode = {
   id: string; type: string; type_version?: number; params?: Record<string, unknown>; position?: Point; pinned_output?: unknown;
 } & FlowNodeDetail;
 export type FlowEdge = {
   id: string; source_node: string; source_port: string; target_node: string; target_port: string; kind: PortKind; label?: string;
+  /** Přechod mezi vrstvami; `data` (druhy dat na hraně) patří do P2, editor ho jen nezahodí. */
+  via?: EdgeVia; data?: unknown;
 };
 /** Sticky poznámka za uzly (markdown, barva 1–7 jako n8n) a rámec skupiny kolem uzlů (n8n Canvas Groups). */
 export type FlowNote = { id: string; content: string; x: number; y: number; width: number; height: number; color?: number };

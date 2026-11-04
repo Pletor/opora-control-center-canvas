@@ -6,17 +6,19 @@
 import type { NodeTypeSpec, PortSpec } from "../../logic/flow-types";
 import { variantFor } from "../../logic/graph-edit";
 import { matchesWords, searchWords } from "./palette-search";
+import { LAYER_LABEL } from "../../flow-lanes/logic/layers";
 import { KIND_LABEL, nodeGlyph, nodeRole, typeLabel } from "../../logic/node-role";
 
 export const PALETTE_DRAG_TYPE = "application/x-opora-flow-type";
-export type PaletteItem = { type: string; name: string; family: string; glyph: string; summary: string };
+/** `use` / `avoid`: „kdy použít / nepoužít“ z registru, v paletě tooltip. */
+export type PaletteItem = { type: string; name: string; family: string; glyph: string; summary: string; use?: string; avoid?: string };
 export type PaletteGroup = { id: string; label: string; items: PaletteItem[] };
 export type PortFilter = Pick<PortSpec, "kind" | "direction">;
 
 const FLOW_CATEGORY: Record<string, string> = { trigger: "Spouštěče", ai: "AI", action: "Akce ve službě", transform: "Transformace dat", flow: "Tok", core: "Jádro", human: "Lidská kontrola" };
 const AI_SUB: Partial<Record<PortSpec["kind"], string>> = { model: "Modely", memory: "Paměť", tool: "Nástroje", vectorStore: "Vektorová úložiště", embedding: "Embeddingy",
   document: "Načítače", textSplitter: "Děliče textu", outputParser: "Výstupní parsery", retriever: "Retrievery" };
-const FLOW_ORDER = ["trigger", "ai", "ai-model", "ai-memory", "ai-tool", "ai-vectorStore", "ai-embedding", "ai-document", "ai-textSplitter", "ai-outputParser", "ai-retriever", "ai-other", "action", "transform", "flow", "core", "human"];
+const FLOW_ORDER = ["layer-fe", "layer-be", "layer-db", "layer-infra", "trigger", "ai", "ai-model", "ai-memory", "ai-tool", "ai-vectorStore", "ai-embedding", "ai-document", "ai-textSplitter", "ai-outputParser", "ai-retriever", "ai-other", "action", "transform", "flow", "core", "human"];
 
 /** AI uzel bez `main` (nebo s variantou bez `main`) patří do podkategorie podle svého výstupního sub-portu. */
 function aiCategory(spec: NodeTypeSpec): { id: string; label: string } {
@@ -27,6 +29,7 @@ function aiCategory(spec: NodeTypeSpec): { id: string; label: string } {
 }
 
 function category(spec: NodeTypeSpec): { id: string; label: string } {
+  if (spec.layer && !["ai", "neutral"].includes(spec.layer)) return { id: `layer-${spec.layer}`, label: `${spec.layer.toUpperCase()} · ${LAYER_LABEL[spec.layer]}` };
   if (spec.category === "ai") return aiCategory(spec);
   if (spec.category) return { id: spec.category, label: FLOW_CATEGORY[spec.category] ?? spec.category };
   const role = nodeRole(spec);
@@ -54,7 +57,8 @@ export function paletteGroups(types: readonly NodeTypeSpec[], query = "", port: 
     const { id, label } = category(spec);
     const group = groups.get(id) ?? { id, label, items: [] };
     const { family, name } = typeLabel(spec.type);
-    group.items.push({ type: spec.type, name, family, glyph: nodeGlyph(spec), summary: summary((port && variantFor(spec, port)?.ports) || spec.ports) });
+    group.items.push({ type: spec.type, name, family, glyph: nodeGlyph(spec), summary: summary((port && variantFor(spec, port)?.ports) || spec.ports),
+      ...(spec.use ? { use: spec.use } : {}), ...(spec.avoid ? { avoid: spec.avoid } : {}) });
     groups.set(id, group);
   }
   const order = types.some((spec) => spec.category) ? FLOW_ORDER : ORDER;

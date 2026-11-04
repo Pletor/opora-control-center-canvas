@@ -24,3 +24,21 @@
 .node-palette__text { display: grid; min-width: 0; }
 .node-palette__name { font-size: 12px; }
 .node-palette__summary { overflow: hidden; color: var(--ink-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Průvodce „Co chci udělat?“ je tlačítko nad hledáním a po kliknutí malý dialog přes horní část šuplíku: deset záměrů
+   jako velká tlačítka pod sebou (přijmout vstup, ověřit, spočítat …). Po výběru záměru stojí v dialogu typy podle
+   vrstev, každý s barevným štítkem vrstvy a větou, kdy ho použít; kdo neví, jak uzel jmenovat, tak ho najde podle toho,
+   co chce. */
+.node-palette__ask { width: 100%; margin-top: 10px; padding: 7px 9px; border: 1px solid var(--accent-line); border-radius: 6px; background: var(--accent-soft); color: var(--ink); font: inherit; font-size: 12px; cursor: pointer; }
+.node-palette__wizard { position: absolute; top: 44px; right: 8px; left: 8px; z-index: 2; display: grid; gap: 6px; max-height: calc(100% - 60px); overflow: auto; padding: 10px;
+  border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-pop); }
+.node-palette__intents { display: grid; gap: 4px; }
+.node-palette__intent { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--ink); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.node-palette__intent:hover { border-color: var(--accent); }
+.node-palette__use { color: var(--ink-muted); font-size: 11px; }
+.node-palette__layer { flex: none; min-width: 34px; padding: 1px 4px; border-radius: 4px; background: var(--layer-neutral); color: var(--surface); font-size: 9px; font-weight: 700; text-align: center; }
+.node-palette__layer--fe { background: var(--layer-fe); }
+.node-palette__layer--be { background: var(--layer-be); }
+.node-palette__layer--db { background: var(--layer-db); }
+.node-palette__layer--infra { background: var(--layer-infra); }
+.node-palette__layer--ai { background: var(--layer-ai); }

@@ -8,10 +8,12 @@ import { FrameActionsContext, type FrameActions } from "../flow-frame/logic/fram
 import FlowNodeCard from "../flow-node/components/FlowNodeCard";
 import FlowNoteCard from "../flow-frame/components/FlowNoteCard";
 import FlowGroupFrame from "../flow-frame/components/FlowGroupFrame";
+import FlowLane from "../flow-lanes/components/FlowLane";
+import type { FlowLaneNode } from "../flow-lanes/logic/lanes";
 import FlowSurface, { type SurfaceView } from "./FlowSurface";
 
-const nodeTypes = { "flow-card": FlowNodeCard, "flow-note": FlowNoteCard, "flow-group": FlowGroupFrame };
-export type CanvasNode = FlowCardNode | FlowNoteNode | FlowGroupNode;
+const nodeTypes = { "flow-card": FlowNodeCard, "flow-note": FlowNoteCard, "flow-group": FlowGroupFrame, "flow-lane": FlowLane };
+export type CanvasNode = FlowCardNode | FlowNoteNode | FlowGroupNode | FlowLaneNode;
 
 type Props = {
   nodes: CanvasNode[]; edges: Edge[]; readOnly: boolean; frames?: FrameActions;
