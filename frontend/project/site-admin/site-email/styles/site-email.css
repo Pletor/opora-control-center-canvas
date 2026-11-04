@@ -1,0 +1,9 @@
+/* E-MAIL WEBU (blok `site-email`): náhled vpravo
+   Náhled je hlavička odeslaného e-mailu tak, jak ji uvidí příjemce (Od, Odpovědět), a pod ní cesta zprávy (server,
+   port, šifrování) a odkud se vezme heslo. Heslo samo se tu nikdy neukáže, jen jméno tajemství, aby bylo vidět, že
+   v dokumentu není. Rady jsou výstražný seznam pod tím, protože špatný port nebo chybějící šifrování pošlou údaje čitelně. */
+.site-email__preview { padding: var(--sp-4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.site-email__message { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: var(--radius); background: var(--field); font-size: var(--fs-2); }
+.site-email__row { display: grid; grid-template-columns: 80px 1fr; gap: 8px; overflow-wrap: anywhere; }
+.site-email__key { font-weight: 600; color: var(--ink-muted); }
+.site-email__advice { margin: 0; padding: 8px 10px 8px 26px; border: 1px solid var(--danger-line); border-radius: var(--radius); background: var(--danger-soft); color: var(--danger); font-size: var(--fs-1); }

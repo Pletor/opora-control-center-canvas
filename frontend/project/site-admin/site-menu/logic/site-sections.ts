@@ -14,10 +14,10 @@ export type SiteMenuGroup = { id: string; label: string; items: SiteMenuItem[] }
 const item = (id: SiteSection, label: string, ready = false): SiteMenuItem => ({ id, label, ready });
 
 export const SITE_MENU: SiteMenuGroup[] = [
-  { id: "settings", label: "Nastavení", items: [item("seo", "SEO"), item("affiliate", "Affiliate"), item("email", "E-mail (SMTP)")] },
-  { id: "appearance", label: "Vzhled", items: [item("appearance", "Vzhled webu", true), item("header", "Hlavička webu"), item("footer", "Patička webu"),
+  { id: "settings", label: "Nastavení", items: [item("seo", "SEO", true), item("affiliate", "Affiliate", true), item("email", "E-mail (SMTP)", true)] },
+  { id: "appearance", label: "Vzhled", items: [item("appearance", "Vzhled webu", true), item("header", "Hlavička webu", true), item("footer", "Patička webu", true),
     item("buttons", "Tlačítka webu", true), item("fonts", "Vlastní fonty", true)] },
-  { id: "gdpr", label: "GDPR", items: [item("cookies", "Cookie lišta")] },
+  { id: "gdpr", label: "GDPR", items: [item("cookies", "Cookie lišta", true)] },
   { id: "design", label: "Design System", items: [item("overview", "Overview", true), item("colors", "Colors", true),
     item("typography", "Typography", true), item("spacing", "Spacing", true), item("radius", "Corner radius", true),
     item("shadow", "Shadows", true), item("components", "Components", true), item("assets", "Assets", true), item("files", "Files", true)] },

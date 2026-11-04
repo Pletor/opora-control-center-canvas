@@ -7,9 +7,16 @@ převzatá z otevřeného formátu `tokens.json` typu Design System, kód typu n
 - `tokens.py` – gramatika `design.tokens`: jména, barvy a aliasy (bez cyklu, chybějícího cíle, hloubka ≤ 16,
   chybějící téma dědí z prvního), délky, typografie, stíny, vlastní rodiny a limity. Neplatná hodnota se zahodí
   s poznámkou, chyba tvaru je `SiteAdminInvalid` (422).
-- `design_system.py` – celý dokument: `settings` (seo, affiliate, email, header, footer, gdpr) se ověřuje podle
-  pevného schématu, tajemství se odmítne (jen `secretRef`); `appearance`, `buttons` a `customCss` mají vlastní
-  moduly; `design` (readme, sections, components, assetGroups, cover) a `empty()`.
+- `design_system.py` – celý dokument: skládá části `settings` z modulů níže; `design` (readme, sections,
+  components, assetGroups, cover) a `empty()`.
+- `site_settings.py` – Nastavení webu `seo`, `affiliate`, `email` (SMTP) a `gdpr` (cookie lišta, kontakt správce):
+  celý tvar s výchozími hodnotami, chyba = 422, rady jsou `notes`. Tajemství se odmítne kdekoli (jen `secretRef`).
+- `settings_fields.py` – pravidla polí nastavení (text, číslo, volba, seznam, objekt s výchozími hodnotami, odkaz,
+  obrázek z Assets) a odmítnutí tajemství; sdílí je `site_settings.py` a `site_chrome.py`.
+- `site_chrome.py` – hlavička a patička (`header`, `footer`) a styly `.ds-header`, `.ds-footer`, `.ds-cookie-bar`
+  do `components.css`.
+- `settings_readme.py` – sekce „Nastavení webu“ generovaného README (SEO, hlavička, patička, cookie lišta, e-mail,
+  affiliate s markupem).
 - `appearance.py` – Vzhled (viz níže).
 - `buttons.py` – tlačítka: validace, komponentní tokeny `--btn-*` a jejich CSS, poznámky k přístupnosti.
 - `custom_css.py` – vlastní CSS tlačítek přes tinycss2 (BSD-3-Clause): allowlist, přepis, `@layer custom`.
@@ -96,5 +103,19 @@ Pravidla: at-rules jen `@keyframes`, `@media`, `@supports`, `@container` (vnoře
 `prefers-reduced-motion: reduce`. Limity: 16 KB na variantu, 64 KB celkem, 200 deklarací, `animation-duration` ≥
 100 ms.
 
-Test: `test_design_system.py`, `test_appearance.py`, `test_buttons.py`, `test_custom_css.py`, `test_compile.py`,
+## Nastavení webu (SEO, Affiliate, E-mail, Hlavička, Patička, GDPR)
+
+| Část | Pole (výchozí) | Pravidla |
+|---|---|---|
+| `seo` | `titleTemplate` (`%s`), `siteName`, `description`, `locale` (`cs_CZ`), `canonicalHost`, `ogImage`, `ogType` (website), `twitterCard` (summary_large_image), `twitterSite`, `robots` {index, follow, noarchive, nosnippet, maxImagePreview (large), maxSnippet (-1)}, `sitemap` (ano), `structuredData` | šablona má právě jedno `%s`; `ogImage` je existující asset nebo https; JSON-LD je platný JSON (objekt nebo pole) bez `</`; popis nad 160 znaků a `noindex` jsou poznámky |
+| `affiliate` | `enabled`, `param` (ref), `cookieDays` (30, 1–365), `attribution` (last/first), `disclosure`, `programs` [{name, url https, commission, code}] ≤ 50 | zapnutý bez upozornění nebo bez kategorie marketing v cookie liště = poznámka |
+| `email` | `provider` (smtp), `host`, `port` (587), `security` (starttls/tls/none), `username`, `from`, `fromName`, `replyTo`, `secretRef` | heslo nikdy (klíč `password`, `heslo`, `token`, `apiKey`… = 422); starší `secure` se převede; 465 + STARTTLS, 587 + TLS a `none` jsou poznámky (RFC 8314, RFC 6409) |
+| `header` | `logoAsset`, `logoAlt`, `nav` (source:pages/manual), `items` ≤ 12, `cta` {label, pageId \| url, variant}, `sticky`, `variant` (classic/centered/minimal) | odkaz má popisek a buď `pageId`, nebo URL (`/cesta`, `#kotva`, https, mailto, tel; nikdy `javascript:` ani `//host`); chybějící logo a neznámá varianta CTA se zahodí s poznámkou |
+| `footer` | `columns` ≤ 6 × `links` ≤ 12, `legal`, `social` [{name, url https}] ≤ 12, `variant` (columns/simple/centered), `cookieLink` (ano) | bez právního řádku = poznámka |
+| `gdpr` | `cookieBar` {enabled, position (bottom/top/bottom-left/bottom-right/center), title, text, categories, categoryInfo, acceptLabel, rejectLabel, settingsLabel, saveLabel, policyPageId, policyUrl, consentDays (180, 1–730), reopen (ano), version}, `contact` {controller, email, dpoEmail, address} | `necessary` je vždy první a vždy zapnutá, ostatní kategorie se nikdy nepředvyplňují (pole pro to neexistuje); přijmout a odmítnout mají v CSS stejnou třídu; bez zásad, nad 13 měsíců nebo bez kontaktu = poznámka |
+
+Zdroje: Google Search Central (title, meta description, robots, canonical, sitemap, JSON-LD), Open Graph, RFC 6409
+a 8314, ePrivacy čl. 5 odst. 3, EDPB Guidelines 05/2020, zpráva EDPB Cookie Banner Taskforce (2023) a ÚOOÚ.
+
+Test: `test_site_settings.py`, `test_site_chrome.py`, `test_design_system.py`, `test_appearance.py`, `test_buttons.py`, `test_custom_css.py`, `test_compile.py`,
 `test_store.py` (`uv run pytest backend/project/site_admin`).

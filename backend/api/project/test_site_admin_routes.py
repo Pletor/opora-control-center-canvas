@@ -34,6 +34,10 @@ def test_document_round_trip_with_revision_and_human_only(tmp_path):
         secret["settings"]["email"]["password"] = "hunter2"
         refused = client.put(URL, params=DRAFT, headers=HEADERS, json={"expectedRevision": 2, "document": secret})
         assert refused.status_code == 422 and "tajemství" in refused.json()["detail"]
+        secret = ember()
+        secret["settings"]["email"]["heslo"] = "hunter2"
+        refused = client.put(URL, params=DRAFT, headers=HEADERS, json={"expectedRevision": 2, "document": secret})
+        assert refused.status_code == 422 and "secretRef" in refused.json()["detail"]
         assert client.put(URL, params=DRAFT, headers=HEADERS, json={"document": {}}).status_code == 422
         assert client.get(URL, params={"project": "neni"}).status_code == 404
 
@@ -49,6 +53,8 @@ def test_generated_files(tmp_path):
         components = client.get(f"{URL}/components.css", params=DRAFT)
         assert components.headers["content-type"].startswith("text/css") and ".ds-btn--primary {" in components.text
         assert "@keyframes ds-btn-primary-glow" in components.text
+        assert ".ds-header {" in components.text and ".ds-cookie-bar__choice {" in components.text
+        assert "### Nastavení webu" in readme.text and "env:SMTP_PASSWORD" in readme.text
 
 
 def test_appearance_view_survives_a_stale_save_and_bad_css_is_422_with_a_line(tmp_path):
