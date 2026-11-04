@@ -25,7 +25,7 @@ class Runner:
     def __init__(self):
         self.calls, self.result = [], OK
 
-    def __call__(self, line, *, cwd, env, stdin_text, timeout):
+    def __call__(self, line, *, cwd, env, stdin_text, timeout, on_line=None):
         self.calls.append(stdin_text)
         return Outcome(0, json.dumps(self.result), "")
 

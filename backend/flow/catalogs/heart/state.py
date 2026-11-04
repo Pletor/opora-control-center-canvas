@@ -97,7 +97,7 @@ class HeartState:
     def status(self, project, now=None):
         """`GET /api/brain/heart/status`: relace, posledních 5 dávek, spánek, nejbližší povolený čas, `activeWorkspace`
         (prostor posledního plánu, který srdce přijalo; docs/brain-heart-orchestrator.md §9), `current` (běžící dávka
-        `{startedAt, inputs}`, jinak None; docs/navrhy/2026-10-31-viditelnost-srdce-a-karet.md §A) a `idleReason`
+        `{startedAt, inputs, steps}`, jinak None; `typicalMs` = medián trvání posledních 10 úspěšných dávek se zprávou; docs/navrhy/2026-10-31-viditelnost-srdce-a-karet.md §A) a `idleReason`
         (prázdná fronta z posledního vyhodnocení `_idle`: `frontier_empty` / `waiting_human` / None)."""
         now = self.clock() if now is None else now
         brain = self.brain(project)
@@ -110,7 +110,8 @@ class HeartState:
                 "sleeping": self.sleeping_until > now, "sleepingUntil": iso(self.sleeping_until),
                 "nextAllowedAt": iso(allowed), "error": self.errors.get(project),
                 "gitError": self.git_errors.get(project), "activeWorkspace": brain_files.active_workspace(brain),
-                "current": current, "idleReason": self.idle.get(project)}
+                "current": current, "idleReason": self.idle.get(project),
+                "typicalMs": batch.typical_ms(brain)}
 
 
 def iso(moment):

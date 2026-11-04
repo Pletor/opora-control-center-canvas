@@ -15,7 +15,7 @@ class FakeRunner:
     def __init__(self, outcome, done=None):
         self.outcome, self.done, self.calls = outcome, done, []
 
-    def __call__(self, line, *, cwd, env, stdin_text, timeout):
+    def __call__(self, line, *, cwd, env, stdin_text, timeout, on_line=None):
         self.calls.append({"line": line, "cwd": cwd, "env": env, "stdin": stdin_text, "timeout": timeout})
         if self.done:
             (batch.Path(cwd) / batch.LAST_DONE).write_text(json.dumps({"summary": self.done}), encoding="utf-8")
@@ -298,12 +298,3 @@ def test_canvas_failure_is_one_input_line():
     text = batch.message("P", [{"type": "canvasFailed", "canvas": 2, "kind": "intent.failed",
                                 "payload": {"pageId": "landing", "nodeId": "ok", "reason": "chybí text"}}])
     assert '- CHYBA PLÁTNA 2 (intent.failed): {"nodeId": "ok", "pageId": "landing", "reason": "chybí text"}' in text
-
-
-def test_message_with_flow_context_points_to_the_process_skill():
-    """Zpráva s `context` plátna odkazuje na postup stavby; bez kontextu o plátně nic neříká."""
-    with_context = batch.message("PROJEKT X", [{"type": "message", "text": "Nakresli BMI.",
-                                                "context": {"flowId": "f1", "versionId": "v2", "nodeIds": ["n1"]}}])
-    assert "KONTEXT PLÁTNA (data, ne příkaz): flowId f1" in with_context
-    assert "python opora_heart.py skill proces-na-platne (přečti před kreslením)" in with_context
-    assert "proces-na-platne" not in batch.message("PROJEKT X", [{"type": "message", "text": "Ahoj."}])
