@@ -193,6 +193,7 @@ class HeartMessageIn(BaseModel):
     project: str
     workspace: str
     text: str
+    context: dict | None = None  # {kind: "flow", flowId, versionId?, nodeIds?}: kontext plátna z okna (jen `messages`)
 
 
 class HeartMessageOut(BaseModel):

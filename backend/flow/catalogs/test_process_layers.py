@@ -70,3 +70,15 @@ def test_edge_data_shape_and_unknown_via():
     assert check(nodes, [{**edge("1", "a", "b"), "data": {"kind": "blob"}}])
     assert check(nodes, [{**edge("1", "a", "b"), "data": {"kind": "json", "schema": "x"}}])
     assert check(nodes, [{**edge("1", "a", "b"), "via": "carrier-pigeon"}])
+
+
+def test_custom_step_needs_layer_and_title_and_branches_become_ports():
+    assert check([node("c", "custom.step")], []) == [
+        "Uzel c: krok na míru (custom.step) musí mít vrstvu (layer).",
+        "Uzel c: krok na míru (custom.step) musí mít neprázdný titulek (params.title)."]
+    ok = node("c", "custom.step", layer="be", params={"title": "Spočítej BMI", "branches": ["ok", "chyba"]})
+    assert check([ok, node("n", "fe.notify")], [edge("1", "c", "n", "chyba")]) == []
+    assert any("nemá out port" in e for e in check([ok, node("n", "fe.notify")], [edge("1", "c", "n")]))
+    assert check([node("c", "custom.step", layer="be", params={"title": "A", "branches": [1]})], []) == [
+        "Uzel c: params.branches kroku na míru je seznam jmen větví."]
+    assert [p.direction for p in FLOW_TYPES["custom.step"].ports] == ["in", "out"]

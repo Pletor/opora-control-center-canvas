@@ -28,6 +28,8 @@ layer and turns `GateError` into a JSON answer with `code` and `hint`.
 - `writer.py` (`heart_project` only): the heart is recognised only by `request.state.heart_project`, which the `boundary`
   middleware sets after the wall verified a heart token for the request's project; it cannot be spoofed. The ticket
   answer in `gate_routes.py` uses the same marker (`answeredBy = "heart"`).
+- `flow_context.py`: validation of the optional `context {kind: "flow", flowId, versionId?, nodeIds?}` of
+  `POST /api/brain/heart/messages` (canvas exists, version belongs to it, nodes are in the version; 422 in Czech).
 - `heart_routes.py` (H2a, `docs/brain-heart.md`, loopback-only): `POST /api/brain/heart/messages {project, workspace,
   text}` (human, or a worker gate token of the same project relaying intent with `via` = session name,
   `docs/brain-heart-orchestrator.md` §8; gate on, else 409 `gate_off`) queues a wake and answers `{queued: true, pending}`;

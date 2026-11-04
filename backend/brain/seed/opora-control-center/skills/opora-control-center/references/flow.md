@@ -68,7 +68,7 @@ z aktivní verze, `result: "verified"` u plátna agenta = navrženo k povýšen�
 `human` smí uložit i srdce (token role `heart` kteréhokoli projektu) jako návrh, verze dostane
 `proposedBy {role: "heart", project}`. Kandidáta, aktivaci, návrat i zamítnutí (`POST /api/flow/versions/{id}/reject
 {reason}`, draft do `retired`, návrat ho přeskočí) v části člověka dělá jen člověk. Srdce to ovládá nástrojem
-`opora_heart.py library show|get|save|propose` ([srdce.md](srdce.md)).
+`opora_heart.py library show|get|save|propose|nodes` ([srdce.md](srdce.md), kreslení procesu: [proces-na-platne.md](proces-na-platne.md)).
 
 | Cesta | Co |
 |---|---|

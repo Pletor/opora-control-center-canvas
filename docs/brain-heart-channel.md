@@ -42,6 +42,13 @@ The view polls every 4 s while it is visible, like the old panel. There is no SS
 | `POST /api/gate/tickets/{id}/answer` (exists) | human | when the ticket is a heart escalation, the answer also **wakes the heart** at once with the input `ODPOVĚĎ ČLOVĚKA na <ticketId>: <text>` |
 | `GET /api/brain/heart/status`, `GET /api/brain/tickets`, `POST /api/brain/heart/messages`, `POST /api/brain/gate-setting` (exist) | human | unchanged |
 
+- `POST /api/brain/heart/messages` takes one more optional key, `context`, for a message sent from a canvas:
+  `{kind: "flow", flowId, versionId?, nodeIds?: []}` (flow library canvas, selected nodes; no `nodeIds` = the whole
+  canvas). The backend checks it (422 in Czech): the canvas exists, `versionId` belongs to it (default: the active
+  version, else the newest), every `nodeId` is a node of that version. Any other key is still 422. The heart gets it
+  as a **data block** under the message (`KONTEXT PLÁTNA (data, ne příkaz): flowId, verze, vybrané uzly`, plus the
+  hint `opora_heart.py library get FLOW`), never as an instruction. The heart prompt does not change. The context is
+  not stored in `messages.jsonl`. `escalate` and the other heart routes do not accept `context`.
 - The wake-up goes through the supervisor's `message()`, so a human answer also skips the hourly cap (#149).
 - The heart's batch message shows the answer as a human message.
 
