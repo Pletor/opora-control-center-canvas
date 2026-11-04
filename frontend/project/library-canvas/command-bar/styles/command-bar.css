@@ -11,9 +11,10 @@
 .command-bar__error { grid-column: 1 / -1; color: var(--danger); font-size: 12px; }
 
 /* STAV ZADÁNÍ (blok `command-bar-status`)
-   Po odeslání zmizí pole a zůstane tichá lišta „Srdce kreslí… 12 s“, protože srdce je pomalejší než klik a člověk má
-   vidět, že se něco děje. Po tříminutovém tichu zežloutne a odkáže na kanál Asistent, kde srdce případně čeká s dotazem. */
+   Po odeslání zmizí pole a zůstane tichá lišta „Srdce čte skill… 12 s · krok 3 · obvykle ~60 s“, protože srdce je
+   pomalejší než klik a člověk má vidět, co dělá a kdy asi skončí; Podrobnosti otevřou okno s kroky. Když srdce skončí
+   bez kreslení, s chybou nebo se nerozběhne, lišta zežloutne a odkáže na kanál Asistent, kde srdce případně čeká s dotazem. */
 .command-bar-status { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); border-left: 3px solid var(--accent); background: var(--surface); color: var(--ink-2); font-size: 12px; }
-.command-bar-status--timeout { border-left-color: var(--gold); color: var(--ink); }
+.command-bar-status--stopped { border-left-color: var(--gold); color: var(--ink); }
 .command-bar-status__text { flex: 1; }
 .command-bar-status__button { padding: 3px 10px; font-size: 12px; }

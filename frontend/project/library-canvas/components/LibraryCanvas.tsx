@@ -12,6 +12,7 @@ import ProposalBar from "../library-versions/components/ProposalBar";
 import { pendingProposal, pickFlowVersion } from "../library-versions/logic/library-versions";
 import CommandBar from "../command-bar/components/CommandBar";
 import DrawingBar from "../command-bar/components/DrawingBar";
+import HeartWork from "../command-bar/components/HeartWork";
 import EmptyPrompt from "../command-bar/components/EmptyPrompt";
 import { showsEmptyPrompt } from "../command-bar/logic/empty-prompt";
 import { commandNodeIds } from "../command-bar/logic/command-bar";
@@ -101,8 +102,8 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
     {proposal && <ProposalBar proposal={proposal} summary={diff && diffSummary(diff)} viewing={showsProposal} busy={busy} onView={() => view(proposal.id)}
       onAccept={() => write(() => activateVersion(proposal), `Návrh srdce přijat, v${proposal.n} je aktivní.`)}
       onReject={() => { const reason = window.prompt("Proč návrh srdce zamítnout?", "Návrh zamítnut člověkem."); if (reason?.trim()) write(() => rejectVersion(proposal.id, reason.trim()), "Návrh srdce zamítnut."); }}/>}
-    {command.open && !emptyPrompt && <CommandBar selection={nodeIds} busy={command.busy} error={command.error} onSubmit={command.send} onClose={() => command.setOpen(false)}/>}
-    {command.phase !== "idle" && <DrawingBar phase={command.phase} seconds={command.seconds} onCancel={command.cancel} onOpenAssistant={onOpenAssistant}/>}
+    {command.open && !emptyPrompt && <CommandBar initial={command.draft} selection={nodeIds} busy={command.busy} error={command.error} onSubmit={command.send} onClose={() => command.setOpen(false)}/>}
+    {command.phase !== "idle" && <DrawingBar phase={command.phase} text={command.text} onDetails={() => command.setDetail(true)} onCancel={command.cancel} onOpenAssistant={onOpenAssistant}/>}
     <LibraryVersionBar versions={versions} viewing={viewing} dirty={!!edited} busy={busy} readOnly={false} onView={view} onDiscard={() => setEdited(null)}
       onSaveDraft={() => edited && write(() => saveFlowDraft(flowId, edited, viewing?.id ?? null), "Uloženo jako nový draft.")}
       onActivate={() => viewing && write(() => activateVersion(viewing), `Verze v${viewing.n} je aktivní.`)}
@@ -114,9 +115,11 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
     <FlowPlayBar play={play} canRun={!!current} onRun={() => current && play.run(current)}/>
     </div>}
     <div className="library-canvas__editor">
-      {emptyPrompt && <EmptyPrompt busy={command.busy} error={command.error} onSubmit={command.send}/>}
+      {emptyPrompt && <EmptyPrompt initial={command.draft} busy={command.busy} error={command.error} onSubmit={command.send}/>}
       <FlowEditor graph={graph} types={data.types} readOnly={false} diff={diff} selected={node} onSelect={setNode} onChange={setEdited}
         frames play={play} onPick={setPicked} tools={<button type="button" className="flow-editor__tool flow-editor__tool--primary" data-testid="library-command-open" title="Zadání pro srdce (klávesa / nebo Ctrl+K)" onClick={() => command.setOpen(true)}>Zadání</button>} nodePorts={checks.nodePorts} checkErrors={checks.errors ?? []}/>
+      {command.phase !== "idle" && command.detail && <HeartWork phase={command.phase} work={command.work} elapsedMs={command.elapsedMs} typicalMs={command.typicalMs}
+        onClose={() => command.setDetail(false)} onOpenAssistant={onOpenAssistant} onRetry={command.retry}/>}
     </div>
     {briefOpen && <BriefDialog flowId={flowId} version={viewing?.n ?? null} onClose={() => setBriefOpen(false)}/>}
   </section>;

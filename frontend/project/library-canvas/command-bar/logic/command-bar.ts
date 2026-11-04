@@ -3,11 +3,6 @@
 import type { FlowVersion } from "@/shared/flow-editor/logic/flow-types";
 import type { HeartContext } from "@/layout/heart-channel/logic/heart-api";
 
-export const POLL_MS = 3000;
-/** Po této době lišta „Srdce kreslí…“ řekne, že srdce zatím neodpovědělo (~3 min). */
-export const LIMIT_MS = 180_000;
-export const TIMEOUT_TEXT = "Srdce zatím neodpovědělo, zkontrolujte kanál Asistent.";
-
 type KeyLike = { key: string; ctrlKey: boolean; metaKey: boolean; altKey: boolean; target: { tagName?: string; isContentEditable?: boolean } | null };
 
 /** `/` nebo Ctrl+K otevře řádek, jen když fokus není v poli pro psaní (jinak by se `/` nedal napsat). */

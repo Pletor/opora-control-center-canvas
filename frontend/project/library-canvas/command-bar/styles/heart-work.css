@@ -1,0 +1,25 @@
+/* OKNO „CO SRDCE DĚLÁ“ (blok `heart-work`)
+   Plovoucí panel v pravém dolním rohu plátna, aby plátno zůstalo vidět a člověk viděl, jak srdce přemýšlí. Nahoře jedna
+   věta s během (čas, obvyklá délka, krok); pod ní kroky jako terminál, nejstarší nahoře, nový se přidá dole a seznam
+   se k němu sám posune. Myšlenky jsou šedé a kurzívou, příkazy neproporcionálním písmem. Dole stojí poslední slovo srdce:
+   odpověď klidně, chyba červeně. */
+.heart-work { position: absolute; right: 16px; bottom: 16px; z-index: 20; display: flex; flex-direction: column; gap: 8px; width: min(460px, calc(100% - 32px)); max-height: 70%; padding: 12px; border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); }
+.heart-work__head { display: flex; align-items: center; justify-content: space-between; }
+.heart-work__title { margin: 0; font-size: 14px; }
+.heart-work__close { padding: 2px 8px; font-size: 14px; line-height: 1; }
+.heart-work__progress { margin: 0; color: var(--ink-2); font-size: 12px; }
+.heart-work__steps { display: flex; flex-direction: column; gap: 4px; min-height: 60px; margin: 0; padding: 8px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); list-style: none; font-size: 12px; }
+.heart-work__step { display: grid; grid-template-columns: 34px 14px 1fr; gap: 6px; align-items: baseline; }
+.heart-work__time { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.heart-work__icon { color: var(--ink-muted); text-align: center; }
+.heart-work__text { overflow-wrap: anywhere; white-space: pre-wrap; }
+.heart-work__step--thinking .heart-work__text { color: var(--ink-muted); font-style: italic; }
+.heart-work__step--tool .heart-work__text { font-family: var(--mono, ui-monospace, monospace); color: var(--accent); }
+.heart-work__step--result .heart-work__text { color: var(--ink-2); }
+.heart-work__tag { color: var(--ink-muted); }
+.heart-work__none { margin: 0; color: var(--ink-muted); font-size: 12px; }
+.heart-work__reply { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-size: 12px; }
+.heart-work__reply--error { border-color: var(--danger); color: var(--danger); }
+.heart-work__reply p { margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.heart-work__actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.heart-work__button { padding: 4px 12px; font-size: 12px; }
