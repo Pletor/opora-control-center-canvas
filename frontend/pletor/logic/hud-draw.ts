@@ -86,7 +86,8 @@ function drawRings(ctx: Ctx, cx: number, cy: number, R: number, f: HudFrame, p: 
   ctx.fillStyle = rgba(p.line, 0.75);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  for (let i = 0; i < 12; i++) {
+  // Malé jádro (popup Poslechu) štítky stupňů vynechá, splynuly by do šumu.
+  for (let i = 0; R > 120 && i < 12; i++) {
     const a = rot * 0.5 + (i / 12) * TAU;
     ctx.save();
     ctx.translate(cx + Math.cos(a) * R * 0.885, cy + Math.sin(a) * R * 0.885);

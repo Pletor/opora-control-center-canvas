@@ -1,0 +1,253 @@
+/* Přepínač Poslech je malý vypínač s posuvníkem a jedním slovem: člověk na první pohled vidí, jestli
+   ho Pletor slyší. Vypnutý je šedý a tichý; zapnutý svítí zelenou Pletora, protože mikrofon běží a to
+   má být vidět vždy. Chyba mikrofonu obarví rámeček tlumeně červeně a důvod řekne tooltip. V horní
+   liště (`--bar`) se drží světlých barev aplikace, v HUD a popupu (`--dark`) tmavé zelené kokpitu;
+   `--small` je drobná varianta pro „jen na oslovení“. */
+.pletor-switch {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px 0 6px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--pletor-dim);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pletor-switch:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+  outline-offset: 2px;
+}
+.pletor-switch__track {
+  position: relative;
+  width: 26px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(111, 191, 146, 0.25);
+  transition: background 160ms ease;
+}
+.pletor-switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--pletor-dim);
+  transition: transform 160ms ease, background 160ms ease;
+}
+.pletor-switch--on {
+  border-color: var(--pletor-accent);
+  color: var(--pletor-accent);
+}
+.pletor-switch--on .pletor-switch__track {
+  background: rgba(61, 255, 143, 0.35);
+}
+.pletor-switch--on .pletor-switch__thumb {
+  transform: translateX(12px);
+  background: var(--pletor-accent);
+  box-shadow: 0 0 6px var(--pletor-accent);
+}
+.pletor-switch--error {
+  border-color: var(--pletor-error);
+}
+.pletor-switch--bar {
+  margin-left: var(--sp-2);
+  border-color: var(--line);
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+}
+.pletor-switch--bar.pletor-switch--on {
+  border-color: var(--pletor-line);
+  background: var(--pletor-accent-soft);
+  color: #138a4c;
+}
+.pletor-switch--bar.pletor-switch--error {
+  border-color: var(--pletor-error);
+}
+.pletor-switch--small {
+  min-height: 24px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Popup „Pletor poslouchá“ je malá plovoucí karta v rohu, ne chat: člověk pracuje v OPOŘE a koutkem oka
+   vidí, že ho Pletor slyší, co právě zachytil a co odpověděl. Tmavá zelená ho odliší od aplikace
+   a spojí s kokpitem. Stojí nad aplikací, ale pod HUD a dialogy kokpitu; dá se odtáhnout tam, kde
+   nepřekáží, a objeví se s krátkým nádechem, aby bylo jasné, že mikrofon právě začal běžet. */
+.pletor-listener {
+  position: fixed;
+  z-index: 10050;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  padding: 8px 10px 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--pletor-line);
+  border-radius: 10px;
+  background: linear-gradient(var(--pletor-bg-2), var(--pletor-bg));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 0 18px rgba(61, 255, 143, 0.12);
+  color: var(--pletor-ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  color-scheme: dark;
+  animation: pletor-listener-in 220ms ease-out;
+}
+@keyframes pletor-listener-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+}
+
+/* Záhlaví je úchyt: za něj se popup táhne (myší i prstem) a dvojklik ho vrátí do výchozího rohu.
+   Vlevo jméno, vpravo vypínač, kterým člověk Poslech kdykoli utne. */
+.pletor-listener__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.pletor-listener__title {
+  margin-right: auto;
+  color: var(--pletor-accent);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Tělo je jádro vlevo a text vpravo: jádro dýchá s hlasem (poslech podle mikrofonu, mluvení podle hlasu),
+   vedle něj jedno slovo stavu, šedý živý přepis a poslední odpověď nejvýš na dva řádky. Klik na jádro
+   utne řeč; i za jádro jde popup odtáhnout. */
+.pletor-listener__body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pletor-listener__core {
+  flex: none;
+  width: 104px;
+  height: 104px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+.pletor-listener__core:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+}
+.pletor-listener__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pletor-listener__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.pletor-listener__state {
+  color: var(--pletor-accent);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.pletor-listener__state--idle {
+  color: var(--pletor-dim);
+}
+.pletor-listener__state--error {
+  color: var(--pletor-error);
+}
+.pletor-listener__interim {
+  margin: 0;
+  overflow: hidden;
+  color: var(--pletor-dim);
+  font-style: italic;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pletor-listener__reply {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.pletor-listener__error {
+  margin: 0;
+  color: var(--pletor-error);
+  font-size: 12px;
+}
+
+/* Lišta nástrojů je tichá řada malých tlačítek pod jádrem: oslovení, přepis, přerušit, plná obrazovka.
+   Nic z toho není potřeba stále, proto jsou obrysová a nekřičí. */
+.pletor-listener__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.pletor-listener__button {
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pletor-ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pletor-listener__button:hover:not(:disabled) {
+  background: var(--pletor-accent-soft);
+}
+.pletor-listener__button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pletor-listener__button:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+  outline-offset: 1px;
+}
+
+/* Přepis je sbalený seznam posledních zpráv: rozbalí se, jen když ho člověk chce, a má strop výšky,
+   aby z popupu nevyrostl chat. Člověk je vpravo akcentem, Pletor vlevo, jako v okně. */
+.pletor-listener__log {
+  max-height: 180px;
+  margin: 0;
+  padding: 6px 0 0;
+  overflow-y: auto;
+  border-top: 1px solid var(--pletor-line);
+  list-style: none;
+}
+.pletor-listener__entry {
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+}
+.pletor-listener__entry--human {
+  color: var(--pletor-accent);
+  text-align: right;
+}
+
+/* Bez pohybu (prefers-reduced-motion) popup jen naskočí a vypínač přeskočí; jádro samo stojí a stav
+   ukazuje změnou jasu (PletorHudCanvas). */
+@media (prefers-reduced-motion: reduce) {
+  .pletor-listener {
+    animation: none;
+  }
+  .pletor-switch__track,
+  .pletor-switch__thumb {
+    transition: none;
+  }
+}

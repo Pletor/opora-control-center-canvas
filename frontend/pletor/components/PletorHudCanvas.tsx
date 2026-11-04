@@ -6,8 +6,11 @@ import { hudPalette, type HudState } from "../logic/hud-palette";
  * Plátno kokpitu: jedna rAF smyčka kreslí prstence a jádro podle stavu od rodiče.
  * Ve skryté záložce smyčka stojí; po odmontování (režim není HUD) se uklidí smyčka i pozorovatel.
  * FPS hlásí rodiči jednou za půl sekundy, ne každým snímkem. `level` (P3) čte každým snímkem hlasitost hlasu.
+ * V malém ho skládá i popup Poslechu (vlastní `className`, bez FPS).
  */
-export default function PletorHudCanvas({ state, level, onFps }: { state: HudState; level: () => number | null; onFps: (fps: number) => void }) {
+export default function PletorHudCanvas({ state, level, onFps = () => undefined, className = "pletor-hud__canvas" }: {
+  state: HudState; level: () => number | null; onFps?: (fps: number) => void; className?: string;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef(state);
   const fpsRef = useRef(onFps);
@@ -67,5 +70,5 @@ export default function PletorHudCanvas({ state, level, onFps }: { state: HudSta
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="pletor-hud__canvas" aria-hidden="true" />;
+  return <canvas ref={canvasRef} className={className} aria-hidden="true" />;
 }

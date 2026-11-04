@@ -13,7 +13,7 @@ import PletorMessages from "./PletorMessages";
 
 type Props = {
   pletor: ReturnType<typeof usePletor>; orb: PletorOrbMode; voice: ReturnType<typeof usePletorVoice>;
-  composer: ReactNode; voiceError: ReactNode; project: string; onWindow: () => void;
+  composer: ReactNode; voiceError: ReactNode; project: string; onWindow: () => void; listenSwitch: ReactNode;
 };
 
 /**
@@ -22,13 +22,14 @@ type Props = {
  * Esc (mimo rozepsané pole) složí kokpit do okna; dialogy pod ním Esc nedostanou. Když hlas poslouchá nebo čte,
  * Esc patří hlasu (usePletorVoice ho utne) a kokpit zůstane. Příkazový řádek s mikrofonem skládá PletorWindow.
  */
-export default function PletorHud({ pletor, orb, voice, composer, voiceError, project, onWindow }: Props) {
+export default function PletorHud({ pletor, orb, voice, composer, voiceError, project, onWindow, listenSwitch }: Props) {
   const state = hudState(orb, voice.phase);
   const [fps, setFps] = useState(0);
   const leave = useRef(onWindow);
   leave.current = onWindow;
   const voiceBusy = useRef(false);
-  voiceBusy.current = voice.phase !== "idle";
+  // Trvalý poslech (přepínač Poslech) Esc nebere; patří mu jen při čtení odpovědi.
+  voiceBusy.current = voice.phase === "speaking" || (voice.phase === "listening" && !voice.ambient);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.isComposing || voiceBusy.current) return;
@@ -44,7 +45,7 @@ export default function PletorHud({ pletor, orb, voice, composer, voiceError, pr
 
   return (
     <div className="pletor-hud" role="region" aria-label="Pletor">
-      <PletorHudBar heart={heartText(pletor.heart)} onEnter={onWindow} />
+      <PletorHudBar heart={heartText(pletor.heart)} onEnter={onWindow}>{listenSwitch}</PletorHudBar>
       <div className="pletor-hud__main">
         <section className="pletor-hud__stage">
           <PletorHudCanvas state={state} level={voice.level} onFps={setFps} />
