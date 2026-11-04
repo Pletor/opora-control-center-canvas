@@ -5,14 +5,16 @@ Graf: `{"nodes": [{id, type, type_version, params, position, pinned_output}],
 Záměr stránky (`kind = page_intent`) navíc musí mít aspoň jeden `intent.entry` a jeden `intent.done`.
 Plátno toku (`kind = library_flow`, `docs/navrhy/2026-11-04-knihovna-platna-toku.md` §1–§2) má porty podle `params`
 uzlu (`NodeType.ports_for`), výstup `error` při `onError: errorOutput`, pole uzlu z §1, `notes[]` a `groups[]`;
-kontrola hlídá povinné sub-porty, pravidla skupin a odkazy `$('<id uzlu>')`. Ostatní druhy pole navíc ignorují.
+kontrola hlídá povinné sub-porty, pravidla skupin a odkazy `$('<id uzlu>')`, vrstvu uzlu (`layer`) a hranu
+mezi vrstvami (`via`, tvar `data`; `docs/navrhy/2026-11-04-platno-procesu.md` §1–§2). Ostatní druhy pole navíc ignorují.
 """
 
 import re
 from collections import Counter
 
 from backend.flow.catalogs.page_intent import REQUIRED_TYPES
-from backend.flow.node_spec import Port
+from backend.flow.layer_check import edge_errors
+from backend.flow.node_spec import LAYERS, Port
 from backend.flow.node_types import NODE_TYPES, PORT_KINDS
 
 LIBRARY = "library_flow"
@@ -30,7 +32,7 @@ def graph_errors(graph, registry=NODE_TYPES, kind=None):
     nodes, edges = graph.get("nodes"), graph.get("edges", [])
     if not isinstance(nodes, list) or not isinstance(edges, list):
         return ["nodes a edges musí být seznamy."]
-    errors, types, ports, valid = [], {}, {}, []
+    errors, types, ports, valid, nodes_by_id = [], {}, {}, [], {}
     for node in nodes:
         nid = node.get("id") if isinstance(node, dict) else None
         if not isinstance(nid, str) or not nid:
@@ -43,6 +45,7 @@ def graph_errors(graph, registry=NODE_TYPES, kind=None):
             types[nid] = registry[node["type"]]
             ports[nid] = node_ports(types[nid], node, kind)
             valid.append(node)
+            nodes_by_id[nid] = node
     seen, usage, links = set(), Counter(), []
     for edge in edges:
         eid = edge.get("id") if isinstance(edge, dict) else None
@@ -69,6 +72,8 @@ def graph_errors(graph, registry=NODE_TYPES, kind=None):
                 ok += 1
         if ok == 2:
             links.append((edge["source_node"], edge["target_node"], edge_kind))
+            if kind == LIBRARY:
+                errors += edge_errors(edge, nodes_by_id[edge["source_node"]], nodes_by_id[edge["target_node"]], types)
     for (node_id, port_name, direction, cardinality), count in usage.items():
         if cardinality == "one" and count > 1:
             errors.append(f"Port {node_id}.{port_name} ({direction}) nese jen jednu hranu, má {count}.")
@@ -114,8 +119,9 @@ def _strings(value):
 def _node_field_errors(node, ids):
     """Pole uzlu plátna toku (§1): popis, schémata, režim, chování při chybě a odkazy `$('<id>')` v `params`."""
     nid, retry = node["id"], node.get("retry")
-    errors = [f"Uzel {nid}: {field} musí být objekt (JSON Schema nebo příklad)."
-              for field in ("inputSchema", "outputSchema") if field in node and not isinstance(node[field], dict)]
+    layer = [f"Uzel {nid}: layer je {' | '.join(LAYERS)}."] if node.get("layer", "be") not in LAYERS else []
+    errors = layer + [f"Uzel {nid}: {field} musí být objekt (JSON Schema nebo příklad)."
+                      for field in ("inputSchema", "outputSchema") if field in node and not isinstance(node[field], dict)]
     if not isinstance(node.get("notes", ""), str) or not isinstance(node.get("notesInFlow", False), bool):
         errors.append(f"Uzel {nid}: notes je text a notesInFlow pravda/nepravda.")
     if node.get("mode", "perItem") not in ("perItem", "once"):

@@ -44,6 +44,17 @@ a `label`, `dynamicPorts` = porty podle `params`: `ai.vectorStore` `mode` insert
 `ai.agent` `hasOutputParser`, `flow.switch` `rules`, `flow.merge` `numberInputs`, `ai.chain` `chainType`). Po `main`
 teče `Item[] = {json, binary?, pairedItem?}`; sub-uzel (`ai.model`, `ai.memory`, `ai.tool`, `ai.embedding` …) má jen
 výstup svého kindu a hrana vede vždy ze sub-uzlu do kořene (`source_port` = `target_port` = `kind`, např. `model`).
+Typ nese `layer` (`fe` / `be` / `db` / `infra` / `ai` / `neutral`), `use` („použij, když…“), `avoid` a `intents`
+(štítky `input`, `validate`, `compute`, `store`, `call-service`, `show`, `decide`, `repeat`, `trigger`, `notify`, `ai`);
+čti je z `node-types`, než typ zvolíš. Kroky procesu (`docs/navrhy/2026-11-04-platno-procesu.md` §1): FE `fe.click`,
+`fe.form` (spouštěče), `fe.navigate`, `fe.state`, `fe.show`, `fe.notify`; BE `be.endpoint` (method, path, body,
+response), `be.validate` (výstupy `true` / `false`), `be.function`, `be.middleware`, `be.auth`; DB `db.read`,
+`db.write`, `db.transaction` (table, columns, where); Infra `infra.api`, `infra.cache`, `infra.queue`, `infra.storage`,
+`infra.email`. `action.http` / `action.db` / `action.file` už neexistují. Uzel smí mít `layer` (přepíše vrstvu typu).
+Hrana smí mít `via` (`http` / `sql` / `event` / `call` / `render`) a `data` (`{kind: text | number | json | table |
+document | vector | file | event, schema?, example?}`); `via` musí sedět na dvojici vrstev (fe→be `http` / `event`,
+be→fe `http` / `event` / `render`, be↔db `sql` / `call`, be↔infra `http` / `call` / `event`, fe→infra `http`, stejná
+vrstva a `ai` / `neutral` libovolné); hrana fe↔db přímo je chyba, vlož krok BE.
 Uzel nese navíc `notes`, `notesInFlow`, `inputSchema`, `outputSchema`, `example`, `mode` (`perItem` / `once`),
 `onError` (`stop` / `continue` / `errorOutput` = výstup `error`) a `retry {maxTries, waitMs}`; graf má `notes[]`
 (`{id, content, x, y, width, height, color}` rámec za uzly) a `groups[]` (`{id, name, description ≤ 145, nodeIds,

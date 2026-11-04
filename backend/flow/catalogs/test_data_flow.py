@@ -10,7 +10,7 @@ def sub(eid, source, target, kind):
 
 def rag():
     """Ingest a dotaz z kontraktu (image8): rámce jako notes, krok jako skupina."""
-    nodes = [node("t", "trigger.manual"), node("load", "action.file"),
+    nodes = [node("t", "trigger.manual"), node("load", "infra.storage"),
              node("vs", "ai.vectorStore", params={"mode": "insert"}), node("emb", "ai.embedding"),
              node("doc", "ai.documentLoader"), node("split", "ai.textSplitter"),
              node("chat", "trigger.chat"), node("agent", "ai.agent", notes="Odpoví z báze", notesInFlow=True,
