@@ -79,5 +79,8 @@ export function processGraph(): FlowGraph {
       node("bmi", "be.function", 1040, 120), node("zapis", "db.write", 1300, 20), node("oznameni", "fe.notify", 1560, 260)],
     edges: [edge("e1", "formular", "tlacitko"), edge("e2", "tlacitko", "endpoint", "http"), edge("e3", "endpoint", "kontrola"), edge("e4", "kontrola", "bmi"),
       edge("e5", "bmi", "zapis", "sql"), edge("e6", "zapis", "oznameni", "event")],
+    cases: [{ id: "v-poradku", name: "V pořádku", description: "Výška 180, váha 80 → BMI 24,7 → řádek v DB → notifikace", start: "formular",
+      input: { vyska: 180, vaha: 80 }, env: { tables: { bmi: [] } },
+      expect: { result: { bmi: 24.7 }, path: ["formular", "tlacitko", "endpoint", "kontrola", "bmi", "zapis", "oznameni"], rows: { bmi: [{ vyska: 180, vaha: 80, bmi: 24.7 }] }, notify: "BMI 24,7" } }],
   };
 }

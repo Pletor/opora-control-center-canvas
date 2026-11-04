@@ -1,0 +1,24 @@
+/* LIŠTA PŘÍPADŮ (blok `flow-cases`)
+   Tenký pás nad plátnem říká, kterou cestou procesem se teď jde: popisek „Případ“, kulatá značka výsledku a výběr
+   případu. Značka je zelená, když poslední běh sedí s očekáváním, červená, když ne, a šedá, dokud se případ nespustil
+   nebo nemá očekávání. Po úpravě grafu značka zešedne, protože starý výsledek už nic nedokazuje. Editor případu se
+   rozbalí pod pásem jako mřížka polí; JSON pole jsou tmavé a neplatný JSON ukáže červenou větu místo uložení. */
+.flow-cases { border-bottom: 1px solid var(--line); font-size: 12px; }
+.flow-cases__bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 12px; }
+.flow-cases__label { color: var(--ink-2); font-weight: 600; }
+.flow-cases__select { min-width: 200px; padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; }
+.flow-cases__button { padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; }
+.flow-cases__button:hover:not(:disabled) { border-color: var(--accent); }
+.flow-cases__button:disabled, .flow-cases__select:disabled { cursor: not-allowed; opacity: .55; }
+.flow-cases__description { color: var(--ink-muted); }
+.flow-cases__mark { width: 12px; height: 12px; border-radius: 50%; background: var(--ink-muted); }
+.flow-cases__mark--ok { background: var(--ok); }
+.flow-cases__mark--fail { background: var(--danger); }
+
+.case-editor { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; padding: 8px 12px 12px; background: var(--surface); }
+.case-editor__field { display: grid; align-content: start; gap: 3px; color: var(--ink-2); font-weight: 600; }
+.case-editor__input { box-sizing: border-box; width: 100%; padding: 5px 6px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; font-weight: 400; }
+.case-editor__input--code { background: var(--code-bg); font: 11px/1.4 var(--mono, monospace); resize: vertical; }
+.case-editor__actions { display: flex; gap: 10px; align-items: center; grid-column: 1 / -1; }
+.case-editor__save { padding: 5px 14px; border: 1px solid var(--accent); border-radius: 5px; background: var(--surface-2); color: var(--accent); font: inherit; cursor: pointer; }
+.case-editor__error { color: var(--danger); }

@@ -1,27 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { StudioLink } from "../../logic/studio-level";
 import type { StudioState } from "../../logic/studio-status";
-import { buildingLinks, cycleMs, levelMotion, loopProgress, MAX_ANIMATED_LINKS, onceProgress, passDurationMs } from "./motion-plan";
+import { buildingLinks, cycleMs, levelMotion, MAX_ANIMATED_LINKS, passDurationMs } from "./motion-plan";
 
 const link = (source: string, target: string): StudioLink => ({ id: `${source}->${target}`, source, target, count: 1, carries: "navigation", kinds: { navigation: 1 }, edgeIds: [] });
 
 describe("motion plan", () => {
   it("staggers the cycle by 70 ms per link, repeating every four links", () => {
     expect([0, 1, 2, 3, 4, 5].map(cycleMs)).toEqual([1050, 1120, 1190, 1260, 1050, 1120]);
-  });
-
-  it("spreads two dots evenly along the route and moves them linearly", () => {
-    expect(loopProgress(0, 1000, 0, 2)).toBe(0);
-    expect(loopProgress(0, 1000, 1, 2)).toBe(0.5);
-    expect(loopProgress(250, 1000, 0, 2)).toBe(0.25);
-    expect(loopProgress(750, 1000, 1, 2)).toBe(0.25);
-    expect(loopProgress(2250, 1000, 0, 2)).toBe(0.25);
-  });
-
-  it("shows a one-shot dot only between its start and end", () => {
-    expect(onceProgress(100, 100, 500, 1000)).toBeNull();
-    expect(onceProgress(1100, 100, 500, 1000)).toBe(0.5);
-    expect(onceProgress(1700, 100, 500, 1000)).toBeNull();
   });
 
   it("animates only links touching a card that is being built, at most 40", () => {

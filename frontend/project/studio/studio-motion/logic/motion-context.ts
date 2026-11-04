@@ -1,7 +1,7 @@
 // Animátor plátna pro vazby: plátno ho vytvoří jednou, vazby (uvnitř React Flow) si ho vezmou z kontextu a přihlásí
 // své tečky. Bez poskytovatele (např. v testu nebo mimo plátno) se nic nehýbe.
 import { createContext, useContext, useEffect, useState } from "react";
-import { browserMotionEnv, ParticleAnimator } from "./particle-animator";
+import { browserMotionEnv, ParticleAnimator } from "@/shared/flow-editor/flow-motion/logic/particle-animator";
 
 export const MotionContext = createContext<ParticleAnimator | null>(null);
 export const useMotionAnimator = () => useContext(MotionContext);

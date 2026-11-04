@@ -10,8 +10,8 @@ Etapa S3 kontraktu `docs/studio.md` (§2 pohyb Skutečnosti), hodnoty z `docs/zi
 
 Soubory:
 - `components/StudioLinkMotion.tsx` – pohyb jedné vazby, vykreslený uvnitř `StudioLink`; tečky přihlásí animátoru plátna.
-- `logic/presentation-clock.ts` – `PresentationClock` z prototypu `04.Architektura-projektu/prototype/animations.mjs` (test převedený z `test/presentation-clock.test.mjs`).
-- `logic/particle-animator.ts` – jeden `requestAnimationFrame` pro celé plátno, `path.getPointAtLength`, přímý zápis `cx`/`cy`; prostředí vstříknuté kvůli testu.
+- (přesunuto do `shared/flow-editor/flow-motion/logic/`) `presentation-clock.ts` – `PresentationClock` z prototypu `04.Architektura-projektu/prototype/animations.mjs` (test převedený z `test/presentation-clock.test.mjs`).
+- (přesunuto do `shared/flow-editor/flow-motion/logic/`) `particle-animator.ts` – jeden `requestAnimationFrame` pro celé plátno, `path.getPointAtLength`, přímý zápis `cx`/`cy`; prostředí vstříknuté kvůli testu.
 - `logic/motion-plan.ts` – výběr stavěných vazeb, časování, pohyb vazeb úrovně (`levelMotion`).
 - `logic/journey-route.ts` – přechod `from → to` mezi kroky → stránky kroků → karty a vazba aktuální úrovně.
 - `logic/run-events.ts` – nový prošlý doklad oproti minulému čtení, první selhání s větou do tooltipu, právě přehrávaný přechod (`runningHops`).

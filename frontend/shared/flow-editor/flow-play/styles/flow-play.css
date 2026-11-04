@@ -1,0 +1,40 @@
+/* OVLÁDÁNÍ PŘEHRÁVÁNÍ (blok `flow-play-bar`)
+   Pás pod lištou případů vypadá jako přehrávač: velké zelené Play uprostřed pozornosti, kolem krok zpět a vpřed,
+   Restart a tři rychlosti. Zapnutá rychlost má plný okraj v barvě akcentu. Počítadlo „krok 3 / 7“ je tiché, ale vždy
+   vidět, aby se člověk neztratil. Když server případ odmítne nebo nejede, řekne to červená věta hned vedle tlačítek. */
+.flow-play-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.flow-play-bar__button { padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; }
+.flow-play-bar__button:hover:not(:disabled) { border-color: var(--accent); }
+.flow-play-bar__button:disabled { cursor: not-allowed; opacity: .55; }
+.flow-play-bar__button--primary { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+.flow-play-bar__button--on { border-color: var(--accent); color: var(--accent); }
+.flow-play-bar__speeds { display: inline-flex; gap: 4px; margin-left: 6px; }
+.flow-play-bar__count { margin: 0 6px; color: var(--ink-muted); font-family: var(--mono, monospace); }
+.flow-play-bar__error { color: var(--danger); }
+
+/* PANEL „CO SE STALO“ (blok `flow-play-panel`)
+   Pravý sloupec jako inspektor uzlu, ale jen ke čtení: nahoře číslo a jméno kroku, pod ním vstup, pravidlo a výstup
+   jako tmavé bloky kódu. Větev je zlatá, chyba červená, aby se na ně oko zastavilo. Na posledním kroku přibude souhrn
+   s větou o shodě (zelená, červená, šedá) a rozdíly pod ní. */
+.flow-play-panel { box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; width: 340px; flex: none; overflow: auto; padding: 12px;
+  border-left: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 12px; }
+.flow-play-panel__title { margin: 0; font-size: 13px; }
+.flow-play-panel__step { display: grid; gap: 2px; margin: 0; }
+.flow-play-panel__muted { color: var(--ink-muted); font-size: 11px; }
+.flow-play-panel__block { display: grid; gap: 3px; }
+.flow-play-panel__key { margin: 0; color: var(--ink-2); font-size: 11px; font-weight: 600; }
+.flow-play-panel__value { max-height: 140px; margin: 0; overflow: auto; padding: 6px 8px; border-radius: 6px; background: var(--code-bg); color: var(--ink); font: 11px/1.4 var(--mono, monospace); white-space: pre-wrap; }
+.flow-play-panel__block--branch .flow-play-panel__value { border-left: 3px solid var(--gold); }
+.flow-play-panel__block--error .flow-play-panel__value { border-left: 3px solid var(--danger); color: var(--danger); }
+.flow-play-panel__summary { display: grid; gap: 8px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+.flow-play-panel__verdict { margin: 0; font-weight: 600; }
+.flow-play-panel__verdict--ok { color: var(--ok); }
+.flow-play-panel__verdict--fail { color: var(--danger); }
+.flow-play-panel__verdict--idle { color: var(--ink-muted); }
+.flow-play-panel__diffs { margin: 0; padding-left: 16px; color: var(--danger); }
+
+/* BOD S DATY (blok `flow-play-dot`)
+   Po hraně letí jeden zelený bod a nad středem hrany stojí popisek s ukázkou dat, která nese. Popisek má tmavý
+   obrys, aby byl čitelný i přes čáru hrany. */
+.flow-play-dot__point { fill: var(--ok); stroke: var(--bg); stroke-width: 1.5; pointer-events: none; }
+.flow-play-dot__label { fill: var(--ink); font: 10px var(--mono, monospace); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; pointer-events: none; }

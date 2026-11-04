@@ -19,6 +19,10 @@ import { edgeKindError, inheritedExample } from "../edge-data-panel/logic/edge-d
 import { arrangeLanes, laneNodes } from "../flow-lanes/logic/lanes";
 import { linkableTypes, settleAdded } from "../flow-lanes/logic/layer-links";
 import { effectiveLayer } from "../flow-lanes/logic/layers";
+import FlowPlayDot from "../flow-play/components/FlowPlayDot";
+import FlowPlayPanel from "../flow-play/components/FlowPlayPanel";
+import { dataLabel, stepMs } from "../flow-play/logic/play-trace";
+import type { PlayState } from "../flow-play/logic/use-play";
 import FlowCanvas from "./FlowCanvas";
 import FlowToolbar from "./FlowToolbar";
 import "../flow-lanes/styles/flow-lanes.css";
@@ -39,12 +43,16 @@ type Props = {
   checkErrors?: readonly string[] | null;
   /** Tlačítka navíc v pásu nástrojů (plátno knihovny: „Zadání“). */
   tools?: ReactNode;
+  /** Přehrávání případu (`flow-play/`): zvýrazní krok trasy, pustí bod po hraně, ukáže „Co se stalo“ a plátno zamkne ke čtení. */
+  play?: PlayState;
 };
 
 /** Generický editor grafu verze workflow: plátno, paleta, inspektor a pás „Připraveno ke spuštění“ (u plátna toku pás
  * kontroly grafu). Neví nic o srdci ani o API; typy uzlů dostává z registru, stav běhu, rozdíl verzí, porty uzlů a chyby
  * kontroly hotové v props a změny hlásí nahoru. Stav sbalení rámců drží jen v prohlížeči (jako n8n). */
-export default function FlowEditor({ graph, types, readOnly, overlay, diff, nodeRuns = [], selected, onSelect, onChange, frames = false, nodePorts, checkErrors, tools }: Props) {
+export default function FlowEditor({ graph, types, readOnly: ownReadOnly, play, overlay, diff, nodeRuns = [], selected, onSelect, onChange, frames = false, nodePorts, checkErrors, tools }: Props) {
+  const readOnly = ownReadOnly || !!play?.active, watching = !!play?.response;
+  const [root, setRoot] = useState<HTMLElement | null>(null);
   const registry = useMemo(() => withNodePorts(nodeTypeMap(types), nodePorts, graph), [types, nodePorts, graph]);
   const [palette, setPalette] = useState<{ port: PlusRequest | null } | null>(null);
   const [edge, setEdge] = useState<string | null>(null);
@@ -57,10 +65,10 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
   const issueNodes = useMemo(() => new Set([...issues.flatMap((issue) => issue.nodeId ? [issue.nodeId] : []), ...targets.nodes]), [issues, targets]);
   const hidden = useMemo(() => hiddenNodes(graph, collapsed), [graph, collapsed]);
   const nodes = useMemo(() => {
-    const cards = flowNodes(graph, registry, { overlay, diff, highlighted: selected, issues: issueNodes, readOnly });
+    const cards = flowNodes(graph, registry, { overlay, diff, highlighted: play?.step?.nodeId ?? selected, issues: issueNodes, readOnly });
     const shown = cards.filter((card) => !hidden.has(card.id));
     return [...laneNodes(shown), ...noteNodes(graph, readOnly), ...groupNodes(graph, cards, collapsed, targets.groups, group), ...shown];
-  }, [graph, registry, overlay, diff, selected, issueNodes, readOnly, hidden, collapsed, targets, group]);
+  }, [graph, registry, overlay, diff, selected, play?.step?.nodeId, issueNodes, readOnly, hidden, collapsed, targets, group]);
   const edges = useMemo(() => foldEdges(flowEdges(graph, { overlay, diff, readOnly }), graph, collapsed), [graph, overlay, diff, readOnly, collapsed]);
 
   const apply = (edit: () => FlowGraph) => {
@@ -86,20 +94,20 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
     const target = graph.nodes.find((item) => item.id === id);
     if (frames && !readOnly && target && canExpand(graph, target)) expand(id);
   };
-  const node = graph.nodes.find((item) => item.id === selected) ?? null;
-  const frame = graph.groups?.find((item) => item.id === group) ?? null;
+  const node = watching ? null : graph.nodes.find((item) => item.id === selected) ?? null;
+  const frame = watching ? null : graph.groups?.find((item) => item.id === group) ?? null;
   const run = node ? [...nodeRuns].reverse().find((item) => item.node_id === node.id) ?? null : null;
-  const selectedEdge = graph.edges.find((item) => item.id === edge);
+  const selectedEdge = watching ? undefined : graph.edges.find((item) => item.id === edge);
 
   return <div className="flow-editor" data-testid="flow-editor">
-    <div className="flow-editor__main">
+    <div className="flow-editor__main" ref={setRoot}>
       {!readOnly && <FlowToolbar edge={selectedEdge} message={message} frames={frames} extra={tools} selection={picked.length} onPalette={() => setPalette({ port: null })}
         onRemoveEdge={() => { if (selectedEdge) apply(() => removeEdge(graph, selectedEdge.id)); setEdge(null); }}
         onNote={() => apply(() => addNote(graph, noteSpot(graph)))}
         onLanes={frames ? () => apply(() => arrangeLanes(graph, registry)) : undefined}
         onVia={frames && selectedEdge ? (via) => apply(() => setEdgeVia(graph, selectedEdge.id, via)) : undefined}
         onGroup={() => apply(() => { const made = groupFromSelection(graph, picked); setGroupId(made.group.id); onSelect(null); return made.graph; })}/>}
-      <FlowCanvas nodes={nodes} edges={edges} readOnly={readOnly}
+      <FlowCanvas nodes={nodes} edges={edges} readOnly={readOnly} hatched={ownReadOnly}
         frames={{ onNote: (id, patch) => apply(() => setNote(graph, id, patch)), onToggleGroup: toggle }}
         canConnect={(a: PortRef, b: PortRef) => !connectionError(graph, registry, a, b)}
         onSelectNode={selectNode} onSelectEdge={selectEdge} onOpen={open} onReject={(a, b) => setMessage(connectionError(graph, registry, a, b) ?? "")} onSelectGroup={frames ? (id) => { onSelect(null); setGroupId(id); } : undefined}
@@ -108,11 +116,14 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
         onConnect={(a, b) => apply(() => connect(graph, registry, a, b))}
         onDropType={(type, at) => apply(() => settleAdded(addNode(graph, registry, type, at).graph, registry))} onDropEmpty={dropEmpty}
         onPlus={(port) => setPalette({ port })}/>
+      {play?.response && play.edgeId && <FlowPlayDot root={root} edgeId={play.edgeId} stamp={play.stamp} duration={stepMs(play.speed) * 0.8}
+        label={dataLabel(play.step?.in)}/>}
       {checkErrors && <p className={`flow-editor__check${checkErrors.length ? "" : " flow-editor__check--ok"}`} data-testid="flow-check">
         Kontrola grafu{checkErrors.length ? `: ${checkErrors.join(" · ")}` : ": v pořádku"} <small className="flow-editor__check-note">plátno se nespouští, popisuje tok</small></p>}
       {issues.length > 0 && <p className="flow-editor__readiness" data-testid="flow-readiness">Připraveno ke spuštění: {issues.map((issue) => issue.text).join(" · ")}</p>}
       {palette && !readOnly && <NodePalette types={offered} port={palette.port} onPick={pick} onClearPort={() => setPalette({ port: null })} onClose={() => setPalette(null)}/>}
     </div>
+    {play?.response && <FlowPlayPanel response={play.response} step={play.step} index={play.index} name={(id) => id}/>}
     {!node && !frame && selectedEdge && frames && <EdgeDataPanel key={selectedEdge.id + JSON.stringify(selectedEdge.data ?? null)} edge={selectedEdge} readOnly={readOnly}
       inherited={inheritedExample(graph, selectedEdge)} kindError={(kind) => edgeKindError(graph, registry, selectedEdge, kind)}
       onSave={(data) => apply(() => setEdgeData(graph, selectedEdge.id, data))} onClose={() => setEdge(null)}/>}

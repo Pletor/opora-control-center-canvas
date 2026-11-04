@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react";
 import FlowEditor from "@/shared/flow-editor/components/FlowEditor";
+import FlowCasesBar from "@/shared/flow-editor/flow-cases/components/FlowCasesBar";
+import { addCase, caseFingerprint, caseMark, casesOf, removeCase, setCase } from "@/shared/flow-editor/flow-cases/logic/flow-cases";
+import FlowPlayBar from "@/shared/flow-editor/flow-play/components/FlowPlayBar";
+import { usePlay } from "@/shared/flow-editor/flow-play/logic/use-play";
 import type { FlowGraph, FlowVersion } from "@/shared/flow-editor/logic/flow-types";
 import { diffSummary, graphDiff } from "@/shared/flow-editor/logic/graph-diff";
 import type { Project } from "@/shared/types/logic/types";
@@ -39,6 +43,10 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
   const viewing = pickFlowVersion(versions, viewId);
   const graph = edited ?? viewing?.graph ?? EMPTY;
   const checks = useFlowChecks(graph, data.types);
+  const play = usePlay(graph);
+  const [caseId, setCaseId] = useState<string | null>(null);
+  const cases = casesOf(graph), current = cases.find((item) => item.id === caseId) ?? cases[0] ?? null;
+  const marks = Object.fromEntries(cases.map((item) => [item.id, caseMark(play.results[item.id], caseFingerprint(graph, item))]));
   const place = data.flow ? placeOf(data.flow.ownerRef) : "human";
   const projectName = (id: string) => projects.find((item) => item.id === id)?.name ?? id;
   const lineage = data.flow ? lineageOf(data.flow, data.source, projectName) : null;
@@ -57,7 +65,7 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
     try { done(await action()); } catch (error) { setNotice(error instanceof Error ? error.message : String(error)); } finally { setBusy(false); }
   };
   const write = (action: () => Promise<FlowVersion>, text: string) => run(action, (version) => { setEdited(null); setViewId(version.id); setNotice(text); data.reload(); });
-  const view = (id: string) => { if (edited && !window.confirm("Zahodit neuloženou úpravu?")) return; setEdited(null); setViewId(id); setNode(null); };
+  const view = (id: string) => { if (edited && !window.confirm("Zahodit neuloženou úpravu?")) return; setEdited(null); setViewId(id); setNode(null); play.stop(); };
 
   if (data.loading && !data.flow) return <p className="library-canvas__empty">Načítám plátno toku…</p>;
   if (!data.flow) return <p className="library-canvas__empty" role="alert">{data.error || "Plátno toku neexistuje."} <button type="button" onClick={onBack}>← Zpět</button></p>;
@@ -90,9 +98,13 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
       onSaveDraft={() => edited && write(() => saveFlowDraft(flowId, edited, viewing?.id ?? null), "Uloženo jako nový draft.")}
       onActivate={() => viewing && write(() => activateVersion(viewing), `Verze v${viewing.n} je aktivní.`)}
       onRollback={() => write(() => rollbackFlow(flowId), "Vráceno na předchozí verzi.")}/>
+    <FlowCasesBar cases={cases} nodes={graph.nodes} selectedId={current?.id ?? null} marks={marks} disabled={play.active}
+      onSelect={setCaseId} onAdd={() => { const made = addCase(graph); setEdited(made.graph); setCaseId(made.added.id); }}
+      onRemove={(id) => setEdited(removeCase(graph, id))} onChange={(item) => setEdited(setCase(graph, item))}/>
+    <FlowPlayBar play={play} canRun={!!current} onRun={() => current && play.run(current)}/>
     <div className="library-canvas__editor">
       <FlowEditor graph={graph} types={data.types} readOnly={false} diff={diff} selected={node} onSelect={setNode} onChange={setEdited}
-        frames tools={<button type="button" className="flow-editor__tool" data-testid="library-command-open" title="Zadání pro srdce (klávesa / nebo Ctrl+K)" onClick={() => command.setOpen(true)}>Zadání</button>} nodePorts={checks.nodePorts} checkErrors={checks.errors ?? []}/>
+        frames play={play} tools={<button type="button" className="flow-editor__tool" data-testid="library-command-open" title="Zadání pro srdce (klávesa / nebo Ctrl+K)" onClick={() => command.setOpen(true)}>Zadání</button>} nodePorts={checks.nodePorts} checkErrors={checks.errors ?? []}/>
     </div>
   </section>;
 }
