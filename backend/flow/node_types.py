@@ -16,6 +16,7 @@ from datetime import timedelta
 
 from backend.brain import evaluate as brain_evaluate
 from backend.flow import critic
+from backend.flow.catalogs.data_flow import FLOW_TYPES
 from backend.flow.catalogs.heart.nodes import HEART_TYPES
 from backend.flow.catalogs.heart.runtime import detached
 from backend.flow.catalogs.page_intent import INTENT_TYPES
@@ -57,5 +58,6 @@ NODE_TYPES.update({t.type: t for t in HEART_TYPES})
 
 
 def catalog(kind):
-    """Typy uzlů podle druhu workflow: `page_intent` má vlastní katalog (plátno 2), ostatní tento registr."""
-    return INTENT_TYPES if kind == "page_intent" else NODE_TYPES
+    """Typy uzlů podle druhu workflow: `page_intent` (plátno 2) a `library_flow` (toky dat knihovny) mají vlastní
+    katalog, ostatní tento registr."""
+    return {"page_intent": INTENT_TYPES, "library_flow": FLOW_TYPES}.get(kind, NODE_TYPES)

@@ -11,6 +11,9 @@ Log pláten 2–4 (`POST /log`, §6) píše člověk, srdce projektu nebo relace
 role `worker` / `heart`); jinak 401 `gate_token_invalid` / 403 `gate_scope` jako brána.
 Stav záměrů stránek (`page-intents`) a otisk stránky při schválení počítá `backend/flow/page_intents.py` nad přijatým
 grafem projektu; graf se čte mimo `registry_lock`.
+Plátno toku v knihovně (`library_flow` bez projektu, `docs/navrhy/2026-11-04-knihovna-platna-toku.md` §3) zakládá
+`/api/library/flows`; zápisy jeho verzí hlídá místo zdi projektu pravidlo knihovny (`library_routes.writer_refusal`).
+Plátno toku se nespouští (`runs` → 409 `not_runnable`).
 """
 
 from typing import Any, Literal
@@ -20,6 +23,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from backend.api.brain_opora.writer import heart_project
+from backend.api.flow.library_routes import writer_refusal
 from backend.brain_opora.determinism import gate, tokens, wall
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.activity_log import require_human
@@ -33,7 +37,7 @@ from backend.flow.stalls import list_stalls
 from backend.flow.workflows import FlowConflict, FlowNotFound
 from backend.project.architecture.work_status import architecture_graph
 
-Kind = Literal["heart", "page_intent", "brain_workflow"]
+Kind = Literal["heart", "page_intent", "library_flow"]
 
 
 class WorkflowIn(BaseModel):
@@ -100,7 +104,10 @@ def create_flow_router(service):
         return guarded(locked)
 
     def walled(request, **ids):
-        """Zeď brány pro zápis podle ID: projekt se dohledá z workflow; odmítnutí = odpověď, jinak None."""
+        """Zeď brány pro zápis podle ID: projekt se dohledá z workflow; odmítnutí = odpověď, jinak None.
+        Plátno knihovny (bez projektu) hlídá pravidlo části knihovny."""
+        if part := call(lambda db: workflows.library_part(db, **ids)):
+            return writer_refusal(service, request, part)
         project = call(lambda db: workflows.project_of(db, **ids))
         verdict = wall.check(service, request.method, request.url.path, getattr(request.state, "actor", None),
                              request.headers.get(tokens.HEADER), project, lambda: "")
@@ -116,12 +123,15 @@ def create_flow_router(service):
 
     @router.get("/node-types")
     def node_type_list(kind: Kind | None = None):
-        """Typy uzlů pro editor podle druhu workflow (`?kind=page_intent` = katalog záměru, jinak plátno 1):
-        porty s `kind` a `cardinality` (pravidla vazeb, paleta podle portu) a `params` uzlu."""
+        """Typy uzlů pro editor podle druhu workflow (`?kind=page_intent` = katalog záměru, `library_flow` = toky dat,
+        jinak plátno 1): porty s `kind`, `cardinality`, `required` a `label` (pravidla vazeb, paleta podle portu),
+        `params` a `category` uzlu; `dynamicPorts` = porty závisí na `params` (zde výchozí, přesně je spočte
+        `graph-check`)."""
         return {"node_types": [
             {"type": t.type, "version": t.version, "trigger": t.trigger, "params": t.params,
+             "category": t.category, "dynamicPorts": t.dynamic is not None,
              "ports": [{"name": p.name, "direction": p.direction, "kind": p.kind, "cardinality": p.cardinality,
-                        "schema": p.schema} for p in t.ports]}
+                        "schema": p.schema, "required": p.required, "label": p.label or p.name} for p in t.ports]}
             for t in catalog(kind).values()
         ]}
 
@@ -150,6 +160,8 @@ def create_flow_router(service):
 
     @router.post("/workflows")
     def workflow_create(body: WorkflowIn):
+        if body.kind == "library_flow" and body.project_id is None:
+            raise HTTPException(422, "Plátno toku v knihovně zakládá POST /api/library/flows {folder, slug, title}.")
         return call(workflows.create_workflow, body.kind, body.name, body.project_id, body.owner_ref)
 
     @router.get("/workflows/{workflow_id}/versions")

@@ -113,3 +113,45 @@ def test_owner_ref_migration_on_old_registry():
     ensure_flow_owner_ref(old)
     assert "owner_ref" in {row[1] for row in old.execute("PRAGMA table_info(flow_workflows)")}
     assert old.execute("SELECT 1 FROM sqlite_master WHERE name='flow_workflows_owner'").fetchone()
+
+
+OLD_FLOW = """
+CREATE TABLE flow_workflows(id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('heart','page_intent',
+  'brain_workflow')), project_id TEXT, name TEXT NOT NULL, created_at TEXT NOT NULL, owner_ref TEXT);
+CREATE TABLE flow_workflow_versions(id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL REFERENCES flow_workflows(id),
+  n INTEGER NOT NULL, graph TEXT NOT NULL, hash TEXT NOT NULL, parent_version_id TEXT, status TEXT NOT NULL,
+  eval_run_id TEXT, created_at TEXT NOT NULL, UNIQUE(workflow_id, n));
+CREATE TRIGGER flow_workflow_versions_frozen BEFORE UPDATE OF id, workflow_id, n, graph, hash, parent_version_id
+  ON flow_workflow_versions BEGIN SELECT RAISE(ABORT,'Verze workflow je neměnná'); END;
+CREATE UNIQUE INDEX flow_workflows_owner ON flow_workflows(project_id, kind, owner_ref) WHERE owner_ref IS NOT NULL;
+INSERT INTO flow_workflows VALUES('h','heart',NULL,'Srdce','2026-11-01',NULL);
+INSERT INTO flow_workflow_versions VALUES('v','h',1,'{}','x',NULL,'active',NULL,'2026-11-01');
+"""
+
+
+def test_library_flow_migration_on_old_schema():
+    old = sqlite3.connect(":memory:")
+    old.row_factory = sqlite3.Row
+    old.executescript(OLD_FLOW)
+    ensure_flow_owner_ref(old)
+    ensure_flow_owner_ref(old)
+    assert [tuple(r) for r in old.execute("SELECT id, kind FROM flow_workflows")] == [("h", "heart")]
+    assert get_version(old, "v")["derived_from"] is None
+    with pytest.raises(sqlite3.IntegrityError):  # rodokmen je neměnný jako graf
+        old.execute("UPDATE flow_workflow_versions SET derived_from='{}' WHERE id='v'")
+    with pytest.raises(sqlite3.IntegrityError):
+        old.execute("INSERT INTO flow_workflows(id,kind,name,created_at) VALUES('b','brain_workflow','B','t')")
+    ref = "opora:library:human:ai-rag/rag"
+    create_workflow(old, "library_flow", "RAG", owner_ref=ref)
+    with pytest.raises(FlowConflict):  # NULL project_id: jedinečnost hlídá index s COALESCE
+        create_workflow(old, "library_flow", "RAG 2", owner_ref=ref)
+    assert old.execute("SELECT 1 FROM sqlite_master WHERE name='flow_library_folders'").fetchone()
+
+
+def test_library_flow_owner_refs(db):
+    db.execute("INSERT INTO projects(id,name) VALUES('p','P')")
+    for project, owner in ((None, None), (None, "opora:library:robot:x/y"), (None, "opora:project-flow:n1"),
+                           ("p", "opora:library:human:x/y")):
+        with pytest.raises(FlowInvalid):
+            create_workflow(db, "library_flow", "X", project_id=project, owner_ref=owner)
+    assert create_workflow(db, "library_flow", "Kopie", "p", "opora:project-flow:n1")["project_id"] == "p"

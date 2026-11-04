@@ -3,6 +3,9 @@
 Funkce dostávají spojení na registry.sqlite (`CanvasService.db`); zámek drží volající.
 Záměr stránky (`kind = page_intent`, `docs/navrhy/2026-11-03-platno-2-zamer-stranky.md` §2–§3) patří stránce
 (`owner_ref = opora:page:<nodeId>`), má vlastní katalog uzlů a kandidáta aktivuje jen člověk přes `approve`.
+Plátno toku (`kind = library_flow`, `docs/navrhy/2026-11-04-knihovna-platna-toku.md` §1) leží v knihovně bez projektu
+(`opora:library:<human|agent>:<složka>/<slug>`) nebo jako převzatá kopie v projektu (`opora:project-flow:<nodeId|slug>`);
+verze nese rodokmen `derived_from` (`{workflowId, versionId}`), knihovnu spravuje `library.py`.
 """
 
 import hashlib
@@ -16,8 +19,10 @@ from backend.flow.graph_check import FlowInvalid, check_graph
 from backend.flow.node_types import catalog
 from backend.flow.run_log import append
 
-KINDS = ("heart", "page_intent", "brain_workflow")
+KINDS = ("heart", "page_intent", "library_flow")
 PAGE_OWNER = re.compile(r"opora:page:\S+")
+LIBRARY_OWNER = re.compile(r"opora:library:(human|agent):([a-z0-9][a-z0-9-]*)/([a-z0-9][a-z0-9-]*)")
+PROJECT_FLOW_OWNER = re.compile(r"opora:project-flow:\S+")
 
 
 class FlowNotFound(LookupError):
@@ -37,7 +42,8 @@ def _now():
 
 
 def _version(row):
-    return {**dict(row), "graph": json.loads(row["graph"])}
+    derived = row["derived_from"]
+    return {**dict(row), "graph": json.loads(row["graph"]), "derived_from": json.loads(derived) if derived else None}
 
 
 def list_workflows(db, project_id=None, kind=None, owner_ref=None):
@@ -51,8 +57,9 @@ def list_workflows(db, project_id=None, kind=None, owner_ref=None):
     return [dict(row) for row in rows]
 
 
-def create_workflow(db, kind, name, project_id=None, owner_ref=None):
-    """`page_intent` patří stránce projektu (`owner_ref = opora:page:<nodeId>`), `heart` nemá vlastníka."""
+def create_workflow(db, kind, name, project_id=None, owner_ref=None, description=None):
+    """`page_intent` patří stránce projektu (`owner_ref = opora:page:<nodeId>`), `heart` nemá vlastníka,
+    `library_flow` má vlastníka v knihovně (bez projektu) nebo v projektu (převzatá kopie)."""
     if kind not in KINDS:
         raise FlowInvalid(f"Neznámý kind workflow {kind!r}.")
     if not name or not name.strip():
@@ -61,14 +68,17 @@ def create_workflow(db, kind, name, project_id=None, owner_ref=None):
         raise FlowInvalid("Záměr stránky potřebuje project_id a owner_ref ve tvaru opora:page:<nodeId>.")
     if kind == "heart" and owner_ref is not None:
         raise FlowInvalid("Workflow srdce nemá owner_ref.")
+    if kind == "library_flow" and not (PROJECT_FLOW_OWNER if project_id else LIBRARY_OWNER).fullmatch(owner_ref or ""):
+        raise FlowInvalid("Plátno toku potřebuje owner_ref opora:library:<human|agent>:<složka>/<slug>, "
+                          "v projektu opora:project-flow:<nodeId|slug>.")
     if project_id is not None and not db.execute("SELECT 1 FROM projects WHERE id=?", (project_id,)).fetchone():
         raise FlowNotFound("Projekt neexistuje.")
     workflow = {"id": uuid.uuid4().hex, "kind": kind, "project_id": project_id, "name": name.strip(),
-                "created_at": _now(), "owner_ref": owner_ref}
+                "created_at": _now(), "owner_ref": owner_ref, "description": description}
     try:
         with db:
-            db.execute("INSERT INTO flow_workflows(id,kind,project_id,name,created_at,owner_ref) VALUES(:id,:kind,"
-                       ":project_id,:name,:created_at,:owner_ref)", workflow)
+            db.execute("INSERT INTO flow_workflows(id,kind,project_id,name,created_at,owner_ref,description) VALUES("
+                       ":id,:kind,:project_id,:name,:created_at,:owner_ref,:description)", workflow)
     except sqlite3.IntegrityError as error:
         raise FlowConflict(f"Vlastník {owner_ref} už workflow {kind} má.", "owner_taken") from error
     return workflow
@@ -81,13 +91,25 @@ def workflow_kind(db, workflow_id):
     return row["kind"]
 
 
-def project_of(db, workflow_id=None, version_id=None, run_id=None):
-    """Projekt workflow podle jeho ID, verze nebo běhu (zeď brány); neznámé ID i workflow bez projektu = ""."""
-    row = db.execute(
-        "SELECT w.project_id FROM flow_workflows w LEFT JOIN flow_workflow_versions v ON v.workflow_id=w.id "
+def workflow_of(db, workflow_id=None, version_id=None, run_id=None):
+    """Řádek workflow podle jeho ID, verze nebo běhu; neznámé ID = None."""
+    return db.execute(
+        "SELECT w.* FROM flow_workflows w LEFT JOIN flow_workflow_versions v ON v.workflow_id=w.id "
         "LEFT JOIN flow_runs r ON r.workflow_version_id=v.id WHERE w.id=? OR v.id=? OR r.id=? LIMIT 1",
         (workflow_id, version_id, run_id)).fetchone()
+
+
+def project_of(db, workflow_id=None, version_id=None, run_id=None):
+    """Projekt workflow podle jeho ID, verze nebo běhu (zeď brány); neznámé ID i workflow bez projektu = ""."""
+    row = workflow_of(db, workflow_id, version_id, run_id)
     return (row["project_id"] if row else None) or ""
+
+
+def library_part(db, workflow_id=None, version_id=None, run_id=None):
+    """Část knihovny (`human` / `agent`) plátna toku bez projektu; jinak None (zápis hlídá zeď projektu)."""
+    row = workflow_of(db, workflow_id, version_id, run_id)
+    match = row and row["kind"] == "library_flow" and LIBRARY_OWNER.fullmatch(row["owner_ref"] or "")
+    return match.group(1) if match else None
 
 
 def get_version(db, version_id):
@@ -102,8 +124,9 @@ def list_versions(db, workflow_id):
     return [_version(row) for row in rows]
 
 
-def create_draft(db, workflow_id, graph, parent_version_id=None, registry=None):
-    """Nová neměnná verze s dalším `n`; rodič je zadaná verze, jinak aktivní. Graf ověří katalog druhu workflow."""
+def create_draft(db, workflow_id, graph, parent_version_id=None, registry=None, derived_from=None):
+    """Nová neměnná verze s dalším `n`; rodič je zadaná verze, jinak aktivní. Graf ověří katalog druhu workflow.
+    `derived_from` (`{workflowId, versionId}`) je rodokmen kopie z jiného workflow (knihovna, `library.py`)."""
     kind = workflow_kind(db, workflow_id)
     check_graph(graph, registry or catalog(kind), kind)
     text = json.dumps(graph, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -118,9 +141,10 @@ def create_draft(db, workflow_id, graph, parent_version_id=None, registry=None):
                        (workflow_id,)).fetchone()[0]
         vid = uuid.uuid4().hex
         db.execute(
-            "INSERT INTO flow_workflow_versions(id,workflow_id,n,graph,hash,parent_version_id,status,created_at) "
-            "VALUES(?,?,?,?,?,?,'draft',?)",
-            (vid, workflow_id, n, text, hashlib.sha256(text.encode()).hexdigest(), parent_version_id, _now()),
+            "INSERT INTO flow_workflow_versions(id,workflow_id,n,graph,hash,parent_version_id,status,created_at,"
+            "derived_from) VALUES(?,?,?,?,?,?,'draft',?,?)",
+            (vid, workflow_id, n, text, hashlib.sha256(text.encode()).hexdigest(), parent_version_id, _now(),
+             json.dumps(derived_from, sort_keys=True) if derived_from else None),
         )
     return get_version(db, vid)
 
