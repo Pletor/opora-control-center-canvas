@@ -39,7 +39,7 @@ export default function PletorWindow({ mode, project, projectName, workspace, on
   const composer = (
     <PletorComposer disabled={disabled} interim={voice.interim} onSend={(text) => pletor.send(text, voice.prefs.voice)}>
       <PletorMicButton phase={voice.phase} supported={voice.supported} blocked={voice.blocked} disabled={disabled} onToggle={voice.toggle} />
-      <PletorVoiceToggles prefs={voice.prefs} canListen={voice.supported} onChange={voice.setPrefs} />
+      <PletorVoiceToggles prefs={voice.prefs} canListen={voice.supported} voices={voice.voices} chosen={voice.chosen} onChange={voice.setPrefs} />
     </PletorComposer>
   );
   const voiceError = voice.error && <p className="pletor-mic__error" role="alert">{voice.error}</p>;

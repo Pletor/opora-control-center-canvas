@@ -21,9 +21,22 @@ export type UtteranceCtor = new (text: string) => Utterance;
 
 const MAX_CHUNK = 180;
 
-/** Odpověď → věty k přečtení. Chrome po ~15 s jedné promluvy zamlkne, proto věta po větě a dlouhá věta po slovech. */
+/** Text, který jde číst nahlas: bez markdownu, odkazů, emoji a závorek s ID (`(#330)`, `(t-12ab)`); „5.5“ zůstane. */
+export function speakable(text: string): string {
+  return text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/https?:\/\/\S*[^\s.,!?…]/g, " ")
+    .replace(/\s*\(#?[\w-]*\d[\w-]*\)/g, "")
+    .replace(/\p{Extended_Pictographic}️?/gu, " ")
+    .replace(/[*_#`>|~]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Odpověď → věty k přečtení. Chrome po ~15 s jedné promluvy zamlkne a Piper začne hrát dřív po krátké větě,
+ *  proto věta po větě a dlouhá věta po slovech. */
 export function splitSentences(text: string, max = MAX_CHUNK): string[] {
-  const clean = text.replace(/[*_#`>|]/g, " ").replace(/\s+/g, " ").trim();
+  const clean = speakable(text);
   const out: string[] = [];
   for (const sentence of clean.split(/(?<=[.!?…])\s+/)) {
     if (sentence.length <= max) { if (sentence) out.push(sentence); continue; }

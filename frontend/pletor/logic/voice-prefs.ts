@@ -2,16 +2,19 @@
  * Preference hlasu okna Pletor jsou volba aplikace, ne projektu: jeden klíč pro všechny projekty.
  * `conversation`: po domluvení se mikrofon sám znovu zapne (jinak „push“: jedna věta a konec).
  * `voice`: odpovědi se čtou nahlas i na psané zprávy.
+ * `ttsVoice` (P3b): hlas Piperu (`cs_CZ-jirka-medium`…), `browser` = prohlížeč, `null` = výchozí stažený hlas.
  */
 export const VOICE_PREFS_KEY = "opora:pletor:voice:v1";
 
-export type VoicePrefs = { conversation: boolean; voice: boolean };
-export const DEFAULT_VOICE_PREFS: VoicePrefs = { conversation: false, voice: false };
+export type VoicePrefs = { conversation: boolean; voice: boolean; ttsVoice: string | null };
+export const DEFAULT_VOICE_PREFS: VoicePrefs = { conversation: false, voice: false, ttsVoice: null };
 
 export function parseVoicePrefs(raw: string | null): VoicePrefs {
   try {
     const value = JSON.parse(raw ?? "null");
-    if (value && typeof value === "object") return { conversation: value.conversation === true, voice: value.voice === true };
+    if (value && typeof value === "object")
+      return { conversation: value.conversation === true, voice: value.voice === true,
+        ttsVoice: typeof value.ttsVoice === "string" ? value.ttsVoice : null };
   } catch {
     /* Poškozené preference nejsou data projektu. */
   }

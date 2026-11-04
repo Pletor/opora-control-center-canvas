@@ -78,3 +78,26 @@ def test_refusals(tmp_path):
         assert client.post("/api/pletor/messages", headers=HEADERS, json={**SCOPE, "text": "x", "via": "y"}
                            ).status_code == 422
         assert client.get("/api/pletor/state", headers=HEADERS, params={"project": "draft"}).status_code == 422
+
+
+def test_voices_and_tts(tmp_path, monkeypatch):
+    from backend.pletor import test_tts, tts
+
+    monkeypatch.setattr(tts, "_load", lambda path: test_tts.FakeVoice())
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        folder = client.app.state.pletor.folder
+        assert client.get("/api/pletor/voices", headers=HEADERS).json() == {"available": [], "default": None}
+        missing = client.post("/api/pletor/tts", headers=HEADERS, json={"text": "Ahoj."})
+        assert missing.status_code == 404 and missing.json()["error"] == "Hlas není stažen."
+        test_tts.seed(folder, tts.DEFAULT)
+        assert client.get("/api/pletor/voices", headers=HEADERS).json()["default"] == tts.DEFAULT
+        audio = client.post("/api/pletor/tts", headers=HEADERS, json={"text": " Ahoj. "})
+        assert audio.status_code == 200 and audio.headers["content-type"] == "audio/wav"
+        assert audio.content[:4] == b"RIFF"
+        assert client.post("/api/pletor/tts", headers=HEADERS, json={"text": "Ahoj.", "voice": "cs_CZ-kasandra-medium"}
+                           ).status_code == 404
+        for bad in ({"text": "   "}, {"text": "x" * (tts.TEXT_LIMIT + 1)}, {"text": "a", "extra": 1}):
+            assert client.post("/api/pletor/tts", headers=HEADERS, json=bad).status_code == 422
+        assert client.post("/api/pletor/tts", headers=AGENT, json={"text": "Ahoj."}).status_code == 403
+        assert client.get("/api/pletor/voices", headers=AGENT).status_code == 403

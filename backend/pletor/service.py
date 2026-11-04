@@ -22,7 +22,8 @@ def _iso(moment):
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(moment))
 
 
-VOICE = "REŽIM: HLAS – odpověz nejvýš dvěma větami, prostým textem bez výčtů a markdownu, čitelným nahlas, česky."
+VOICE = ("REŽIM: HLAS – odpověz nejvýš dvěma větami, prostým textem bez výčtů a markdownu, čitelným nahlas, česky. "
+         "Čísla piš slovy, kde to jde, a nepiš zkratky, emoji, odkazy, ID ani znaky jako * # / _ `, syntéza je čte špatně.")
 
 
 def prompt(context, text, voice=False):
