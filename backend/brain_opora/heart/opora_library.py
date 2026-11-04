@@ -6,6 +6,8 @@ Jen standardní knihovna. Nástroj sem předá sám sebe (`tool`): `call` s toke
 - `show [--owner human|agent] [--folder SLUG]` vypíše složky s plátny (titulek, popis, aktivní verze, rodokmen,
   `learnedFrom`), prázdné složky jen slugem;
 - `get FLOW [--version N]` vypíše graf aktivní (nebo zadané) verze `{nodes, edges, notes, groups, cases}` a seznam verzí;
+- `brief FLOW [--version N]` vypíše jako markdown zadání pro agenta vygenerované z plátna (kroky po vrstvách, rozhraní,
+  data, chybové stavy, případy jako testy s výsledkem simulace, odkaz zpět `opora:library:…@N`); nic neukládá;
 - `save --folder SLUG --slug SLUG --title T --file F [--learned-from JSON]` uloží plátno do knihovny AGENTA: složku
   a plátno založí, když chybí, graf ověří (`graph-check`; chyba = nic se neuloží), uloží draft s `learnedFrom`
   a aktivuje ho;
@@ -122,7 +124,15 @@ def propose(tool, flow_id, path, note):
             "next": "návrh přijme (aktivuje) nebo zamítne člověk na plátně toku"}
 
 
+def brief(tool, flow_id, n):
+    """Markdown zadání pro agenta z plátna (`GET /api/library/flows/{id}/brief`), vypsaný jako text."""
+    return tool.call("GET", f"/api/library/flows/{_q(flow_id)}/brief",
+                     query={"version": n} if n is not None else None)["markdown"]
+
+
 def library(args, tool):
+    if args.action == "brief":
+        return brief(tool, args.flow, args.version)
     if args.action == "show":
         return show(tool, args.owner, args.folder)
     if args.action == "get":

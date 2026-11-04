@@ -13,6 +13,7 @@ import re
 import sqlite3
 import uuid
 
+from backend.flow.brief import brief
 from backend.flow.graph_check import FlowInvalid
 from backend.flow.workflows import (
     LIBRARY_OWNER,
@@ -178,6 +179,18 @@ def flow_detail(db, workflow_id):
     projects = sorted({d["projectId"] for d in derived if d["projectId"]})
     return {**_summary(db, row), "versions": versions, "derivedFrom": source, "derived": derived,
             "projects": projects}
+
+
+def flow_brief(db, workflow_id, n=None):
+    """Zadání pro agenta (`backend/flow/brief.py`) z aktivní nebo zadané verze plátna (číslo `n`)."""
+    row = _workflow(db, workflow_id)
+    versions = list_versions(db, workflow_id)
+    version = next((v for v in versions if v["n"] == n), None) if n is not None else next(
+        (v for v in versions if v["status"] == "active"), None)
+    if version is None:
+        raise FlowNotFound(f"Plátno nemá verzi {n}." if n is not None else "Plátno nemá aktivní verzi.")
+    return brief({"title": row["name"], "description": row["description"], "ownerRef": row["owner_ref"]}, version,
+                 version["graph"])
 
 
 def create_flow(db, folder_id, slug, title, description=None):

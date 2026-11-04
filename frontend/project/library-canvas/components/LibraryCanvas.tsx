@@ -12,7 +12,9 @@ import ProposalBar from "../library-versions/components/ProposalBar";
 import { pendingProposal, pickFlowVersion } from "../library-versions/logic/library-versions";
 import CommandBar from "../command-bar/components/CommandBar";
 import DrawingBar from "../command-bar/components/DrawingBar";
+import { commandNodeIds } from "../command-bar/logic/command-bar";
 import { useCommandBar } from "../command-bar/logic/use-command-bar";
+import BriefDialog from "../library-brief/components/BriefDialog";
 import LibraryActions from "../library-actions/components/LibraryActions";
 import { activateVersion, adoptFlow, contributeFlow, placeOf, promoteFlow, rejectVersion, rollbackFlow, saveFlowDraft } from "../logic/library-api";
 import { learnedText, lineageOf } from "../logic/lineage";
@@ -56,7 +58,9 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
   const showsProposal = !!proposal && viewing?.id === proposal.id && !edited;
   const diff = useMemo(() => showsProposal && proposal ? graphDiff(active?.graph ?? EMPTY, proposal.graph) : null, [showsProposal, proposal, active]);
 
-  const nodeIds = useMemo(() => node ? [node] : [], [node]);
+  const [picked, setPicked] = useState<readonly string[]>([]);
+  const [briefOpen, setBriefOpen] = useState(false);
+  const nodeIds = useMemo(() => commandNodeIds(node, picked, graph.nodes.map((item) => item.id)), [node, picked, graph.nodes]);
   const command = useCommandBar({ project, workspace, flowId, viewing, nodeIds, versions, reload: data.reload,
     onWrote: () => { if (!edited) setViewId(null); setNotice("Srdce nakreslilo návrh do draftu."); } });
 
@@ -87,6 +91,7 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
       <LibraryActions place={place} title={data.flow.title} projects={projects} project={project} busy={busy} empty={!versions.length}
         onAdopt={(target, nodeId) => run(() => adoptFlow(flowId, target, nodeId), (copy) => { setNotice(`Převzato do projektu ${target}.`); onOpenFlow(copy.id); })}
         onContribute={(folder, slug, title) => run(() => contributeFlow(flowId, folder, slug, title), (made) => { setNotice("Uloženo do knihovny jako nový prvek."); onOpenFlow(made.id); })}
+        onBrief={() => setBriefOpen(true)}
         onPromote={() => run(() => promoteFlow(flowId), () => { setNotice("Povýšeno do knihovny člověka."); data.reload(); })}/>
     </header>
     {proposal && <ProposalBar proposal={proposal} summary={diff && diffSummary(diff)} viewing={showsProposal} busy={busy} onView={() => view(proposal.id)}
@@ -104,7 +109,8 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
     <FlowPlayBar play={play} canRun={!!current} onRun={() => current && play.run(current)}/>
     <div className="library-canvas__editor">
       <FlowEditor graph={graph} types={data.types} readOnly={false} diff={diff} selected={node} onSelect={setNode} onChange={setEdited}
-        frames play={play} tools={<button type="button" className="flow-editor__tool" data-testid="library-command-open" title="Zadání pro srdce (klávesa / nebo Ctrl+K)" onClick={() => command.setOpen(true)}>Zadání</button>} nodePorts={checks.nodePorts} checkErrors={checks.errors ?? []}/>
+        frames play={play} onPick={setPicked} tools={<button type="button" className="flow-editor__tool" data-testid="library-command-open" title="Zadání pro srdce (klávesa / nebo Ctrl+K)" onClick={() => command.setOpen(true)}>Zadání</button>} nodePorts={checks.nodePorts} checkErrors={checks.errors ?? []}/>
     </div>
+    {briefOpen && <BriefDialog flowId={flowId} version={viewing?.n ?? null} onClose={() => setBriefOpen(false)}/>}
   </section>;
 }

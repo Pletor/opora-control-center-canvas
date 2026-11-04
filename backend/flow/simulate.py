@@ -41,6 +41,11 @@ def _inputs(graph, case_id, case):
     return by_id, case
 
 
+def node_layer(node, types):
+    """Vrstva uzlu: vlastní `layer`, jinak výchozí z katalogu, jinak `neutral`."""
+    return node.get("layer") or (types[node["type"]].layer if node["type"] in types else "neutral")
+
+
 def _step(index, node, layer, data, via, result):
     entry = {"step": index, "nodeId": node["id"], **({"edgeId": via} if via else {}), "layer": layer,
              "type": node["type"], "in": data, **({"rule": result["rule"]} if result.get("rule") else {}),
@@ -62,7 +67,7 @@ def simulate(graph, case_id=None, case=None):
     while queue:
         node_id, data, via = queue.popleft()
         node = nodes[node_id]
-        layer = node.get("layer") or (types[node["type"]].layer if node["type"] in types else "neutral")
+        layer = node_layer(node, types)
         if len(trace) >= MAX_STEPS:
             trace.append(_step(len(trace) + 1, node, layer, data, via, {"error": f"Překročen limit {MAX_STEPS} kroků trasy."}))
             break

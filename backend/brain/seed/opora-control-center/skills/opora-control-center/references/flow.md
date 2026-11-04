@@ -70,7 +70,7 @@ z aktivní verze, `result: "verified"` u plátna agenta = navrženo k povýšen�
 `human` smí uložit i srdce (token role `heart` kteréhokoli projektu) jako návrh, verze dostane
 `proposedBy {role: "heart", project}`. Kandidáta, aktivaci, návrat i zamítnutí (`POST /api/flow/versions/{id}/reject
 {reason}`, draft do `retired`, návrat ho přeskočí) v části člověka dělá jen člověk. Srdce to ovládá nástrojem
-`opora_heart.py library show|get|save|propose|nodes|case` ([srdce.md](srdce.md), kreslení procesu: [proces-na-platne.md](proces-na-platne.md)).
+`opora_heart.py library show|get|brief|save|propose|nodes|case` ([srdce.md](srdce.md), kreslení procesu: [proces-na-platne.md](proces-na-platne.md)).
 
 | Cesta | Co |
 |---|---|
@@ -79,6 +79,7 @@ z aktivní verze, `result: "verified"` u plátna agenta = navrženo k povýšen�
 | `/api/library/folders/{folder_id}` | `PATCH {title?, description?, order?}` (slug se nemění); `DELETE` jen prázdnou (409 `folder_not_empty`) |
 | `/api/library/flows` | `POST {folder, slug, title, description?}` založí plátno `library_flow` (409 `owner_taken`) |
 | `/api/library/flows/{workflow_id}` | `GET` detail: verze, `derivedFrom`, `derived`, `projects` |
+| `/api/library/flows/{workflow_id}/brief` | `GET ?version=N` → `{markdown, sections}` zadání pro agenta vygenerované z grafu (bez `version` aktivní; 404 bez verze, 422 `Plátno nemá žádné kroky.`) |
 | `/api/library/flows/{workflow_id}/adopt` | `POST {project, nodeId?}` odvozená kopie v projektu (`opora:project-flow:<nodeId\|slug>`, zeď brány projektu; 409 `empty_flow` bez verze) |
 | `/api/library/flows/{workflow_id}/contribute` | `POST {folder, slug, title}` kopii (z projektu) uloží do složky jako nový prvek |
 | `/api/library/flows/{workflow_id}/promote` | `POST {folder?}` jen člověk: z knihovny agenta do složky člověka (výchozí se stejným slugem) |

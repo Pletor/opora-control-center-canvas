@@ -22,6 +22,10 @@ export function opensCommandBar(event: KeyLike): boolean {
 export const flowContext = (flowId: string, versionId: string | null, nodeIds: readonly string[]): HeartContext =>
   ({ kind: "flow", flowId, ...(versionId ? { versionId } : {}), ...(nodeIds.length ? { nodeIds: [...nodeIds] } : {}) });
 
+/** Uzly pro kontext: kliknutý uzel a uzly vybrané rámcem, bez duplicit a bez uzlů, které na plátně už nejsou. */
+export const commandNodeIds = (clicked: string | null, picked: readonly string[], existing: readonly string[]): string[] =>
+  [...new Set([...(clicked ? [clicked] : []), ...picked])].filter((id) => existing.includes(id));
+
 /** Verze plátna v okamžiku odeslání: id → hash. */
 export const snapshotOf = (versions: readonly FlowVersion[]): ReadonlyMap<string, string> => new Map(versions.map((version) => [version.id, version.hash]));
 

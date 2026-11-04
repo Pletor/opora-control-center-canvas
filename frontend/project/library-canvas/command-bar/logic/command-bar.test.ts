@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FlowVersion } from "@/shared/flow-editor/logic/flow-types";
-import { flowContext, heartWrote, opensCommandBar, snapshotOf } from "./command-bar";
+import { commandNodeIds, flowContext, heartWrote, opensCommandBar, snapshotOf } from "./command-bar";
 
 const key = (key: string, extra: Partial<{ ctrlKey: boolean; metaKey: boolean; altKey: boolean; target: { tagName: string } | null }> = {}) =>
   ({ key, ctrlKey: false, metaKey: false, altKey: false, target: { tagName: "DIV" }, ...extra });
@@ -16,6 +16,11 @@ describe("command bar", () => {
     expect(opensCommandBar(key("k", { ctrlKey: true, target: { tagName: "TEXTAREA" } }))).toBe(false);
     expect(opensCommandBar(key("a"))).toBe(false);
     expect(opensCommandBar(key("/", { ctrlKey: true }))).toBe(false);
+  });
+  it("merges the clicked node with the framed ones, without duplicates or vanished nodes", () => {
+    expect(commandNodeIds("b", ["a", "b", "c"], ["a", "b", "c"])).toEqual(["b", "a", "c"]);
+    expect(commandNodeIds(null, ["a", "gone"], ["a", "b"])).toEqual(["a"]);
+    expect(commandNodeIds(null, [], ["a"])).toEqual([]);
   });
   it("sends the flow, the viewed version and only the selected nodes", () => {
     expect(flowContext("f", "v1", ["a"])).toEqual({ kind: "flow", flowId: "f", versionId: "v1", nodeIds: ["a"] });

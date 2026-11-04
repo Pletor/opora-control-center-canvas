@@ -130,6 +130,10 @@ def create_library_router(service):
     def flow_detail(workflow_id: str):
         return call(library.flow_detail, workflow_id)
 
+    @router.get("/flows/{workflow_id}/brief")
+    def flow_brief(workflow_id: str, version: int | None = Query(default=None, ge=1)):
+        return call(library.flow_brief, workflow_id, version)
+
     @router.post("/flows/{workflow_id}/adopt")
     def flow_adopt(workflow_id: str, body: AdoptIn, request: Request):
         verdict = wall.check(service, request.method, request.url.path, getattr(request.state, "actor", None),

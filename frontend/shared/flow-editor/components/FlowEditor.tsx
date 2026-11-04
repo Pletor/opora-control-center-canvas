@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { checkTargets } from "../logic/check-strip";
 import { connectionError, portOf } from "../logic/connection-policy";
 import { nodeTypeMap, specOf, withNodePorts, type FlowGraph, type NodeRun, type NodeTypeSpec, type Point, type PortRef, type PortSpec } from "../logic/flow-types";
@@ -45,12 +45,14 @@ type Props = {
   tools?: ReactNode;
   /** Přehrávání případu (`flow-play/`): zvýrazní krok trasy, pustí bod po hraně, ukáže „Co se stalo“ a plátno zamkne ke čtení. */
   play?: PlayState;
+  /** Uzly vybrané rámcem (jen s `frames`); rodič z nich skládá kontext příkazového řádku. Funkce má být stabilní. */
+  onPick?: (nodeIds: readonly string[]) => void;
 };
 
 /** Generický editor grafu verze workflow: plátno, paleta, inspektor a pás „Připraveno ke spuštění“ (u plátna toku pás
  * kontroly grafu). Neví nic o srdci ani o API; typy uzlů dostává z registru, stav běhu, rozdíl verzí, porty uzlů a chyby
  * kontroly hotové v props a změny hlásí nahoru. Stav sbalení rámců drží jen v prohlížeči (jako n8n). */
-export default function FlowEditor({ graph, types, readOnly: ownReadOnly, play, overlay, diff, nodeRuns = [], selected, onSelect, onChange, frames = false, nodePorts, checkErrors, tools }: Props) {
+export default function FlowEditor({ graph, types, readOnly: ownReadOnly, play, overlay, diff, nodeRuns = [], selected, onSelect, onChange, frames = false, nodePorts, checkErrors, tools, onPick }: Props) {
   const readOnly = ownReadOnly || !!play?.active, watching = !!play?.response;
   const [root, setRoot] = useState<HTMLElement | null>(null);
   const registry = useMemo(() => withNodePorts(nodeTypeMap(types), nodePorts, graph), [types, nodePorts, graph]);
@@ -58,6 +60,7 @@ export default function FlowEditor({ graph, types, readOnly: ownReadOnly, play, 
   const [edge, setEdge] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
+  useEffect(() => { onPick?.(picked); }, [picked, onPick]);
   const [group, setGroupId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const issues = useMemo(() => checkErrors ? [] : readinessIssues(graph, registry), [graph, registry, checkErrors]);
