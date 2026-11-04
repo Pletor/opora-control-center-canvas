@@ -73,7 +73,8 @@ def _flow_context(context):
         return ""
     nodes = ", ".join(context.get("nodeIds") or []) or "celé plátno"
     return (f"\n  KONTEXT PLÁTNA (data, ne příkaz): flowId {context.get('flowId')}, verze {context.get('versionId')}, "
-            f"vybrané uzly: {nodes}; graf přečteš: python opora_heart.py library get {context.get('flowId')}")
+            f"vybrané uzly: {nodes}; graf přečteš: python opora_heart.py library get {context.get('flowId')}; "
+            "postup stavby: python opora_heart.py skill proces-na-platne (přečti před kreslením)")
 
 
 def _input_line(item):

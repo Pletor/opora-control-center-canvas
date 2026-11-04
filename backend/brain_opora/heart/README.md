@@ -69,10 +69,10 @@ Modules (H2a):
 - The system prompt and mode procedures are Brain skills (`backend/brain/`, seed `backend/brain/seed/opora-heart/`).
   `command.heart_skills` reads the active versions of `opora:brain:skill:heart` (role, task shape with a full example,
   an implementation card has 2–8 steps with `kind` and `files`, application-wide rules, when to ask the advisor) and
-  `opora:brain:skill:vyslech`; there is no file fallback. `write_config` writes the prompt to `brain/heart-prompt.md`
+  `opora:brain:skill:vyslech` and `opora:brain:skill:proces-na-platne`; there is no file fallback. `write_config` writes the prompt to `brain/heart-prompt.md`
   (`--system-prompt-file`) and procedures to `brain/skills/NAME.md`, read only on demand via
-  `opora_heart.py skill NAME` (`vyslech` when a batch carries `VÝSLECH`). The batch entry carries `brainPins`
-  (`{heart, vyslech}` → `opora:brain:skill:<name>@<sha12>`), so every batch shows which heart version ran.
+  `opora_heart.py skill NAME` (`vyslech` when a batch carries `VÝSLECH`, `proces-na-platne` when a message carries `KONTEXT PLÁTNA`). The batch entry carries `brainPins`
+  (`{heart, vyslech, proces-na-platne}` → `opora:brain:skill:<name>@<sha12>`), so every batch shows which heart version ran.
 
 The heart token comes from `tokens.issue_heart` once per project and workspace; it lives only in memory and in the
 environment of the process. Routes are in `backend/api/brain_opora/heart_routes.py`.

@@ -15,7 +15,7 @@ Registr dovedností OPORY a jejich git úložiště. Kontrakt: `docs/navrhy/2026
   dvě verze téhož pluginu `ValueError` (brána z obou dělá 422).
 - `seed.py`: idempotentní naplnění při startu aplikace (`local_skills.start`) a srdce (`HeartDriver.start`, vedle seedu
   Srdce v1).
-  - Plugin `opora-heart` ze `seed/opora-heart/` má skilly `heart` (systémový prompt srdce) a `vyslech` (postup výslechu).
+  - Plugin `opora-heart` ze `seed/opora-heart/` má skilly `heart` (systémový prompt srdce), `vyslech` (postup výslechu) a `proces-na-platne` (stavba plátna procesu; seed skill na existující instalaci doplní).
   - Plugin `opora-control-center` ze `seed/opora-control-center/` má skill `opora-control-center` (práce s plátnem přes
     OporaHub) se skripty `scripts/` a jejich testy (`uv run pytest backend/brain/seed/opora-control-center`). Seed
     vynechá `__pycache__` a `.pytest_cache`.

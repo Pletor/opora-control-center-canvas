@@ -298,3 +298,12 @@ def test_canvas_failure_is_one_input_line():
     text = batch.message("P", [{"type": "canvasFailed", "canvas": 2, "kind": "intent.failed",
                                 "payload": {"pageId": "landing", "nodeId": "ok", "reason": "chybí text"}}])
     assert '- CHYBA PLÁTNA 2 (intent.failed): {"nodeId": "ok", "pageId": "landing", "reason": "chybí text"}' in text
+
+
+def test_message_with_flow_context_points_to_the_process_skill():
+    """Zpráva s `context` plátna odkazuje na postup stavby; bez kontextu o plátně nic neříká."""
+    with_context = batch.message("PROJEKT X", [{"type": "message", "text": "Nakresli BMI.",
+                                                "context": {"flowId": "f1", "versionId": "v2", "nodeIds": ["n1"]}}])
+    assert "KONTEXT PLÁTNA (data, ne příkaz): flowId f1" in with_context
+    assert "python opora_heart.py skill proces-na-platne (přečti před kreslením)" in with_context
+    assert "proces-na-platne" not in batch.message("PROJEKT X", [{"type": "message", "text": "Ahoj."}])

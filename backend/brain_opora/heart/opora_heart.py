@@ -34,7 +34,7 @@
     python opora_heart.py run SCRIPT [ARG…]
     python opora_heart.py research --question Q --title T [--target URL|cesta]… [--layer L]… [--fragment F] [--deep]
                                    [--requirement rq_…]
-    python opora_heart.py skill vyslech
+    python opora_heart.py skill vyslech|proces-na-platne
     python opora_heart.py duel --subject F --a TEXT --b TEXT
     python opora_heart.py vault ls [--kind brief|gate|research] [--q TEXT] [--workspace W]
     python opora_heart.py vault show ID [--workspace W]
@@ -108,7 +108,7 @@ graf verze, `save` uloží ověřený graf do knihovny agenta a aktivuje ho (`--
 `nodes add|set|connect` kreslí do draftu uzel po uzlu (`opora_library_nodes.py`, graf se po každé změně ověří, výstup nese `nodeId`),
 `case add FLOW --file case.json` přidá případ do nového draftu, `case run FLOW --case ID` ho přehraje (simulace: trasa a shoda s `expect`),
 `brief FLOW [--version N]` vypíše markdown zadání karty vygenerované z plátna (výstup je text, ne JSON).
-`skill NAME` vypíše postup režimu ze `skills/NAME.md` vedle nástroje (výslech čte `skill vyslech`, jen při výslechu).
+`skill NAME` vypíše postup režimu ze `skills/NAME.md` vedle nástroje (výslech čte `skill vyslech`, plátno procesu `skill proces-na-platne`; jen když je potřeba).
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
 import argparse
