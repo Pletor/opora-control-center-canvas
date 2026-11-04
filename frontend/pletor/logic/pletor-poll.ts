@@ -3,10 +3,10 @@
 // Odeslání hned ukáže zprávu člověka, po odpovědi drží provedené akce a čas příchodu (záblesk jádra) a požádá o nové načtení. Volá ho jen PletorWindow.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
-import { fetchPletorState, sendPletorMessage, type PletorAction, type PletorState } from "./pletor-client";
+import { CLAUDE_BRAIN, fetchPletorState, sendPletorMessage, type PletorAction, type PletorState } from "./pletor-client";
 
 const POLL_MS = 4000;
-const EMPTY: PletorState = { messages: [], heart: null, escalations: [] };
+const EMPTY: PletorState = { messages: [], heart: null, escalations: [], brain: CLAUDE_BRAIN };
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 export function usePletor(open: boolean, project: string, workspace: string) {

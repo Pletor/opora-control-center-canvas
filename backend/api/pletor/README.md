@@ -6,6 +6,10 @@ Tenký router pro `backend/pletor/` (docs/navrhy/2026-11-04-pletor-jarvis.md, P1
 - `POST /api/pletor/messages {project, workspace, text}` → `{reply, actions: [{type, text, ok, detail?}]}`.
   Cizí klíč nebo prázdný text 422, neznámý projekt 404 `project_not_found`.
 - `GET /api/pletor/state?project&workspace` → `{messages: [{role, text, at}], heart: {running, pending, sleeping,
-  error, idleReason, lastSummary}, escalations: [{ticketId, text, createdAt}]}`.
+  error, idleReason, lastSummary}, escalations: [{ticketId, text, createdAt}], brain: {brain: claude | ollama, model,
+  available: [modely Ollamy]}}`. `available` jde z `/api/tags` při každém čtení; neběžící Ollama = `[]`.
+- `POST /api/pletor/brain {brain: claude | ollama, model?}` → `{ok, reply, brain}` (P2). Neběžící Ollama nebo
+  neznámý model = `ok: false` s důvodem v `reply`, mozek zůstane. V UI se přepíná větou v chatu (`backend/pletor/brains.py`).
 
-Instance `Pletor` žije v `app.state.pletor` (`backend/app/factory.py`); testy jí vyměňují `runner` a `find`.
+Instance `Pletor` žije v `app.state.pletor` (`backend/app/factory.py`); testy jí vyměňují `runner`, `find`
+a `transport` (Ollama).

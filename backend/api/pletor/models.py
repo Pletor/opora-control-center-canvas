@@ -31,7 +31,26 @@ class PletorMessage(BaseModel):
     at: str
 
 
+class PletorBrain(BaseModel):
+    brain: Literal["claude", "ollama"]
+    model: str | None
+    available: list[str]
+
+
 class PletorStateOut(BaseModel):
     messages: list[PletorMessage]
     heart: dict[str, Any]
     escalations: list[dict[str, Any]]
+    brain: PletorBrain
+
+
+class PletorBrainIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    brain: Literal["claude", "ollama"]
+    model: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class PletorBrainOut(BaseModel):
+    ok: bool
+    reply: str
+    brain: PletorBrain

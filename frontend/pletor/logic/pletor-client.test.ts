@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  actionLabel, escalationText, fetchPletorState, heartText, sendPletorMessage,
+  actionLabel, brainText, escalationText, fetchPletorState, heartText, parseBrain, sendPletorMessage,
 } from "./pletor-client";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -38,7 +38,16 @@ describe("volání Pletora", () => {
 
   it("chybějící pole jsou prázdná", async () => {
     stubFetch({});
-    expect(await fetchPletorState("p", "w")).toEqual({ messages: [], heart: null, escalations: [] });
+    expect(await fetchPletorState("p", "w")).toEqual({ messages: [], heart: null, escalations: [], brain: { brain: "claude", model: null, available: [] } });
+  });
+
+  it("mozek ze stavu: ollama s modelem, cokoli jiného je claude", () => {
+    const local = parseBrain({ brain: "ollama", model: "qwen3:14b", available: ["qwen3:14b", 3] });
+    expect(local).toEqual({ brain: "ollama", model: "qwen3:14b", available: ["qwen3:14b"] });
+    expect(brainText(local)).toBe("ollama · qwen3:14b");
+    expect(brainText(parseBrain({ brain: "claude", model: "sonnet" }))).toBe("claude");
+    expect(brainText(parseBrain({ brain: "gpt" }))).toBe("claude");
+    expect(brainText(parseBrain(null))).toBe("claude");
   });
 });
 

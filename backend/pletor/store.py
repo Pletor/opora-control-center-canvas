@@ -2,12 +2,14 @@
 
 - `<data>/pletor/messages.jsonl`: řádek `{at, project, workspace, role: human | pletor, text}` za každou zprávu.
 - `<data>/projects/<id>/brain/pletor_decisions.jsonl`: rozhodnutí z akce `vault_note` (shortcut, viz README).
+- `<data>/pletor/settings.json`: zvolený mozek `{brain, ollamaModel}`, jeden pro aplikaci (P2).
 """
 import json
 from pathlib import Path
 
 MESSAGES = "messages.jsonl"
 DECISIONS = "pletor_decisions.jsonl"
+SETTINGS = "settings.json"
 
 
 def _append(path, entry):
@@ -42,3 +44,22 @@ def messages(folder, project, workspace, last=50):
 
 def append_decision(brain, at, workspace, text):
     return _append(Path(brain) / DECISIONS, {"at": at, "workspace": workspace, "text": text, "by": "pletor"})
+
+
+def settings(folder):
+    """Volba mozku pro celou aplikaci `{brain: claude | ollama, ollamaModel}`; chybějící nebo vadný soubor = claude."""
+    try:
+        value = json.loads((Path(folder) / SETTINGS).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        value = {}
+    value = value if isinstance(value, dict) else {}
+    model = value.get("ollamaModel")
+    brain = value.get("brain") if value.get("brain") == "ollama" and isinstance(model, str) and model else "claude"
+    return {"brain": brain, "ollamaModel": model if isinstance(model, str) else None}
+
+
+def save_settings(folder, value):
+    path = Path(folder) / SETTINGS
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+    return value

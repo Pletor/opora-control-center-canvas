@@ -20,6 +20,7 @@ def test_message_and_state(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         seed(client)
         client.app.state.pletor.runner, client.app.state.pletor.find = fake_runner, lambda: "claude"
+        client.app.state.pletor.transport = fake_ollama
         body = {**SCOPE, "text": "Rozhodli jsme: dvě stránky."}
         answer = client.post("/api/pletor/messages", headers=HEADERS, json=body)
         assert answer.status_code == 200
@@ -29,6 +30,25 @@ def test_message_and_state(tmp_path):
         state = client.get("/api/pletor/state", headers=HEADERS, params=SCOPE).json()
         assert [m["role"] for m in state["messages"]] == ["human", "pletor"]
         assert state["heart"]["running"] is False and state["escalations"] == []
+        assert state["brain"] == {"brain": "claude", "model": "sonnet", "available": ["qwen3:14b"]}
+
+
+def fake_ollama(method, path, body=None, timeout=None):
+    return {"models": [{"name": "qwen3:14b"}]}
+
+
+def test_brain_switch(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        client.app.state.pletor.transport = fake_ollama
+        on = client.post("/api/pletor/brain", headers=HEADERS, json={"brain": "ollama"}).json()
+        assert on["ok"] is True and on["brain"] == {"brain": "ollama", "model": "qwen3:14b", "available": ["qwen3:14b"]}
+        missing = client.post("/api/pletor/brain", headers=HEADERS, json={"brain": "ollama", "model": "nic"}).json()
+        assert missing["ok"] is False and missing["brain"]["model"] == "qwen3:14b"
+        back = client.post("/api/pletor/brain", headers=HEADERS, json={"brain": "claude"}).json()
+        assert back["ok"] is True and back["brain"]["brain"] == "claude"
+        assert client.post("/api/pletor/brain", headers=AGENT, json={"brain": "claude"}).status_code == 403
+        assert client.post("/api/pletor/brain", headers=HEADERS, json={"brain": "gpt"}).status_code == 422
 
 
 def test_refusals(tmp_path):
