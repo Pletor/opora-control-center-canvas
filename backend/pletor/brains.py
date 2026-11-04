@@ -86,15 +86,38 @@ def command(text):
     return (OLLAMA, found.group(1)) if found else None
 
 
-def ollama_turn(model, stdin_text, transport=http):
-    """Jeden tah lokálního modelu; nedostupná Ollama nebo vadná odpověď je `RuntimeError` s českou zprávou.
+HISTORY = 8  # posledních zpráv rozhovoru, které lokální model vidí (Claude má vlastní relaci `--resume`)
+OPTIONS = {"temperature": 0.7, "top_p": 0.9, "repeat_penalty": 1.1, "num_ctx": 8192}
+KEEP_ALIVE = "30m"  # model zůstane v paměti mezi zprávami, teplý tah místo načítání
+# Malý model se zakotví na podkladech (opakoval větu z deníku srdce na každou zprávu), proto má navíc tato pravidla.
+LOCAL = """PRAVIDLA LOKÁLNÍHO MOZKU (mají přednost před tvarem odpovědi výše):
+- Odpovídej na to, na co se člověk ptá v poslední zprávě. Podklady použij jen, když se dotazu týkají.
+- Na pozdrav a small talk odpověz přirozeně a krátce, česky, bez výčtu stavu projektu.
+- Neopakuj své předchozí odpovědi; každá zpráva člověka dostane vlastní odpověď.
+- Běžně odpověz prostým textem (1–4 věty), bez JSON a bez akcí.
+- Akce jsou vzácné. Objekt JSON {"reply": ..., "actions": [...]} napiš jen na výslovný příkaz člověka („zadej
+  srdci…“, „postav…“, „spusť…“, „zapiš rozhodnutí…“). Na otázku, pozdrav ani small talk akci nikdy nedělej
+  a srdci nikdy neposílej otázku."""
+RETRY = "Předchozí odpověď neodpovídala dotazu, odpověz přímo na: {text}"
 
-    shortcut: Ollama nemá relaci, tah vidí jen persona + podklady této zprávy; upgrade: přidat posledních N zpráv
-    ze `store.messages`, až bude lokální mozek potřebovat paměť rozhovoru.
-    """
-    body = {"model": model, "stream": False, "format": "json", "think": False,
-            "messages": [{"role": "system", "content": session.PERSONA.read_text(encoding="utf-8")},
-                         {"role": "user", "content": stdin_text}]}
+
+def _norm(text):
+    return " ".join(str(text or "").lower().split()).rstrip(".!?")
+
+
+def ollama_messages(context, text, history=()):
+    """`messages` pro `/api/chat`: persona + pravidla, podklady jako fakta, historie (human→user, pletor→assistant),
+    nakonec jen zpráva člověka, aby model odpovídal na ni, ne na podklady."""
+    persona = session.PERSONA.read_text(encoding="utf-8")
+    roles = {"human": "user", "pletor": "assistant"}
+    past = [{"role": roles[item["role"]], "content": item["text"]} for item in history
+            if item.get("role") in roles and isinstance(item.get("text"), str)][-HISTORY:]
+    return [{"role": "system", "content": f"{persona}\n{context}\n\n{LOCAL}"}, *past, {"role": "user", "content": text}]
+
+
+def _chat(model, messages, transport):
+    body = {"model": model, "stream": False, "think": False, "keep_alive": KEEP_ALIVE, "options": OPTIONS,
+            "messages": messages}
     try:
         answer = transport("POST", "/api/chat", body, TIMEOUT)
     except (OSError, ValueError) as error:
@@ -105,9 +128,25 @@ def ollama_turn(model, stdin_text, transport=http):
     return session.parse_reply(content)
 
 
-def turn(folder, stdin_text, *, runner=run_process, find=claude_command.find_claude, transport=http):
-    """Tah zvoleným mozkem; vrací `(reply, actions)`, chyba je `RuntimeError` jako u `session.turn`."""
+def ollama_turn(model, context, text, history=(), transport=http):
+    """Jeden tah lokálního modelu nad podklady a historií; nedostupná Ollama nebo vadná odpověď je `RuntimeError`.
+    Zopakuje-li model doslova některou svou nedávnou odpověď na jinou zprávu, tah se jednou zopakuje s výzvou
+    k přímé odpovědi (živě: qwen3:8b vrátil na „Proč odpovídáš pořád stejně?“ odpověď na „Jak se máš?“)."""
+    messages = ollama_messages(context, text, history)
+    reply, actions = _chat(model, messages, transport)
+    recent = history[-HISTORY:]
+    said = {_norm(item.get("text")) for item in recent if item.get("role") == "pletor"}
+    asked = [_norm(item.get("text")) for item in recent if item.get("role") == "human"][-1:]
+    if _norm(reply) in said and [_norm(text)] != asked:
+        messages[-1] = {"role": "user", "content": f"{text}\n\n({RETRY.format(text=text)})"}
+        reply, actions = _chat(model, messages, transport)
+    return reply, actions
+
+
+def turn(folder, context, text, history=(), *, runner=run_process, find=claude_command.find_claude, transport=http):
+    """Tah zvoleným mozkem; vrací `(reply, actions)`, chyba je `RuntimeError` jako u `session.turn`.
+    Claude dostane podklady a zprávu v jednom vstupu (historii drží jeho relace), Ollama role a historii."""
     chosen = store.settings(folder)
     if chosen["brain"] == OLLAMA:
-        return ollama_turn(chosen["ollamaModel"], stdin_text, transport)
-    return session.turn(folder, stdin_text, runner=runner, find=find)
+        return ollama_turn(chosen["ollamaModel"], context, text, history, transport)
+    return session.turn(folder, f"{context}\n\nZPRÁVA ČLOVĚKA:\n{text}", runner=runner, find=find)

@@ -22,8 +22,16 @@ a nevolá bránu `/api/gate`. Je jeden na aplikaci, projekt z požadavku je jen 
   rozhodnutí v `<data>/projects/<id>/brain/pletor_decisions.jsonl` a volba mozku v `<data>/pletor/settings.json`
   (`{brain, ollamaModel}`, jedna pro aplikaci; chybějící nebo vadný soubor = `claude`).
 - `brains.py` (P2) přepínač mozku: `claude` (výchozí, `session.turn`) nebo `ollama` (lokální model na
-  `http://127.0.0.1:11434`, `/api/chat` se `stream: false`, `format: "json"`, `think: false`, timeout 180 s, stdlib
-  `urllib`, transport `Pletor.transport` testy vyměňují). Oba vrací `(reply, actions)` z `session.parse_reply`.
+  `http://127.0.0.1:11434`, `/api/chat` se `stream: false`, `think: false`, `keep_alive: "30m"`, `options`
+  `temperature 0.7`, `top_p 0.9`, `repeat_penalty 1.1`, `num_ctx 8192`, timeout 180 s, stdlib `urllib`, transport
+  `Pletor.transport` testy vyměňují). Oba vrací `(reply, actions)` z `session.parse_reply`.
+  Lokální tah má role: `system` = persona + PODKLADY + pravidla lokálního mozku (`brains.LOCAL`: odpovídej na
+  dotaz, podklady jen když se ho týkají, small talk krátce, běžně prostý text, JSON s akcemi jen na výslovný
+  příkaz), pak posledních 8 zpráv rozhovoru projektu a prostoru (`human`→`user`, `pletor`→`assistant`) a nakonec
+  jen zpráva člověka. Bez rolí a historie se qwen3 zakotvil na podkladech a na každou zprávu opakoval větu
+  z deníku srdce. `format: "json"` odpadl: v živé zkoušce (2026-11-04) tlačil model k šabloně a k akcím na
+  obyčejné otázky. Zopakuje-li model doslova nedávnou odpověď na jinou zprávu, tah se jednou zopakuje s výzvou
+  „odpověz přímo na: …“. Claude historii nedostává, drží ji jeho relace (`--resume`).
   Modely z `/api/tags` bez embeddingů; výchozí lokální je první `qwen3.5*` / `gemma*`, jinak první nainstalovaný.
   `Pletor.message` nejdřív zkusí přepínací větu bez modelu (`brains.command`, cs i en, diakritika volně, celá
   zpráva): „přepni na lokální mozek / Ollamu“, „switch to local brain“, „přepni zpět na Claude / předplatné“,
@@ -53,7 +61,5 @@ Routy: `backend/api/pletor/`. Testy: `uv run pytest backend/pletor backend/api/p
   disciplínu a `main` je jen pro čtení, pro lidské rozhodnutí tam čistá cesta není. Rozhodnutí proto jdou do
   `brain/pletor_decisions.jsonl` projektu, které srdce zatím nečte. Upgrade: až Schránka dostane druh „rozhodnutí“
   (nebo ho začne číst snímek srdce), přepojit `Pletor._run` na něj.
-- Lokální mozek nemá relaci: tah Ollamy vidí jen personu a podklady této zprávy, ne předchozí rozhovor. Upgrade:
-  přidat posledních N zpráv ze `store.messages`, až bude lokální mozek potřebovat paměť.
 - Podklady nečtou události plátna 4 z `flow_log_events`: `backend/flow` pro ně nemá čtecí funkci, monitoring je jen
   stav hostů. Upgrade: až flow dostane čtení logu pláten 2–4, přidat sekci do `context.py`.
