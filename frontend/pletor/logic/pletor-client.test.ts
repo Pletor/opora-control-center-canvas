@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  actionLabel, brainLabel, brainText, escalationText, fetchPletorLlm, fetchPletorState, heartText, parseBrain, sendPletorMessage, setPletorBrain,
+  actionLabel, brainLabel, brainText, escalationText, fetchPletorLlm, fetchPletorState, heartText, parseBrain, sendPletorMessage, sendPletorMessageStream, setPletorBrain,
 } from "./pletor-client";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -22,6 +22,30 @@ describe("volání Pletora", () => {
     expect(write.url).toBe("/api/pletor/messages");
     expect(JSON.parse(String(write.init!.body))).toEqual({ project: "p1", workspace: "main", text: "Chci přihlášení" });
     expect(result).toEqual({ reply: "Předám srdci.", actions: [{ type: "heart_message", text: "záměr", ok: true }] });
+  });
+
+  it("proud: delty jdou hned ven, řádek NDJSON přes hranici kousků se složí, výsledek je done", async () => {
+    const parts = ['{"type":"delta","text":"Dobrý "}\n{"type":"del', 'ta","text":"den."}\n', '{"type":"done","reply":"Dobrý den!","actions":[{"type":"vault_note","text":"x","ok":true}]}\n'];
+    const calls: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      const body = new ReadableStream({ start(controller) { for (const part of parts) controller.enqueue(new TextEncoder().encode(part)); controller.close(); } });
+      return { ok: true, status: 200, body, text: async () => "{}", headers: { get: () => null } };
+    });
+    const deltas: string[] = [];
+    const result = await sendPletorMessageStream("p1", "main", "Ahoj", true, (text) => deltas.push(text));
+    const write = calls.find((call) => call.init?.method === "POST")!;
+    expect(write.url).toBe("/api/pletor/messages/stream");
+    expect(JSON.parse(String(write.init!.body))).toEqual({ project: "p1", workspace: "main", text: "Ahoj", voice: true });
+    expect(deltas).toEqual(["Dobrý ", "den."]);
+    expect(result).toEqual({ reply: "Dobrý den!", actions: [{ type: "vault_note", text: "x", ok: true }] });
+  });
+
+  it("proud: HTTP chyba nese hlášku serveru, proud bez done je selhání", async () => {
+    vi.stubGlobal("fetch", async () => ({ ok: false, status: 503, body: null, text: async () => '{"error":"Pletor spí."}', headers: { get: () => null } }));
+    await expect(sendPletorMessageStream("p1", "main", "Ahoj", true, () => undefined)).rejects.toThrow("Pletor spí.");
+    vi.stubGlobal("fetch", async () => ({ ok: true, status: 200, body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('{"type":"delta","text":"A"}\n')); c.close(); } }), headers: { get: () => null } }));
+    await expect(sendPletorMessageStream("p1", "main", "Ahoj", true, () => undefined)).rejects.toThrow(/bez done/);
   });
 
   it("hlasová zpráva nese voice: true", async () => {

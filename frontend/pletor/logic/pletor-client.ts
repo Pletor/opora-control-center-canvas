@@ -1,4 +1,4 @@
-import { api } from "@/shared/types/logic/types";
+import { api, apiStream } from "@/shared/types/logic/types";
 import type { HeartStatus } from "@/layout/heart-channel/logic/heart-api";
 import { statusLine } from "@/layout/heart-channel/logic/heart-status";
 import { parseLlm, type PletorLlm } from "./llm-settings";
@@ -77,6 +77,28 @@ export const fetchPletorState = (project: string, workspace: string) =>
 /** `voice` (P3): zpráva vznikla hlasem nebo je zapnutý Hlas; server pak chce krátkou odpověď ke čtení nahlas. */
 export const sendPletorMessage = (project: string, workspace: string, text: string, voice = false) =>
   api<unknown>("/api/pletor/messages", { project, workspace, text, ...(voice ? { voice } : {}) }).then(parseReply);
+
+/** Hlasová zpráva proudem (`POST /api/pletor/messages/stream`, NDJSON): každý `delta` jde hned do `onDelta`, aby se
+ *  odpověď četla po větách už při generování; výsledek je poslední řádek `done` (platí jeho `reply`). Proud bez `done` = selhání. */
+export async function sendPletorMessageStream(project: string, workspace: string, text: string, voice: boolean,
+  onDelta: (text: string) => void): Promise<PletorReply> {
+  const reader = (await apiStream("/api/pletor/messages/stream", { project, workspace, text, ...(voice ? { voice } : {}) })).getReader();
+  const decoder = new TextDecoder();
+  let rest = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    rest += decoder.decode(value, { stream: !done });
+    const lines = rest.split("\n");
+    rest = done ? "" : lines.pop()!; // nedokončený řádek počká na další kousek
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line) as { type?: unknown; text?: unknown };
+      if (event.type === "delta" && typeof event.text === "string") onDelta(event.text);
+      else if (event.type === "done") { void reader.cancel().catch(() => undefined); return parseReply(event); }
+    }
+    if (done) throw new Error("Pletor neodpověděl celý (proud skončil bez done).");
+  }
+}
 
 /** Stav srdce jednou větou: řetězec ze serveru, nebo věta ze stavu srdce (`statusLine`), jinak přiznaná neznámá. */
 export function heartText(heart: unknown): string {
