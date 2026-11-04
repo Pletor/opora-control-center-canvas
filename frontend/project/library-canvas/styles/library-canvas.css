@@ -18,5 +18,8 @@
 .library-canvas__learned { color: var(--ok); }
 .library-canvas__notice { color: var(--ok); font-size: 12px; }
 .library-canvas__error { color: var(--danger); font-size: 12px; }
-.library-canvas__editor { flex: 1; min-height: 0; }
+/* Případy vlevo a Play vpravo sdílejí jeden řádek; u prázdného plátna se neukazují, protože není co přehrát. */
+.library-canvas__run { display: flex; gap: 12px; align-items: stretch; justify-content: space-between; }
+.library-canvas__run > :first-child { flex: 1; min-width: 0; }
+.library-canvas__editor { position: relative; flex: 1; min-height: 0; }
 .library-canvas__empty { padding: 24px; color: var(--ink-muted); }
