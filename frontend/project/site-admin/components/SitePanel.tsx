@@ -12,8 +12,23 @@ import FilesSection from "../ds-files/components/FilesSection";
 import AppearanceSection from "../site-appearance/components/AppearanceSection";
 import { imageAssets } from "../site-appearance/logic/appearance";
 import ButtonsSection from "../site-buttons/components/ButtonsSection";
+import { readButtons } from "../site-buttons/logic/button-model";
+import SeoSection from "../site-seo/components/SeoSection";
+import { readSeo } from "../site-seo/logic/seo";
+import AffiliateSection from "../site-affiliate/components/AffiliateSection";
+import EmailSection from "../site-email/components/EmailSection";
+import HeaderSection from "../site-header/components/HeaderSection";
+import FooterSection from "../site-footer/components/FooterSection";
+import CookieBarSection from "../site-cookie-bar/components/CookieBarSection";
+import { readGdpr } from "../site-cookie-bar/logic/cookie-bar";
 
 const LEAD: Partial<Record<SiteSection, string>> = {
+  seo: "Jak web najdou vyhledávače a jak vypadá sdílený odkaz: šablona titulku, popis, indexování, Open Graph a strukturovaná data. Stránka smí mít vlastní titulek a popis.",
+  affiliate: "Partnerský program webu: parametr v odkazu, jak dlouho si web partnera pamatuje a komu patří provize.",
+  email: "Odkud web posílá e-maily (formuláře, objednávky). Heslo se sem nikdy nepíše, jen odkaz na tajemství.",
+  header: "Hlavička na každé stránce webu: logo, menu a tlačítko výzvy. Menu se skládá ze stránek mapy domény, nebo ručně.",
+  footer: "Patička na každé stránce webu: sloupce odkazů, sociální sítě, právní řádek a odkaz na nastavení cookies.",
+  cookies: "Cookie lišta podle GDPR a ePrivacy: odmítnout stejně snadno jako přijmout, nic předem zaškrtnutého, souhlas jde kdykoli změnit.",
   appearance: "Jak vypadá každá stránka webu: pozadí, písmo, barvy textu a odkazů, nadpisy, odrážky a šířka. Každé pole zapisuje token design systému.",
   buttons: "Varianty tlačítek se stavy, barevným přechodem a vlastním CSS s animací. AI je používá třídou ds-btn ds-btn--<varianta>.",
   overview: "Jméno systému, co obsahuje a brand book. README je první, co čte AI při každém vývoji webu.",
@@ -68,8 +83,18 @@ function editor(section: SiteSection, context: SitePanelContext): ReactNode {
     case "buttons": return <ButtonsSection settings={document.settings} project={context.project} theme={context.theme} componentsCss={context.componentsCss}
       notes={context.notes} invalid={context.invalid} aliases={tokens.color.tokens.map((token) => token.name)} families={Object.keys(tokens.type.families)}
       onChange={({ buttons, customCss }) => change((current) => withSettings(current, { buttons, customCss: { button: customCss } }))}/>;
-    // Sloty pro další PR (Hlavička, Patička, SEO, Affiliate, E-mail, Cookie lišta, Components, Assets):
-    // editor přidá svůj `case` a v `site-sections.ts` přepne `ready`.
+    case "seo": return <SeoSection settings={document.settings} project={context.project} assets={imageAssets(document.design.assetGroups)}
+      onChange={(seo) => change((current) => withSettings(current, { seo }))}/>;
+    case "affiliate": return <AffiliateSection settings={document.settings} host={readSeo(document.settings).canonicalHost}
+      marketing={readGdpr(document.settings).cookieBar.categories.includes("marketing")} onChange={(affiliate) => change((current) => withSettings(current, { affiliate }))}/>;
+    case "email": return <EmailSection settings={document.settings} onChange={(email) => change((current) => withSettings(current, { email }))}/>;
+    case "header": return <HeaderSection settings={document.settings} project={context.project} theme={context.theme} componentsCss={context.componentsCss}
+      assets={imageAssets(document.design.assetGroups)} variants={Object.keys(readButtons(document.settings).variants)} onChange={(header) => change((current) => withSettings(current, { header }))}/>;
+    case "footer": return <FooterSection settings={document.settings} project={context.project} theme={context.theme} componentsCss={context.componentsCss}
+      onChange={(footer) => change((current) => withSettings(current, { footer }))}/>;
+    case "cookies": return <CookieBarSection settings={document.settings} project={context.project} theme={context.theme} componentsCss={context.componentsCss}
+      onChange={(gdpr) => change((current) => withSettings(current, { gdpr }))}/>;
+    // Sloty pro další PR (Components, Assets): editor přidá svůj `case` a v `site-sections.ts` přepne `ready`.
     default: return null;
   }
 }
@@ -83,6 +108,6 @@ export default function SitePanel({ section, context }: { section: SiteSection; 
       <h2 className="site-admin__panel-title">{entry.label}</h2>
       {LEAD[section] && <p className="site-admin__panel-lead">{LEAD[section]}</p>}
     </header>
-    {body ?? <p className="site-admin__later" role="status">Tahle část přijde v dalším kroku. Teď je hotový Vzhled webu, Tlačítka webu a Design System: Overview, Colors, Typography, Spacing, Corner radius, Shadows a Files.</p>}
+    {body ?? <p className="site-admin__later" role="status">Tahle část přijde v dalším kroku. Teď je hotové Nastavení (SEO, Affiliate, E-mail), Vzhled (hlavička, patička, tlačítka, fonty), Cookie lišta a Design System: Overview, Colors, Typography, Spacing, Corner radius, Shadows a Files.</p>}
   </section>;
 }

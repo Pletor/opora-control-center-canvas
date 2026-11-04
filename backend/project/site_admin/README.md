@@ -11,6 +11,8 @@ převzatá z otevřeného formátu `tokens.json` typu Design System, kód typu n
   components, assetGroups, cover) a `empty()`.
 - `site_settings.py` – Nastavení webu `seo`, `affiliate`, `email` (SMTP) a `gdpr` (cookie lišta, kontakt správce):
   celý tvar s výchozími hodnotami, chyba = 422, rady jsou `notes`. Tajemství se odmítne kdekoli (jen `secretRef`).
+- `settings_fields.py` – pravidla polí nastavení (text, číslo, volba, seznam, objekt s výchozími hodnotami, odkaz,
+  obrázek z Assets) a odmítnutí tajemství; sdílí je `site_settings.py` a `site_chrome.py`.
 - `site_chrome.py` – hlavička a patička (`header`, `footer`) a styly `.ds-header`, `.ds-footer`, `.ds-cookie-bar`
   do `components.css`.
 - `settings_readme.py` – sekce „Nastavení webu“ generovaného README (SEO, hlavička, patička, cookie lišta, e-mail,

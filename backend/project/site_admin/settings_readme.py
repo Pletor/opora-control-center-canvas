@@ -64,7 +64,7 @@ def _footer(footer):
     if footer["social"]:
         out.append("- Sítě: " + ", ".join(f"{item['name']} `{item['url']}`" for item in footer["social"]) + ".")
     if footer["legal"]:
-        out.append(f"- Právní řádek (`ds-footer__legal`): „{footer['legal']}“.")
+        out.append(f"- Právní řádek (`ds-footer__legal`): „{footer['legal']}“ (`{{rok}}` = letošní rok).")
     if footer["cookieLink"]:
         out.append("- Odkaz „Nastavení cookies“ v patičce znovu otevře cookie lištu.")
     return out + ["", "```html", f'<footer class="ds-footer ds-footer--{footer["variant"]}">',

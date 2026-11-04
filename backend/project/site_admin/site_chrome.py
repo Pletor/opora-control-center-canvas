@@ -17,7 +17,7 @@ fungovala i v systému bez `--surface`. Pohyb (vyjetí lišty) je jen v `prefers
 i váhu (ÚOOÚ, EDPB: odmítnout stejně snadno jako přijmout).
 """
 
-from backend.project.site_admin.site_settings import (
+from backend.project.site_admin.settings_fields import (
     HTTPS,
     PAGE_ID,
     URL,

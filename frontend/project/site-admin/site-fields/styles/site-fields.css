@@ -23,3 +23,37 @@
 .site-fields__segment { min-width: 44px; min-height: 34px; padding: 4px 10px; border: 0; border-right: 1px solid var(--line); background: var(--field); color: var(--ink-2); font: inherit; font-size: var(--fs-1); cursor: pointer; }
 .site-fields__segment:last-child { border-right: 0; }
 .site-fields__segment--on { background: var(--accent); color: var(--accent-ink); }
+
+/* Delší text (popis pro vyhledávače, právní řádek, JSON-LD) roste dolů a jde zvětšit tahem, protože jeho délka
+   je součást rozhodnutí: člověk vidí, kolik toho napsal, ne jen první řádek. */
+.site-fields__textarea { min-height: 64px; resize: vertical; line-height: 1.45; }
+
+/* Přepínač je zaškrtávátko s větou vedle, ne samotný čtvereček: „Hlavička zůstane nahoře“ říká, co se na webu stane.
+   Vysvětlení pod ním je tiché, aby se řada přepínačů dala přelétnout okem. */
+.site-fields__toggle { display: flex; align-items: flex-start; gap: 8px; min-height: 34px; font-size: var(--fs-2); cursor: pointer; }
+.site-fields__check { width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--accent); flex-shrink: 0; }
+.site-fields__toggle-text { display: flex; flex-direction: column; gap: 2px; }
+
+/* Seznam odkazů je tabulka bez čar: popisek, druh cíle, cíl a nástroje na jednom řádku, aby se menu četlo shora
+   dolů ve stejném pořadí, v jakém ho uvidí návštěvník. Chyba řádku visí přímo pod ním výstražnou barvou. */
+.site-fields__links { display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1; }
+.site-fields__link-row { display: grid; grid-template-columns: minmax(120px, 1fr) 96px minmax(140px, 1.4fr) auto; gap: 6px; align-items: center; }
+.site-fields__row-tools { display: inline-flex; gap: 2px; }
+.site-fields__icon { min-width: 30px; min-height: 30px; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; color: var(--ink-2); font: inherit; cursor: pointer; }
+.site-fields__icon:disabled { opacity: 0.4; cursor: default; }
+.site-fields__icon:focus-visible, .site-fields__add:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.site-fields__problem { grid-column: 1 / -1; font-size: 11px; color: var(--danger); }
+.site-fields__add { align-self: flex-start; min-height: 32px; padding: 4px 12px; border: 1px dashed var(--line-strong); border-radius: var(--radius); background: transparent; color: var(--ink-2); font: inherit; font-size: var(--fs-1); cursor: pointer; }
+.site-fields__add:disabled { opacity: 0.5; cursor: default; }
+
+/* Část Nastavení webu má stejný rytmus jako Vzhled: vlevo formulář po kartách skupin, vpravo náhled výsledku, který
+   při posouvání formuláře zůstává na místě. Člověk tak píše popis nebo menu a hned vidí, jak to uvidí návštěvník
+   nebo vyhledávač. Pod 1100 px jde náhled pod formulář. */
+.site-fields__split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 460px); gap: var(--sp-5); align-items: start; }
+.site-fields__form { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.site-fields__group { margin: 0; padding: var(--sp-3) var(--sp-4) var(--sp-4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.site-fields__legend { padding: 0 4px; font-weight: 600; font-size: var(--fs-3); }
+.site-fields__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-3) var(--sp-4); }
+.site-fields__note { grid-column: 1 / -1; margin: 0; font-size: var(--fs-1); color: var(--ink-muted); }
+.site-fields__aside { position: sticky; top: 0; display: flex; flex-direction: column; gap: var(--sp-3); max-height: calc(100vh - 160px); overflow: auto; }
+@media (max-width: 1100px) { .site-fields__split { grid-template-columns: 1fr; } .site-fields__aside { position: static; max-height: none; } }

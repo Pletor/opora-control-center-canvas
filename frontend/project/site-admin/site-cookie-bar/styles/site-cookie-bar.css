@@ -1,0 +1,16 @@
+/* COOKIE LIŠTA (blok `site-cookie-bar`)
+   Náhled je výška telefonu na šířku: kus stránky a přes něj lišta na zvoleném místě, protože právě tak ji návštěvník
+   potká při prvním příchodu. Lišta je v něm „fixed“ jen vůči výřezu, ne vůči OPOŘE. Pod náhledem jsou dvě akce,
+   které vrátí návštěvníka na začátek nebo rovnou otevřou přepínače kategorií. Vzhled lišty dává `components.css`. */
+.site-cookie-bar__preview { display: flex; flex-direction: column; gap: var(--sp-2); }
+.site-cookie-bar__stage { position: relative; height: 420px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; color: #1a1a1a; }
+.site-cookie-bar__page { padding-block: var(--sp-4); }
+.site-cookie-bar__result { padding: 8px 10px; border-radius: 6px; background: #eef6ee; font-size: 13px; }
+.site-cookie-bar__tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.site-cookie-bar__advice { margin: 0; padding: 8px 10px 8px 26px; border: 1px solid var(--danger-line); border-radius: var(--radius); background: var(--danger-soft); color: var(--danger); font-size: var(--fs-1); }
+
+/* Kategorie ve formuláři jsou řádky: přepínač, název a popis pro návštěvníka. Vypnutá kategorie zešedne a schová
+   texty, aby bylo na první pohled vidět, které cookies web vůbec používá. */
+.site-cookie-bar__categories { display: flex; flex-direction: column; gap: var(--sp-2); }
+.site-cookie-bar__category { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(120px, 0.8fr) minmax(200px, 1.6fr); gap: 6px; align-items: start; }
+.site-cookie-bar__category--off { opacity: 0.65; }

@@ -1,0 +1,8 @@
+/* HLAVIČKA WEBU (blok `site-header`)
+   Hlavička je široká, proto náhled stojí nahoře přes celou šířku panelu a formulář pod ním, ne vedle: člověk vidí
+   celý pruh tak, jak ho uvidí návštěvník, i se zalomením menu. Výřez je nízký a posouvá se, aby šlo vyzkoušet
+   přilepení. Vzhled hlavičky dává jen `components.css` projektu, tady je jen rám výřezu. */
+.site-header { display: flex; flex-direction: column; gap: var(--sp-4); }
+.site-header__preview { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); }
+.site-header__stage { height: 220px; overflow: auto; background: #fff; color: #1a1a1a; }
+.site-header__page { padding-block: var(--sp-4) 320px; }

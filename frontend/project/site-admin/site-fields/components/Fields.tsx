@@ -14,22 +14,53 @@ export function Field({ label, hint, wide = false, children }: { label: string; 
 }
 
 /** Text nebo délka. Prázdné pole = nenastaveno; `placeholder` ukazuje, co platí místo něj (zděděná hodnota). */
-export function TextField({ label, value, placeholder, hint, mono = false, onChange }: {
-  label: string; value: string; placeholder?: string; hint?: string; mono?: boolean; onChange: (value: string) => void;
+export function TextField({ label, value, placeholder, hint, mono = false, wide = false, maxLength = 200, type = "text", onChange }: {
+  label: string; value: string; placeholder?: string; hint?: string; mono?: boolean; wide?: boolean; maxLength?: number;
+  type?: "text" | "email" | "url"; onChange: (value: string) => void;
 }) {
-  return <Field label={label} hint={hint}>
-    <input className={"site-fields__input" + (mono ? " site-fields__input--mono" : "")} value={value} placeholder={placeholder}
-      spellCheck={false} maxLength={200} onChange={(event) => onChange(event.target.value)}/>
+  return <Field label={label} hint={hint} wide={wide}>
+    <input className={"site-fields__input" + (mono ? " site-fields__input--mono" : "")} value={value} placeholder={placeholder} type={type}
+      spellCheck={false} maxLength={maxLength} onChange={(event) => onChange(event.target.value)}/>
   </Field>;
 }
 
-/** Výběr z pevných možností; první prázdná možnost říká, co platí bez volby. */
+/** Delší text (popis, právní řádek, JSON-LD). `rows` určuje výšku, `mono` kód. */
+export function TextArea({ label, value, placeholder, hint, rows = 3, mono = false, maxLength = 2000, onChange }: {
+  label: string; value: string; placeholder?: string; hint?: string; rows?: number; mono?: boolean; maxLength?: number; onChange: (value: string) => void;
+}) {
+  return <Field label={label} hint={hint} wide>
+    <textarea className={"site-fields__input site-fields__textarea" + (mono ? " site-fields__input--mono" : "")} value={value} rows={rows}
+      placeholder={placeholder} spellCheck={!mono} maxLength={maxLength} onChange={(event) => onChange(event.target.value)}/>
+  </Field>;
+}
+
+/** Celé číslo s mezemi; prázdné nebo mimo meze se nehlásí, aby rozepsané číslo neskákalo. */
+export function NumberField({ label, value, min, max, hint, onChange }: {
+  label: string; value: number; min: number; max: number; hint?: string; onChange: (value: number) => void;
+}) {
+  return <Field label={label} hint={hint}>
+    <input className="site-fields__input" type="number" value={value} min={min} max={max} step={1}
+      onChange={(event) => { const next = Number(event.target.value); if (event.target.value && Number.isInteger(next) && next >= min && next <= max) onChange(next); }}/>
+  </Field>;
+}
+
+/** Zapnuto / vypnuto s popiskem vedle zaškrtávátka; `hint` řekne, co to na webu udělá. */
+export function Toggle({ label, checked, hint, disabled = false, onChange }: {
+  label: string; checked: boolean; hint?: string; disabled?: boolean; onChange: (checked: boolean) => void;
+}) {
+  return <label className="site-fields__toggle">
+    <input type="checkbox" className="site-fields__check" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)}/>
+    <span className="site-fields__toggle-text">{label}{hint && <small className="site-fields__hint">{hint}</small>}</span>
+  </label>;
+}
+
+/** Výběr z pevných možností; první prázdná možnost říká, co platí bez volby (`empty: null` = volba je povinná). */
 export function SelectField({ label, value, options, empty = "Nenastaveno", hint, onChange }: {
-  label: string; value: string; options: Option[]; empty?: string; hint?: string; onChange: (value: string) => void;
+  label: string; value: string; options: Option[]; empty?: string | null; hint?: string; onChange: (value: string) => void;
 }) {
   return <Field label={label} hint={hint}>
     <select className="site-fields__input" value={value} onChange={(event) => onChange(event.target.value)}>
-      <option value="">{empty}</option>
+      {empty !== null && <option value="">{empty}</option>}
       {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
     </select>
   </Field>;
@@ -54,13 +85,15 @@ export function ColorField({ label, value, placeholder, aliases, onChange, child
 }
 
 /** Řada voleb jako segmenty (zaoblení rohů, šířka); vybraný segment svítí akcentem. */
-export function Segments({ label, value, options, onChange }: { label: string; value: string; options: Option[]; onChange: (value: string) => void }) {
+export function Segments({ label, value, options, required = false, onChange }: {
+  label: string; value: string; options: Option[]; required?: boolean; onChange: (value: string) => void;
+}) {
   return <div className="site-fields__field" role="group" aria-label={label}>
     <span className="site-fields__label">{label}</span>
     <span className="site-fields__segments">
       {options.map((option) => <button key={option.value} type="button" aria-pressed={value === option.value}
         className={"site-fields__segment" + (value === option.value ? " site-fields__segment--on" : "")}
-        onClick={() => onChange(value === option.value ? "" : option.value)}>{option.label}</button>)}
+        onClick={() => onChange(value === option.value && !required ? "" : option.value)}>{option.label}</button>)}
     </span>
   </div>;
 }

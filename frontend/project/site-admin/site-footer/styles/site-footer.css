@@ -1,0 +1,13 @@
+/* PATIČKA WEBU (blok `site-footer`)
+   Stejně jako u hlavičky stojí náhled nahoře přes celou šířku, protože sloupce patičky se skládají podle šířky
+   stránky. Pod ním se sloupce upravují jako karty vedle sebe ve stejném pořadí, v jakém je uvidí návštěvník
+   (šipky ← → je přesouvají). Vzhled patičky dává jen `components.css` projektu, tady je rám výřezu a formulář. */
+.site-footer { display: flex; flex-direction: column; gap: var(--sp-4); }
+.site-footer__preview { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); }
+.site-footer__stage { background: #fff; color: #1a1a1a; }
+.site-footer__page { padding-block: var(--sp-4); opacity: 0.7; }
+.site-footer__columns { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--sp-3); align-items: start; }
+.site-footer__column { display: flex; flex-direction: column; gap: 6px; padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); }
+.site-footer__column-head { display: grid; grid-template-columns: 1fr auto auto auto; gap: 4px; }
+.site-footer__social { display: flex; flex-direction: column; gap: 6px; }
+.site-footer__social-row { display: grid; grid-template-columns: 140px 1fr auto; gap: 6px; align-items: center; }
