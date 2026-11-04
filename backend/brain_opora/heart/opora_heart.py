@@ -48,6 +48,8 @@
     python opora_heart.py library nodes add FLOW --type T [--layer L] [--title X] [--params JSON] [--after NODEID] [--branches a,b]
     python opora_heart.py library nodes set FLOW NODEID --file JSON
     python opora_heart.py library nodes connect FLOW --from A --to B [--from-port main] [--via http] [--kind json [--schema JSON] [--example JSON]]
+    python opora_heart.py library case add FLOW --file case.json
+    python opora_heart.py library case run FLOW --case ID
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
 OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrnutí do `last_done.json` v cwd.
@@ -102,7 +104,8 @@ proti aktivní verzi; schvaluje jen člověk v UI.
 `library` je globální knihovna pláten toku v `opora_library.py` vedle nástroje: `show` složky a plátna, `get FLOW`
 graf verze, `save` uloží ověřený graf do knihovny agenta a aktivuje ho (`--learned-from` = odkud se ho naučil),
 `propose FLOW` uloží k plátnu člověka draft s poznámkou; přijme ho nebo zamítne člověk na plátně,
-`nodes add|set|connect` kreslí do draftu uzel po uzlu (`opora_library_nodes.py`, graf se po každé změně ověří, výstup nese `nodeId`).
+`nodes add|set|connect` kreslí do draftu uzel po uzlu (`opora_library_nodes.py`, graf se po každé změně ověří, výstup nese `nodeId`),
+`case add FLOW --file case.json` přidá případ do nového draftu, `case run FLOW --case ID` ho přehraje (simulace: trasa a shoda s `expect`).
 `skill NAME` vypíše postup režimu ze `skills/NAME.md` vedle nástroje (výslech čte `skill vyslech`, jen při výslechu).
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
@@ -1608,6 +1611,13 @@ def parser():
     nodes_connect.add_argument("--kind")
     nodes_connect.add_argument("--schema")
     nodes_connect.add_argument("--example")
+    library_case = library.add_parser("case").add_subparsers(dest="op", required=True)
+    case_add = library_case.add_parser("add")
+    case_add.add_argument("flow")
+    case_add.add_argument("--file", required=True)
+    case_run = library_case.add_parser("run")
+    case_run.add_argument("flow")
+    case_run.add_argument("--case", required=True)
     duel = commands.add_parser("duel")
     for flag in ("--subject", "--a", "--b"):
         duel.add_argument(flag, required=True)

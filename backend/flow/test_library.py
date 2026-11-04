@@ -73,3 +73,18 @@ def test_adopt_contribute_lineage_and_promote(db):
     promoted = library.promote(db, learned["id"])
     assert promoted["ownerRef"] == "opora:library:human:ai-rag/rag-agent"
     assert library.part_of(db, learned["id"]) == "human" and library.part_of(db, copy["id"]) is None
+
+
+def test_cases_survive_versions_adopt_and_contribute(db):
+    from backend.flow.test_simulate import BAD_CASE, OK_CASE, bmi_graph
+
+    library.seed_folders(db)
+    db.execute("INSERT INTO projects(id,name) VALUES('p','P')")
+    graph = bmi_graph([OK_CASE, BAD_CASE])
+    original = library.create_flow(db, folder(db)["id"], "bmi", "BMI")
+    create_draft(db, original["id"], graph)
+    assert library.flow_detail(db, original["id"])["versions"][0]["graph"]["cases"] == [OK_CASE, BAD_CASE]
+    copy = library.adopt(db, original["id"], "p")
+    assert copy["versions"][0]["graph"] == graph
+    better = library.contribute(db, copy["id"], folder(db)["id"], "bmi-2", "BMI 2")
+    assert better["versions"][0]["graph"]["cases"] == [OK_CASE, BAD_CASE]

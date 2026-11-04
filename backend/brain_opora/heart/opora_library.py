@@ -5,13 +5,15 @@ Jen standardní knihovna. Nástroj sem předá sám sebe (`tool`): `call` s toke
 (`/api/library`, verze přes `/api/flow/*`):
 - `show [--owner human|agent] [--folder SLUG]` vypíše složky s plátny (titulek, popis, aktivní verze, rodokmen,
   `learnedFrom`), prázdné složky jen slugem;
-- `get FLOW [--version N]` vypíše graf aktivní (nebo zadané) verze `{nodes, edges, notes, groups}` a seznam verzí;
+- `get FLOW [--version N]` vypíše graf aktivní (nebo zadané) verze `{nodes, edges, notes, groups, cases}` a seznam verzí;
 - `save --folder SLUG --slug SLUG --title T --file F [--learned-from JSON]` uloží plátno do knihovny AGENTA: složku
   a plátno založí, když chybí, graf ověří (`graph-check`; chyba = nic se neuloží), uloží draft s `learnedFrom`
   a aktivuje ho;
 - `propose FLOW --file F [--note N]` uloží k plátnu ČLOVĚKA draft s poznámkou; přijme (aktivuje) ho nebo zamítne
   člověk na plátně. Aktivovat v knihovně člověka srdce nesmí;
-- `nodes add|set|connect FLOW …` kreslí do draftu plátna po uzlech (`opora_library_nodes.py`).
+- `nodes add|set|connect FLOW …` kreslí do draftu plátna po uzlech (`opora_library_nodes.py`);
+- `case add FLOW --file case.json` přidá případ do nového draftu, `case run FLOW --case ID` přehraje případ (simulace,
+  trasa a shoda s `expect`; `opora_library_nodes.py`).
 Dávka srdce (`command.py`) soubor kopíruje do `brain/` vedle `opora_heart.py`.
 """
 import json
@@ -60,7 +62,7 @@ def get(tool, flow_id, n):
     graph = version["graph"]
     return {"id": detail["id"], "title": detail["title"], "ownerRef": detail["ownerRef"], "n": version["n"],
             "status": version["status"], "meta": version.get("meta"),
-            "graph": {key: graph.get(key) or [] for key in ("nodes", "edges", "notes", "groups")},
+            "graph": {key: graph.get(key) or [] for key in ("nodes", "edges", "notes", "groups", "cases")},
             "versions": [f"v{v['n']} {v['status']}" + (f" · {v['meta']['note']}" if (v.get("meta") or {}).get("note")
                                                        else "") for v in versions]}
 
@@ -127,6 +129,6 @@ def library(args, tool):
         return get(tool, args.flow, args.version)
     if args.action == "save":
         return save(tool, args)
-    if args.action == "nodes":
+    if args.action in ("nodes", "case"):
         return tool.research_module("opora_library_nodes").nodes(tool, args)
     return propose(tool, args.flow, args.file, args.note)

@@ -33,6 +33,7 @@ from backend.flow.canvas_log import log_canvas
 from backend.flow.graph_check import FlowInvalid, graph_errors, node_ports
 from backend.flow.node_types import catalog
 from backend.flow.run_log import read_log
+from backend.flow.simulate import simulate
 from backend.flow.stalls import list_stalls
 from backend.flow.workflows import FlowConflict, FlowNotFound
 from backend.project.architecture.work_status import architecture_graph
@@ -80,6 +81,12 @@ class NodePortsIn(BaseModel):
 def _port_json(p):
     return {"name": p.name, "direction": p.direction, "kind": p.kind, "cardinality": p.cardinality,
             "schema": p.schema, "required": p.required, "label": p.label or p.name}
+
+
+class SimulateIn(BaseModel):
+    graph: dict[str, Any]
+    caseId: str | None = Field(default=None, max_length=200)
+    case: dict[str, Any] | None = None
 
 
 class RunIn(BaseModel):
@@ -176,6 +183,12 @@ def create_flow_router(service):
         """Ověření grafu bez zápisu (`intent propose --dry-run` srdce): `{ok, errors}` podle katalogu druhu."""
         errors = graph_errors(body.graph, catalog(body.kind), body.kind)
         return {"ok": not errors, "errors": errors}
+
+    @router.post("/simulate")
+    def simulate_case(body: SimulateIn):
+        """Přehraje případ plátna procesu (`docs/navrhy/2026-11-04-platno-procesu.md` §4): čtení, nic nezapíše;
+        graf a případ jsou v těle, limity 200 kroků, 20 tabulek × 200 řádků, výraz 500 znaků."""
+        return guarded(lambda: simulate(body.graph, body.caseId, body.case))
 
     def accepted_graph(project):
         try:
