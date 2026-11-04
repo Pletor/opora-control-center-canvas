@@ -3,6 +3,7 @@ import type { ProductBranch } from "@/project/product-tree/logic/product-tree";
 import CopyIdButton from "@/ui-kit/copy-id/components/CopyIdButton";
 import PageJourneys from "./PageJourneys";
 import PageSections from "./PageSections";
+import ProjectFlowLinks from "@/project/project-flows/components/ProjectFlowLinks";
 import type { PageJourneyRole } from "../logic/page-journeys";
 import { holesLabel, type CardState } from "../../card-state/logic/card-state";
 import CardIcon from "../../card-state/components/CardIcon";
@@ -51,6 +52,7 @@ export default function PageCard({ branch, index, count, actions, work, journeyR
       {node.purpose && <p className="domain-map__card-purpose">{node.purpose}</p>}
       {node.site?.kind === "page" && <PageSections sections={node.site.sections}/>}
       <PageJourneys roles={journeyRoles?.get(node.id) ?? []} pageId={node.id}/>
+      <ProjectFlowLinks nodeId={node.id}/>
       <div className="domain-map__subpages">
         {children.map((child, i) => <PageCard key={child.node.id} branch={child} index={i} count={children.length} actions={actions} work={work} journeyRoles={journeyRoles} states={states} decompose={decompose} intent={intent}/>)}
         {!children.length && <p className="domain-map__empty">Zatím bez podstránek</p>}

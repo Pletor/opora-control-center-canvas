@@ -1,35 +1,14 @@
-// Panel Komponenty na přehledu domén: knihovna univerzálních komponent (docs/navrhy/2026-11-04-sprava-webu-design-system.md
-// §0 M1 bod 5). Karty jsou statický seznam; katalogové karty čtou předlohy z Knihovny, Skills a Tools z registru Brainu
-// (`GET /api/brain-registry/artifacts`), Harness z přehledu čtení dokumentace (`GET /api/oporahub/harness-documentation`).
-// Vše jen ke čtení. Bez Reactu, test vedle.
-import { CATALOG_ITEMS, type CatalogCategory, type CatalogItem } from "@/editor/component-library/library-catalog/logic/library-catalog";
+// Panel Komponenty na přehledu domén: složky knihovny pláten toku (`library-shelf.ts`, kontrakt
+// docs/navrhy/2026-11-04-knihovna-platna-toku.md §4) a za nimi tři knihovny Brainu, které zůstávají odkazem do Brainu:
+// Skills a Tools z registru Brainu (`GET /api/brain-registry/artifacts`), Harness z přehledu čtení dokumentace
+// (`GET /api/oporahub/harness-documentation`). Brain jen ke čtení. Bez Reactu, test vedle.
 
 export type BrainKind = "skill" | "tool";
-export type ShelfSource = { kind: "catalog"; categories: CatalogCategory[] } | { kind: "brain"; artifact: BrainKind } | { kind: "harness" };
+export type ShelfSource = { kind: "brain"; artifact: BrainKind } | { kind: "harness" };
 export type ShelfEntry = { id: string; label: string; source: ShelfSource };
 
-const catalog = (...categories: CatalogCategory[]): ShelfSource => ({ kind: "catalog", categories });
-
-/** Pořadí podle `image6.png`: základ webu a aplikace, pak doplňky, nakonec knihovny Brainu. */
-export const COMPONENT_SHELF: ShelfEntry[] = [
-  { id: "database", label: "Databáze", source: catalog("database") },
-  { id: "backend", label: "Backend", source: catalog("backend") },
-  { id: "devops", label: "DevOps", source: catalog("devops") },
-  { id: "cache", label: "Cache", source: catalog("cache") },
-  { id: "docker", label: "Docker", source: catalog("docker") },
-  { id: "functions", label: "Funkce a metody", source: catalog("functions") },
-  { id: "infrastructure", label: "Infrastruktura", source: catalog("cloud") },
-  { id: "security", label: "Security", source: catalog("security") },
-  { id: "monitoring", label: "Monitoring", source: catalog("monitoring") },
-  { id: "tests", label: "Testy", source: catalog("tests") },
-  { id: "tenancy", label: "Autentizace a tenancy", source: catalog("tenancy") },
-  { id: "events", label: "Fronta a události", source: catalog("events") },
-  { id: "storage", label: "Úložiště souborů", source: catalog("storage") },
-  { id: "notifications", label: "Notifikace a push", source: catalog("notifications") },
-  { id: "payments", label: "Platby", source: catalog("payments") },
-  { id: "analytics", label: "Analytika", source: catalog("analytics") },
-  { id: "search", label: "Vyhledávání", source: catalog("search") },
-  { id: "config", label: "Konfigurace a feature flags", source: catalog("config") },
+/** Knihovny Brainu na konci panelu (pořadí podle `image6.png`). */
+export const BRAIN_SHELF: ShelfEntry[] = [
   { id: "skills", label: "Skills", source: { kind: "brain", artifact: "skill" } },
   { id: "tools", label: "Tools", source: { kind: "brain", artifact: "tool" } },
   { id: "harness", label: "Harness", source: { kind: "harness" } },
@@ -37,12 +16,6 @@ export const COMPONENT_SHELF: ShelfEntry[] = [
 
 /** ID karty pro agenta (čip ID). */
 export const shelfId = (entry: ShelfEntry) => "opora:library:" + entry.id;
-
-/** Předlohy katalogové karty v pořadí katalogu; ostatní karty předlohy nemají. */
-export function shelfItems(entry: ShelfEntry, items: CatalogItem[] = CATALOG_ITEMS): CatalogItem[] {
-  const source = entry.source;
-  return source.kind === "catalog" ? items.filter((item) => source.categories.includes(item.category)) : [];
-}
 
 export type BrainArtifact = { id: string; kind: string; name: string; plugin: string; active: { version: string; status: string } | null };
 export type HarnessRead = { resource: string; library: string; fetchedAt: string; durationMs: number };
@@ -79,10 +52,9 @@ export const brainOf = (artifacts: BrainArtifact[], kind: BrainKind) => artifact
 /** Krátká verze pro čtení (prvních 12 znaků SHA), celá zůstává v `title`. */
 export const shortVersion = (version: string) => version.slice(0, 12);
 
-/** Co karta ukáže pod názvem: počet předloh, artefaktů s aktivní verzí nebo čtení dokumentace; `null` = ještě se načítá. */
+/** Co karta ukáže pod názvem: počet artefaktů s aktivní verzí nebo čtení dokumentace; `null` = ještě se načítá. */
 export function shelfCount(entry: ShelfEntry, data: ShelfData): string | null {
   const source = entry.source;
-  if (source.kind === "catalog") return plural(shelfItems(entry).length, "předloha", "předlohy", "předloh");
   if (source.kind === "brain") {
     if (data.brain.error) return "nenačteno";
     if (!data.brain.data) return null;
@@ -93,6 +65,6 @@ export function shelfCount(entry: ShelfEntry, data: ShelfData): string | null {
   return data.harness.data ? plural(data.harness.data.reads.length, "čtení", "čtení", "čtení") : null;
 }
 
-function plural(count: number, one: string, few: string, many: string): string {
+export function plural(count: number, one: string, few: string, many: string): string {
   return `${count} ${count === 1 ? one : count >= 2 && count <= 4 ? few : many}`;
 }

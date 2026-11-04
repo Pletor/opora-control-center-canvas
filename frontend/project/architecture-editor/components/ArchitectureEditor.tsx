@@ -28,6 +28,8 @@ import { useStudioRuns } from "@/project/studio/logic/use-studio-runs";
 import { useCardLife } from "../card-state/logic/use-card-life";
 import { useMapWorktrees } from "../logic/use-map-worktrees";
 import { useCardGuards } from "@/project/studio/studio-guards/logic/use-card-guards";
+import { ProjectFlowsContext } from "@/project/project-flows/logic/project-flows-context";
+import { useProjectFlows } from "@/project/project-flows/logic/use-project-flows";
 import { useMapCheck } from "../logic/use-map-check";
 import { mapCheckGroups, type MapCheckTarget } from "../domain-map/map-check/logic/map-check";
 import { pageWork, panelViews } from "../logic/live-views";
@@ -52,6 +54,8 @@ export type ArchitectureLiveProps = {
   onOpenIntent?: (pageId: string) => void;
   /** Otevře Správu webu projektu (`projectView=site`, vyřizuje App). */
   onOpenSite?: () => void;
+  /** Otevře plátno toku v knihovně (`projectView=library&flow=<id>`, vyřizuje App). */
+  onOpenLibraryFlow?: (flowId: string) => void;
 };
 
 const EMPTY_GRAPH: Graph = { nodes: [], edges: [] };
@@ -80,6 +84,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const derivedJourneys = useStudioRuns(project, store.view?.digest).journeys;
   const mapCheck = useMapCheck(project, store.view?.digest);
   const intents = usePageIntents(project, store.view?.digest);
+  const projectFlows = { flows: useProjectFlows(project, store.view?.digest), onOpen: liveProps.onOpenLibraryFlow };
   const graph = store.view?.graph ?? EMPTY_GRAPH;
   const guards = useCardGuards(project, workspace);
   const worktrees = useMapWorktrees(project, liveProps.worktreeLive, store.view?.digest);
@@ -186,7 +191,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const decompose: PageDecompose = (pageId) => pageDecomposeOffer({ project, workspace, graph, pageId, check: mapCheck });
   const crumbs = domain ? [env?.name ?? SHARED_GROUP, environmentAddress(env) || domain.name, ...(scope ? [scope.name] : [])] : [];
   const identity = (original: CanvasNode, name: string, purpose: string) => execute(async () => { writable(original.id, original.site ? "structure" : "content"); const current = graph.nodes.find((node) => node.id === original.id); if (!current || current.name !== original.name || current.purpose !== original.purpose) throw new Error("Název nebo účel se mezitím změnil. Zrušte koncept a otevřete aktuální hodnoty."); await saveGraph({ ...graph, nodes: graph.nodes.map((node) => node.id === original.id ? { ...node, name: name.trim(), purpose: purpose.trim() } : node) }); });
-  return <section className="architecture-editor" data-testid="standalone-architecture-editor">
+  return <ProjectFlowsContext.Provider value={projectFlows}><section className="architecture-editor" data-testid="standalone-architecture-editor">
     <ArchitectureHeader crumbs={crumbs} step={scope ? "Editor stránky" : domain ? "Mapa domény" : "Mapy architektury"} workspace={workspace} readOnly={!!store.view?.readOnly} editorId={editorId}
       back={domain ? { disabled: store.busy || removing, onClick: () => navigate(scope ? domain.id : null) } : null}
       pageTools={scope ? { disabled, onArea: () => createArea(), onSector: () => createSector() } : null}
@@ -197,7 +202,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
     {scopeError ? <div className="ae-route-error"><p role="alert">{scopeError}</p><button onClick={() => navigate(null)}>Zpět na domény</button></div> : !ready || !store.view ? <p className="ae-loading">Načítám architekturu…</p> : !domain ? <ArchitectureLanding project={project} workspace={workspace} graph={graph} disabled={structureDisabled} lockReason={locks.structure?.text}
       live={{ web: live.web, work: live.work, worktreeLive: live.worktreeLive, nav, onCreateWorktree: liveProps.onCreateWorktree,
         onAssign: admin.assign, shelf: admin.shelf, onLoadShelf: admin.loadShelf }}
-      onOpen={(id) => navigate(id)} onManageSite={liveProps.onOpenSite} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
+      onOpen={(id) => navigate(id)} onOpenFlow={liveProps.onOpenLibraryFlow} onManageSite={liveProps.onOpenSite} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
     : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} initialJourneyId={journeyEdit} onJourneyOpened={() => setJourneyEdit(undefined)} pages={pages} disabled={structureDisabled} onOpen={openScope}
       work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys} cardStates={cards.states} mapCheck={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding} decompose={decompose}
       intent={liveProps.onOpenIntent && { intents, onOpen: liveProps.onOpenIntent }}
@@ -224,5 +229,5 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
         onSection={(nodeId, section) => eventAction(async () => { writable(nodeId); await saveGraph(setEditorNodeSection(graph, nodeId, section)); })}
         onPage={(original, site) => execute(async () => { writable(original.id, "structure"); const next = setEditorPageSite(graph, original, site); if (next !== graph) await saveGraph(next); })}/> : null}/>}
     {removal && <RemovalDialog preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval}/>}
-  </section>;
+  </section></ProjectFlowsContext.Provider>;
 }

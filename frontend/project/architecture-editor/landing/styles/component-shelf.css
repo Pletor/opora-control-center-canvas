@@ -3,13 +3,16 @@
    Na úzkém okně se panel zalomí pod domény a zabere celou šířku. */
 .component-shelf{--cs-tone:var(--ae-tone-backend);display:flex;flex-direction:column;gap:14px;min-width:0;margin-top:34px}
 
-/* Hlavička: nadpis v rámečku a pod ním věta, k čemu knihovna je; vpravo „+ Vytvořit“, v tomto milníku vypnuté
-   s vysvětlením v bublině, aby bylo vidět, kam tvorba přijde, ale nikdo na ni zatím nespoléhal. */
+/* Hlavička: nadpis v rámečku a pod ním věta, k čemu knihovna je; vedle přepínač části Člověk / Agent jako dvě
+   spojená tlačítka (agent má vlastní knihovnu, kterou člověk čte a povyšuje) a vpravo „+ Složka“, jen v části
+   Člověk, protože tam píše jen člověk. */
 .component-shelf__head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .component-shelf__title{display:inline-block;margin:0;padding:2px 9px;border:1px solid var(--cs-tone);border-radius:6px;color:var(--cs-tone);font-size:16px;font-weight:600}
 .component-shelf__lead{margin:6px 0 0;color:var(--ae-muted);font-size:12px}
 .component-shelf__create{flex:none}
-.component-shelf__create:disabled{cursor:not-allowed;opacity:.6}
+.component-shelf__owner{display:inline-flex;margin-left:auto;border:1px solid var(--cs-tone);border-radius:6px;overflow:hidden}
+.component-shelf__owner-option{padding:3px 10px;border:0;background:none;color:var(--ae-muted);font:inherit;font-size:12px;cursor:pointer}
+.component-shelf__owner-option[aria-pressed="true"]{background:var(--cs-tone);color:var(--ae-bg)}
 
 /* Mřížka karet: tři vedle sebe jako na předloze, čtvercové a stejně vysoké, ať se dá jedním pohledem přelétnout,
    co knihovna nabízí. Karta má nahoře tichý štítek a čip ID, uprostřed velké jméno rodiny a dole vstup. */
@@ -21,29 +24,32 @@
 .component-shelf__count{margin:0 0 auto;color:var(--ae-muted);font-size:11px;text-align:center}
 .component-shelf__enter{align-self:flex-start;padding:0;border:0;background:none;color:var(--ae-text);font:inherit;font-size:11px;cursor:pointer}
 .component-shelf__enter:hover{color:var(--cs-tone);text-decoration:underline}
+.component-shelf__tags{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin:0}
+.component-shelf__tag{padding:0 5px;border-radius:4px;background:color-mix(in srgb,var(--cs-tone) 18%,transparent);color:var(--cs-tone);font-size:10px}
 
-/* Prohlížeč knihovny nahradí mřížku na místě: nahoře návrat a „jen ke čtení“, protože tady se nic nemění,
-   jen se čte, co předloha slibuje. Seznam se posouvá sám, takže domény vlevo zůstávají na očích. */
+/* Obsah složky nebo knihovny Brainu nahradí mřížku na místě: nahoře návrat, název a u složky část a počet pláten,
+   u Brainu „jen ke čtení“. Seznam se posouvá sám, takže domény vlevo zůstávají na očích. */
 .component-shelf__viewer{display:flex;flex-direction:column;gap:10px;min-width:0}
 .component-shelf__viewer-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .component-shelf__back{padding:2px 8px;font-size:12px}
 .component-shelf__viewer-title{margin:0;color:var(--cs-tone);font-size:16px}
 .component-shelf__note{margin:0;color:var(--ae-muted);font-size:12px}
+.component-shelf__note--error{color:var(--danger)}
 
-/* Předloha je karta s názvem a ID vedle sebe, větou účelu a krátkými fakty (tech, stavy, porty, hotovo) ve dvou
-   sloupcích; kód šablony je sbalený, aby dlouhá šablona nepřekryla ostatní předlohy. */
-.component-shelf__list{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
-.component-shelf__item{padding:10px 12px;border:1px solid var(--ae-line);border-radius:8px;background:var(--ae-panel)}
-.component-shelf__item-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
-.component-shelf__item-name{margin:0;font-size:14px}
-.component-shelf__code{color:var(--ae-muted);font-size:11px;overflow-wrap:anywhere}
-.component-shelf__purpose{margin:4px 0 6px;font-size:12px}
-.component-shelf__facts{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0;font-size:11px}
-.component-shelf__term{color:var(--ae-muted)}
-.component-shelf__value{margin:0}
-.component-shelf__template{margin-top:6px;font-size:11px}
-.component-shelf__summary{cursor:pointer;color:var(--cs-tone)}
-.component-shelf__pre{overflow:auto;max-height:240px;margin:6px 0 0;padding:8px;border-radius:6px;background:var(--ae-bg);font-size:11px}
+/* Obsah složky: plátna toku pod sebou jako karty se jménem (otevře plátno), popisem a jednou řádkou faktů (aktivní
+   verze, kolik prvků z plátna vychází). Pod nimi „+ Nové plátno“: založí plátno a rovnou ho otevře, protože prázdné
+   plátno v seznamu nikomu nepomůže. Formuláře panelu jsou jeden řádek polí, aby nepřekryly domény. */
+.component-shelf__folder{display:flex;flex-direction:column;gap:10px}
+.component-shelf__flows{display:flex;flex-direction:column;gap:8px}
+.component-shelf__flow{display:grid;gap:4px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--cs-tone) 50%,var(--ae-line));border-radius:6px;background:var(--ae-panel)}
+.component-shelf__flow-title{padding:0;border:0;background:none;color:var(--cs-tone);font:inherit;font-size:14px;font-weight:600;text-align:left;cursor:pointer}
+.component-shelf__flow-title:hover{text-decoration:underline}
+.component-shelf__purpose{margin:0;font-size:12px}
+.component-shelf__count--left{text-align:left;margin:0}
+.component-shelf__add{align-self:flex-start;padding:4px 10px;border:1px dashed var(--cs-tone);border-radius:6px;background:none;color:var(--cs-tone);font:inherit;font-size:12px;cursor:pointer}
+.component-shelf__form{display:flex;flex-wrap:wrap;gap:6px}
+.component-shelf__input{flex:1 1 140px;padding:4px 7px;border:1px solid var(--ae-line);border-radius:5px;background:var(--ae-bg);color:var(--ae-text);font:inherit;font-size:12px}
+.component-shelf__button{padding:3px 9px;font-size:12px}
 
 /* Artefakty Brainu a čtení Harness jsou tabulka: ID, verze a stav na jedné řádce, aby šlo porovnat aktivní verze. */
 .component-shelf__table{width:100%;border-collapse:collapse;font-size:12px}

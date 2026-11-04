@@ -2,6 +2,7 @@ import type { CanvasNode } from "@/shared/types/logic/types";
 import { DOMAIN_KIND_LABEL, domainKindOf, environmentAddress, isMobileDomain } from "../logic/domain-kind";
 import DomainKindIcon from "./DomainKindIcon";
 import DomainWork from "./DomainWork";
+import ProjectFlowLinks from "@/project/project-flows/components/ProjectFlowLinks";
 import CopyIdButton from "@/ui-kit/copy-id/components/CopyIdButton";
 import WebStatusBadge from "@/project/architecture-editor/live-status/components/WebStatusBadge";
 import type { WorktreeNav } from "@/project/architecture-editor/live-status/components/WorktreeRow";
@@ -34,6 +35,7 @@ export default function DomainCard({ node, tone, disabled, live, onOpen, onManag
     <p className="arch-landing__meta">{DOMAIN_KIND_LABEL[kind]} · {node.purpose || node.name}</p>
     {live?.worktrees && live.work && <DomainWork counts={live.work.counts} worktrees={live.work.worktrees} label={"Worktree domény " + address}
       stale={live.workStale} nav={live.nav} onCreateWorktree={live.onCreateWorktree}/>}
+    <ProjectFlowLinks nodeId={node.id}/>
     {shared && environments.map((env) => <div className="arch-landing__env" key={environmentAddress(env)}>
       <code>{environmentAddress(env)}</code>
       {env.host && <button type="button" className="arch-landing__quiet" disabled={disabled} onClick={() => onSplit(env.host!)}>Oddělit doménu</button>}
