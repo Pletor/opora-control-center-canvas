@@ -11,7 +11,7 @@ export default function PletorMessages({ messages, sending }: { messages: Pletor
       {messages.map((message, index) => (
         <p key={index} className={`pletor__message pletor__message--${message.role}`}>{message.text}</p>
       ))}
-      {sending && <p className="pletor__message pletor__message--pletor pletor__message--pending">Přemýšlí…</p>}
+      {sending && <p className="pletor__message pletor__message--pletor pletor__message--pending">Přemýšlí<span className="pletor__dots" aria-hidden="true"><i /><i /><i /></span></p>}
       <div ref={end} />
     </div>
   );

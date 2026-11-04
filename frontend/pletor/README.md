@@ -8,6 +8,7 @@ Dílky (`components/`):
 - `PletorButton`: tlačítko v horní liště vedle Asistenta, otevře a zavře okno.
 - `PletorWindow`: rodič. Drží stav konverzace a odesílá (`usePletor`); skládá dílky.
 - `PletorHeartLine`: jeden řádek se stavem srdce a počtem čekajících eskalací.
+- `PletorOrb`: svítící jádro nad rozhovorem (dýchá / přemýšlí / záblesk odpovědi / chyba); stav mu dává rodič.
 - `PletorMessages`: zprávy, člověk vpravo, Pletor vlevo.
 - `PletorActions`: po odpovědi chipy akcí (Poslal jsem srdci / Zapsal do Schránky / Selhalo).
 - `PletorComposer`: pole a tlačítko Odeslat, Enter odešle.
@@ -15,6 +16,7 @@ Dílky (`components/`):
 Logika (`logic/`):
 
 - `pletor-client.ts` (test vedle): `POST /api/pletor/messages`, `GET /api/pletor/state`, mapování odpovědi na texty okna, uložení otevřenosti.
+- `pletor-orb-mode.ts` (test vedle): stav jádra z odesílání, chyby a času poslední odpovědi.
 - `pletor-poll.ts`: polling stavu každé 4 s, jen když je okno otevřené (sdílený `usePolling`), a odeslání zprávy.
 
-Styl: `styles/pletor.css` (blok `pletor`, tlačítko `pletor__toggle`).
+Styl: `styles/pletor.css` (blok `pletor`, tlačítko `pletor__toggle`, jádro `pletor-orb`).

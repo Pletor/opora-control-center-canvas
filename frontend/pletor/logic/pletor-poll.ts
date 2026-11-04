@@ -1,6 +1,6 @@
 // Vazba okna Pletor na React a síť: stav konverzace, srdce a eskalací jednoho prostoru se načítá
 // sdíleným pollerem každé 4 s, jen když je okno otevřené (ve skryté záložce poller stojí), jako panel srdce.
-// Odeslání hned ukáže zprávu člověka, po odpovědi drží provedené akce a požádá o nové načtení. Volá ho jen PletorWindow.
+// Odeslání hned ukáže zprávu člověka, po odpovědi drží provedené akce a čas příchodu (záblesk jádra) a požádá o nové načtení. Volá ho jen PletorWindow.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
 import { fetchPletorState, sendPletorMessage, type PletorAction, type PletorState } from "./pletor-client";
@@ -14,6 +14,7 @@ export function usePletor(open: boolean, project: string, workspace: string) {
   const [actions, setActions] = useState<PletorAction[]>([]);
   const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState("");
+  const [repliedAt, setRepliedAt] = useState<number | null>(null);
   const scopeKey = `${project}\n${workspace}`;
   const scopeRef = useRef(scopeKey);
   useEffect(() => {
@@ -41,6 +42,7 @@ export function usePletor(open: boolean, project: string, workspace: string) {
       if (scopeRef.current !== asked) return true;
       setState((current) => ({ ...current, messages: [...current.messages, { role: "pletor", text: result.reply, at: new Date().toISOString() }] }));
       setActions(result.actions);
+      setRepliedAt(Date.now());
       setFailure("");
       void poll.refresh();
       return true;
@@ -52,5 +54,5 @@ export function usePletor(open: boolean, project: string, workspace: string) {
     }
   }, [project, workspace, scopeKey, poll]);
 
-  return { ...state, actions, sending, failure, send };
+  return { ...state, actions, sending, failure, repliedAt, send };
 }
