@@ -57,6 +57,9 @@ Modules (H2a):
   §4): `show PAGE` (active and candidate version compact: nodes with type and params, then edges), `propose PAGE --file F
   [--dry-run]` (creates the `page_intent` workflow when missing, saves a draft and proposes it as candidate; `--dry-run`
   only `POST /api/flow/graph-check`), `diff PAGE` (candidate against active). Only a human approves.
+  `library` (`opora_library.py` beside the tool, global flow library, `docs/navrhy/2026-11-04-knihovna-platna-toku.md`
+  §5): `show`, `get FLOW`, `save` (graph-check, then draft with `learnedFrom` and activation in the AGENT part) and
+  `propose FLOW` (draft with a note to a HUMAN flow; the human accepts or rejects it on the canvas).
   `research --requirement rq_…` is interrogation research: the per-requirement cap is checked before the desk runs and
   the cost is added to the requirement's brief (`docs/navrhy/2026-10-30-vyslech-srdce.md` §8).
 - The system prompt and mode procedures are Brain skills (`backend/brain/`, seed `backend/brain/seed/opora-heart/`).

@@ -21,5 +21,11 @@ export function versionAction(versions: readonly FlowVersion[], viewing: FlowVer
   return versions.some((item) => item.status === "retired" && item.n < viewing.n) ? "rollback" : null;
 }
 
+/** Čekající návrh srdce u plátna člověka (knihovna §5): nejnovější draft s `proposedBy` novější než aktivní verze. */
+export function pendingProposal(versions: readonly FlowVersion[]): FlowVersion | null {
+  const active = versions.find((item) => item.status === "active")?.n ?? 0;
+  return versions.filter((item) => item.status === "draft" && item.n > active && item.meta?.proposedBy).at(-1) ?? null;
+}
+
 /** Historie od nejnovější verze dolů. */
 export const history = (versions: readonly FlowVersion[]) => [...versions].sort((a, b) => b.n - a.n);

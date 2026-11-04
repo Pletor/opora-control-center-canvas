@@ -14,3 +14,9 @@
 .library-versions__button { padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; }
 .library-versions__button--primary { border-color: var(--accent); color: var(--accent); }
 .library-versions__button:disabled { cursor: progress; opacity: .6; }
+
+/* Návrh srdce u plátna člověka je stejný pás jako lišta verzí, jen zlatý: srdce něco navrhlo a čeká se na člověka.
+   Poznámka srdce je tučně, vedle souhrn rozdílu proti aktivní verzi (uzly a vazby), vpravo Přijmout a Zamítnout. */
+.library-versions--proposal { border-left: 3px solid var(--gold); background: color-mix(in srgb, var(--gold) 8%, var(--surface)); }
+.library-versions__proposal-text { color: var(--ink); }
+.library-versions__diff { color: var(--ink-muted); font-family: var(--mono, monospace); }

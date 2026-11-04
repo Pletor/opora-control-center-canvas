@@ -1,11 +1,11 @@
 import { useState } from "react";
 import type { LibraryFolder } from "@/project/library-canvas/logic/library-api";
 import CopyIdButton from "@/ui-kit/copy-id/components/CopyIdButton";
-import { flowFacts } from "../logic/library-shelf";
+import { flowFacts, promotionSuggested } from "../logic/library-shelf";
 import ShelfForm from "./ShelfForm";
 
 /** Obsah složky knihovny: karty pláten toku (titulek, popis, aktivní verze, počet odvozených; kopie z projektu nese
- *  „vychází z …“ až na plátně) a „+ Nové plátno“, které plátno založí a otevře. Klik na kartu otevře plátno. */
+ *  „vychází z …“ až na plátně; ověřené plátno agenta nese „navrženo k povýšení“) a „+ Nové plátno“, které plátno založí a otevře. Klik na kartu otevře plátno. */
 export default function LibraryFolderView({ folder, busy, onOpenFlow, onAddFlow }: {
   folder: LibraryFolder; busy: boolean; onOpenFlow: (id: string) => void; onAddFlow: (title: string, description: string) => void;
 }) {
@@ -20,6 +20,7 @@ export default function LibraryFolderView({ folder, busy, onOpenFlow, onAddFlow 
         </div>
         {flow.description && <p className="component-shelf__purpose">{flow.description}</p>}
         <p className="component-shelf__count component-shelf__count--left">{flowFacts(flow)}</p>
+        {promotionSuggested(flow) && <p className="component-shelf__suggest" data-testid={"library-suggest-" + (flow.slug ?? flow.id)}>ověřeno v projektu – navrženo k povýšení</p>}
       </article>)}
       {!folder.flows.length && <p className="component-shelf__note">Ve složce zatím není žádné plátno toku.</p>}
     </div>

@@ -1,6 +1,7 @@
 // Rodokmen plátna toku (kontrakt knihovny §1): „vychází z <prvek>@<verze>“, upozornění, že zdroj má v knihovně
 // novější aktivní verzi, a kolik prvků a projektů z plátna vychází. Používá ho plátno knihovny i odkaz u domény
 // a stránky v projektu.
+import type { LearnedFrom } from "@/shared/flow-editor/logic/flow-types";
 import type { DerivedFrom } from "./library-api";
 
 type Source = { title: string; activeN: number | null; versions: { id: string; n: number }[] };
@@ -17,4 +18,12 @@ export function lineageOf(flow: { derivedFrom: DerivedFrom | null; derived?: { p
   const derived = flow.derived ?? [];
   const projects = new Set(derived.flatMap((item) => item.projectId ? [projectName(item.projectId)] : []));
   return { from, newer, derived: derived.length ? `odvozené: ${derived.length}${projects.size ? ` · v projektech: ${[...projects].join(", ")}` : ""}` : null };
+}
+
+const RESULT: Record<string, string> = { verified: "ověřeno", delivered: "odevzdáno", failed: "neprošlo" };
+
+/** Původ plátna agenta (knihovna §5 `learnedFrom`): „naučeno v projektu Ample · karta rag · ověřeno“. */
+export function learnedText(learned: LearnedFrom | null | undefined, projectName: (id: string) => string = (id) => id): string | null {
+  if (!learned) return null;
+  return [`naučeno v projektu ${projectName(learned.project)}`, learned.card && `karta ${learned.card}`, RESULT[learned.result] ?? learned.result].filter(Boolean).join(" · ");
 }

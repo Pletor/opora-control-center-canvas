@@ -14,6 +14,8 @@
 .library-canvas__link { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
 .library-canvas__link:disabled { color: var(--ink-muted); cursor: default; }
 .library-canvas__newer { color: var(--gold); font-weight: 600; }
+/* Původ plátna agenta („naučeno v projektu … · ověřeno“) je tiše zelený: říká, proč plátnu věřit, ne co dělat. */
+.library-canvas__learned { color: var(--ok); }
 .library-canvas__notice { color: var(--ok); font-size: 12px; }
 .library-canvas__error { color: var(--danger); font-size: 12px; }
 .library-canvas__editor { flex: 1; min-height: 0; }

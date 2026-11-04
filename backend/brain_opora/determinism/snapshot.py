@@ -4,6 +4,7 @@
 oblasti a sektory plánu (sekce PLÁN nese u každého řádku plné ID uzlu), stav záměru každé stránky z registru
 (sekce ZÁMĚRY STRÁNEK, `backend/flow/page_intents.py`, docs/navrhy/2026-11-03-platno-2-zamer-stranky.md §4),
 design systém webu (sekce DESIGN, `backend/project/site_admin/summary.py`, kontrakt Správy webu §4),
+řádek LIBRARY s počtem pláten globální knihovny toků (člověk / agent, `docs/navrhy/2026-11-04-knihovna-platna-toku.md` §5),
 tickety práce (sekce TICKETY PRÁCE, docs/navrhy/2026-11-03-novy-zaklad.md §3.3), čekající lístky, otevřené eskalace srdce pro člověka (sekce OTÁZKY U ČLOVĚKA), poslední vstupy vstupní brány (sekce VSTUPY), aktivní milníky s kritérii (hotovo/celkem a karty) a splněné
 milníky s odloženými požadavky k otevření (sekce MILNÍKY), otevřené a odložené požadavky (sekce POŽADAVKY),
 otevřené konflikty auto-rebase (sekce KONFLIKTY NÁVRHŮ, docs/oporahub-auto-rebase.md), poslední kontroly, deník dávek;
@@ -357,6 +358,19 @@ def _design(service, project):
         return None
 
 
+def _library(service):
+    """Počet pláten globální knihovny toků `(člověka, agenta)`; nečitelné = (0, 0)."""
+    try:
+        with service.registry_lock:
+            row = service.db.execute(
+                "SELECT COALESCE(SUM(owner_ref LIKE 'opora:library:human:%'),0), "
+                "COALESCE(SUM(owner_ref LIKE 'opora:library:agent:%'),0) FROM flow_workflows "
+                "WHERE kind='library_flow' AND project_id IS NULL").fetchone()
+        return int(row[0]), int(row[1])
+    except UNREADABLE:
+        return 0, 0
+
+
 def collect(service, project, workspace):
     """Fakta snímku jednoho pracovního prostoru. Neexistující projekt je 404 `project_not_found`."""
     if not service.project_exists(project):
@@ -385,7 +399,7 @@ def collect(service, project, workspace):
             "tickets": tickets, "escalations": escalations, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace), "vault": _vault(service, project, workspace),
-            "design": _design(service, project)}
+            "design": _design(service, project), "library": _library(service)}
 
 
 def _intent(facts):
@@ -650,6 +664,14 @@ def _design_lines(facts):
             f"{settings} · návrhy čekající {design['pending']} · detail: opora_heart.py site show"]
 
 
+def _library_lines(facts):
+    """Jeden řádek LIBRARY (detail si srdce načte samo); prázdná knihovna = nic."""
+    human, agent = facts.get("library") or (0, 0)
+    if not human and not agent:
+        return []
+    return [f"LIBRARY: {human} pláten člověka, {agent} agenta · detail: opora_heart.py library show"]
+
+
 def _git_lines(facts):
     rows, size = [], 0
     for line in (facts.get("git") or [])[:GIT_COMMITS]:
@@ -682,7 +704,7 @@ def render(facts, limit=LIMIT):
     """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
              f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts), *_escalation_lines(facts),
-             "PLÁN:", *_plan(facts), *_intent_lines(facts), *_design_lines(facts), *_work_ticket_lines(facts), *_vault_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
+             "PLÁN:", *_plan(facts), *_intent_lines(facts), *_design_lines(facts), *_library_lines(facts), *_work_ticket_lines(facts), *_vault_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]
     lines += _intake_lines(facts) + _requirement_lines(facts) + _milestone_lines(facts) + _conflict_lines(facts)

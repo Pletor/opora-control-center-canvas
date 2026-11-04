@@ -51,10 +51,17 @@ inputSchema?, outputSchema?}`: souvislý řetězec, vstup jen do prvního a výs
 kořenem, bez spouštěče). `graph-check` hlásí i nepřipojený povinný port a `$('<id uzlu>')` na neexistující uzel.
 Převzetí do projektu (`adopt`) a vylepšení (`contribute`) založí nové plátno s aktivní v1, jejíž `derived_from` je
 `{workflowId, versionId}` zdroje; detail ukáže `derivedFrom`, `derived` a `projects`.
+Verze plátna toku nese neměnné `meta` (K3, §5): `POST …/versions {graph, parent_version_id?, note?, learnedFrom?}`
+zapíše `note` a `learnedFrom {project, card?, result}` (odkud se ho agent naučil; karta knihovny ho ukazuje
+z aktivní verze, `result: "verified"` u plátna agenta = navrženo k povýšení). Výjimka z pravidla části: draft do části
+`human` smí uložit i srdce (token role `heart` kteréhokoli projektu) jako návrh, verze dostane
+`proposedBy {role: "heart", project}`. Kandidáta, aktivaci, návrat i zamítnutí (`POST /api/flow/versions/{id}/reject
+{reason}`, draft do `retired`, návrat ho přeskočí) v části člověka dělá jen člověk. Srdce to ovládá nástrojem
+`opora_heart.py library show|get|save|propose` ([srdce.md](srdce.md)).
 
 | Cesta | Co |
 |---|---|
-| `/api/library` | `GET ?owner=human\|agent` → `{owner, folders: [{id, owner, slug, title, description, order, flows: [{id, slug, title, description, activeVersionId, activeN, derivedCount}]}]}` |
+| `/api/library` | `GET ?owner=human\|agent` → `{owner, folders: [{id, owner, slug, title, description, order, flows: [{id, slug, title, description, activeVersionId, activeN, derivedCount, derivedFrom, learnedFrom}]}]}` |
 | `/api/library/folders` | `POST {owner, slug, title, description?, order?}` složka (409 `folder_taken`) |
 | `/api/library/folders/{folder_id}` | `PATCH {title?, description?, order?}` (slug se nemění); `DELETE` jen prázdnou (409 `folder_not_empty`) |
 | `/api/library/flows` | `POST {folder, slug, title, description?}` založí plátno `library_flow` (409 `owner_taken`) |
@@ -70,11 +77,11 @@ Převzetí do projektu (`adopt`) a vylepšení (`contribute`) založí nové pl�
 | `/api/flow/graph-check` | `POST {kind, graph}` → `{ok, errors}` ověří graf podle katalogu druhu, nic nezapíše |
 | `/api/flow/page-intents` | `GET ?project=` → `{pages: [{pageId, state, workflowId?, activeN?, candidateN?, doneCount}]}` stav záměru každé stránky |
 | `/api/flow/workflows` | `GET ?project=&kind=&owner_ref=` seznam; `POST {kind, name, project_id?, owner_ref?}` založí tok |
-| `/api/flow/workflows/{workflow_id}/versions` | `GET` verze toku; `POST {graph, parent_version_id?}` nový draft (graf se ověřuje, 422) |
+| `/api/flow/workflows/{workflow_id}/versions` | `GET` verze toku; `POST {graph, parent_version_id?, note?, learnedFrom?}` nový draft (graf se ověřuje, 422; `note` a `learnedFrom` jdou do `meta` verze) |
 | `/api/flow/versions/{version_id}/candidate` | `POST {eval_run_id?}` draft → candidate |
 | `/api/flow/versions/{version_id}/activate` | `POST` zpřístupní verzi jako aktivní (`page_intent` → 409 `approval_required`) |
 | `/api/flow/versions/{version_id}/approve` | `POST` jen člověk: schválí kandidáta záměru stránky jako aktivní verzi (log `version.approved`, plátno 2) |
-| `/api/flow/versions/{version_id}/reject` | `POST {reason}` jen člověk: kandidát záměru → `retired`, důvod do logu `version.rejected` (plátno 2) |
+| `/api/flow/versions/{version_id}/reject` | `POST {reason}` jen člověk: kandidát záměru nebo draft plátna toku (návrh srdce) → `retired`, důvod do logu `version.rejected` (plátno 2) |
 | `/api/flow/workflows/{workflow_id}/rollback` | `POST` vrátí předchozí aktivní verzi |
 | `/api/flow/versions/{version_id}/runs` | `POST {payload?, node_id?}` ruční spuštění běhu |
 | `/api/flow/runs` | `GET ?workflow=&limit=` seznam běhů |

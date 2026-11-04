@@ -465,7 +465,7 @@ def ensure_flow_owner_ref(db):
 def _ensure_flow_library(db):
     """Knihovna pláten toku (docs/navrhy/2026-11-04-knihovna-platna-toku.md §1, §6). Změna CHECKu `kind`
     (`brain_workflow` → `library_flow`) potřebuje přestavbu `flow_workflows`; index vlastníka zanikne s tabulkou
-    a založí se znovu s COALESCE. Rodokmen `derived_from` patří k neměnným polím verze, proto nový trigger."""
+    a založí se znovu s COALESCE. Rodokmen `derived_from` a metadata `meta` (K3) patří k neměnným polím verze, proto nový trigger."""
     old = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='flow_workflows'").fetchone()
     if old and "library_flow" not in old[0]:
         # shortcut: brain_workflow se nikdy nepoužil; řádek s ním by přestavbu zastavil chybou CHECK
@@ -475,9 +475,10 @@ def _ensure_flow_library(db):
                          "SELECT id,kind,project_id,name,created_at,owner_ref FROM flow_workflows;"
                          "DROP TABLE flow_workflows; ALTER TABLE flow_workflows_new RENAME TO flow_workflows; COMMIT;")
     versions = _columns(db, "flow_workflow_versions")
-    if versions and "derived_from" not in versions:
-        add_column(db, "flow_workflow_versions", "derived_from")
-        db.execute("DROP TRIGGER IF EXISTS flow_workflow_versions_frozen")
+    for column in ("derived_from", "meta"):  # neměnná pole verze: trigger se založí znovu i s novým sloupcem
+        if versions and column not in versions:
+            add_column(db, "flow_workflow_versions", column)
+            db.execute("DROP TRIGGER IF EXISTS flow_workflow_versions_frozen")
 
 
 def ensure_brief_fragment_columns(db):

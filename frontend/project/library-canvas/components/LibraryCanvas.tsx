@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import FlowEditor from "@/shared/flow-editor/components/FlowEditor";
 import type { FlowGraph, FlowVersion } from "@/shared/flow-editor/logic/flow-types";
+import { diffSummary, graphDiff } from "@/shared/flow-editor/logic/graph-diff";
 import type { Project } from "@/shared/types/logic/types";
 import LibraryVersionBar from "../library-versions/components/LibraryVersionBar";
-import { pickFlowVersion } from "../library-versions/logic/library-versions";
+import ProposalBar from "../library-versions/components/ProposalBar";
+import { pendingProposal, pickFlowVersion } from "../library-versions/logic/library-versions";
 import LibraryActions from "../library-actions/components/LibraryActions";
-import { activateVersion, adoptFlow, contributeFlow, placeOf, promoteFlow, rollbackFlow, saveFlowDraft } from "../logic/library-api";
-import { lineageOf } from "../logic/lineage";
+import { activateVersion, adoptFlow, contributeFlow, placeOf, promoteFlow, rejectVersion, rollbackFlow, saveFlowDraft } from "../logic/library-api";
+import { learnedText, lineageOf } from "../logic/lineage";
 import { useFlowChecks } from "../logic/use-flow-checks";
 import { useLibraryFlow } from "../logic/use-library-flow";
 import "../styles/library-canvas.css";
@@ -17,7 +19,9 @@ const PLACE = { human: "Knihovna · Člověk", agent: "Knihovna · Agent", proje
 /** Plátno toku v knihovně (`projectView=library&flow=<id>`): sdílený editor toků s katalogem „toky dat“, poznámkami,
  * rámci a inspektorem polí uzlu. Úprava se ukládá jako nový draft, draft se aktivuje bez schválení. Hlavička nese
  * rodokmen („vychází z …“, novější verze v knihovně) a akce převzetí, vylepšení a povýšení. Plátno se nespouští: pás
- * kontroly grafu ukazuje chyby serveru. Rodič drží data a zápis, dílky jen zobrazují a hlásí. */
+ * kontroly grafu ukazuje chyby serveru. U plátna člověka čeká návrh srdce (draft s poznámkou) s rozdílem proti aktivní
+ * verzi a rozhodnutím Přijmout / Zamítnout; plátno agenta ukáže, kde se ho agent naučil. Rodič drží data a zápis,
+ * dílky jen zobrazují a hlásí. */
 export default function LibraryCanvas({ flowId, project, projects, onOpenFlow, onBack }: {
   flowId: string; project: string; projects: Project[]; onOpenFlow: (id: string) => void; onBack: () => void;
 }) {
@@ -32,7 +36,13 @@ export default function LibraryCanvas({ flowId, project, projects, onOpenFlow, o
   const graph = edited ?? viewing?.graph ?? EMPTY;
   const checks = useFlowChecks(graph, data.types);
   const place = data.flow ? placeOf(data.flow.ownerRef) : "human";
-  const lineage = data.flow ? lineageOf(data.flow, data.source, (id) => projects.find((item) => item.id === id)?.name ?? id) : null;
+  const projectName = (id: string) => projects.find((item) => item.id === id)?.name ?? id;
+  const lineage = data.flow ? lineageOf(data.flow, data.source, projectName) : null;
+  const learned = place === "agent" ? learnedText(data.flow?.learnedFrom, projectName) : null;
+  const proposal = place === "human" ? pendingProposal(versions) : null;
+  const active = versions.find((item) => item.status === "active");
+  const showsProposal = !!proposal && viewing?.id === proposal.id && !edited;
+  const diff = useMemo(() => showsProposal && proposal ? graphDiff(active?.graph ?? EMPTY, proposal.graph) : null, [showsProposal, proposal, active]);
 
   const run = async <T,>(action: () => Promise<T>, done: (result: T) => void) => {
     setBusy(true);
@@ -53,6 +63,7 @@ export default function LibraryCanvas({ flowId, project, projects, onOpenFlow, o
           {lineage?.from && <button type="button" className="library-canvas__link" disabled={!data.source} onClick={() => data.source && onOpenFlow(data.source.id)}>{lineage.from}</button>}
           {lineage?.newer && <span className="library-canvas__newer" data-testid="library-newer">{lineage.newer}</span>}
           {lineage?.derived && <span className="library-canvas__derived">{lineage.derived}</span>}
+          {learned && <span className="library-canvas__learned" data-testid="library-learned">{learned}</span>}
         </p>
       </div>
       {notice && <span className="library-canvas__notice" role="status">{notice}</span>}
@@ -62,12 +73,15 @@ export default function LibraryCanvas({ flowId, project, projects, onOpenFlow, o
         onContribute={(folder, slug, title) => run(() => contributeFlow(flowId, folder, slug, title), (made) => { setNotice("Uloženo do knihovny jako nový prvek."); onOpenFlow(made.id); })}
         onPromote={() => run(() => promoteFlow(flowId), () => { setNotice("Povýšeno do knihovny člověka."); data.reload(); })}/>
     </header>
+    {proposal && <ProposalBar proposal={proposal} summary={diff && diffSummary(diff)} viewing={showsProposal} busy={busy} onView={() => view(proposal.id)}
+      onAccept={() => write(() => activateVersion(proposal), `Návrh srdce přijat, v${proposal.n} je aktivní.`)}
+      onReject={() => { const reason = window.prompt("Proč návrh srdce zamítnout?", "Návrh zamítnut člověkem."); if (reason?.trim()) write(() => rejectVersion(proposal.id, reason.trim()), "Návrh srdce zamítnut."); }}/>}
     <LibraryVersionBar versions={versions} viewing={viewing} dirty={!!edited} busy={busy} readOnly={false} onView={view} onDiscard={() => setEdited(null)}
       onSaveDraft={() => edited && write(() => saveFlowDraft(flowId, edited, viewing?.id ?? null), "Uloženo jako nový draft.")}
       onActivate={() => viewing && write(() => activateVersion(viewing), `Verze v${viewing.n} je aktivní.`)}
       onRollback={() => write(() => rollbackFlow(flowId), "Vráceno na předchozí verzi.")}/>
     <div className="library-canvas__editor">
-      <FlowEditor graph={graph} types={data.types} readOnly={false} selected={node} onSelect={setNode} onChange={setEdited}
+      <FlowEditor graph={graph} types={data.types} readOnly={false} diff={diff} selected={node} onSelect={setNode} onChange={setEdited}
         frames nodePorts={checks.nodePorts} checkErrors={checks.errors ?? []}/>
     </div>
   </section>;

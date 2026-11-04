@@ -8,6 +8,7 @@ nese `derived_from = {workflowId, versionId}` zdroje a rovnou je aktivní. Funkc
 a zámek drží volající.
 """
 
+import json
 import re
 import sqlite3
 import uuid
@@ -104,7 +105,7 @@ def update_folder(db, folder_id, title=None, description=None, order=None):
 def _flows(db, part, folder_slug=None):
     prefix = f"opora:library:{part}:" + (f"{folder_slug}/" if folder_slug else "")
     return db.execute(
-        "SELECT w.*, v.id AS active_version_id, v.n AS active_n FROM flow_workflows w "
+        "SELECT w.*, v.id AS active_version_id, v.n AS active_n, v.meta AS active_meta FROM flow_workflows w "
         "LEFT JOIN flow_workflow_versions v ON v.workflow_id=w.id AND v.status='active' "
         "WHERE w.kind=? AND w.project_id IS NULL AND substr(w.owner_ref,1,?)=? ORDER BY w.created_at, w.id",
         (KIND, len(prefix), prefix)).fetchall()
@@ -130,11 +131,17 @@ def _derived(db, workflow_id):
 
 
 def _summary(db, row):
+    """Karta plátna: aktivní verze, z čeho vychází (`derivedFrom`), počet odvozených a odkud se agent plátno naučil
+    (`learnedFrom` aktivní verze, `{project, card, result}`, knihovna §5)."""
     match = LIBRARY_OWNER.fullmatch(row["owner_ref"] or "")
+    source = db.execute("SELECT derived_from FROM flow_workflow_versions WHERE workflow_id=? AND derived_from IS NOT "
+                        "NULL ORDER BY n LIMIT 1", (row["id"],)).fetchone()
+    meta = json.loads(row["active_meta"]) if row["active_meta"] else {}
     return {"id": row["id"], "slug": match.group(3) if match else None, "title": row["name"],
             "description": row["description"], "ownerRef": row["owner_ref"], "projectId": row["project_id"],
             "activeVersionId": row["active_version_id"], "activeN": row["active_n"],
-            "derivedCount": len(_derived(db, row["id"]))}
+            "derivedCount": len(_derived(db, row["id"])), "derivedFrom": json.loads(source[0]) if source else None,
+            "learnedFrom": meta.get("learnedFrom")}
 
 
 def list_library(db, part):
@@ -148,7 +155,7 @@ def list_library(db, part):
 
 def _workflow(db, workflow_id):
     row = db.execute(
-        "SELECT w.*, v.id AS active_version_id, v.n AS active_n FROM flow_workflows w "
+        "SELECT w.*, v.id AS active_version_id, v.n AS active_n, v.meta AS active_meta FROM flow_workflows w "
         "LEFT JOIN flow_workflow_versions v ON v.workflow_id=w.id AND v.status='active' WHERE w.id=?",
         (workflow_id,)).fetchone()
     if row is None or row["kind"] != KIND:
