@@ -17,7 +17,8 @@ it("writes one theme and folds the map back to a string when only the first them
 });
 
 const design: Design = {
-  readme: "", sections: [], components: [{ name: "Button" }], assetGroups: [{ name: "Logos", files: [{}, {}] }], cover: null,
+  readme: "", sections: [], components: [{ name: "Button", readme: "", preview: "", height: 120 }], cover: null,
+  assetGroups: [{ name: "Logos", readme: "", files: ["a.svg", "b.svg"].map((name) => ({ name, blob: "assets/Logos/" + name, size: 1, type: "image/svg+xml" })) }],
   tokens: {
     color: { themes, tokens: [{ name: "ink", value: "#000" }, { name: "link", value: "{ink}" }] },
     type: { fonts: [], families: { sans: "Inter, sans-serif" }, groups: [{ name: "Text", styles: [{ name: "body", fontSize: "15px" }] }] },

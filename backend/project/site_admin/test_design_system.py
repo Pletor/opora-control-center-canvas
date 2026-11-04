@@ -33,6 +33,33 @@ def test_sample_passes_without_notes_and_keeps_its_shape():
     assert document["settings"]["email"]["secretRef"] == "env:SMTP_PASSWORD"
 
 
+def test_button_component_is_generated_from_buttons_and_cannot_be_edited():
+    raw = ember()
+    raw["design"]["components"].append({"name": "Button", "preview": "<b>ručně</b>", "readme": "ručně"})
+    document, _ = normalize(raw)
+    button, card = document["design"]["components"]
+    assert button["name"] == "Button" and button["group"] == "Actions" and "ručně" not in button["readme"]
+    assert '<button class="ds-btn ds-btn--primary" type="button">Objednat</button>' in button["preview"]
+    assert 'aria-disabled="true" class="ds-btn ds-btn--primary"' in button["preview"]
+    assert "ds-btn--primary ds-btn--sm" in button["preview"] and card["name"] == "Card"
+    assert normalize(document)[0]["design"]["components"] == document["design"]["components"]
+    without = normalize({"design": {"components": [{"name": "Button"}]}})[0]
+    assert without["design"]["components"] == []  # bez variant tlačítek není ani komponenta
+
+
+def test_component_name_grammar_and_readme_limit():
+    document, _ = normalize({"design": {"components": [{"name": "card.small-2", "readme": "x" * 150_000}]}})
+    assert document["design"]["components"][0]["name"] == "card.small-2"
+
+
+@pytest.mark.parametrize("preview", ["<script>alert(1)</script>", '<img src="x" onerror="alert(1)">',
+                                     '<a href="javascript:alert(1)">x</a>', "<iframe src=x>", "<b>&#106;</b>",
+                                     "<svg><foreignObject/></svg>", '<div\nONclick = "x">'])
+def test_component_preview_rejects_scripts_like_svg(preview):
+    with pytest.raises(SiteAdminInvalid, match="Náhled komponenty Card"):
+        normalize({"design": {"components": [{"name": "Card", "preview": preview}]}})
+
+
 def test_bad_color_values_drop_with_a_note_and_missing_theme_inherits_the_first():
     tokens, notes = tokens_of(colors(
         {"name": "named", "value": "red"},
@@ -130,7 +157,8 @@ def test_typography_rules():
     ({"settings": {"email": {"smtpToken": "x"}}}, "tajemství"),
     ({"settings": {"email": {"secretRef": "hunter2"}}}, "secretRef"),
     ({"settings": {"gdpr": {"cookieBar": {"categories": ["tracking"]}}}}, "categories"),
-    ({"design": {"components": [{"name": "my-button"}]}}, "identifikátor"),
+    ({"design": {"components": [{"name": "-card"}]}}, "Komponenta '-card'"),
+    ({"design": {"components": [{"name": "Card", "readme": "x" * 200_001}]}}, "README komponenty Card"),
     ({"design": {"assetGroups": [{"name": "Logos", "files": [{"name": "a.svg", "blob": "../a.svg"}]}]}}, "blob"),
     ({"v": 2}, "v musí být 1"),
     ({"settings": {"appearance": {"colors": {"brand": "#000"}}}}, "neznámé pole colors.brand"),

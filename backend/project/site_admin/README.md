@@ -24,8 +24,29 @@ převzatá z otevřeného formátu `tokens.json` typu Design System, kód typu n
   (brand book a generovaná sekce „Jak systém použít“ včetně „Tlačítka“).
 - `store.py` – `projects/<id>/site/design-system.json` s revizí (409 při jiné), assety
   `site/assets/<skupina>/<soubor>`, fonty `site/fonts/<soubor>`, typ podle prvních bajtů a limity velikosti.
+- `button_component.py` – komponenta `Button` jako pohled na `settings.buttons` (viz níže).
 - `fixture.py` – zkrácený vzorek systému pro testy.
 - Router: `backend/api/project/site_admin_routes.py` (`/api/site-admin…`, včetně `components.css`).
+
+## Komponenty a assety (M2)
+
+`design.components[] = {name, group?, summary?, readme, preview, height}`: jméno podle gramatiky tokenů
+(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`, unikátní), README markdown ≤ 200 KB, `preview` HTML fragment ≤ 256 KB, výška
+40–4000 (jinak 120 s poznámkou), nejvýš 200 komponent. Server náhled nikdy nespouští, jen ho uloží jako text; stránka
+ho ukáže v iframu `sandbox=""` (bez skriptů) s `tokens.css` a `components.css`. Náhled se `<script`, obsluhou `on…=`,
+`javascript:`, `&#`, `<iframe>`, `<embed>`, `<object>` nebo `<foreignObject>` je 422 – stejný filtr `UNSAFE_MARKUP`
+jako u SVG assetu (`store.UNSAFE_SVG`).
+
+`Button` se needituje: `button_component.component` ho při každém uložení složí z variant Tlačítek webu (náhled všech
+variant, velikostí a nedostupného stavu, README s variantami a třídami) a dá ho na první místo; poslaná komponenta
+`Button` se zahodí. Bez variant `Button` není.
+
+`design.assetGroups[] = {name, readme, files: [{name, blob: "assets/<skupina>/<soubor>", size, type}]}`; soubor se
+nahraje `POST /api/site-admin/assets` a záznam z odpovědi se přidá do skupiny. **Odebrání souboru nebo celé skupiny
+z dokumentu soubor na disku nemaže.** Je to nejmenší bezpečná cesta: uložení může skončit 409 nebo 422 a pak by
+smazaný soubor chyběl dokumentu, který ho dál drží; nahrání stejného jména do skupiny soubor jen přepíše. Fyzicky maže
+jen `DELETE /api/site-admin/assets` (soubory na disku se počítají do limitu 5000). `README.md` systému vypíše komponenty
+(summary nebo první věta README) a skupiny assetů s cestami.
 
 ## Vzhled: pohled na tokeny, ne druhý zdroj pravdy
 

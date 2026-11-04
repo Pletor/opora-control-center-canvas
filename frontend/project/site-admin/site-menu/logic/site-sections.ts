@@ -20,7 +20,7 @@ export const SITE_MENU: SiteMenuGroup[] = [
   { id: "gdpr", label: "GDPR", items: [item("cookies", "Cookie lišta", true)] },
   { id: "design", label: "Design System", items: [item("overview", "Overview", true), item("colors", "Colors", true),
     item("typography", "Typography", true), item("spacing", "Spacing", true), item("radius", "Corner radius", true),
-    item("shadow", "Shadows", true), item("components", "Components"), item("assets", "Assets"), item("files", "Files", true)] },
+    item("shadow", "Shadows", true), item("components", "Components", true), item("assets", "Assets", true), item("files", "Files", true)] },
 ];
 
 const ALL = SITE_MENU.flatMap((group) => group.items);

@@ -21,6 +21,10 @@ import HeaderSection from "../site-header/components/HeaderSection";
 import FooterSection from "../site-footer/components/FooterSection";
 import CookieBarSection from "../site-cookie-bar/components/CookieBarSection";
 import { readGdpr } from "../site-cookie-bar/logic/cookie-bar";
+import ComponentsSection from "../ds-components/components/ComponentsSection";
+import AssetsSection from "../ds-assets/components/AssetsSection";
+import { withFile } from "../ds-assets/logic/assets";
+import type { AssetFile } from "../logic/site-document";
 
 const LEAD: Partial<Record<SiteSection, string>> = {
   seo: "Jak web najdou vyhledávače a jak vypadá sdílený odkaz: šablona titulku, popis, indexování, Open Graph a strukturovaná data. Stránka smí mít vlastní titulek a popis.",
@@ -39,15 +43,18 @@ const LEAD: Partial<Record<SiteSection, string>> = {
   radius: "Zaoblení rohů tlačítek, karet a polí.",
   shadow: "Stíny podle úrovně elevace; každé téma může mít vlastní.",
   files: "Odvozené soubory, které dostane dělník do design/.",
+  components: "Komponenty webu s živým náhledem nad tokeny a README: props, kdy použít a kdy ne. Button skládají Tlačítka webu.",
+  assets: "Loga, ikony a obrázky po skupinách s README. AI je kopíruje, nikdy je nekreslí znovu.",
 };
 
 /** Co panel potřebuje od rodiče: rozepsaný dokument, jak ho změnit, téma náhledu a stav nahrávání fontu. */
 export type SitePanelContext = {
   project: string; document: SiteDocument; revision: number; dirty: boolean; theme: string;
-  componentsCss: string; notes: string[]; invalid: SiteInvalid | null;
+  tokensCss: string; componentsCss: string; notes: string[]; invalid: SiteInvalid | null;
   uploading: boolean; uploadError: string;
   change: (update: (document: SiteDocument) => SiteDocument) => void;
   upload: (file: File, record: (path: string) => (document: SiteDocument) => SiteDocument) => void;
+  uploadAssets: (group: string, files: File[], record: (file: AssetFile) => (document: SiteDocument) => SiteDocument) => void;
   onSelect: (section: SiteSection) => void;
 };
 
@@ -94,7 +101,14 @@ function editor(section: SiteSection, context: SitePanelContext): ReactNode {
       onChange={(footer) => change((current) => withSettings(current, { footer }))}/>;
     case "cookies": return <CookieBarSection settings={document.settings} project={context.project} theme={context.theme} componentsCss={context.componentsCss}
       onChange={(gdpr) => change((current) => withSettings(current, { gdpr }))}/>;
-    // Sloty pro další PR (Components, Assets): editor přidá svůj `case` a v `site-sections.ts` přepne `ready`.
+    case "components": return <ComponentsSection components={document.design.components} themes={themes} theme={context.theme} project={context.project}
+      tokensCss={context.tokensCss} componentsCss={context.componentsCss} onOpenButtons={() => context.onSelect("buttons")}
+      onChange={(components) => change((current) => ({ ...current, design: { ...current.design, components } }))}/>;
+    case "assets": return <AssetsSection groups={document.design.assetGroups} uploading={context.uploading} uploadError={context.uploadError}
+      assetUrl={(group, name) => siteAdminUrls.asset(context.project, group, name)}
+      onChange={(assetGroups) => change((current) => ({ ...current, design: { ...current.design, assetGroups } }))}
+      onUpload={(group, files) => context.uploadAssets(group, files, (file) => (current) => ({ ...current, design: { ...current.design, assetGroups: withFile(current.design.assetGroups, group, file) } }))}/>;
+    // Nová část přidá svůj `case` a v `site-sections.ts` zapne `ready`.
     default: return null;
   }
 }
@@ -108,6 +122,6 @@ export default function SitePanel({ section, context }: { section: SiteSection; 
       <h2 className="site-admin__panel-title">{entry.label}</h2>
       {LEAD[section] && <p className="site-admin__panel-lead">{LEAD[section]}</p>}
     </header>
-    {body ?? <p className="site-admin__later" role="status">Tahle část přijde v dalším kroku. Teď je hotové Nastavení (SEO, Affiliate, E-mail), Vzhled (hlavička, patička, tlačítka, fonty), Cookie lišta a Design System: Overview, Colors, Typography, Spacing, Corner radius, Shadows a Files.</p>}
+    {body ?? <p className="site-admin__later" role="status">Tahle část zatím nemá editor. Všechny části z menu (Nastavení, Vzhled, GDPR a Design System) už editor mají; nová část ho dostane spolu se svým zápisem v menu.</p>}
   </section>;
 }

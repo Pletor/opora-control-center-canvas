@@ -97,7 +97,9 @@ def test_assets_and_fonts_upload_read_and_delete(tmp_path):
 
         font = {**DRAFT, "name": "inter.woff2", "data": base64.b64encode(WOFF2).decode()}
         assert client.post(f"{URL}/fonts", headers=HEADERS, json=font).json()["file"] == "fonts/inter.woff2"
-        assert client.get(f"{URL}/fonts/inter.woff2", params=DRAFT).headers["content-type"] == "font/woff2"
+        served = client.get(f"{URL}/fonts/inter.woff2", params=DRAFT)
+        assert served.headers["content-type"] == "font/woff2"
+        assert served.headers["access-control-allow-origin"] == "*"  # náhled komponenty v sandbox iframu
         assert client.request("DELETE", f"{URL}/fonts", params={**DRAFT, "name": "inter.woff2"},
                               headers={**AGENT, "content-type": "application/json"}).status_code == 403
         assert client.request("DELETE", f"{URL}/fonts", params={**DRAFT, "name": "inter.woff2"},
