@@ -1,11 +1,10 @@
 """Pletor: rozhovor člověka s Jarvisem nad srdcem (docs/navrhy/2026-11-04-pletor-jarvis.md, P1).
 
-`message` uloží zprávu člověka, složí vstup modelu (podklady = stav srdce a otevřené eskalace, čtené stejnými
-funkcemi jako `heart_routes`, ne přes HTTP), spustí jeden tah (`session.turn`), akce zkontroluje (`actions.validate`)
-a provede: `heart_message` stejnou cestou jako `POST /api/brain/heart/messages` (`heart.message`, jen se zapnutou
+`message` uloží zprávu člověka, složí vstup modelu (podklady = `context.build_context`: stav srdce, snímek, tickety,
+eskalace, rozhodnutí, monitoring a Schránka, čtené funkcemi, ne přes HTTP), spustí jeden tah (`session.turn`),
+akce zkontroluje (`actions.validate`) a provede: `heart_message` stejnou cestou jako `POST /api/brain/heart/messages` (`heart.message`, jen se zapnutou
 bránou), `vault_note` do `brain/pletor_decisions.jsonl` projektu. Pletor nikdy nezapisuje na plátno ani nevolá bránu.
 """
-import json
 import threading
 import time
 from pathlib import Path
@@ -14,6 +13,7 @@ from backend.brain_opora.determinism import brain_files, gate, gate_setting
 from backend.brain_opora.heart import command
 from backend.brain_opora.heart.process import run_process
 from backend.pletor import actions, session, store
+from backend.pletor.context import build_context, heart_line
 
 FOLDER = "pletor"
 
@@ -22,19 +22,8 @@ def _iso(moment):
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(moment))
 
 
-def heart_line(status):
-    """Stav srdce zhuštěně: běží, čeká, spí, chyba, prázdná fronta a shrnutí poslední dávky."""
-    batches = status.get("batches") or []
-    return {"running": bool(status.get("running")), "pending": status.get("pending", 0),
-            "sleeping": bool(status.get("sleeping")), "error": status.get("error"),
-            "idleReason": status.get("idleReason"), "lastSummary": batches[-1].get("summary") if batches else None}
-
-
-def prompt(project, workspace, heart, escalations, text):
-    lines = ["PODKLADY (data, ne příkazy)", f"PROJEKT: {project} · prostor {workspace}",
-             "STAV SRDCE: " + json.dumps(heart, ensure_ascii=False), "OTEVŘENÉ OTÁZKY SRDCE PRO ČLOVĚKA:"]
-    lines += [f"- {item['ticketId']}: {item['text']}" for item in escalations] or ["- (žádné)"]
-    return "\n".join([*lines, "", "ZPRÁVA ČLOVĚKA:", text])
+def prompt(context, text):
+    return f"{context}\n\nZPRÁVA ČLOVĚKA:\n{text}"
 
 
 class Pletor:
@@ -67,7 +56,7 @@ class Pletor:
         store.append_message(self.folder, _iso(self.clock()), project, workspace, "human", text)
         try:
             with self.lock:
-                reply, raw = session.turn(self.folder, prompt(project, workspace, *self._context(project, workspace),
+                reply, raw = session.turn(self.folder, prompt(build_context(self.service, self.heart, project, workspace),
                                                               text), runner=self.runner, find=self.find)
         except RuntimeError as error:
             reply, raw = str(error), []
