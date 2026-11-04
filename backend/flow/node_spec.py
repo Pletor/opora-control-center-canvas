@@ -36,6 +36,8 @@ class NodeType:
     use: str = ""  # „použij, když…“ (paleta, průvodce, LLM)
     avoid: str = ""  # „nepoužívej, když…“
     intents: tuple = ()  # štítky z `INTENTS` pro průvodce „Co chci udělat?“
+    accepts: tuple = ()  # druhy dat (`DATA_KINDS`), které smí přijít hranou do uzlu; prázdné = cokoli
+    emits: str = ""  # druh dat, který uzel typicky vydává; prázdné = neurčeno
     dynamic: object = None  # porty podle parametrů uzlu: `dynamic(params) -> tuple[Port]`; `ports` = výchozí params
 
     def ports_for(self, params=None):

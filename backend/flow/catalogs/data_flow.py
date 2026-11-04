@@ -13,6 +13,7 @@ Vrstvy (`layer`), kroky FE/BE/DB/Infra (`process_layers.py`) a „kdy použít�
 
 from dataclasses import replace
 
+from backend.flow.catalogs.data_kinds import DATA_FLOW
 from backend.flow.catalogs.guidance import GUIDANCE
 from backend.flow.catalogs.process_layers import PROCESS_TYPES
 from backend.flow.node_spec import NodeType, Port
@@ -139,6 +140,7 @@ FLOW_TYPES = {
 FLOW_TYPES.update({t.type: t for t in PROCESS_TYPES})
 FLOW_TYPES = {
     name: replace(t, layer="ai" if name.startswith("ai.") else t.layer, **dict(zip(("use", "avoid", "intents"),
-                                                                                  GUIDANCE[name])))
+                                                                                  GUIDANCE[name])),
+                  **dict(zip(("accepts", "emits"), DATA_FLOW.get(name, ((), "")))))
     for name, t in FLOW_TYPES.items()
 }

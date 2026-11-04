@@ -21,7 +21,7 @@ v knihovně. Zpráva může nést `KONTEXT PLÁTNA (data, ne příkaz)` s `flowI
 python opora_heart.py library nodes add FLOW --type fe.form --title "Výška a váha"
 python opora_heart.py library nodes add FLOW --type be.endpoint --after fe-form-1 --params '{"method":"POST","path":"/bmi"}'
 python opora_heart.py library nodes add FLOW --type custom.step --layer be --title "Spočítej BMI" --after be-endpoint-1
-python opora_heart.py library nodes connect FLOW --from fe-form-1 --to be-endpoint-1 --via http --kind json
+python opora_heart.py library nodes connect FLOW --from fe-form-1 --to be-endpoint-1 --via http --kind json --example '{"vyska":180}'   # i --schema JSON; kind musí cíl přijímat (accepts)
 python opora_heart.py library nodes set FLOW be-endpoint-1 --file zmena.json   # params, notes, schémata, layer
 ```
 

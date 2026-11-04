@@ -65,6 +65,23 @@ def test_graph_errors_leave_the_draft_untouched(api, capsys, tmp_path):
     assert drafts(c, flow) == before
 
 
+def test_connect_stores_schema_and_example_and_rejects_incompatible_kind(api, capsys):
+    c, _ = api
+    flow = human_flow(c)
+    for kind in ("fe.form", "be.endpoint", "db.read"):
+        run(capsys, "library", "nodes", "add", flow["id"], "--type", kind)
+    code, out = run(capsys, "library", "nodes", "connect", flow["id"], "--from", "fe-form-1", "--to", "be-endpoint-1",
+                    "--via", "http", "--kind", "json", "--schema", '{"type":"object"}', "--example", '[1, "a"]')
+    assert code == 0
+    _, shown = run(capsys, "library", "get", flow["id"], "--version", str(out["n"]))  # uložená verze data drží
+    assert shown["graph"]["edges"][0]["data"] == {"kind": "json", "schema": {"type": "object"}, "example": [1, "a"]}
+    code, out = run(capsys, "library", "nodes", "connect", flow["id"], "--from", "be-endpoint-1", "--to", "db-read-1",
+                    "--kind", "json", "--example", "{nope")
+    assert code == 1 and out["code"] == "library_edge_example"
+    code, out = run(capsys, "library", "nodes", "connect", flow["id"], "--from", "db-read-1", "--to", "be-endpoint-1")
+    assert code == 1 and "be-endpoint-1 nepřijímá data druhu 'table' (přijímá: json, event)" in out["errors"][0]
+
+
 def test_set_changes_the_node_and_agent_flow_stays_writable_but_not_active(api, capsys, tmp_path):
     c, _ = api
     flow = human_flow(c)
