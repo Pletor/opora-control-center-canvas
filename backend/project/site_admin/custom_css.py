@@ -28,6 +28,8 @@ FORBIDDEN_TEXT = re.compile(r"[<\\\x00-\x08\x0b\x0e-\x1f\x7f]")
 FORBIDDEN_VALUE = re.compile(r"expression\s*\(|javascript:|vbscript:", re.IGNORECASE)
 FORBIDDEN_PROPERTY = re.compile(r"^(?:behavior|-moz-binding|binding|-o-link.*|-ms-behavior)$")
 FORBIDDEN_SELECTOR = re.compile(r"(?:^|[\s>+~(,])(?:html|body)(?![\w-])|:root|:host|\*", re.IGNORECASE)
+# Sourozenci (`~`, `+` na začátku nebo hned za `:scope`), `:has(` a `:scope` uprostřed by stylovaly okolí tlačítka.
+OUTSIDE_SELECTOR = re.compile(r"^(?::scope\s*)?[~+]|:has\(|.:scope", re.IGNORECASE | re.DOTALL)
 PRELUDE_TOKENS = {"ident", "hash", "literal", "string", "function", "number", "percentage", "dimension",
                   "whitespace", "[] block", "() block"}
 FRAME = re.compile(r"^(?:from|to|\d{1,3}(?:\.\d+)?%)(?:\s*,\s*(?:from|to|\d{1,3}(?:\.\d+)?%))*$", re.IGNORECASE)
@@ -161,6 +163,9 @@ def _selectors(component, node):
             component.fail(node, "Prázdný selektor.")
         if FORBIDDEN_SELECTOR.search(selector):
             component.fail(node, f"Selektor {selector} míří mimo tlačítko (html, body, :root, :host, * nejsou povolené).")
+        if OUTSIDE_SELECTOR.search(selector):
+            component.fail(node, f"Selektor {selector} míří mimo tlačítko (:has(, ~ a + na začátku a :scope jinde "
+                                 "než na začátku nejsou povolené).")
         out.append(selector.replace(":scope", component.root) if ":scope" in selector
                    else f"{component.root} {selector}")
     return out

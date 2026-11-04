@@ -3,6 +3,10 @@
 Tenký router: validace těla a volání modulu. Data leží v registry.sqlite, každé volání drží `registry_lock`.
 Záměr stránky (`docs/navrhy/2026-11-03-platno-2-zamer-stranky.md` §2–§3): `approve` / `reject` jen člověk
 (doklad UI, `request.state.actor == "human"`), 409 s `code` (`approval_required`, `not_runnable`, `owner_taken`).
+Rozhodnutí schvalovacího uzlu (`node-runs/{id}/decision`) také jen člověk; autor je vždy `human`.
+Zápisy podle ID (`versions/{id}/…`, `workflows/{id}/versions|rollback`, `runs/{id}/advance`) projekt v těle nenesou,
+proto si routa dohledá projekt workflow a zeptá se zdi brány (`wall.check`) sama: agent bez tokenu v projektu
+se zapnutou bránou dostane 403 `gate_required`, srdce projektu projde.
 Log pláten 2–4 (`POST /log`, §6) píše člověk, srdce projektu nebo relace brány téhož projektu (`X-Opora-Gate-Token`,
 role `worker` / `heart`); jinak 401 `gate_token_invalid` / 403 `gate_scope` jako brána.
 Stav záměrů stránek (`page-intents`) a otisk stránky při schválení počítá `backend/flow/page_intents.py` nad přijatým
@@ -16,7 +20,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from backend.api.brain_opora.writer import heart_project
-from backend.brain_opora.determinism import gate, tokens
+from backend.brain_opora.determinism import gate, tokens, wall
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.activity_log import require_human
 from backend.canvas.canvas_service import ProjectNotFound
@@ -71,7 +75,6 @@ class CanvasLogIn(BaseModel):
 
 class DecisionIn(BaseModel):
     decision: Literal["approved", "rejected"]
-    actor: str = Field(default="human", min_length=1, max_length=120)
 
 
 def create_flow_router(service):
@@ -95,6 +98,13 @@ def create_flow_router(service):
             with service.registry_lock:
                 return action(service.db, *args)
         return guarded(locked)
+
+    def walled(request, **ids):
+        """Zeď brány pro zápis podle ID: projekt se dohledá z workflow; odmítnutí = odpověď, jinak None."""
+        project = call(lambda db: workflows.project_of(db, **ids))
+        verdict = wall.check(service, request.method, request.url.path, getattr(request.state, "actor", None),
+                             request.headers.get(tokens.HEADER), project, lambda: "")
+        return None if verdict.allow else JSONResponse(verdict.body(), status_code=verdict.status)
 
     def log_author(request, project):
         """Kdo píše do logu pláten: člověk, srdce projektu, nebo relace brány (dělník či srdce) téhož projektu."""
@@ -147,15 +157,21 @@ def create_flow_router(service):
         return {"versions": call(workflows.list_versions, workflow_id)}
 
     @router.post("/workflows/{workflow_id}/versions")
-    def version_draft(workflow_id: str, body: DraftIn):
+    def version_draft(workflow_id: str, body: DraftIn, request: Request):
+        if refused := walled(request, workflow_id=workflow_id):
+            return refused
         return call(workflows.create_draft, workflow_id, body.graph, body.parent_version_id)
 
     @router.post("/versions/{version_id}/candidate")
-    def version_candidate(version_id: str, body: CandidateIn | None = None):
+    def version_candidate(version_id: str, request: Request, body: CandidateIn | None = None):
+        if refused := walled(request, version_id=version_id):
+            return refused
         return call(workflows.set_candidate, version_id, body.eval_run_id if body else None)
 
     @router.post("/versions/{version_id}/activate")
-    def version_activate(version_id: str):
+    def version_activate(version_id: str, request: Request):
+        if refused := walled(request, version_id=version_id):
+            return refused
         return call(workflows.activate, version_id)
 
     @router.post("/versions/{version_id}/approve")
@@ -172,11 +188,15 @@ def create_flow_router(service):
         return call(workflows.reject, version_id, body.reason, "human")
 
     @router.post("/workflows/{workflow_id}/rollback")
-    def version_rollback(workflow_id: str):
+    def version_rollback(workflow_id: str, request: Request):
+        if refused := walled(request, workflow_id=workflow_id):
+            return refused
         return call(workflows.rollback, workflow_id)
 
     @router.post("/versions/{version_id}/runs")
-    def run_manual(version_id: str, body: RunIn | None = None):
+    def run_manual(version_id: str, request: Request, body: RunIn | None = None):
+        if refused := walled(request, version_id=version_id):
+            return refused
         body = body or RunIn()
         trigger = {"source": "manual", "payload": body.payload, "node_id": body.node_id}
         return call(interpreter.start_run, version_id, trigger)
@@ -195,13 +215,16 @@ def create_flow_router(service):
         return {"events": call(read_log, run_id, seq, limit)}
 
     @router.post("/runs/{run_id}/advance")
-    def run_advance(run_id: str):
+    def run_advance(run_id: str, request: Request):
         """Navázání: vypršelé čekání pokračuje větví timeout, přerušený uzel se spustí znovu."""
+        if refused := walled(request, run_id=run_id):
+            return refused
         return call(interpreter.advance, run_id)
 
     @router.post("/node-runs/{node_run_id}/decision")
-    def approval_decision(node_run_id: str, body: DecisionIn):
-        return call(interpreter.decide, node_run_id, body.decision, body.actor)
+    def approval_decision(node_run_id: str, body: DecisionIn, request: Request):
+        require_human(getattr(request.state, "actor", None), "Krok schvaluje jen člověk v UI.")
+        return call(interpreter.decide, node_run_id, body.decision, "human")
 
     @router.post("/log")
     def canvas_log_create(body: CanvasLogIn, request: Request):

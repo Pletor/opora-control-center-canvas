@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from backend.brain_opora.determinism import gate_setting
+from backend.brain_opora.determinism import brief_setting, gate_setting
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.canvas_service import CanvasService
 
@@ -58,3 +58,11 @@ def test_write_keeps_other_settings(service):
     gate_setting.write(service, {"project": "draft", "enabled": True})
     settings = json.loads(folder.identity_file.read_text(encoding="utf-8"))["settings"]
     assert settings["agentAutonomy"] == {"full": True} and settings["brain"]["gate"] is True
+
+
+def test_switching_gate_keeps_brief_and_drops_old_stamp(service):
+    brief_setting.write(service, {"project": "draft", "enabled": False})
+    gate_setting.write(service, {"project": "draft", "enabled": True}, now=NOW)
+    gate_setting.write(service, {"project": "draft", "enabled": False})
+    assert brief_setting.read(service, "draft")["enabled"] is False
+    assert service.folder("draft").read()["settings"]["brain"].keys() == {"gate", "brief"}

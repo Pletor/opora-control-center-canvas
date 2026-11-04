@@ -132,6 +132,17 @@ def test_heart_refused_through_tunnel_even_with_token(remote_app):
                            headers=headers).status_code == 403
 
 
+def test_graphify_and_flow_refused_through_tunnel_even_with_token(remote_app):
+    assert not is_loopback_only("/api/flowx") and not is_loopback_only("/api/graphifyx")
+    with TestClient(remote_app, base_url="https://" + PUBLIC) as client:
+        headers = {"authorization": "Bearer " + TOKEN, "origin": "https://" + PUBLIC}
+        assert client.get("/api/graphify/status", headers=headers).status_code == 403
+        refused = client.post("/api/flow/versions/v1/runs", json={}, headers=headers)
+        assert refused.status_code == 403 and refused.json() == {"error": "Tohle běží jen na tomto počítači."}
+        assert client.post("/api/flow/runs/r1/advance", headers=headers).status_code == 403
+    assert not is_loopback_only("/api/flow/workflows") and not is_loopback_only("/api/flow/runs/r1")
+
+
 def test_rlm_is_loopback_only():
     assert is_loopback_only("/api/rlm") and is_loopback_only("/api/rlm/rank")
     assert not is_loopback_only("/api/rlmx/rank")

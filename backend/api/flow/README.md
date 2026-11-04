@@ -19,7 +19,7 @@ Router engine toků (`backend/flow/`, kontrakt `docs/navrhy/2026-11-03-novy-zakl
 | `GET /api/flow/runs/{id}` | detail běhu s `node_runs` |
 | `GET /api/flow/runs/{id}/log?seq=&limit=` | události logu po `seq` |
 | `POST /api/flow/runs/{id}/advance` | navázání přerušeného běhu a pokračování větví timeout po deadline |
-| `POST /api/flow/node-runs/{id}/decision` `{decision, actor?}` | rozhodnutí schvalovacího uzlu (`approved` / `rejected`) |
+| `POST /api/flow/node-runs/{id}/decision` `{decision}` | rozhodnutí schvalovacího uzlu (`approved` / `rejected`), jen člověk v UI |
 | `POST /api/flow/log` `{project, canvas: 2\|3\|4, kind, payload}` | vstup logu pláten 2–4 (`backend/flow/canvas_log.py`); `kind` končící `.failed` probudí srdce; člověk, srdce projektu nebo relace brány téhož projektu (`X-Opora-Gate-Token`), jinak 401/403 jako brána |
 | `GET /api/flow/stalls` | prostoje s důvodem |
 

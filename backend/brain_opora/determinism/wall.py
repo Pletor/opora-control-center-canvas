@@ -2,7 +2,8 @@
 
 `decide` je čistá funkce nad tabulkou §3: nečte nic, jen rozhodne. `check` k ní dohledá, co potřebuje
 (přepínač projektu, ověření tokenu přes `tokens.verify`), a volá ji middleware `boundary` v
-`backend/app/factory.py`. Projekt se bere z `project` v query nebo v těle, stejně jako `_authority`.
+`backend/app/factory.py`. Projekt se bere z `project` v query nebo z `project` či `project_id` v těle, stejně jako
+`_authority`.
 
 Projekt s vypnutou bránou zeď nevidí: `check` vrátí `ALLOW` a middleware nic nezmění.
 """

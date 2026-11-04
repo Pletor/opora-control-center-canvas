@@ -62,7 +62,8 @@ def write(service, payload, now=None):
         stamp = (now or datetime.now(UTC)).strftime("%Y-%m-%dT%H:%M:%SZ")
         value = {"gate": True, "since": stamp, "by": "human"} if payload["enabled"] else {"gate": False}
         stored = folder.read().get("settings", {}).get("brain")
-        if isinstance(stored, dict) and "intake" in stored:
-            value["intake"] = stored["intake"]  # povolení Jevu vstupní brány (intake_setting.py) přežije přepnutí brány
-        folder.update(settings={"brain": value})
+        # Ostatní nastavení mozku (intake, brief) přežije přepnutí brány; staré since/by ne.
+        stored = stored if isinstance(stored, dict) else {}
+        rest = {key: item for key, item in stored.items() if key not in ("gate", "since", "by")}
+        folder.update(settings={"brain": {**rest, **value}})
     return answer(pid, read(service, pid))
