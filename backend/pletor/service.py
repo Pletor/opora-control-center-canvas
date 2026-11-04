@@ -26,9 +26,7 @@ VOICE = ("REŽIM: HLAS – odpověz nejvýš dvěma větami, prostým textem bez
          "Čísla piš slovy, kde to jde, a nepiš zkratky, emoji, odkazy, ID ani znaky jako * # / _ `, syntéza je čte špatně.")
 
 
-def prompt(context, text, voice=False):
-    mode = f"\n\n{VOICE}" if voice else ""
-    return f"{context}{mode}\n\nZPRÁVA ČLOVĚKA:\n{text}"
+HISTORY = brains.HISTORY + 1  # + právě uložená zpráva člověka, ta jde modelu zvlášť
 
 
 class Pletor:
@@ -67,9 +65,10 @@ class Pletor:
             store.append_message(self.folder, _iso(self.clock()), project, workspace, "pletor", reply)
             return {"reply": reply, "actions": []}
         try:
+            context = build_context(self.service, self.heart, project, workspace) + (f"\n\n{VOICE}" if voice else "")
+            history = store.messages(self.folder, project, workspace, HISTORY)[:-1]
             with self.lock:
-                reply, raw = brains.turn(self.folder, prompt(build_context(self.service, self.heart, project, workspace),
-                                                             text, voice), runner=self.runner, find=self.find,
+                reply, raw = brains.turn(self.folder, context, text, history, runner=self.runner, find=self.find,
                                          transport=self.transport)
         except RuntimeError as error:
             reply, raw = str(error), []

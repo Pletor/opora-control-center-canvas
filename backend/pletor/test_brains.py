@@ -81,15 +81,53 @@ def test_switch_fails_and_stays(tmp_path):
 
 def test_ollama_turn_ok_and_errors():
     fake = Ollama(content='{"reply": "Hotovo.", "actions": [{"type": "vault_note", "text": "x"}]}')
-    assert brains.ollama_turn("qwen3:14b", "PODKLADY", fake) == ("Hotovo.", [{"type": "vault_note", "text": "x"}])
-    body = fake.calls[0][2]
-    assert body["format"] == "json" and body["stream"] is False and body["messages"][1]["content"] == "PODKLADY"
-    with pytest.raises(RuntimeError, match="neodpovídá"):
-        brains.ollama_turn("qwen3:14b", "x", Ollama(chat_error=json.JSONDecodeError("vadný JSON", "<", 0)))
-    with pytest.raises(RuntimeError, match="neodpovídá"):
-        brains.ollama_turn("qwen3:14b", "x", Ollama(chat_error=ConnectionRefusedError("odmítnuto")))
+    assert brains.ollama_turn("qwen3:14b", "PODKLADY", "Zapiš x.", transport=fake) == (
+        "Hotovo.", [{"type": "vault_note", "text": "x"}])
+    assert brains.ollama_turn("qwen3:14b", "PODKLADY", "Ahoj", transport=Ollama(content="Ahoj, pane.")) == (
+        "Ahoj, pane.", [])  # prostý text bez JSON je odpověď bez akcí
+    for error in (json.JSONDecodeError("vadný JSON", "<", 0), ConnectionRefusedError("odmítnuto")):
+        with pytest.raises(RuntimeError, match="neodpovídá"):
+            brains.ollama_turn("qwen3:14b", "P", "x", transport=Ollama(chat_error=error))
     with pytest.raises(RuntimeError, match="prázdnou"):
-        brains.ollama_turn("qwen3:14b", "x", Ollama(content=""))
+        brains.ollama_turn("qwen3:14b", "P", "x", transport=Ollama(content=""))
+
+
+HISTORY = [{"role": "human", "text": f"otázka {n}"} if n % 2 == 0 else {"role": "pletor", "text": f"odpověď {n}"}
+           for n in range(12)]
+
+
+def test_ollama_turn_sends_roles_history_and_options():
+    fake = Ollama(content="Nová odpověď.")
+    brains.ollama_turn("qwen3:8b", "PODKLADY X", "Jak se máš?", HISTORY, fake)
+    body = fake.calls[0][2]
+    assert "format" not in body and body["stream"] is False and body["think"] is False
+    assert body["keep_alive"] == "30m"
+    assert body["options"] == {"temperature": 0.7, "top_p": 0.9, "repeat_penalty": 1.1, "num_ctx": 8192}
+    system, *past, last = body["messages"]
+    # podklady jsou v systému před pravidly lokálního mozku, poslední user je jen zpráva člověka
+    assert system["role"] == "system" and system["content"].index("PODKLADY X") < system["content"].index(brains.LOCAL)
+    assert [m["content"] for m in past] == [item["text"] for item in HISTORY[-brains.HISTORY:]]
+    assert [m["role"] for m in past] == ["user", "assistant"] * 4
+    assert last == {"role": "user", "content": "Jak se máš?"}
+
+
+def test_ollama_turn_retries_once_when_it_repeats_itself():
+    history = [{"role": "human", "text": "Ahoj"}, {"role": "pletor", "text": "Dnes je středa. Nic se neplánovalo."}]
+
+    class Repeating(Ollama):
+        def __call__(self, method, path, body=None, timeout=None):
+            self.content = "dnes je  středa. nic se neplánovalo" if not self.calls else "Mám se dobře."
+            return super().__call__(method, path, body, timeout)
+
+    fake = Repeating()
+    assert brains.ollama_turn("qwen3:14b", "P", "Jak se máš?", history, fake) == ("Mám se dobře.", [])
+    assert len(fake.calls) == 2
+    assert fake.calls[1][2]["messages"][-1]["content"].endswith(
+        "(Předchozí odpověď neodpovídala dotazu, odpověz přímo na: Jak se máš?)")
+    # stejná zpráva člověka smí dostat stejnou odpověď, bez opakování tahu
+    same = Ollama(content="Dnes je středa. Nic se neplánovalo.")
+    brains.ollama_turn("qwen3:14b", "P", "Ahoj", history, same)
+    assert len(same.calls) == 1
 
 
 def test_chat_command_switches_without_model_and_turn_goes_to_ollama(tmp_path):
@@ -104,6 +142,12 @@ def test_chat_command_switches_without_model_and_turn_goes_to_ollama(tmp_path):
             "reply": "Lokální mozek zapnut, pane (gemma4:12b). Teď nic nestojím.", "actions": []}
         assert pletor.message("draft", "draft", "Jak se máš?")["reply"] == "Lokálně."
         assert fake.calls[-1][2]["model"] == "gemma4:12b"
+        # historie rozhovoru z messages.jsonl, bez právě položené zprávy, ta jde jako poslední user
+        assert fake.calls[-1][2]["messages"][1:] == [
+            {"role": "user", "content": "Přepni na lokální mozek"},
+            {"role": "assistant", "content": "Lokální mozek zapnut, pane (gemma4:12b). Teď nic nestojím."},
+            {"role": "user", "content": "Jak se máš?"}]
+        assert "PROJEKT: draft" in fake.calls[-1][2]["messages"][0]["content"]
         fake.chat_error = ConnectionRefusedError("odmítnuto")
         assert "neodpovídá" in pletor.message("draft", "draft", "Haló?")["reply"]
         assert pletor.message("draft", "draft", "přepni zpět na Claude")["reply"] == "Zpátky na Claude, pane."
