@@ -15,6 +15,7 @@
 ## 0. Milníky (stavět jen milník, po kontrole člověkem jít dál)
 
 - **P1 Vrstvy:** barvy, kontejnery, nové kroky FE/BE/DB/Infra, „kdy použít“, průvodce výběrem.
+- **P1b Příkazový řádek a krok na míru:** zadání textem na plátně, LLM kreslí do draftu, obecný krok `custom.step`, „co dál?“ u portu (viz §1b). Stavba před P2 na přání člověka (méně klikání).
 - **P2 Data na hraně:** data na hraně, druhy dat, vnitřek funkce.
 - **P3 Play:** případy, simulované prostředí, výpočet, animace.
 - **P4 LLM:** kreslení z rozhovoru, požadavek k jednomu bodu, skill „proces na plátně“.
@@ -40,6 +41,18 @@ Dopředu se nestaví nic: P2 nezačne před schválením P1 atd. Eval srdce se k
 - **Hrana mezi vrstvami** má `via` s popiskem (`http`, `sql`, `event`, `call`, `render`). Kontrola grafu zná povolené dvojice (FE → BE jen `http`/`event`, BE → DB jen `sql`/`call` atd.).
 - **Kdy použít:** typ uzlu nese `use` („použij, když…“) a `avoid` („nepoužívej, když…“). `GET /api/flow/node-types` je vrací a paleta je zobrazí v tooltipu a u karty uzlu.
 - **Průvodce „Co chci udělat?“:** dialog v paletě. Člověk vybere záměr (přijmout vstup, ověřit, spočítat, uložit, zavolat službu, zobrazit výsledek, rozhodnout, opakovat), průvodce nabídne typy podle štítků `intents` na typu. Bez modelu, deterministicky. Stejný katalog čte LLM okno.
+
+## 1b. Příkazový řádek a krok na míru (P1b)
+
+Důvod: člověk se v paletě ztrácí a hodně klikne. Chce napsat zadání a nechat LLM vytvořit komponentu na míru, i když v knihovně není.
+
+- **Příkazový řádek** na plátně knihovny (klávesa `/` nebo `Ctrl+K`, a tlačítko v toolbaru): textové pole se zadáním, např. „po kontrole přidej výpočet BMI a ulož ho do tabulky měření“. Odeslání jde jako zpráva člověka srdci (`POST /api/brain/heart/messages`) s novým volitelným `context: {kind: "flow", flowId, versionId, nodeIds[]}` (vybrané uzly, jinak celé plátno). Backend `context` ověří (plátno existuje, uzly patří do verze) a srdce ho čte jako **data**, ne příkaz. Změna je v kontraktu kanálu (`docs/brain-heart-channel.md` §2) a ve validaci `_scope`; prompt srdce se nemění.
+- **Kreslí rovnou:** srdce přes nástroje `opora_heart.py library nodes add|set|connect` zapisuje **draft** plátna (v části člověka jen draft, přijetí jedním klikem, jako v K3). Nový uzel dostane pozici automaticky: x za posledním uzlem řetězce, y podle pruhu své vrstvy. Dotaz zpět přijde jen tehdy, když zadání nestačí (otázka v kanálu srdce, ne dialog na plátně).
+- **Stav:** lišta „Srdce kreslí…“ s tlačítkem Zrušit a odpočtem; po zápisu se objeví pás návrhu (`ProposalBar`) s rozdílem a tlačítky Přijmout / Zamítnout. Srdce je pomalejší než klik (desítky vteřin), proto je stav vidět.
+- **Krok na míru `custom.step`:** obecný typ s porty `main` in/out (volitelné pojmenované výstupy z `params.branches`), povinnými `layer`, `params.title` a `params.description`, volitelnými `params.rule` (výraz pro simulaci v P3), `inputSchema`, `outputSchema`, `example`. Kontrola grafu vyžaduje vrstvu a titulek, schémata ověří stejně jako u ostatních uzlů. Žije jen na plátně, katalog se nemění. Karta ukazuje titulek a štítek vrstvy.
+- **Skill „proces-na-platne“** (seed Brainu): srdce z textu odvodí vrstvy, kroky, data a větve, použije typy z katalogu a `custom.step` jen tam, kde žádný typ nesedí. Doptá se, když nezná začátek, konec nebo vstup/výstup.
+- **„Co dál?“ u portu:** upuštění tažené hrany do prázdna otevře paletu zúženou na typy povolené pravidly vrstev a `via` (deterministicky, bez modelu).
+- **Mimo P1b (později):** „Uložit jako krok do knihovny“, tj. povýšení `custom.step` na znovupoužitelný typ v katalogu člověka nebo agenta (vlastní úložiště typů). Doplní se, až se ukáže, které kroky se opakují.
 
 ## 2. Data na hraně a detail funkce (P2)
 
