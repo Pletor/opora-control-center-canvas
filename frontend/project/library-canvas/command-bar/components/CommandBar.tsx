@@ -1,12 +1,12 @@
 import { useState } from "react";
 import "../styles/command-bar.css";
 
-type Props = { selection: readonly string[]; busy: boolean; error: string; onSubmit: (text: string) => void; onClose: () => void };
+type Props = { initial?: string; selection: readonly string[]; busy: boolean; error: string; onSubmit: (text: string) => void; onClose: () => void };
 
 /** Textové pole se zadáním pro srdce nad plátnem. Enter odešle, Esc zavře. Pod polem stojí, na co se zadání vztahuje
  * (vybrané uzly, jinak celé plátno), aby bylo jasné, co srdce dostane. Odeslání i zápis do plátna drží rodič. */
-export default function CommandBar({ selection, busy, error, onSubmit, onClose }: Props) {
-  const [text, setText] = useState("");
+export default function CommandBar({ initial = "", selection, busy, error, onSubmit, onClose }: Props) {
+  const [text, setText] = useState(initial);
   const submit = () => { if (text.trim() && !busy) onSubmit(text.trim()); };
   return <form className="command-bar" aria-label="Zadání pro srdce" data-testid="command-bar" onSubmit={(event) => { event.preventDefault(); submit(); }}>
     <input className="command-bar__input" autoFocus value={text} disabled={busy} data-testid="command-bar-input" aria-label="Zadání pro srdce"

@@ -2,12 +2,12 @@ import { useState } from "react";
 import { enterSubmits, EXAMPLES, promptText } from "../logic/empty-prompt";
 import "../styles/empty-prompt.css";
 
-type Props = { busy: boolean; error: string; onSubmit: (text: string) => void };
+type Props = { initial?: string; busy: boolean; error: string; onSubmit: (text: string) => void };
 
 /** Výzva uprostřed prázdného plátna: velké vždy aktivní pole se zadáním, „Postavit“ a tři příklady, které text jen vloží.
  * Odeslání i zápis drží rodič; při chybě pole zůstane s původním textem a chyba stojí hned pod ním. */
-export default function EmptyPrompt({ busy, error, onSubmit }: Props) {
-  const [text, setText] = useState("");
+export default function EmptyPrompt({ initial = "", busy, error, onSubmit }: Props) {
+  const [text, setText] = useState(initial);
   const submit = () => { const ready = promptText(text, busy); if (ready) onSubmit(ready); };
   return <div className="empty-prompt" data-testid="empty-prompt">
     <form className="empty-prompt__card" aria-label="Zadání procesu" onSubmit={(event) => { event.preventDefault(); submit(); }}>

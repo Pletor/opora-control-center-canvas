@@ -34,8 +34,11 @@ export type WorkTicket = {
 /** Vstup, který dávku probudil (tvar `inputs` deníku dávek; `type` určuje ostatní pole). */
 export type HeartInput = { type: string; text?: string; kind?: string; pr?: number | string | null; [key: string]: unknown };
 
-/** Běžící dávka (`current` stavu srdce); bez dávky `null`. */
-export type HeartCurrent = { startedAt: string; inputs: HeartInput[] };
+/** Krok dávky: `t` = ms od začátku dávky; `kind` rozlišuje myšlenku, text, příkaz (`tool`) a jeho výsledek. */
+export type HeartStep = { t: number; kind: "thinking" | "text" | "tool" | "result"; text: string };
+
+/** Běžící dávka (`current` stavu srdce); bez dávky `null`. `steps` chybí u starého backendu. */
+export type HeartCurrent = { startedAt: string; inputs: HeartInput[]; steps?: HeartStep[] };
 
 export type HeartBatch = {
   /** Začátek dávky (ISO UTC). */
@@ -46,6 +49,9 @@ export type HeartBatch = {
   costUsd: number | null;
   summary: string | null;
   error?: string;
+  /** Kroky a závěrečná odpověď srdce; chybí u dávek zapsaných před jejich zaváděním. */
+  steps?: HeartStep[];
+  reply?: string;
 };
 
 export type HeartStatus = {
@@ -58,6 +64,8 @@ export type HeartStatus = {
   nextAllowedAt: string | null;
   error: string | null;
   current?: HeartCurrent | null;
+  /** Typická délka dávky v ms (medián posledních), nebo `null`, dokud není z čeho. */
+  typicalMs?: number | null;
 };
 
 const scope = (project: string, workspace: string) =>
@@ -81,8 +89,8 @@ export const answerEscalation = (project: string, ticketId: string, text: string
 export const fetchTickets = (project: string, workspace: string) =>
   api<{ tickets: WorkTicket[] }>(`/api/brain/tickets?${scope(project, workspace)}`).then((r) => r.tickets);
 
-export const fetchHeartStatus = (project: string) =>
-  api<HeartStatus>(`/api/brain/heart/status?project=${encodeURIComponent(project)}`);
+export const fetchHeartStatus = (project: string, workspace?: string) =>
+  api<HeartStatus>(`/api/brain/heart/status?project=${encodeURIComponent(project)}${workspace ? `&workspace=${encodeURIComponent(workspace)}` : ""}`);
 
 /** Zápisy srdce v záznamu činnosti za rozsah (`query` z `heartStepsQuery`), nejnovější první. */
 export const fetchHeartSteps = (query: string) => api<{ entries: ActivityEntry[] }>(query).then((r) => r.entries);
