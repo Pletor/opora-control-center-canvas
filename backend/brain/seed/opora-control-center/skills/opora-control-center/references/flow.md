@@ -55,6 +55,8 @@ Hrana smí mít `via` (`http` / `sql` / `event` / `call` / `render`) a `data` (`
 document | vector | file | event, schema?, example?}`); `via` musí sedět na dvojici vrstev (fe→be `http` / `event`,
 be→fe `http` / `event` / `render`, be↔db `sql` / `call`, be↔infra `http` / `call` / `event`, fe→infra `http`, stejná
 vrstva a `ai` / `neutral` libovolné); hrana fe↔db přímo je chyba, vlož krok BE.
+Typy nesou `accepts` (druhy dat, které smí do uzlu přijít) a `emits` (co typicky vydávají); `data.kind` (nebo `emits`
+zdroje) mimo `accepts` cíle je chyba. `nodes connect` bere `--kind K --schema JSON --example JSON`.
 Uzel nese navíc `notes`, `notesInFlow`, `inputSchema`, `outputSchema`, `example`, `mode` (`perItem` / `once`),
 `onError` (`stop` / `continue` / `errorOutput` = výstup `error`) a `retry {maxTries, waitMs}`; graf má `notes[]`
 (`{id, content, x, y, width, height, color}` rámec za uzly) a `groups[]` (`{id, name, description ≤ 145, nodeIds,

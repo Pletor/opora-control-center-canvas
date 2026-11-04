@@ -6,6 +6,7 @@ z prázdného grafu); pás návrhu na plátně ukazuje nejnovější draft proti
 (`graph-check`): chyba se vrátí a nic se neuloží. Oprávnění jako `propose`: do plátna člověka jen draft (aktivuje člověk).
 Výstup nese `nodeId` / `edgeId`, `versionId`, `n`.
 """
+import json
 import re
 
 KIND = "library_flow"
@@ -104,7 +105,15 @@ def connect(tool, args):
         _fail(tool, f"Uzly {', '.join(missing)} v grafu nejsou.", "library_node_missing", hint=LIBRARY_HINT)
     edge = {"id": _unique("e", {e["id"] for e in graph["edges"]}), "source_node": args.src,
             "source_port": args.from_port, "target_node": args.to, "target_port": args.to_port, "kind": "main"}
-    edge.update(({"via": args.via} if args.via else {}) | ({"data": {"kind": args.kind}} if args.kind else {}))
+    edge.update({"via": args.via} if args.via else {})
+    if args.kind:
+        edge["data"] = {"kind": args.kind}
+        for key in ("schema", "example"):
+            if getattr(args, key) is not None:
+                try:
+                    edge["data"][key] = json.loads(getattr(args, key))
+                except ValueError:
+                    _fail(tool, f"--{key} musí být JSON.", f"library_edge_{key}")
     graph["edges"].append(edge)
     return _save(tool, args.flow, graph, source, f"Srdce: hrana {args.src} → {args.to}", {"edgeId": edge["id"]})
 

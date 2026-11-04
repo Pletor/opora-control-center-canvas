@@ -156,6 +156,7 @@ def create_flow_router(service):
             {"type": t.type, "version": t.version, "trigger": t.trigger, "params": t.params,
              "category": t.category, "dynamicPorts": t.dynamic is not None, "layer": t.layer,
              "use": t.use, "avoid": t.avoid, "intents": list(t.intents),
+             "accepts": list(t.accepts), "emits": t.emits or None,
              "ports": [_port_json(p) for p in t.ports]}
             for t in catalog(kind).values()
         ]}

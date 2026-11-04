@@ -47,7 +47,7 @@
     python opora_heart.py library propose FLOW --file F [--note N]
     python opora_heart.py library nodes add FLOW --type T [--layer L] [--title X] [--params JSON] [--after NODEID] [--branches a,b]
     python opora_heart.py library nodes set FLOW NODEID --file JSON
-    python opora_heart.py library nodes connect FLOW --from A --to B [--from-port main] [--via http] [--kind json]
+    python opora_heart.py library nodes connect FLOW --from A --to B [--from-port main] [--via http] [--kind json [--schema JSON] [--example JSON]]
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
 OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrnutí do `last_done.json` v cwd.
@@ -1606,6 +1606,8 @@ def parser():
     nodes_connect.add_argument("--to-port", default="main")
     nodes_connect.add_argument("--via")
     nodes_connect.add_argument("--kind")
+    nodes_connect.add_argument("--schema")
+    nodes_connect.add_argument("--example")
     duel = commands.add_parser("duel")
     for flag in ("--subject", "--a", "--b"):
         duel.add_argument(flag, required=True)
