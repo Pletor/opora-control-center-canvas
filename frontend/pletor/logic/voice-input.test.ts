@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVoiceInput, recognitionCtor, voiceError, type RecognitionCtor, type VoiceInputEvents } from "./voice-input";
 
 /** Falešné SpeechRecognition: zapamatuje si poslední instanci, test pak sám posílá výsledky a konec. */
@@ -90,6 +90,79 @@ describe("createVoiceInput", () => {
     input.start(on);
     expect(input.supported).toBe(false);
     expect(on.onError).toHaveBeenCalledWith("not-supported");
+  });
+});
+
+describe("createVoiceInput: endpointing", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("ustálený průběžný přepis pošle po 700 ms a pozdní finál (i opravený) už ne", () => {
+    vi.useFakeTimers();
+    const on = events();
+    createVoiceInput(Ctor).start(on);
+    const rec = FakeRecognition.last;
+    rec.say([["Postav web", false]]);
+    vi.advanceTimersByTime(699);
+    expect(on.onFinal).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("Postav web");
+    rec.say([["Postav weby", true]]);
+    expect(on.onFinal).toHaveBeenCalledOnce();
+  });
+
+  it("měnící se přepis odpočet restartuje; krátký přepis se nepošle", () => {
+    vi.useFakeTimers();
+    const on = events();
+    createVoiceInput(Ctor).start(on);
+    const rec = FakeRecognition.last;
+    rec.say([["ahoj", false]]);
+    vi.advanceTimersByTime(1000);
+    expect(on.onFinal).not.toHaveBeenCalled();
+    rec.say([["ahoj Pletore", false]]);
+    vi.advanceTimersByTime(500);
+    rec.say([["ahoj Pletore jak", false]]);
+    vi.advanceTimersByTime(500);
+    expect(on.onFinal).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(200);
+    expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("ahoj Pletore jak");
+  });
+
+  it("stop odpočet zruší", () => {
+    vi.useFakeTimers();
+    const on = events();
+    const input = createVoiceInput(Ctor);
+    input.start(on);
+    FakeRecognition.last.say([["Postav web", false]]);
+    input.stop();
+    vi.advanceTimersByTime(1000);
+    expect(on.onFinal).not.toHaveBeenCalled();
+  });
+
+  it("endpointMs 0 čeká na finál prohlížeče jako dřív", () => {
+    vi.useFakeTimers();
+    const on = events();
+    createVoiceInput(Ctor).start(on, { endpointMs: 0 });
+    const rec = FakeRecognition.last;
+    rec.say([["Postav web", false]]);
+    vi.advanceTimersByTime(5000);
+    expect(on.onFinal).not.toHaveBeenCalled();
+    rec.say([["Postav web", true]]);
+    expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("Postav web");
+  });
+
+  it("trvalý poslech: po předčasné větě přijde druhá věta jednou a pozdní finál první se přeskočí", () => {
+    vi.useFakeTimers();
+    const on = events();
+    createVoiceInput(Ctor).start(on, { continuous: true });
+    const rec = FakeRecognition.last;
+    rec.say([["první věta", false]]);
+    vi.advanceTimersByTime(700);
+    rec.say([["první věty", true]]);
+    rec.say([["první věty", true], ["druhá věta", false]]);
+    vi.advanceTimersByTime(700);
+    rec.say([["první věty", true], ["druhá věta", true]]);
+    rec.say([["první věty", true], ["druhá věta", true], ["třetí věta", true]]);
+    expect(vi.mocked(on.onFinal).mock.calls).toEqual([["první věta"], ["druhá věta"], ["třetí věta"]]);
   });
 });
 

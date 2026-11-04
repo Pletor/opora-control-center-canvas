@@ -15,8 +15,9 @@ export type VoiceInputEvents = {
   /** Poslech skončil (věta, ticho, chyba nebo stop). */
   onEnd: () => void;
 };
-/** `continuous` (přepínač Poslech): poslech neskončí první větou, každá hotová věta přijde zvlášť. */
-export type VoiceInput = { supported: boolean; start: (events: VoiceInputEvents, options?: { continuous?: boolean }) => void; stop: () => void };
+/** `continuous` (přepínač Poslech): poslech neskončí první větou, každá hotová věta přijde zvlášť.
+ *  `endpointMs` (výchozí 700, 0 = vypnuto): ustálený průběžný přepis se pošle jako věta dřív, než prohlížeč řekne „finální“. */
+export type VoiceInput = { supported: boolean; start: (events: VoiceInputEvents, options?: { continuous?: boolean; endpointMs?: number }) => void; stop: () => void };
 
 type Alternative = { transcript: string };
 type Result = { isFinal: boolean; 0: Alternative };
@@ -40,12 +41,14 @@ export function recognitionCtor(scope: object = globalThis): RecognitionCtor | n
  *  Trvalý poslech posílá každou novou hotovou větu; výsledky už poslané se přeskočí. */
 export function createVoiceInput(Ctor: RecognitionCtor | null = recognitionCtor()): VoiceInput {
   let current: Recognition | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined; // endpointing: odpočet ticha nad průběžným přepisem
   const stop = () => {
+    clearTimeout(timer);
     const rec = current;
     current = null;
     try { rec?.abort(); } catch { /* už neběží */ }
   };
-  const start = (events: VoiceInputEvents, { continuous = false } = {}) => {
+  const start = (events: VoiceInputEvents, { continuous = false, endpointMs = 700 } = {}) => {
     stop();
     if (!Ctor) { events.onError("not-supported"); events.onEnd(); return; }
     const rec = new Ctor();
@@ -59,15 +62,27 @@ export function createVoiceInput(Ctor: RecognitionCtor | null = recognitionCtor(
     rec.onspeechstart = () => { if (current === rec) events.onSpeech(); };
     rec.onresult = (event) => {
       if (current !== rec || sent) return;
+      clearTimeout(timer);
       let final = "", interim = "";
       const results = Array.from(event.results);
       for (let i = done; i < results.length; i++) {
         if (results[i].isFinal) { final += results[i][0].transcript; if (continuous) done = i + 1; } else interim += results[i][0].transcript;
       }
-      if (final.trim()) { sent = !continuous; events.onFinal(final.trim()); } else if (interim.trim()) events.onInterim(interim.trim());
+      const text = interim.trim();
+      if (final.trim()) { sent = !continuous; events.onFinal(final.trim()); return; }
+      if (!text) return;
+      events.onInterim(text);
+      // Chrome posílá finální výsledek až 1–2 s po konci řeči; ustálený přepis stačí. Pozdní finál týchž výsledků se zahodí.
+      if (endpointMs > 0 && (text.split(/\s+/).length >= 2 || text.length >= 8)) {
+        timer = setTimeout(() => {
+          if (current !== rec) return;
+          if (continuous) done = results.length; else sent = true;
+          events.onFinal(text);
+        }, endpointMs);
+      }
     };
     rec.onerror = (event) => { if (current === rec) events.onError(event.error); };
-    rec.onend = () => { if (current === rec) { current = null; events.onEnd(); } };
+    rec.onend = () => { if (current === rec) { clearTimeout(timer); current = null; events.onEnd(); } };
     try {
       rec.start();
     } catch {
