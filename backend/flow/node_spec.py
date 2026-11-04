@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 
-PORT_KINDS = ("main", "model", "memory", "tool", "subagent", "approval", "data")  # data: tok dat záměru stránky
+# data: tok dat záměru stránky; outputParser … reranker: sub-porty katalogu toků dat (`catalogs/data_flow.py`)
+PORT_KINDS = ("main", "model", "memory", "tool", "subagent", "approval", "data", "outputParser", "embedding",
+              "document", "textSplitter", "retriever", "vectorStore", "reranker")
 
 
 @dataclass(frozen=True)
@@ -12,6 +14,8 @@ class Port:
     kind: str = "main"
     cardinality: str = "many"  # "one" | "many": kolik hran smí port nést
     schema: dict | None = None
+    required: bool = False  # povinný port (v editoru `*`): bez hrany je graf toku dat neplatný
+    label: str = ""
 
 
 @dataclass(frozen=True)
@@ -23,6 +27,11 @@ class NodeType:
     trigger: bool = False
     detached: bool = False  # běží mimo zámek: `running` s čerstvým heartbeatem = „běží jinde“, ne „přerušeno“
     params: dict | None = None  # parametry uzlu pro editor ({jméno: popis}); katalog záměru je jen popisný
+    category: str = ""  # kategorie palety editoru (katalog toků dat)
+    dynamic: object = None  # porty podle parametrů uzlu: `dynamic(params) -> tuple[Port]`; `ports` = výchozí params
+
+    def ports_for(self, params=None):
+        return self.dynamic(params or {}) if self.dynamic else self.ports
 
     def port(self, name, direction):
         return next((p for p in self.ports if p.name == name and p.direction == direction), None)

@@ -7,6 +7,7 @@ import sqlite3
 from database.schema.brain_schema import SCHEMA as BRAIN_SCHEMA
 from database.schema.flow_schema import OWNER_INDEX as FLOW_OWNER_INDEX
 from database.schema.flow_schema import SCHEMA as FLOW_SCHEMA
+from database.schema.flow_schema import WORKFLOWS_TABLE as FLOW_WORKFLOWS_TABLE
 from database.schema.guard_experience_schema import SCHEMA as GUARD_EXPERIENCE_SCHEMA
 from database.schema.guard_experience_schema import TABLES as GUARD_EXPERIENCE_TABLES
 from database.schema.guard_findings_schema import SCHEMA as GUARD_FINDINGS_SCHEMA
@@ -456,7 +457,26 @@ def ensure_flow_owner_ref(db):
     """Vlastník workflow v registru (docs/navrhy/2026-11-03-platno-2-zamer-stranky.md §2): sloupec a jedinečnost."""
     if "owner_ref" not in _columns(db, "flow_workflows"):
         add_column(db, "flow_workflows", "owner_ref")
-    db.executescript(FLOW_OWNER_INDEX)
+    _ensure_flow_library(db)
+    db.executescript(FLOW_SCHEMA + FLOW_OWNER_INDEX)
+
+
+def _ensure_flow_library(db):
+    """Knihovna pláten toku (docs/navrhy/2026-11-04-knihovna-platna-toku.md §1, §6). Změna CHECKu `kind`
+    (`brain_workflow` → `library_flow`) potřebuje přestavbu `flow_workflows`; index vlastníka zanikne s tabulkou
+    a založí se znovu s COALESCE. Rodokmen `derived_from` patří k neměnným polím verze, proto nový trigger."""
+    old = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='flow_workflows'").fetchone()
+    if old and "library_flow" not in old[0]:
+        # shortcut: brain_workflow se nikdy nepoužil; řádek s ním by přestavbu zastavil chybou CHECK
+        db.commit()
+        db.executescript("BEGIN;" + FLOW_WORKFLOWS_TABLE.format(name="flow_workflows_new") +
+                         "INSERT INTO flow_workflows_new(id,kind,project_id,name,created_at,owner_ref) "
+                         "SELECT id,kind,project_id,name,created_at,owner_ref FROM flow_workflows;"
+                         "DROP TABLE flow_workflows; ALTER TABLE flow_workflows_new RENAME TO flow_workflows; COMMIT;")
+    versions = _columns(db, "flow_workflow_versions")
+    if versions and "derived_from" not in versions:
+        add_column(db, "flow_workflow_versions", "derived_from")
+        db.execute("DROP TRIGGER IF EXISTS flow_workflow_versions_frozen")
 
 
 def ensure_brief_fragment_columns(db):

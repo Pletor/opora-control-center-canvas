@@ -1,6 +1,6 @@
 # Engine toků: workflow, verze a běhy
 
-Kdy mě číst: potřebuješ vytvořit, spustit nebo sledovat tok (`kind` `heart`, `page_intent`, `brain_workflow`) nebo
+Kdy mě číst: potřebuješ vytvořit, spustit nebo sledovat tok (`kind` `heart`, `page_intent`, `library_flow`) nebo
 rozhodnout schválení uzlu. Kontrakt: `docs/navrhy/2026-11-03-novy-zaklad.md` §3.1, kód `backend/flow/`,
 router `flow_routes.py` ve složce flow v backend/api. Chyby: 404 neznámé ID, 409 nedovolený přechod, 422 neplatný graf.
 
@@ -33,9 +33,39 @@ Stav záměru každé stránky vrací `GET /api/flow/page-intents?project=`: `no
 Ticket práce smí v `ticket.issue` nést `intent: {workflowVersionId, nodeIds}` (kritéria `intent.done` aktivní verze):
 server ověří verzi a uzly a jejich `claim` doplní do `doneCriteria`.
 
+Plátno toku v knihovně (`kind` `library_flow`, kontrakt `docs/navrhy/2026-11-04-knihovna-platna-toku.md` §1–§3,
+kód `backend/flow/library.py`, router `library_routes.py`): rozkreslená metoda, funkce nebo princip napříč projekty.
+Knihovna má část `human` (píše jen člověk v UI, jinak 403/428) a `agent` (píše srdce i dělník s `X-Opora-Gate-Token`,
+bez tokenu 401 `gate_token_invalid`, a člověk). Složka je jedna úroveň, plátno má `owner_ref`
+`opora:library:<human|agent>:<slug složky>/<slug>`; verze a graf mění `/api/flow/workflows/{workflow_id}/versions`
+(stejná pravidla části knihovny), `activate` bez schválení, plátno se nespouští (`runs` → 409 `not_runnable`).
+Katalog `GET /api/flow/node-types?kind=library_flow` (toky dat podle n8n, `category` pro paletu, porty s `required`
+a `label`, `dynamicPorts` = porty podle `params`: `ai.vectorStore` `mode` insert/load/retrieve/retrieveAsTool,
+`ai.agent` `hasOutputParser`, `flow.switch` `rules`, `flow.merge` `numberInputs`, `ai.chain` `chainType`). Po `main`
+teče `Item[] = {json, binary?, pairedItem?}`; sub-uzel (`ai.model`, `ai.memory`, `ai.tool`, `ai.embedding` …) má jen
+výstup svého kindu a hrana vede vždy ze sub-uzlu do kořene (`source_port` = `target_port` = `kind`, např. `model`).
+Uzel nese navíc `notes`, `notesInFlow`, `inputSchema`, `outputSchema`, `example`, `mode` (`perItem` / `once`),
+`onError` (`stop` / `continue` / `errorOutput` = výstup `error`) a `retry {maxTries, waitMs}`; graf má `notes[]`
+(`{id, content, x, y, width, height, color}` rámec za uzly) a `groups[]` (`{id, name, description ≤ 145, nodeIds,
+inputSchema?, outputSchema?}`: souvislý řetězec, vstup jen do prvního a výstup jen z posledního uzlu, sub-uzly se svým
+kořenem, bez spouštěče). `graph-check` hlásí i nepřipojený povinný port a `$('<id uzlu>')` na neexistující uzel.
+Převzetí do projektu (`adopt`) a vylepšení (`contribute`) založí nové plátno s aktivní v1, jejíž `derived_from` je
+`{workflowId, versionId}` zdroje; detail ukáže `derivedFrom`, `derived` a `projects`.
+
 | Cesta | Co |
 |---|---|
-| `/api/flow/node-types` | `GET ?kind=` → `{node_types}` registr typů uzlů: `type`, `version`, `trigger`, `params`, porty (`name`, `direction`, `kind`, `cardinality`, `schema`); `kind=page_intent` vrátí katalog záměru |
+| `/api/library` | `GET ?owner=human\|agent` → `{owner, folders: [{id, owner, slug, title, description, order, flows: [{id, slug, title, description, activeVersionId, activeN, derivedCount}]}]}` |
+| `/api/library/folders` | `POST {owner, slug, title, description?, order?}` složka (409 `folder_taken`) |
+| `/api/library/folders/{folder_id}` | `PATCH {title?, description?, order?}` (slug se nemění); `DELETE` jen prázdnou (409 `folder_not_empty`) |
+| `/api/library/flows` | `POST {folder, slug, title, description?}` založí plátno `library_flow` (409 `owner_taken`) |
+| `/api/library/flows/{workflow_id}` | `GET` detail: verze, `derivedFrom`, `derived`, `projects` |
+| `/api/library/flows/{workflow_id}/adopt` | `POST {project, nodeId?}` odvozená kopie v projektu (`opora:project-flow:<nodeId\|slug>`, zeď brány projektu; 409 `empty_flow` bez verze) |
+| `/api/library/flows/{workflow_id}/contribute` | `POST {folder, slug, title}` kopii (z projektu) uloží do složky jako nový prvek |
+| `/api/library/flows/{workflow_id}/promote` | `POST {folder?}` jen člověk: z knihovny agenta do složky člověka (výchozí se stejným slugem) |
+
+| Cesta | Co |
+|---|---|
+| `/api/flow/node-types` | `GET ?kind=` → `{node_types}` registr typů uzlů: `type`, `version`, `trigger`, `params`, porty (`name`, `direction`, `kind`, `cardinality`, `schema`, `required`, `label`), `category`, `dynamicPorts`; `kind=page_intent` vrátí katalog záměru, `kind=library_flow` toky dat |
 | `/api/flow/graph-check` | `POST {kind, graph}` → `{ok, errors}` ověří graf podle katalogu druhu, nic nezapíše |
 | `/api/flow/page-intents` | `GET ?project=` → `{pages: [{pageId, state, workflowId?, activeN?, candidateN?, doneCount}]}` stav záměru každé stránky |
 | `/api/flow/workflows` | `GET ?project=&kind=&owner_ref=` seznam; `POST {kind, name, project_id?, owner_ref?}` založí tok |

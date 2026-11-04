@@ -73,8 +73,8 @@ def start_run(db, version_id, trigger=None, registry=NODE_TYPES, now=None, paren
     """Vytvoří běh z verze a spouštěče `{node_id?, payload?, source?}` a hned ho posune. Záměr stránky se nespouští."""
     trigger = dict(trigger or {})
     version = get_version(db, version_id)
-    if workflow_kind(db, version["workflow_id"]) == "page_intent":
-        raise FlowConflict("Záměr stránky (page_intent) se nespouští.", "not_runnable")
+    if (kind := workflow_kind(db, version["workflow_id"])) in ("page_intent", "library_flow"):
+        raise FlowConflict(f"Popisný tok ({kind}) se nespouští.", "not_runnable")
     graph = version["graph"]
     triggers = [n["id"] for n in graph["nodes"] if registry[n["type"]].trigger]
     node_id = trigger.get("node_id") or (triggers[0] if triggers else None)
