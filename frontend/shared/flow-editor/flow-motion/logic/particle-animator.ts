@@ -3,7 +3,7 @@
 // Čas drží `PresentationClock`: skrytý dokument a omezený pohyb nepřičítají čas a po návratu se nic nedohání. Bez teček
 // smyčka stojí. Prostředí (čas, snímek, viditelnost, preference) je vstříknuté, aby šlo animátor testovat bez prohlížeče.
 import { PresentationClock } from "./presentation-clock";
-import { loopProgress, onceProgress } from "./motion-plan";
+import { loopProgress, onceProgress } from "./progress";
 
 export type MotionPath = { getTotalLength(): number; getPointAtLength(distance: number): { x: number; y: number } };
 export type MotionDot = { setAttribute(name: string, value: string): void };

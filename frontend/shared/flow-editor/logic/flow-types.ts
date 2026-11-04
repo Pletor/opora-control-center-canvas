@@ -53,7 +53,13 @@ export type FlowEdge = {
 /** Sticky poznámka za uzly (markdown, barva 1–7 jako n8n) a rámec skupiny kolem uzlů (n8n Canvas Groups). */
 export type FlowNote = { id: string; content: string; x: number; y: number; width: number; height: number; color?: number };
 export type FlowGroup = { id: string; name: string; description?: string; nodeIds: string[]; inputSchema?: Record<string, unknown>; outputSchema?: Record<string, unknown> };
-export type FlowGraph = { nodes: FlowNode[]; edges: FlowEdge[]; notes?: FlowNote[]; groups?: FlowGroup[] };
+/** Případ plátna procesů (kontrakt §3): pojmenovaná cesta od `start` s ukázkovými daty, simulovaným prostředím a očekáváním. */
+export type FlowCase = {
+  id: string; name: string; description?: string; start: string; input: unknown;
+  env?: { tables?: Record<string, unknown[]>; services?: Record<string, unknown> };
+  expect?: { result?: unknown; path?: string[]; rows?: Record<string, unknown[]>; notify?: string };
+};
+export type FlowGraph = { nodes: FlowNode[]; edges: FlowEdge[]; notes?: FlowNote[]; groups?: FlowGroup[]; cases?: FlowCase[] };
 
 /** Konec vazby: uzel, jméno portu a směr (port `main` bývá vstupní i výstupní zároveň). */
 export type PortRef = { nodeId: string; port: string; direction: PortDirection };

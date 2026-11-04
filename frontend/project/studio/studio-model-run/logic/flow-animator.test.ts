@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MotionEnv } from "../../studio-motion/logic/particle-animator";
+import type { MotionEnv } from "@/shared/flow-editor/flow-motion/logic/particle-animator";
 import { FlowAnimator } from "./flow-animator";
 import type { FlowParticle } from "./model-particles";
 

@@ -16,7 +16,7 @@ const nodeTypes = { "flow-card": FlowNodeCard, "flow-note": FlowNoteCard, "flow-
 export type CanvasNode = FlowCardNode | FlowNoteNode | FlowGroupNode | FlowLaneNode;
 
 type Props = {
-  nodes: CanvasNode[]; edges: Edge[]; readOnly: boolean; frames?: FrameActions;
+  nodes: CanvasNode[]; edges: Edge[]; readOnly: boolean; /** Šrafované pozadí „pohled do minulosti“; výchozí podle `readOnly`, přehrávání ho nechce. */ hatched?: boolean; frames?: FrameActions;
   canConnect: (a: PortRef, b: PortRef) => boolean;
   onSelectNode: (id: string | null) => void; onSelectEdge: (id: string | null) => void; onMove: (id: string, at: Point) => void;
   onConnect: (a: PortRef, b: PortRef) => void; onDropType: (type: string, at: Point) => void; onPlus: (request: PlusRequest) => void;
@@ -45,7 +45,7 @@ export default function FlowCanvas(props: Props) {
 const VIEW: SurfaceView = { minZoom: 0.2, maxZoom: 2, fitPadding: 0.25, dotGap: 20, dotColor: "var(--canvas-dot)", controls: "top-left", minimapLabel: "Minimapa toku", minimapClass: "flow-editor__minimap" };
 const NO_FRAMES: FrameActions = { onNote: () => {}, onToggleGroup: () => {} };
 
-function Canvas({ nodes: next, edges, readOnly, frames, canConnect, onSelectNode, onSelectEdge, onMove, onConnect, onDropType, onPlus, onSelectGroup, onSelection, onMoveNote, onDropEmpty, onOpen, onReject }: Props) {
+function Canvas({ nodes: next, edges, readOnly, hatched = readOnly, frames, canConnect, onSelectNode, onSelectEdge, onMove, onConnect, onDropType, onPlus, onSelectGroup, onSelection, onMoveNote, onDropEmpty, onOpen, onReject }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(next);
   // Přestavba uzlů nesmí zahodit změřený rozměr, jinak React Flow schová hrany, než uzly znovu změří.
   useEffect(() => setNodes((prev) => next.map((node) => ({ ...node, measured: prev.find((item) => item.id === node.id)?.measured }) as CanvasNode)), [next, setNodes]);
@@ -56,7 +56,7 @@ function Canvas({ nodes: next, edges, readOnly, frames, canConnect, onSelectNode
   return <PortActionsContext.Provider value={{ onPlus }}>
     <FrameActionsContext.Provider value={frames ?? NO_FRAMES}>
       <FlowSurface nodes={nodes} edges={edges} nodeTypes={nodeTypes} view={VIEW} onNodesChange={onNodesChange} onDropType={readOnly ? undefined : onDropType}
-        rootProps={{ className: `flow-editor__canvas${readOnly ? " flow-editor__canvas--past" : ""}`, "data-testid": "flow-canvas" }}
+        rootProps={{ className: `flow-editor__canvas${hatched ? " flow-editor__canvas--past" : ""}`, "data-testid": "flow-canvas" }}
         flowProps={{
           nodesConnectable: !readOnly,
           isValidConnection: (c) => { const pair = ends(c); return !!pair && canConnect(pair[0], pair[1]); },

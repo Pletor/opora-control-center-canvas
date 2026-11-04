@@ -1,0 +1,3 @@
+# Případy plátna (`flow-cases`)
+
+Kontrakt `docs/navrhy/2026-11-04-platno-procesu.md` §3. Případ je pojmenovaná cesta plátnem: `{id, name, description?, start, input, env?, expect?}` v `graph.cases[]`. `components/FlowCasesBar.tsx` je lišta nad plátnem (výběr se značkou výsledku, „+ Případ“, Upravit, Smazat), `components/CaseEditor.tsx` formulář (JSON pole se kontrolují, neplatný se neuloží). Ukládá rodič (`LibraryCanvas` → `setEdited`, případy jdou do draftu verze s grafem). `logic/flow-cases.ts` — přidat / upravit / smazat případ, formulář ↔ případ, otisk a stav značky (zelená shoda, červená neshoda, šedá nespuštěno / bez `expect` / zastaralé po úpravě grafu). Test: `logic/flow-cases.test.ts`.

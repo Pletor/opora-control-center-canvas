@@ -3,8 +3,8 @@
 // Skutečnosti (`studio-motion`, stále běžící hodiny) jde čas jen za běhu: snímek běhu (`setFrame`) předá hodinám
 // `PresentationClock` běží/stojí a tick, takže Pause plátno zmrazí a Step posune fázi o 280 ms. Skrytý dokument a
 // omezený pohyb čas nepřičítají a smyčku zastaví. Prostředí je vstříknuté (`MotionEnv` ze `studio-motion`).
-import { PresentationClock } from "../../studio-motion/logic/presentation-clock";
-import type { MotionDot, MotionEnv, MotionPath } from "../../studio-motion/logic/particle-animator";
+import { PresentationClock } from "@/shared/flow-editor/flow-motion/logic/presentation-clock";
+import type { MotionDot, MotionEnv, MotionPath } from "@/shared/flow-editor/flow-motion/logic/particle-animator";
 import { particleProgress, type FlowParticle } from "./model-particles";
 
 export type RunFrame = { running: boolean; tick: number; key: string };

@@ -1,0 +1,3 @@
+# Play (`flow-play`)
+
+Kontrakt `docs/navrhy/2026-11-04-platno-procesu.md` §4. Výpočet dělá server (`POST /api/flow/simulate {graph, case}` → `{ok, result, trace, expect}`), frontend trasu jen přehrává. `logic/use-play.ts` drží relaci (trasa, krok, běh, rychlost, výsledky případů pro značky), `logic/play-trace.ts` jsou čisté funkce (další krok, hrana kroku, popisek dat, souhrn, věta o chybě). `components/FlowPlayBar.tsx` ovládání, `FlowPlayPanel.tsx` panel „Co se stalo“ (vstup → pravidlo → výstup, větev, chyba, poznámka, na konci souhrn a rozdíly proti `expect`), `FlowPlayDot.tsx` bod s popiskem na hraně (portál do SVG hrany React Flow, pohyb přes `../flow-motion`). Za přehrávání je plátno jen ke čtení (`FlowEditor` dostane `play`). Test: `logic/play-trace.test.ts`.

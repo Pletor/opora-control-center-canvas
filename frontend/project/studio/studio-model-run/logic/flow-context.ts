@@ -1,7 +1,7 @@
 // Animátor částic MODELu v kontextu: plátno ho vytvoří jednou a předá mu snímek běhu, vazby (uvnitř React Flow) si ho
 // vezmou z kontextu a přihlásí své částice. Bez poskytovatele se nic nehýbe.
 import { createContext, useContext, useEffect, useState } from "react";
-import { browserMotionEnv } from "../../studio-motion/logic/particle-animator";
+import { browserMotionEnv } from "@/shared/flow-editor/flow-motion/logic/particle-animator";
 import { FlowAnimator, type RunFrame } from "./flow-animator";
 
 export const FlowAnimatorContext = createContext<FlowAnimator | null>(null);
