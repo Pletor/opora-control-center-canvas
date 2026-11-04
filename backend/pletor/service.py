@@ -26,6 +26,7 @@ VOICE = ("REŽIM: HLAS – odpověz nejvýš dvěma větami, prostým textem bez
          "Čísla piš slovy, kde to jde, a nepiš zkratky, emoji, odkazy, ID ani znaky jako * # / _ `, syntéza je čte špatně.")
 
 
+CONTEXT_TTL = 15  # s: podklady stojí ~1 s a v živém rozhovoru se mezi větami nemění; akce je zahodí
 HISTORY = brains.HISTORY + 1  # + právě uložená zpráva člověka, ta jde modelu zvlášť
 
 
@@ -35,6 +36,7 @@ class Pletor:
         self.transport = brains.http  # Ollama (P2); testy vyměňují
         self.folder = Path(service.root) / FOLDER
         self.lock = threading.Lock()  # jedna relace na aplikaci: tahy jdou po jednom
+        self.contexts = {}  # (projekt, prostor) → (čas, podklady)
 
     def _context(self, project, workspace):
         return heart_line(self.heart.status(project)), gate.escalations(self.service, project, workspace)
@@ -43,6 +45,15 @@ class Pletor:
         heart, escalations = self._context(project, workspace)
         return {"messages": store.messages(self.folder, project, workspace), "heart": heart,
                 "escalations": escalations}
+
+    def _podklady(self, project, workspace):
+        now = self.clock()
+        cached = self.contexts.get((project, workspace))
+        if cached and now - cached[0] < CONTEXT_TTL:
+            return cached[1]
+        built = build_context(self.service, self.heart, project, workspace)
+        self.contexts[(project, workspace)] = (now, built)
+        return built
 
     def _run(self, project, workspace, action):
         if action["type"] == "heart_message":
@@ -73,7 +84,7 @@ class Pletor:
             on_delta(piece)
 
         try:
-            context = build_context(self.service, self.heart, project, workspace) + (f"\n\n{VOICE}" if voice else "")
+            context = self._podklady(project, workspace) + (f"\n\n{VOICE}" if voice else "")
             history = store.messages(self.folder, project, workspace, HISTORY)[:-1]
             with self.lock:
                 reply, raw = brains.turn(self.folder, context, text, history, runner=self.runner, find=self.find,
@@ -93,5 +104,7 @@ class Pletor:
             else:
                 ok, detail = False, problem
             done.append({**action, "ok": ok, "detail": detail})
+        if done:
+            self.contexts.clear()  # akce změnila stav srdce nebo rozhodnutí, příští podklady se přečtou znovu
         store.append_message(self.folder, _iso(self.clock()), project, workspace, "pletor", reply)
         return {"reply": reply, "actions": done}

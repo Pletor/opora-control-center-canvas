@@ -140,3 +140,30 @@ def test_message_streams_deltas_that_add_up_to_the_reply(tmp_path):
         assert pletor.message("draft", "draft", "Přepni zpět na Claude", on_delta=deltas.append)["reply"]
         assert deltas == []
         assert [m["role"] for m in pletor.state("draft", "draft")["messages"]] == ["human", "pletor"] * 3
+
+
+def test_podklady_se_mezi_vetami_nectou_znovu_a_akce_je_zahodi(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        runner = Runner({"reply": "A.", "actions": []}, {"reply": "B.", "actions": []},
+                        {"reply": "C.", "actions": [{"type": "vault_note", "text": "Platí."}]},
+                        {"reply": "D.", "actions": []})
+        now = [1000.0]
+        pletor = Pletor(client.app.state.service, client.app.state.heart, runner=runner, find=lambda: "claude",
+                        clock=lambda: now[0])
+        built = []
+        original = pletor._podklady.__func__
+
+        def counted(self, project, workspace):
+            before = self.contexts.get((project, workspace))
+            text = original(self, project, workspace)
+            built.append(self.contexts[(project, workspace)] is not before)
+            return text
+
+        pletor._podklady = counted.__get__(pletor)
+        pletor.message("draft", "draft", "Jedna.")
+        pletor.message("draft", "draft", "Dva.")
+        now[0] += 16
+        pletor.message("draft", "draft", "Tři.")  # po TTL znovu; akce vault_note cache zahodí
+        pletor.message("draft", "draft", "Čtyři.")
+        assert built == [True, False, True, True]
