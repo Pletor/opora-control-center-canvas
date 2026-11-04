@@ -2,63 +2,67 @@ import "../styles/pletor.css";
 import { useEffect, useState } from "react";
 import { usePletor } from "../logic/pletor-poll";
 import { escalationText, heartText, type PletorMode } from "../logic/pletor-client";
-import { REPLY_MS, orbMode } from "../logic/pletor-orb-mode";
-import PletorActions from "./PletorActions";
-import PletorComposer from "./PletorComposer";
-import PletorHeartLine from "./PletorHeartLine";
+import { HANDOFF_MS, REPLY_MS, hudLabel, hudState, hudWork } from "../logic/hud-state";
 import { usePletorVoice } from "../logic/use-pletor-voice";
+import PletorActions from "./PletorActions";
+import PletorHeartLine from "./PletorHeartLine";
 import PletorHud from "./PletorHud";
 import PletorMessages from "./PletorMessages";
 import PletorMicButton from "./PletorMicButton";
 import PletorOrb from "./PletorOrb";
-import PletorVoiceToggles from "./PletorVoiceToggles";
 import PletorListener from "./PletorListener";
 import PletorListenSwitch from "./PletorListenSwitch";
-import { hudState } from "../logic/hud-palette";
+import PletorSettingsButton from "./PletorSettingsButton";
+import PletorSettingsPanel from "./PletorSettingsPanel";
 
 type Props = {
   mode: PletorMode; project: string; projectName: string; workspace: string; onMode: (mode: PletorMode) => void;
-  listening: boolean; onListening: (on: boolean, error?: string) => void;
+  listening: boolean; onListening: (on: boolean, error?: string) => void; settings: boolean; onSettings: (open: boolean) => void;
 };
 
 /**
- * Rodič Pletora (docs/navrhy/2026-11-04-pletor-jarvis.md, P1): jeden chat s Pletorem nad srdcem projektu.
- * Drží stav konverzace a odesílá (`usePletor`) i hlas (`usePletorVoice`, P3), takže obojí přežije přepnutí HUD ↔ okno.
- * Příkazový řádek s mikrofonem skládá jednou a dává ho oknu i kokpitu.
- * Odvozuje i stav jádra; jediný časovač po REPLY_MS vrátí záblesk odpovědi do dýchání.
+ * Rodič Pletora (docs/navrhy/2026-11-04-pletor-jarvis.md): hlasový Pletor nad srdcem projektu, bez psaní.
+ * Drží stav konverzace a odesílá (`usePletor`) i hlas (`usePletorVoice`), takže obojí přežije přepnutí HUD ↔ okno.
+ * Stav jádra odvodí jednou (hudState: přemýšlím / mluvím / srdce pracuje / poslouchám) pro HUD, okno i popup;
+ * časovače po REPLY_MS a HANDOFF_MS vrátí záblesk odpovědi a předání srdci do klidu.
  * Režim drží App; „hud“ vykreslí kokpit (PletorHud), „window“ plovoucí okno, „closed“ nic a nic nenačítá.
- * Přepínač Poslech (`listening`) drží App taky: zapnutý hlas trvale poslouchá i při zavřeném okně a mimo HUD
- * ukazuje plovoucí popup PletorListener; nepovolený mikrofon přepínač vrátí na false s hláškou.
+ * Přepínač Poslech (`listening`) a otevřené nastavení (`settings`, ozubené kolo) drží App taky: zapnutý Poslech
+ * trvale poslouchá i při zavřeném okně a mimo HUD ukazuje plovoucí popup PletorListener; nastavení skládá tady.
  */
-export default function PletorWindow({ mode, project, projectName, workspace, onMode, listening, onListening }: Props) {
-  const active = mode !== "closed" || listening;
+export default function PletorWindow({ mode, project, projectName, workspace, onMode, listening, onListening, settings, onSettings }: Props) {
+  const active = mode !== "closed" || listening || settings;
   const pletor = usePletor(active, project, workspace);
   const voice = usePletorVoice(pletor, active, { on: listening, onFail: (message) => onListening(false, message) });
   const [now, setNow] = useState(() => Date.now());
+  const [log, setLog] = useState(true);
   useEffect(() => {
     if (pletor.repliedAt === null) return;
     setNow(Date.now());
-    const timer = setTimeout(() => setNow(Date.now()), REPLY_MS);
-    return () => clearTimeout(timer);
+    const timers = [REPLY_MS, HANDOFF_MS].map((ms) => setTimeout(() => setNow(Date.now()), ms));
+    return () => timers.forEach(clearTimeout);
   }, [pletor.repliedAt]);
-  const orb = orbMode({ sending: pletor.sending, error: !!pletor.failure, lastPletorAt: pletor.repliedAt, now });
+  const work = hudWork(pletor.heart, pletor.actions, pletor.repliedAt, now);
+  const state = hudState({ sending: pletor.sending, voice: voice.phase, error: !!pletor.failure, work, repliedAt: pletor.repliedAt, now });
+  const label = hudLabel(state, work);
+  const gear = (tone: "bar" | "dark") => <PletorSettingsButton tone={tone} open={settings} onToggle={() => onSettings(!settings)} />;
+  const panel = settings && <PletorSettingsPanel voice={voice} brain={pletor.brain} onBrain={(brain) => void pletor.setBrain(brain)} onClose={() => onSettings(false)} />;
   const listener = listening && (
-    <PletorListener state={hudState(orb, voice.phase)} level={voice.level} interim={voice.interim} messages={pletor.messages}
-      error={pletor.failure || voice.error} onListening={(on) => onListening(on)} onInterrupt={voice.interrupt} onFullscreen={() => onMode("hud")} />
+    <PletorListener state={state} label={label} level={voice.level} interim={voice.interim} messages={pletor.messages}
+      error={pletor.failure || voice.error} onListening={(on) => onListening(on)} onInterrupt={voice.interrupt} onFullscreen={() => onMode("hud")}
+      settings={gear("dark")} />
   );
-  if (mode === "closed") return listener || null;
-  const disabled = pletor.sending || !project;
-  // Psaná zpráva chce krátkou odpověď ke čtení jen se zapnutým Hlasem; hlasová posílá `voice` sama (usePletorVoice).
-  const composer = (
-    <PletorComposer disabled={disabled} interim={voice.ambient ? "" : voice.interim} onSend={(text) => pletor.send(text, voice.prefs.voice)}>
-      <PletorMicButton phase={voice.phase} supported={voice.supported} blocked={voice.blocked} disabled={disabled} onToggle={voice.toggle} />
-      <PletorVoiceToggles prefs={voice.prefs} canListen={voice.supported} voices={voice.voices} chosen={voice.chosen} onChange={voice.setPrefs} />
-    </PletorComposer>
-  );
+  if (mode === "closed") return <>{listener}{panel}</>;
+  const mic = <PletorMicButton phase={voice.phase} supported={voice.supported} blocked={voice.blocked} disabled={pletor.sending || !project} onToggle={voice.toggle} />;
   const voiceError = voice.error && <p className="pletor-mic__error" role="alert">{voice.error}</p>;
   if (mode === "hud") {
-    return <PletorHud pletor={pletor} orb={orb} voice={voice} composer={composer} voiceError={voiceError} project={projectName} onWindow={() => onMode("window")}
-      listenSwitch={<PletorListenSwitch on={listening} onChange={(on) => onListening(on)} />} />;
+    return (
+      <>
+        <PletorHud pletor={pletor} state={state} label={label} voice={voice} mic={mic} voiceError={voiceError} project={projectName}
+          onWindow={() => onMode("window")} settingsOpen={settings}
+          tools={<><PletorListenSwitch on={listening} onChange={(on) => onListening(on)} />{gear("dark")}</>} />
+        {panel}
+      </>
+    );
   }
   return (
     <>
@@ -70,13 +74,19 @@ export default function PletorWindow({ mode, project, projectName, workspace, on
           <button type="button" className="pletor__close" aria-label="Zavřít Pletora" title="Zavřít" onClick={() => onMode("closed")}>×</button>
         </header>
         <PletorHeartLine heart={heartText(pletor.heart)} escalations={escalationText(pletor.escalations.length)} />
-        <PletorOrb mode={orb} />
-        <PletorMessages messages={pletor.messages} sending={pletor.sending} />
-        <PletorActions actions={pletor.actions} />
+        <PletorOrb state={state} />
+        <p className={`pletor__state pletor__state--${state}`} role="status">{label}</p>
+        <div className="pletor__controls">
+          {mic}
+          {gear("bar")}
+          <button type="button" className="pletor__log-toggle" aria-expanded={log} onClick={() => setLog((open) => !open)}>Přepis</button>
+        </div>
         {pletor.failure && <p className="pletor__failure" role="alert">{pletor.failure}</p>}
         {voiceError}
-        {composer}
+        {log && <PletorMessages messages={pletor.messages} sending={pletor.sending} />}
+        <PletorActions actions={pletor.actions} />
       </aside>
+      {panel}
     </>
   );
 }

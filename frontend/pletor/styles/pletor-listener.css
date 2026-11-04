@@ -1,8 +1,8 @@
-/* Přepínač Poslech je malý vypínač s posuvníkem a jedním slovem: člověk na první pohled vidí, jestli
-   ho Pletor slyší. Vypnutý je šedý a tichý; zapnutý svítí zelenou Pletora, protože mikrofon běží a to
+/* Přepínač Poslech je malý vypínač: ikona mikrofonu a posuvník, bez slova, aby lišta zůstala tichá; jméno
+   „Poslech“ řekne tooltip a čtečka. Člověk na první pohled vidí, jestli ho Pletor slyší. Vypnutý je šedý a tichý; zapnutý svítí zelenou Pletora, protože mikrofon běží a to
    má být vidět vždy. Chyba mikrofonu obarví rámeček tlumeně červeně a důvod řekne tooltip. V horní
    liště (`--bar`) se drží světlých barev aplikace, v HUD a popupu (`--dark`) tmavé zelené kokpitu;
-   `--small` je drobná varianta pro „jen na oslovení“. */
+   `--small` je drobná varianta s textem pro volby v nastavení (Hlas, Konverzace, Jen na oslovení). */
 .pletor-switch {
   flex: none;
   display: inline-flex;
@@ -19,6 +19,14 @@
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+}
+.pletor-switch__icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 .pletor-switch:focus-visible {
   outline: 2px solid var(--pletor-accent);
@@ -79,7 +87,7 @@
 
 /* Popup „Pletor poslouchá“ je malá plovoucí karta v rohu, ne chat: člověk pracuje v OPOŘE a koutkem oka
    vidí, že ho Pletor slyší, co právě zachytil a co odpověděl. Tmavá zelená ho odliší od aplikace
-   a spojí s kokpitem. Stojí nad aplikací, ale pod HUD a dialogy kokpitu; dá se odtáhnout tam, kde
+   a spojí s kokpitem. V záhlaví vedle Poslechu je ozubené kolo nastavení. Stojí nad aplikací, ale pod HUD a dialogy kokpitu; dá se odtáhnout tam, kde
    nepřekáží, a objeví se s krátkým nádechem, aby bylo jasné, že mikrofon právě začal běžet. */
 .pletor-listener {
   position: fixed;
@@ -190,7 +198,7 @@
   font-size: 12px;
 }
 
-/* Lišta nástrojů je tichá řada malých tlačítek pod jádrem: oslovení, přepis, přerušit, plná obrazovka.
+/* Lišta nástrojů je tichá řada malých tlačítek pod jádrem: přepis, přerušit, plná obrazovka.
    Nic z toho není potřeba stále, proto jsou obrysová a nekřičí. */
 .pletor-listener__tools {
   display: flex;

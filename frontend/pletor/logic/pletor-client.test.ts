@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  actionLabel, brainLabel, brainText, escalationText, fetchPletorState, heartText, parseBrain, sendPletorMessage,
+  actionLabel, brainLabel, brainText, escalationText, fetchPletorState, heartText, parseBrain, sendPletorMessage, setPletorBrain,
 } from "./pletor-client";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -54,6 +54,16 @@ describe("volání Pletora", () => {
     expect(brainText(parseBrain({ brain: "claude", model: "sonnet" }))).toBe("claude");
     expect(brainText(parseBrain({ brain: "gpt" }))).toBe("claude");
     expect(brainText(parseBrain(null))).toBe("claude");
+    expect(parseBrain({ brain: "claude", model: "sonnet", available: ["qwen3:14b"] })).toEqual({ brain: "claude", model: "sonnet", available: ["qwen3:14b"] });
+  });
+
+  it("přepne mozek přes POST /api/pletor/brain a vrátí nový stav i důvod selhání", async () => {
+    const calls = stubFetch({ ok: false, reply: "Ollama nemá model.", brain: { brain: "claude", model: "sonnet", available: [] } });
+    const result = await setPletorBrain("ollama");
+    const write = calls.find((call) => call.init?.method === "POST")!;
+    expect(write.url).toBe("/api/pletor/brain");
+    expect(JSON.parse(String(write.init!.body))).toEqual({ brain: "ollama" });
+    expect(result).toEqual({ ok: false, reply: "Ollama nemá model.", brain: { brain: "claude", model: "sonnet", available: [] } });
   });
 });
 

@@ -23,6 +23,8 @@ export const ENGINES: { id: Engine; label: string }[] = [
 const ORDER = ENGINES.map((engine) => engine.id);
 const CLOUD: Engine[] = ["elevenlabs", "edge"];
 const LEGACY_ELEVEN = "elevenlabs:voice";
+/** Text pro tento engine opouští počítač (štítek „cloud“ v nastavení), jinak zůstává lokálně. */
+export const isCloud = (engine: Engine) => CLOUD.includes(engine);
 
 /** Platné hlasy seřazené podle enginu (XTTS → Edge → Piper); neznámý engine se zahodí. */
 export function parseVoices(value: unknown): ServerVoice[] {

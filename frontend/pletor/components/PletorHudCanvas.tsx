@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { drawHud, stepHud, type HudFrame } from "../logic/hud-draw";
-import { hudPalette, type HudState } from "../logic/hud-palette";
+import { hudPalette } from "../logic/hud-palette";
+import type { HudState } from "../logic/hud-state";
 
 /**
  * Plátno kokpitu: jedna rAF smyčka kreslí prstence a jádro podle stavu od rodiče.

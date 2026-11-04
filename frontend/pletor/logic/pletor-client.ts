@@ -9,7 +9,8 @@ export type PletorMessage = { role: PletorRole; text: string; at: string };
 export type PletorActionType = "heart_message" | "vault_note";
 export type PletorAction = { type: PletorActionType; text: string; ok: boolean; detail?: string };
 export type PletorReply = { reply: string; actions: PletorAction[] };
-/** Zvolený mozek Pletora (P2): Claude pod předplatným, nebo lokální model v Ollamě; přepíná se větou v chatu. */
+/** Zvolený mozek Pletora (P2): Claude pod předplatným, nebo lokální model v Ollamě; přepíná se větou nebo v nastavení.
+ *  `available` jsou modely Ollamy i při Claude, aby nastavení ukázalo, kterým lokálním modelem by Pletor mluvil. */
 export type PletorBrain = { brain: "claude" | "ollama"; model: string | null; available: string[] };
 export type PletorState = { messages: PletorMessage[]; heart: unknown; escalations: unknown[]; brain: PletorBrain };
 
@@ -18,10 +19,16 @@ export const CLAUDE_BRAIN: PletorBrain = { brain: "claude", model: null, availab
 /** Pole `brain` ze stavu; chybějící nebo cizí hodnota je Claude (výchozí mozek). */
 export function parseBrain(value: unknown): PletorBrain {
   const raw = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
-  if (raw.brain !== "ollama") return CLAUDE_BRAIN;
   const available = Array.isArray(raw.available) ? raw.available.filter((name): name is string => typeof name === "string") : [];
-  return { brain: "ollama", model: typeof raw.model === "string" ? raw.model : null, available };
+  const model = typeof raw.model === "string" ? raw.model : null;
+  return { brain: raw.brain === "ollama" ? "ollama" : "claude", model: raw.brain === "ollama" || raw.brain === "claude" ? model : null, available };
 }
+
+/** Přepnutí mozku (`POST /api/pletor/brain`); `ok: false` nese důvod v `reply` (např. Ollama nemá model). */
+export const setPletorBrain = (brain: PletorBrain["brain"]) =>
+  api<{ ok?: unknown; reply?: unknown; brain?: unknown }>("/api/pletor/brain", { brain }).then((raw) => ({
+    ok: raw.ok === true, reply: typeof raw.reply === "string" ? raw.reply : "", brain: parseBrain(raw.brain),
+  }));
 
 /** Readout mozku do rohu HUD: `claude`, nebo `ollama · <model>`. */
 export const brainText = (brain: PletorBrain) => (brain.brain === "ollama" && brain.model ? `ollama · ${brain.model}` : brain.brain);

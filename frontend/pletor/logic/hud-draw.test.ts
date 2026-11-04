@@ -30,6 +30,13 @@ describe("drawHud", () => {
     expect(withConic.calls.createConicGradient).toHaveBeenCalledOnce();
     expect(() => drawHud(mockCtx(false).ctx, frame(), HUD_THINKING, "thinking")).not.toThrow();
   });
+  it("při práci srdce obíhají tři body, skener ne", () => {
+    const idle = mockCtx(true), working = mockCtx(true);
+    drawHud(idle.ctx, frame(), HUD_GREEN, "idle");
+    drawHud(working.ctx, frame(), HUD_GREEN, "working");
+    expect(working.calls.arc.mock.calls.length).toBe(idle.calls.arc.mock.calls.length + 6);
+    expect(working.calls.createConicGradient).toBeUndefined();
+  });
   it("malé jádro (popup Poslechu) kreslí bez štítků stupňů", () => {
     const { ctx, calls } = mockCtx(true);
     drawHud(ctx, { ...frame(), w: 110, h: 110 }, HUD_GREEN, "listening");
@@ -52,6 +59,14 @@ describe("stepHud", () => {
     stepHud(still, 0.05, "thinking", true);
     expect(thinking.rot - 0.3).toBeGreaterThan(idle.rot - 0.3);
     expect(still.rot - 0.3).toBeLessThan((idle.rot - 0.3) / 10);
+  });
+  it("malé jádro se při přemýšlení a práci točí rychleji než velké", () => {
+    for (const state of ["thinking", "working"] as const) {
+      const big = frame(), small = { ...frame(), w: 110, h: 110 };
+      stepHud(big, 0.05, state, false);
+      stepHud(small, 0.05, state, false);
+      expect(small.rot - 0.3).toBeGreaterThan(big.rot - 0.3);
+    }
   });
   it("odpověď zvedá amplitudu", () => {
     const speaking = frame();
