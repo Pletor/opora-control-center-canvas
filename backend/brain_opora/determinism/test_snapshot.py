@@ -69,6 +69,18 @@ def test_design_section_is_short_and_only_with_a_saved_design_system(service):
     assert "SMTP_PASSWORD" not in text and text.index("PLÁN:") < text.index("DESIGN:") < text.index("LÍSTKY ČEKAJÍCÍ:")
 
 
+def test_library_is_one_line_and_only_when_the_library_is_not_empty(service):
+    from backend.flow import library
+    assert snapshot.collect(service, "draft", "draft")["library"] == (0, 0)
+    assert "LIBRARY" not in snapshot.render(FACTS)
+    with service.registry_lock:
+        library.seed_folders(service.db)
+        folder = next(f for f in library.list_library(service.db, "human") if f["slug"] == "ai-rag")
+        library.create_flow(service.db, folder["id"], "rag", "RAG")
+    text = snapshot.render(snapshot.collect(service, "draft", "draft"))
+    assert "LIBRARY: 1 pláten člověka, 0 agenta · detail: opora_heart.py library show\n" in text
+
+
 def test_render_prefers_project_goal_and_falls_back_to_cards():
     facts = {**FACTS, "goal": "Prodat sazenice.", "pages": []}
     text = snapshot.render(facts)

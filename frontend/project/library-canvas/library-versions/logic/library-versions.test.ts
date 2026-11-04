@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { FlowVersion, VersionStatus } from "@/shared/flow-editor/logic/flow-types";
-import { history, pickFlowVersion, versionAction } from "./library-versions";
+import { history, pendingProposal, pickFlowVersion, versionAction } from "./library-versions";
 
 const v = (n: number, status: VersionStatus): FlowVersion => ({ id: `v${n}`, workflow_id: "w", n, graph: { nodes: [], edges: [] }, hash: "", parent_version_id: null, status, eval_run_id: null, created_at: "" });
 
@@ -15,4 +15,11 @@ it("shows the newer draft first, then the active version, and offers the matchin
   expect(versionAction(versions, versions[1])).toBe("rollback");
   expect(versionAction([v(1, "active")], v(1, "active"))).toBeNull();
   expect(history(versions).map((item) => item.n)).toEqual([3, 2, 1]);
+});
+
+it("finds the heart's pending proposal newer than the active version", () => {
+  const proposed = { ...v(3, "draft"), meta: { note: "Přidat reranker", proposedBy: { role: "heart", project: "p1" } } };
+  expect(pendingProposal([v(1, "retired"), v(2, "active"), proposed])?.id).toBe("v3");
+  expect(pendingProposal([v(1, "retired"), v(2, "active"), v(3, "draft")])).toBeNull();  // vlastní draft člověka návrh není
+  expect(pendingProposal([{ ...proposed, n: 1 }, v(2, "active")])).toBeNull();
 });

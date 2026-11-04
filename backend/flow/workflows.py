@@ -42,8 +42,9 @@ def _now():
 
 
 def _version(row):
-    derived = row["derived_from"]
-    return {**dict(row), "graph": json.loads(row["graph"]), "derived_from": json.loads(derived) if derived else None}
+    derived, meta = row["derived_from"], row["meta"]
+    return {**dict(row), "graph": json.loads(row["graph"]), "derived_from": json.loads(derived) if derived else None,
+            "meta": json.loads(meta) if meta else None}
 
 
 def list_workflows(db, project_id=None, kind=None, owner_ref=None):
@@ -124,9 +125,10 @@ def list_versions(db, workflow_id):
     return [_version(row) for row in rows]
 
 
-def create_draft(db, workflow_id, graph, parent_version_id=None, registry=None, derived_from=None):
+def create_draft(db, workflow_id, graph, parent_version_id=None, registry=None, derived_from=None, meta=None):
     """Nová neměnná verze s dalším `n`; rodič je zadaná verze, jinak aktivní. Graf ověří katalog druhu workflow.
-    `derived_from` (`{workflowId, versionId}`) je rodokmen kopie z jiného workflow (knihovna, `library.py`)."""
+    `derived_from` (`{workflowId, versionId}`) je rodokmen kopie z jiného workflow (knihovna, `library.py`),
+    `meta` neměnná metadata verze plátna toku (`{note?, learnedFrom?, proposedBy?}`, knihovna §5)."""
     kind = workflow_kind(db, workflow_id)
     check_graph(graph, registry or catalog(kind), kind)
     text = json.dumps(graph, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -142,9 +144,10 @@ def create_draft(db, workflow_id, graph, parent_version_id=None, registry=None, 
         vid = uuid.uuid4().hex
         db.execute(
             "INSERT INTO flow_workflow_versions(id,workflow_id,n,graph,hash,parent_version_id,status,created_at,"
-            "derived_from) VALUES(?,?,?,?,?,?,'draft',?,?)",
+            "derived_from,meta) VALUES(?,?,?,?,?,?,'draft',?,?,?)",
             (vid, workflow_id, n, text, hashlib.sha256(text.encode()).hexdigest(), parent_version_id, _now(),
-             json.dumps(derived_from, sort_keys=True) if derived_from else None),
+             json.dumps(derived_from, sort_keys=True) if derived_from else None,
+             json.dumps(meta, ensure_ascii=False, sort_keys=True) if meta else None),
         )
     return get_version(db, vid)
 
@@ -177,10 +180,15 @@ def activate(db, version_id):
     return _switch_active(db, version)
 
 
-def _intent_candidate(db, version_id):
+def _intent_candidate(db, version_id, library_draft=False):
+    """Kandidát záměru stránky; `library_draft` = zamítnutí smí i draft plátna toku (návrh srdce, knihovna §5)."""
     version = get_version(db, version_id)
-    if workflow_kind(db, version["workflow_id"]) != "page_intent":
-        raise FlowConflict("Schválení a zamítnutí verze je jen pro záměr stránky (page_intent).")
+    kind = workflow_kind(db, version["workflow_id"])
+    if library_draft and kind == "library_flow" and version["status"] in ("draft", "candidate"):
+        return version
+    if kind != "page_intent":
+        raise FlowConflict("Schválení a zamítnutí verze je jen pro záměr stránky (page_intent); draft plátna toku jde "
+                           "zamítnout, aktivuje se přes activate.")
     if version["status"] != "candidate":
         raise FlowConflict(f"Schválit nebo zamítnout jde jen kandidáta, verze je {version['status']}.")
     return version
@@ -202,10 +210,11 @@ def approve(db, version_id, author, page_digest=None):
 
 
 def reject(db, version_id, reason, author):
-    """Člověk zamítne kandidáta záměru: verze jde do `retired`, důvod do logu `version.rejected` (plátno 2)."""
+    """Člověk zamítne kandidáta záměru nebo draft plátna toku (návrh srdce): verze jde do `retired`, důvod do logu
+    `version.rejected` (plátno 2); návrat (`rollback`) ji přeskočí."""
     if not reason or not reason.strip():
         raise FlowInvalid("Zamítnutí potřebuje důvod.")
-    version = _intent_candidate(db, version_id)
+    version = _intent_candidate(db, version_id, library_draft=True)
     with db:
         db.execute("UPDATE flow_workflow_versions SET status='retired' WHERE id=?", (version_id,))
         append(db, None, None, "version.rejected", _decision(version, author, reason.strip()), canvas=2)

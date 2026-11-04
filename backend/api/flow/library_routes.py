@@ -2,7 +2,8 @@
 
 Tenký router nad registry.sqlite pod `registry_lock`. Kdo píše (`writer_refusal`): do části `human` jen člověk v UI
 (`require_human`, jinak 403/428), do části `agent` člověk nebo relace brány (`X-Opora-Gate-Token`, role `worker` /
-`heart`, jinak 401 `gate_token_invalid`). Povýšení do knihovny člověka (`promote`) jen člověk. Převzetí do projektu
+`heart`, jinak 401 `gate_token_invalid`). Výjimka (`heart_proposal`, K3): draft do části `human` smí uložit srdce
+jako návrh, který člověk přijme nebo zamítne. Povýšení do knihovny člověka (`promote`) jen člověk. Převzetí do projektu
 (`adopt`) píše do projektu, proto jde přes zeď brány projektu jako ostatní zápisy toků. Verze a graf plátna se mění
 přes `/api/flow/workflows/{id}/versions` (zeď tam hlídá stejná pravidla knihovny). 409 nese `{error, code}`.
 """
@@ -62,6 +63,19 @@ def writer_refusal(service, request, part):
         except GateError as error:
             return JSONResponse(error.body(), status_code=error.status)
     return None
+
+
+def heart_proposal(service, request, part):
+    """Návrh srdce do knihovny člověka (§5 `propose`): draft do části `human` smí i relace brány s rolí `heart`
+    kteréhokoli projektu (knihovna je globální). Vrátí `{role, project}` pro `proposedBy` verze, jinak None
+    (pak platí `writer_refusal`). Kandidát, aktivace, návrat i zamítnutí v části člověka zůstávají jen člověku."""
+    if part != "human" or getattr(request.state, "actor", None) == "human":
+        return None
+    try:
+        session = gate.authenticate(service, request.headers.get(tokens.HEADER), None, ("heart",))
+    except GateError:
+        return None
+    return {"role": "heart", "project": session["project_id"]}
 
 
 def create_library_router(service):

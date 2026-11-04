@@ -139,6 +139,9 @@ def test_library_flow_migration_on_old_schema():
     assert get_version(old, "v")["derived_from"] is None
     with pytest.raises(sqlite3.IntegrityError):  # rodokmen je neměnný jako graf
         old.execute("UPDATE flow_workflow_versions SET derived_from='{}' WHERE id='v'")
+    assert get_version(old, "v")["meta"] is None
+    with pytest.raises(sqlite3.IntegrityError):  # metadata verze (K3: poznámka, učení) taky
+        old.execute("UPDATE flow_workflow_versions SET meta='{}' WHERE id='v'")
     with pytest.raises(sqlite3.IntegrityError):
         old.execute("INSERT INTO flow_workflows(id,kind,name,created_at) VALUES('b','brain_workflow','B','t')")
     ref = "opora:library:human:ai-rag/rag"

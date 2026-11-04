@@ -46,7 +46,11 @@ export type FlowWorkflow = { id: string; kind: string; project_id: string | null
 export type FlowVersion = {
   id: string; workflow_id: string; n: number; graph: FlowGraph; hash: string; parent_version_id: string | null;
   status: VersionStatus; eval_run_id: string | null; created_at: string;
+  /** Metadata verze plátna toku (knihovna §5): poznámka, odkud se agent plátno naučil, kdo draft navrhl. */
+  meta?: VersionMeta | null;
 };
+export type LearnedFrom = { project: string; card?: string; result: string };
+export type VersionMeta = { note?: string; learnedFrom?: LearnedFrom; proposedBy?: { role: string; project: string } };
 
 export type RunStatus = "queued" | "running" | "waiting" | "succeeded" | "failed" | "cancelled";
 export type NodeRunStatus = "queued" | "running" | "waiting" | "succeeded" | "failed";

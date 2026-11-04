@@ -83,6 +83,11 @@
 .flow-node__port-label--right { left: calc(100% + 8px); transform: translateY(-120%); }
 .flow-node__port-label--left { right: calc(100% + 8px); transform: translateY(-120%); }
 .flow-node__required { color: var(--danger); }
+/* Sub-uzel je kruh 64 a dva sub-vstupy dole stojí jen ~21 px od sebe (vektorové úložiště jako nástroj: Embedding
+   a Reranker). Popisek levého portu proto končí u svého kosočtverce a pravého u něj začíná, takže se štítky rozestoupí
+   do stran místo aby se překryly uprostřed. Širší agent má místa dost a popisky drží na středu portu. */
+.flow-node--sub .flow-node__port-label--before { transform: translateX(calc(-100% + 5px)); }
+.flow-node--sub .flow-node__port-label--after { transform: translateX(-5px); }
 
 /* „+“ u prázdného portu je malé čtvercové tlačítko kousek od něj: pod sub-portem otevře paletu modelů či nástrojů,
    za volným výstupem paletu dalších kroků. Je mimo tah karty (`nodrag`), aby klik nepohnul uzlem. */

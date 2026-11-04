@@ -27,7 +27,7 @@ def test_library_api_parts_lineage_and_flow_engine(tmp_path):
         assert legacy.status_code == 422
 
         versions = f"/api/flow/workflows/{flow['id']}/versions"
-        assert c.post(versions, headers=heart, json={"graph": rag()}).status_code == 403
+        assert c.post(versions, headers=AGENT, json={"graph": rag()}).status_code == 403  # bez tokenu srdce
         vid = c.post(versions, headers=HEADERS, json={"graph": rag()}).json()["id"]
         c.post(f"/api/flow/versions/{vid}/candidate", headers=HEADERS, json={})
         assert c.post(f"/api/flow/versions/{vid}/activate", headers=HEADERS, json={}).json()["status"] == "active"
@@ -71,3 +71,35 @@ def test_library_api_parts_lineage_and_flow_engine(tmp_path):
             "deleted": agent_folder["id"]}
         assert c.request("DELETE", f"/api/library/folders/{rag_folder['id']}", headers=HEADERS, json={}).json()["code"] == \
             "folder_not_empty"
+
+
+def test_heart_proposes_a_draft_to_the_human_library_and_only_the_human_decides(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as c:
+        pid = c.post("/api/empty-project", headers=HEADERS, json={"name": "Web", "confirmed": True}).json()["id"]
+        heart = {**AGENT, tokens.HEADER: tokens.issue_heart(c.app.state.service, pid, "draft")[1]}
+        folder = next(f for f in c.get("/api/library").json()["folders"] if f["slug"] == "ai-rag")
+        flow = c.post("/api/library/flows", headers=HEADERS, json={"folder": folder["id"], "slug": "rag", "title": "RAG"}
+                      ).json()
+        versions = f"/api/flow/workflows/{flow['id']}/versions"
+        first = c.post(versions, headers=HEADERS, json={"graph": rag()}).json()
+        assert first["meta"] is None
+        draft = c.post(versions, headers=heart, json={"graph": rag(), "note": "Přidat reranker"}).json()
+        assert draft["status"] == "draft" and draft["meta"] == {
+            "note": "Přidat reranker", "proposedBy": {"role": "heart", "project": pid}}
+        for step in ("candidate", "activate"):  # aktivovat v části člověka srdce nesmí
+            assert c.post(f"/api/flow/versions/{draft['id']}/{step}", headers=heart, json={}).status_code == 403
+        reject = f"/api/flow/versions/{draft['id']}/reject"
+        assert c.post(reject, headers=heart, json={"reason": "ne"}).status_code == 403
+        assert c.post(reject, headers=HEADERS, json={"reason": "Reranker zatím ne"}).json()["status"] == "retired"
+
+        agent_folder = c.post("/api/library/folders", headers=heart,
+                              json={"owner": "agent", "slug": "ai-rag", "title": "AI a RAG"}).json()
+        mine = c.post("/api/library/flows", headers=heart,
+                      json={"folder": agent_folder["id"], "slug": "rag", "title": "RAG"}).json()
+        learned = {"project": pid, "card": "rag", "result": "verified"}
+        vid = c.post(f"/api/flow/workflows/{mine['id']}/versions", headers=heart,
+                     json={"graph": rag(), "learnedFrom": learned}).json()["id"]
+        c.post(f"/api/flow/versions/{vid}/candidate", headers=heart, json={})
+        c.post(f"/api/flow/versions/{vid}/activate", headers=heart, json={})
+        listed = c.get("/api/library", params={"owner": "agent"}).json()["folders"][0]["flows"][0]
+        assert listed["learnedFrom"] == learned and listed["activeN"] == 1

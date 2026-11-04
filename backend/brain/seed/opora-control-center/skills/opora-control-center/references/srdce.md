@@ -121,6 +121,27 @@ Rozklad schváleného záměru: ticket karty, která kritérium naplňuje, nese 
 (`ticket-issue --file`); server ověří, že verze je aktivní `page_intent` projektu a uzly jsou `intent.done`, a jejich
 `claim` doplní do `doneCriteria` (422 `ticket_intent`). Kritérium do těla nepiš.
 
+## Knihovna pláten toku jako nástroj srdce
+
+Knihovna je globální (napříč projekty) a má část člověka a část agenta ([flow.md](flow.md), kontrakt
+`docs/navrhy/2026-11-04-knihovna-platna-toku.md` §5). Snímek nese jediný řádek
+`LIBRARY: <n> pláten člověka, <m> agenta · detail: opora_heart.py library show` (jen když knihovna není prázdná);
+detail si načti nástrojem, jen když ho úkol potřebuje.
+
+| Příkaz | Cesta | Co vrátí |
+|---|---|---|
+| `library show [--owner human\|agent] [--folder SLUG]` | `GET /api/library?owner=` | po částech `folders` s plátny (`id`, `slug`, `title`, `activeN`, `description?`, `derivedFrom?`, `derivedCount?`, `learnedFrom?`) a `empty` = slugy prázdných složek |
+| `library get FLOW [--version N]` | `GET /api/library/flows/{id}` | graf aktivní (nebo zadané) verze `{nodes, edges, notes, groups}`, `meta` verze a seznam verzí `vN stav · poznámka` |
+| `library save --folder SLUG --slug SLUG --title T --file F [--learned-from JSON]` | `POST /api/flow/graph-check`, složka a plátno v části agenta (když chybí), `POST …/versions`, `candidate`, `activate` | uloží graf do knihovny AGENTA a aktivuje ho; neprojde-li kontrolou, vrátí `code: library_graph_check` s `errors` a nic neuloží |
+| `library propose FLOW --file F [--note N]` | `POST /api/flow/graph-check`, `POST /api/flow/workflows/{id}/versions` | k plátnu ČLOVĚKA uloží draft s poznámkou (`meta.proposedBy`); přijme (aktivuje) nebo zamítne ho člověk na plátně; u plátna agenta `library_not_human` |
+
+Jak srdce s knihovnou pracuje: **co zná, použije** (`library show` → `library get` a graf vezme jako základ plánu
+nebo ticketu); **co nezná, dohledá** (rešerše, `research`) a výsledek rozkreslí jako plátno toku a uloží
+`library save` do knihovny agenta s `--learned-from '{"project": "<id>", "card": "<id karty>", "result": "delivered"}'`.
+Když se plátno v projektu ověří (ticket karty `verified`), ulož novou verzi s `"result": "verified"`: panel Komponenty
+ho ukáže jako „ověřeno v projektu – navrženo k povýšení“ a povýší ho člověk. Změnu plátna člověka jen navrhuj
+(`library propose`); aktivovat, zamítat ani povyšovat v části člověka srdce nesmí (403).
+
 ## Vstupní brána a výslech (rozhodují člověk, při plné autonomii i agent)
 
 | Cesta | Kdo | Co |

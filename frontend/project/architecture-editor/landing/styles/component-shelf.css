@@ -46,6 +46,9 @@
 .component-shelf__flow-title:hover{text-decoration:underline}
 .component-shelf__purpose{margin:0;font-size:12px}
 .component-shelf__count--left{text-align:left;margin:0}
+/* Plátno agenta, které prošlo ověřením v projektu, nese zelený štítek „navrženo k povýšení“: agent se ho naučil
+   a projekt ho potvrdil, takže člověk má důvod ho otevřít a povýšit do své knihovny. Štítek žádá rozhodnutí, nic nevynucuje. */
+.component-shelf__suggest{justify-self:start;margin:0;padding:1px 7px;border:1px solid var(--ok);border-radius:10px;color:var(--ok);font-size:11px}
 .component-shelf__add{align-self:flex-start;padding:4px 10px;border:1px dashed var(--cs-tone);border-radius:6px;background:none;color:var(--cs-tone);font:inherit;font-size:12px;cursor:pointer}
 .component-shelf__form{display:flex;flex-wrap:wrap;gap:6px}
 .component-shelf__input{flex:1 1 140px;padding:4px 7px;border:1px solid var(--ae-line);border-radius:5px;background:var(--ae-bg);color:var(--ae-text);font:inherit;font-size:12px}

@@ -16,11 +16,13 @@ export default function FlowPort({ nodeId, port, readOnly }: { nodeId: string; p
   const free = !port.connected || (sub && port.cardinality === "many");
   const showPlus = !readOnly && free && ((sub && port.direction === "in") || (!sub && port.direction === "out"));
   const missing = port.required && !port.connected;
+  // Svislý popisek se odkloní od středu, aby se sousední štítky na úzkém sub-uzlu nepřekryly (Embedding × Reranker).
+  const lean = vertical && port.offset < 0.5 ? " flow-node__port-label--before" : vertical && port.offset > 0.5 ? " flow-node__port-label--after" : "";
   return <>
     <Handle id={port.handleId} type={port.direction === "in" ? "target" : "source"} position={POSITION[port.side]} style={place}
       className={`flow-node__port flow-node__port--${port.side}${sub ? " flow-node__port--sub" : ""}${missing ? " flow-node__port--missing" : ""}`}
       title={`${port.direction === "in" ? "vstup" : "výstup"} ${port.name} · ${port.kind} · ${port.cardinality === "one" ? "jedna vazba" : "více vazeb"}`}/>
-    {port.label && <span className={`flow-node__port-label flow-node__port-label--${port.side}`} style={place}>
+    {port.label && <span className={`flow-node__port-label flow-node__port-label--${port.side}${lean}`} style={place}>
       {port.label}{port.required && <b className="flow-node__required">*</b>}</span>}
     {showPlus && <button type="button" className={`flow-node__plus flow-node__plus--${port.side}${port.label && port.side === "right" ? " flow-node__plus--labelled" : ""} nodrag nopan`} style={place}
       aria-label={`Přidat uzel k portu ${port.name}`} data-testid={`flow-plus-${nodeId}-${port.name}`}

@@ -15,6 +15,10 @@ export function tagsDescription(input: string): string {
 
 export const flowCount = (folder: LibraryFolder) => plural(folder.flows.length, "plátno", "plátna", "pláten");
 
+/** Plátno agenta ověřené v projektu (`learnedFrom.result == "verified"`) je navržené k povýšení do knihovny člověka. */
+export const promotionSuggested = (flow: LibraryFlowSummary) =>
+  flow.ownerRef.startsWith("opora:library:agent:") && flow.learnedFrom?.result === "verified";
+
 /** Řádek karty plátna: aktivní verze a kolik prvků z plátna vychází. */
 export function flowFacts(flow: LibraryFlowSummary): string {
   const version = flow.activeN ? `aktivní v${flow.activeN}` : "bez aktivní verze";

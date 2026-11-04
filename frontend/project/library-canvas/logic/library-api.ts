@@ -3,11 +3,11 @@
 // a rodokmenem, převzetí do projektu, uložení vylepšení a povýšení. Verze a graf jdou přes engine toků
 // (`/api/flow/workflows/{id}/versions`); plátno toku se aktivuje bez schválení (draft → candidate → active).
 import { api } from "@/shared/types/logic/types";
-import type { FlowGraph, FlowVersion, NodeTypeSpec, PortSpec } from "@/shared/flow-editor/logic/flow-types";
+import type { FlowGraph, FlowVersion, LearnedFrom, NodeTypeSpec, PortSpec } from "@/shared/flow-editor/logic/flow-types";
 
 export type LibraryOwner = "human" | "agent";
 export type LibraryFlowSummary = { id: string; slug: string | null; title: string; description: string | null; ownerRef: string; projectId: string | null;
-  activeVersionId: string | null; activeN: number | null; derivedCount: number };
+  activeVersionId: string | null; activeN: number | null; derivedCount: number; derivedFrom?: DerivedFrom | null; learnedFrom?: LearnedFrom | null };
 export type LibraryFolder = { id: string; owner: LibraryOwner; slug: string; title: string; description: string; order: number; flows: LibraryFlowSummary[] };
 export type DerivedFrom = { workflowId: string; versionId: string };
 export type LibraryFlowDetail = LibraryFlowSummary & {
@@ -32,6 +32,7 @@ export const libraryUrls = {
   versions: (flow: string) => `${FLOW}/workflows/${id(flow)}/versions`,
   candidate: (version: string) => `${FLOW}/versions/${id(version)}/candidate`,
   activate: (version: string) => `${FLOW}/versions/${id(version)}/activate`,
+  reject: (version: string) => `${FLOW}/versions/${id(version)}/reject`,
   rollback: (flow: string) => `${FLOW}/workflows/${id(flow)}/rollback`,
   projectFlows: (project: string) => `${FLOW}/workflows?${new URLSearchParams({ project, kind: KIND })}`,
 };
@@ -56,6 +57,8 @@ export async function activateVersion(version: FlowVersion): Promise<FlowVersion
   if (version.status === "draft") await api<FlowVersion>(libraryUrls.candidate(version.id), {});
   return api<FlowVersion>(libraryUrls.activate(version.id), {});
 }
+/** Zamítnutí draftu (návrh srdce): verze jde do historie, návrat ji přeskočí. */
+export const rejectVersion = (version: string, reason: string) => api<FlowVersion>(libraryUrls.reject(version), { reason });
 export const rollbackFlow = (flow: string) => api<FlowVersion>(libraryUrls.rollback(flow), {});
 export const nodePorts = (type: string, params: Record<string, unknown>, onError?: string) =>
   api<unknown>(libraryUrls.nodePorts(), { kind: KIND, type, params, ...(onError ? { onError } : {}) }).then((raw) => field<PortSpec[]>(raw, "ports", []));

@@ -23,7 +23,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from backend.api.brain_opora.writer import heart_project
-from backend.api.flow.library_routes import writer_refusal
+from backend.api.flow.library_routes import heart_proposal, writer_refusal
 from backend.brain_opora.determinism import gate, tokens, wall
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.activity_log import require_human
@@ -47,9 +47,18 @@ class WorkflowIn(BaseModel):
     owner_ref: str | None = Field(default=None, max_length=200)
 
 
+class LearnedFrom(BaseModel):
+    project: str = Field(min_length=1, max_length=64)
+    card: str | None = Field(default=None, max_length=200)
+    result: str = Field(min_length=1, max_length=32)
+
+
 class DraftIn(BaseModel):
     graph: dict[str, Any]
     parent_version_id: str | None = None
+    # Metadata verze plátna toku (knihovna §5): poznámka návrhu a odkud se ho agent naučil.
+    note: str | None = Field(default=None, max_length=2000)
+    learnedFrom: LearnedFrom | None = None
 
 
 class CandidateIn(BaseModel):
@@ -115,10 +124,14 @@ def create_flow_router(service):
                 return action(service.db, *args)
         return guarded(locked)
 
-    def walled(request, **ids):
+    def walled(request, proposal=False, **ids):
         """Zeď brány pro zápis podle ID: projekt se dohledá z workflow; odmítnutí = odpověď, jinak None.
-        Plátno knihovny (bez projektu) hlídá pravidlo části knihovny."""
+        Plátno knihovny (bez projektu) hlídá pravidlo části knihovny; `proposal` = draft, který do části člověka
+        smí jako návrh i srdce (`heart_proposal`, zapíše se do `request.state.proposed_by`)."""
         if part := call(lambda db: workflows.library_part(db, **ids)):
+            if proposal and (proposer := heart_proposal(service, request, part)):
+                request.state.proposed_by = proposer
+                return None
             return writer_refusal(service, request, part)
         project = call(lambda db: workflows.project_of(db, **ids))
         verdict = wall.check(service, request.method, request.url.path, getattr(request.state, "actor", None),
@@ -191,9 +204,13 @@ def create_flow_router(service):
 
     @router.post("/workflows/{workflow_id}/versions")
     def version_draft(workflow_id: str, body: DraftIn, request: Request):
-        if refused := walled(request, workflow_id=workflow_id):
+        if refused := walled(request, proposal=True, workflow_id=workflow_id):
             return refused
-        return call(workflows.create_draft, workflow_id, body.graph, body.parent_version_id)
+        meta = {key: value for key, value in (("note", (body.note or "").strip() or None),
+                                              ("learnedFrom", body.learnedFrom and body.learnedFrom.model_dump(exclude_none=True)),
+                                              ("proposedBy", getattr(request.state, "proposed_by", None))) if value}
+        return call(lambda db: workflows.create_draft(db, workflow_id, body.graph, body.parent_version_id,
+                                                      meta=meta or None))
 
     @router.post("/versions/{version_id}/candidate")
     def version_candidate(version_id: str, request: Request, body: CandidateIn | None = None):
@@ -217,7 +234,7 @@ def create_flow_router(service):
 
     @router.post("/versions/{version_id}/reject")
     def version_reject(version_id: str, body: RejectIn, request: Request):
-        require_human(getattr(request.state, "actor", None), "Záměr stránky zamítá jen člověk v UI.")
+        require_human(getattr(request.state, "actor", None), "Záměr stránky i návrh plátna toku zamítá jen člověk v UI.")
         return call(workflows.reject, version_id, body.reason, "human")
 
     @router.post("/workflows/{workflow_id}/rollback")
