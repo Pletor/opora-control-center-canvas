@@ -23,6 +23,10 @@ type Props = {
   /** Rámec vybraný klikem (id bez předpony) a uzly vybrané tahem s Shiftem nebo Ctrl+klikem (pro „Rámec z výběru“). */
   /** Tažená vazba upuštěná do prázdna: port, ze kterého se táhlo („Co dál?“). */
   onDropEmpty?: (from: PortRef) => void;
+  /** Dvojklik na kartu uzlu nebo na rámec (id uzlu, rámce s předponou `group:`): detail funkce a sbalení rámce. */
+  onOpen?: (id: string) => void;
+  /** Vazba upuštěná na port, který ji nepřijme (aby editor řekl proč). */
+  onReject?: (a: PortRef, b: PortRef) => void;
   onSelectGroup?: (id: string) => void; onSelection?: (nodeIds: string[]) => void; onMoveNote?: (id: string, at: Point) => void;
 };
 
@@ -41,7 +45,7 @@ export default function FlowCanvas(props: Props) {
 const VIEW: SurfaceView = { minZoom: 0.2, maxZoom: 2, fitPadding: 0.25, dotGap: 20, dotColor: "var(--canvas-dot)", controls: "top-left", minimapLabel: "Minimapa toku", minimapClass: "flow-editor__minimap" };
 const NO_FRAMES: FrameActions = { onNote: () => {}, onToggleGroup: () => {} };
 
-function Canvas({ nodes: next, edges, readOnly, frames, canConnect, onSelectNode, onSelectEdge, onMove, onConnect, onDropType, onPlus, onSelectGroup, onSelection, onMoveNote, onDropEmpty }: Props) {
+function Canvas({ nodes: next, edges, readOnly, frames, canConnect, onSelectNode, onSelectEdge, onMove, onConnect, onDropType, onPlus, onSelectGroup, onSelection, onMoveNote, onDropEmpty, onOpen, onReject }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(next);
   // Přestavba uzlů nesmí zahodit změřený rozměr, jinak React Flow schová hrany, než uzly znovu změří.
   useEffect(() => setNodes((prev) => next.map((node) => ({ ...node, measured: prev.find((item) => item.id === node.id)?.measured }) as CanvasNode)), [next, setNodes]);
@@ -60,8 +64,11 @@ function Canvas({ nodes: next, edges, readOnly, frames, canConnect, onSelectNode
           onConnectEnd: (_, state) => {
             const from = !state.isValid && !state.toNode && state.fromHandle ? parseHandle(state.fromHandle.nodeId, state.fromHandle.id) : null;
             if (from) onDropEmpty?.(from);
+            const to = !state.isValid && state.toHandle && state.fromHandle ? parseHandle(state.toHandle.nodeId, state.toHandle.id) : null, start = state.fromHandle ? parseHandle(state.fromHandle.nodeId, state.fromHandle.id) : null;
+            if (to && start) onReject?.(start, to);
           },
           onNodeClick: (_, node) => click(node),
+          onNodeDoubleClick: (_, node) => { if (node.type === "flow-group") onOpen?.(node.id); else if (node.type === "flow-card" && !(node as FlowCardNode).data.ghost) onOpen?.((node as FlowCardNode).data.nodeId); },
           onEdgeClick: (_, edge) => onSelectEdge(edge.id), onPaneClick: () => { onSelectNode(null); onSelectEdge(null); },
           onSelectionChange: onSelection && (({ nodes: picked }) => onSelection(picked.filter((node) => node.type === "flow-card").map((node) => node.id))),
           onNodeDragStop: (_, node) => node.id.startsWith(NOTE_PREFIX) ? onMoveNote?.(node.id.slice(NOTE_PREFIX.length), node.position) : onMove(node.id, node.position),

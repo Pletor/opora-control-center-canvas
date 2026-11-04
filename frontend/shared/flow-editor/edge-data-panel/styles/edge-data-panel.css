@@ -1,0 +1,43 @@
+/* DRUHY DAT NA HRANĚ (blok `edge-data-panel`)
+   Každý druh dat má svou čáru: barvu a styl (plná, tečkovaná, čárkovaná …), aby se druhy rozlišily i bez barev a aby se
+   nepletly s barvami vrstev, které patří uzlům. Barvy jsou tlumené a na tmavém tématu světlejší, ladí se jen tady, v
+   tokenech `--data-*`. Čára je o něco tlustší než hlavní tok, takže hrana s daty je na plátně hned poznat. */
+:root[data-theme="dark"] { --data-text: #4fd1c5; --data-number: #f6a35a; --data-json: #cbd5e1; --data-table: #a3e635; --data-document: #fb7185; --data-vector: #c084fc; --data-file: #fbbf24; --data-event: #f4f4f5; }
+:root[data-theme="light"] { --data-text: #0f8f86; --data-number: #c2670f; --data-json: #475569; --data-table: #4d7c0f; --data-document: #be123c; --data-vector: #7e22ce; --data-file: #a16207; --data-event: #27272a; }
+
+.flow-edge--data .react-flow__edge-path { stroke-width: 2.2; }
+.flow-edge--data-text .react-flow__edge-path { stroke: var(--data-text); stroke-dasharray: none; }
+.flow-edge--data-number .react-flow__edge-path { stroke: var(--data-number); stroke-dasharray: 2 4; stroke-linecap: round; }
+.flow-edge--data-json .react-flow__edge-path { stroke: var(--data-json); stroke-dasharray: 9 4; }
+.flow-edge--data-table .react-flow__edge-path { stroke: var(--data-table); stroke-dasharray: 12 3 2 3; }
+.flow-edge--data-document .react-flow__edge-path { stroke: var(--data-document); stroke-dasharray: none; stroke-width: 3; }
+.flow-edge--data-vector .react-flow__edge-path { stroke: var(--data-vector); stroke-dasharray: 3 3; }
+.flow-edge--data-file .react-flow__edge-path { stroke: var(--data-file); stroke-dasharray: 16 5; }
+.flow-edge--data-event .react-flow__edge-path { stroke: var(--data-event); stroke-dasharray: 1 5; stroke-linecap: round; stroke-width: 3; }
+
+/* Panel „Co tu letí“ je pravý sloupec jako inspektor uzlu: nahoře odkud kam hrana vede, pod tím druh dat (políčko má
+   okraj v barvě druhu), schéma a příklad. Zděděný příklad je šedý náhled pod polem s popiskem, odkud přišel, aby bylo
+   jasné, že hrana vlastní příklad nemá. */
+.edge-data-panel { box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; width: 320px; flex: none; overflow: auto; padding: 12px;
+  border-left: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 12px; }
+.edge-data-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.edge-data-panel__title { display: grid; gap: 2px; font-size: 13px; }
+.edge-data-panel__close { border: 0; background: none; color: var(--ink-muted); font-size: 18px; cursor: pointer; }
+.edge-data-panel__muted { margin: 0 0 0 6px; color: var(--ink-muted); font-size: 11px; }
+.edge-data-panel__title .edge-data-panel__muted { margin: 0; }
+.edge-data-panel__field { display: grid; gap: 4px; }
+.edge-data-panel__key { color: var(--ink-2); font-weight: 600; }
+.edge-data-panel__inherited { margin-left: 6px; padding: 1px 6px; border-radius: 8px; background: var(--surface-2); color: var(--ink-muted); font-size: 10px; font-weight: 400; }
+.edge-data-panel__input { box-sizing: border-box; width: 100%; padding: 5px 6px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; }
+.edge-data-panel__input--code { font: 11px/1.4 var(--mono, monospace); resize: vertical; }
+.edge-data-panel__input--text { border-color: var(--data-text); }
+.edge-data-panel__input--number { border-color: var(--data-number); }
+.edge-data-panel__input--json { border-color: var(--data-json); }
+.edge-data-panel__input--table { border-color: var(--data-table); }
+.edge-data-panel__input--document { border-color: var(--data-document); }
+.edge-data-panel__input--vector { border-color: var(--data-vector); }
+.edge-data-panel__input--file { border-color: var(--data-file); }
+.edge-data-panel__input--event { border-color: var(--data-event); }
+.edge-data-panel__error { color: var(--danger); font-size: 11px; }
+.edge-data-panel__preview { max-height: 160px; margin: 0; overflow: auto; padding: 8px; border-radius: 6px; background: var(--code-bg); color: var(--ink-muted); font: 11px/1.4 var(--mono, monospace); white-space: pre-wrap; }
+.edge-data-panel__save { padding: 6px 10px; border: 1px solid var(--accent); border-radius: 5px; background: var(--surface-2); color: var(--accent); font: inherit; cursor: pointer; }

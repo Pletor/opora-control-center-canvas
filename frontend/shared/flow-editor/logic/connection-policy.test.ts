@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compatiblePort, connectionError, edgeFor, pairError, type PairRules, type PortEnd } from "./connection-policy";
-import { heartGraph, TYPES } from "./flow-fixtures";
+import { heartGraph, PROCESS, processGraph, TYPES } from "./flow-fixtures";
 
 const out = (nodeId: string, port = "main") => ({ nodeId, port, direction: "out" as const });
 const inp = (nodeId: string, port = "main") => ({ nodeId, port, direction: "in" as const });
@@ -50,5 +50,10 @@ describe("pairError with free-text port types (Studio MODEL)", () => {
     const one: PortEnd = { ...end("b", "in", "event"), cardinality: "one" };
     expect(pairError(end("a", "out", "event"), one, { ...rules, uses: () => 1 })).toMatch(/jen jednu vazbu/);
     expect(pairError(end("a", "out", "event"), { ...one, cardinality: "many" }, { ...rules, uses: () => 1 })).toBeNull();
+  });
+  it("rejects a drag whose emitted data kind the target does not accept", () => {
+    const graph = processGraph();
+    expect(connectionError(graph, PROCESS, out("bmi"), inp("oznameni"))).toMatch(/nepřijímá data druhu číslo \(přijímá: text, událost, JSON\)/);
+    expect(connectionError(graph, PROCESS, out("formular"), inp("endpoint"))).toBeNull();
   });
 });

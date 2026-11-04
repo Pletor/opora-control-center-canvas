@@ -15,13 +15,15 @@ type Props = {
   /** Pole uzlu plátna toku (data, chyby, poznámka); bez něj inspektor ukazuje běh (Vstup, Výstup). */
   /** Plátno procesů: změna vrstvy uzlu (`undefined` = výchozí z typu); pole se ukáže, jen když typ vrstvu má. */
   onLayer?: (layer: Layer | undefined) => void;
+  /** Detail funkce: „Rozkreslit vnitřek“ (jen u funkce, stavu, kódu a kroku na míru mimo skupinu). */
+  onExpand?: () => void;
   onField?: <K extends keyof FlowNodeDetail>(key: K, value: FlowNodeDetail[K] | undefined) => void;
 };
 
 /** Inspektor uzlu jako postranní panel (ne modál jako NDV v n8n), aby graf zůstal vidět. U běhu tři záložky: Parametry,
  * Vstup a Výstup vybraného běhu, nad nimi stav uzlu v běhu (pokus, model, tokeny, cena, čekání, prostoj a chyba). Plátno
  * toku (`onField`) má záložky Parametry, Data (schémata a příklad), Chyby a Poznámka. */
-export default function NodeInspector({ node, spec, run, stall, readOnly, onParam, onRemove, onClose, onField, onLayer }: Props) {
+export default function NodeInspector({ node, spec, run, stall, readOnly, onParam, onRemove, onClose, onField, onLayer, onExpand }: Props) {
   const [tab, setTab] = useState<Tab>("params");
   const tabs: Tab[] = onField ? ["params", "data", "errors", "note"] : ["params", "input", "output"];
   const ref = tab === "input" ? run?.input_ref : run?.output_ref;
@@ -52,6 +54,7 @@ export default function NodeInspector({ node, spec, run, stall, readOnly, onPara
       : run ? <pre className="node-inspector__data">{prettyRef(ref) || "— bez dat —"}</pre>
         : <p className="node-inspector__muted">Vyberte běh, ve kterém uzel proběhl.</p>}
     {node.pinned_output !== undefined && node.pinned_output !== null && <p className="node-inspector__muted">Připnutý výstup: uzel se v běhu nevykoná.</p>}
+    {onExpand && <button type="button" className="node-inspector__expand" data-testid="node-expand" onClick={onExpand}>Rozkreslit vnitřek</button>}
     {!readOnly && <button type="button" className="node-inspector__remove" onClick={onRemove}>Smazat uzel</button>}
   </aside>;
 }

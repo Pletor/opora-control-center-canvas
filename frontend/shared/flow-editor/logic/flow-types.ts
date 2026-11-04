@@ -17,7 +17,14 @@ export type PortVariant = { params: Record<string, unknown>; ports: PortSpec[] }
 export type NodeTypeSpec = { type: string; version: number; trigger: boolean; ports: PortSpec[]; params?: Record<string, string> | null;
   category?: string; dynamicPorts?: boolean; variants?: PortVariant[];
   /** Plátno procesů (kontrakt `2026-11-04-platno-procesu.md` §1): výchozí vrstva typu, „kdy použít / nepoužít“ a štítky záměrů průvodce. */
-  layer?: Layer; use?: string; avoid?: string; intents?: string[] };
+  layer?: Layer; use?: string; avoid?: string; intents?: string[];
+  /** Druhy dat, které typ přijímá (prázdné = cokoli), a druh, který vydává (`null` = neurčeno); kontrakt §2. */
+  accepts?: DataKind[]; emits?: DataKind | null };
+
+export const DATA_KINDS = ["text", "number", "json", "table", "document", "vector", "file", "event"] as const;
+export type DataKind = typeof DATA_KINDS[number];
+/** Co po hraně letí (kontrakt §2): druh dat, volitelné schéma a příklad. */
+export type EdgeData = { kind: DataKind; schema?: unknown; example?: unknown };
 
 export const LAYERS = ["fe", "be", "db", "infra", "ai", "neutral"] as const;
 export type Layer = typeof LAYERS[number];
@@ -40,8 +47,8 @@ export type FlowNode = {
 } & FlowNodeDetail;
 export type FlowEdge = {
   id: string; source_node: string; source_port: string; target_node: string; target_port: string; kind: PortKind; label?: string;
-  /** Přechod mezi vrstvami; `data` (druhy dat na hraně) patří do P2, editor ho jen nezahodí. */
-  via?: EdgeVia; data?: unknown;
+  /** Přechod mezi vrstvami a data, která po hraně letí. */
+  via?: EdgeVia; data?: EdgeData;
 };
 /** Sticky poznámka za uzly (markdown, barva 1–7 jako n8n) a rámec skupiny kolem uzlů (n8n Canvas Groups). */
 export type FlowNote = { id: string; content: string; x: number; y: number; width: number; height: number; color?: number };

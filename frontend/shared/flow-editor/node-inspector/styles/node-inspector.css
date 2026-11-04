@@ -39,6 +39,9 @@
 .node-inspector__drop { border: 0; background: none; color: var(--ink-muted); cursor: pointer; }
 .node-inspector__new { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 4px; padding-top: 8px; border-top: 1px dashed var(--line); }
 .node-inspector__button { padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; }
+/* „Rozkreslit vnitřek“ je klidné tlačítko s okrajem v barvě akcentu: nabízí se jen u funkce, stavu, kódu a kroku na míru
+   a nahradí uzel skupinou kroků, takže nemá vypadat jako nebezpečná akce vedle „Smazat uzel“. */
+.node-inspector__expand { align-self: flex-start; padding: 5px 10px; border: 1px solid var(--accent); border-radius: 5px; background: var(--surface-2); color: var(--accent); font: inherit; cursor: pointer; }
 .node-inspector__remove { align-self: flex-start; margin-top: auto; padding: 5px 10px; border: 1px solid var(--danger-line); border-radius: 5px; background: var(--danger-soft); color: var(--danger); font: inherit; cursor: pointer; }
 
 /* Plátno toku: blokové pole (JSON editor, výběr) zabere celou šířku, nápověda z registru stojí pod klíčem šedě

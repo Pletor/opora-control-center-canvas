@@ -3,9 +3,9 @@ import { checkTargets } from "../logic/check-strip";
 import { connectionError, portOf } from "../logic/connection-policy";
 import { nodeTypeMap, specOf, withNodePorts, type FlowGraph, type NodeRun, type NodeTypeSpec, type Point, type PortRef, type PortSpec } from "../logic/flow-types";
 import { flowEdges, flowNodes } from "../logic/flow-view";
-import { foldEdges, groupNodes, hiddenNodes, noteNodes } from "../logic/frame-view";
+import { foldEdges, groupNodes, GROUP_PREFIX, hiddenNodes, noteNodes } from "../logic/frame-view";
 import type { GraphDiff } from "../logic/graph-diff";
-import { addConnected, addNode, connect, moveNode, removeEdge, removeNode, setEdgeVia, setNodeField, setParam } from "../logic/graph-edit";
+import { addConnected, addNode, connect, moveNode, removeEdge, removeNode, setEdgeData, setEdgeVia, setNodeField, setParam } from "../logic/graph-edit";
 import { addNote, groupFromSelection, setGroup, setNote, ungroup } from "../logic/graph-frames";
 import { readinessIssues } from "../logic/readiness";
 import type { RunOverlay } from "../logic/run-overlay";
@@ -13,12 +13,16 @@ import type { PlusRequest } from "../flow-node/logic/port-actions";
 import NodePalette from "../node-palette/components/NodePalette";
 import NodeInspector from "../node-inspector/components/NodeInspector";
 import GroupInspector from "../flow-frame/components/GroupInspector";
+import { canExpand, expandFunction } from "../flow-frame/logic/detail-expand";
+import EdgeDataPanel from "../edge-data-panel/components/EdgeDataPanel";
+import { edgeKindError, inheritedExample } from "../edge-data-panel/logic/edge-data";
 import { arrangeLanes, laneNodes } from "../flow-lanes/logic/lanes";
 import { linkableTypes, settleAdded } from "../flow-lanes/logic/layer-links";
 import { effectiveLayer } from "../flow-lanes/logic/layers";
 import FlowCanvas from "./FlowCanvas";
 import FlowToolbar from "./FlowToolbar";
 import "../flow-lanes/styles/flow-lanes.css";
+import "../edge-data-panel/styles/edge-data-panel.css";
 import "../styles/flow-editor.css";
 
 type Props = {
@@ -73,7 +77,15 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
   const offered = useMemo(() => palette?.port && anchor ? linkableTypes(types, effectiveLayer(anchor, specOf(registry, anchor)), palette.port.direction) : types,
     [types, palette, anchor, registry]);
   const toggle = (id: string) => setCollapsed((old) => { const next = new Set(old); if (!next.delete(id)) next.add(id); return next; });
-  const selectNode = (id: string | null) => { setGroupId(null); onSelect(id); };
+  const selectNode = (id: string | null) => { setGroupId(null); if (id) setEdge(null); onSelect(id); };
+  const selectEdge = (id: string | null) => { setEdge(id); if (id) { setGroupId(null); onSelect(null); } };
+  // Detail funkce: rámec se přepne mezi sbaleným a rozbaleným, funkce se rozkreslí do rozbalené skupiny.
+  const expand = (nodeId: string) => apply(() => { const made = expandFunction(graph, registry, nodeId); setGroupId(made.group.id); onSelect(null); return made.graph; });
+  const open = (id: string) => {
+    if (id.startsWith(GROUP_PREFIX)) { if (frames) toggle(id.slice(GROUP_PREFIX.length)); return; }
+    const target = graph.nodes.find((item) => item.id === id);
+    if (frames && !readOnly && target && canExpand(graph, target)) expand(id);
+  };
   const node = graph.nodes.find((item) => item.id === selected) ?? null;
   const frame = graph.groups?.find((item) => item.id === group) ?? null;
   const run = node ? [...nodeRuns].reverse().find((item) => item.node_id === node.id) ?? null : null;
@@ -90,7 +102,7 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
       <FlowCanvas nodes={nodes} edges={edges} readOnly={readOnly}
         frames={{ onNote: (id, patch) => apply(() => setNote(graph, id, patch)), onToggleGroup: toggle }}
         canConnect={(a: PortRef, b: PortRef) => !connectionError(graph, registry, a, b)}
-        onSelectNode={selectNode} onSelectEdge={setEdge} onSelectGroup={frames ? (id) => { onSelect(null); setGroupId(id); } : undefined}
+        onSelectNode={selectNode} onSelectEdge={selectEdge} onOpen={open} onReject={(a, b) => setMessage(connectionError(graph, registry, a, b) ?? "")} onSelectGroup={frames ? (id) => { onSelect(null); setGroupId(id); } : undefined}
         onSelection={frames ? (ids) => setPicked((old) => old.length === ids.length && old.every((id, i) => id === ids[i]) ? old : ids) : undefined} onMoveNote={(id, at) => { if (!readOnly) apply(() => setNote(graph, id, at)); }}
         onMove={(id: string, at: Point) => { if (!readOnly) apply(() => moveNode(graph, id, at)); }}
         onConnect={(a, b) => apply(() => connect(graph, registry, a, b))}
@@ -101,10 +113,14 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
       {issues.length > 0 && <p className="flow-editor__readiness" data-testid="flow-readiness">Připraveno ke spuštění: {issues.map((issue) => issue.text).join(" · ")}</p>}
       {palette && !readOnly && <NodePalette types={offered} port={palette.port} onPick={pick} onClearPort={() => setPalette({ port: null })} onClose={() => setPalette(null)}/>}
     </div>
+    {!node && !frame && selectedEdge && frames && <EdgeDataPanel key={selectedEdge.id + JSON.stringify(selectedEdge.data ?? null)} edge={selectedEdge} readOnly={readOnly}
+      inherited={inheritedExample(graph, selectedEdge)} kindError={(kind) => edgeKindError(graph, registry, selectedEdge, kind)}
+      onSave={(data) => apply(() => setEdgeData(graph, selectedEdge.id, data))} onClose={() => setEdge(null)}/>}
     {node && <NodeInspector key={node.id} node={node} spec={specOf(registry, node)} run={run} stall={overlay?.get(node.id)?.stall ?? null} readOnly={readOnly}
       onParam={(key, value) => apply(() => setParam(graph, node.id, key, value))}
       onLayer={frames && specOf(registry, node) ? (layer) => apply(() => setNodeField(graph, node.id, "layer", layer)) : undefined}
       onField={frames ? (key, value) => apply(() => setNodeField(graph, node.id, key, value)) : undefined}
+      onExpand={frames && !readOnly && canExpand(graph, node) ? () => expand(node.id) : undefined}
       onRemove={() => { apply(() => removeNode(graph, node.id)); onSelect(null); }} onClose={() => onSelect(null)}/>}
     {!node && frame && <GroupInspector key={frame.id} group={frame} errors={targets.groups.get(frame.id) ?? []} collapsed={collapsed.has(frame.id)} readOnly={readOnly}
       onChange={(patch) => apply(() => setGroup(graph, frame.id, patch))} onToggle={() => toggle(frame.id)}
