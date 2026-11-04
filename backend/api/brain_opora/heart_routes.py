@@ -1,7 +1,8 @@
 """Routy srdce mozku (docs/brain-heart.md §1, §4). Logika je v `backend/brain_opora/heart/`.
 
-- `POST /api/brain/heart/messages {project, workspace, text}`: člověk, nebo relé záměru (docs/brain-heart-orchestrator.md
-  §8): platný token pracovníka brány téhož projektu, zpráva pak nese `via` = jméno relace. Uloží se do
+- `POST /api/brain/heart/messages {project, workspace, text, context?}`: člověk, nebo relé záměru (docs/brain-heart-orchestrator.md
+  §8): platný token pracovníka brány téhož projektu, zpráva pak nese `via` = jméno relace. Volitelný `context {kind: "flow", flowId, versionId?, nodeIds?}` ověří
+  `flow_context.py` (422 česky) a srdce ho dostane jako data u zprávy. Uloží se do
   `brain/messages.jsonl` (snímek ji ukáže v `ZPRÁVY ČLOVĚKA`, §3a), pak jde jako vstup srdce (`backend/flow/catalogs/heart/`) a budí hned.
 - `GET /api/brain/heart/status?project=`: relace, posledních 5 dávek, spánek, nejbližší povolený čas a `current`
   (běžící dávka `{startedAt, inputs}`, jinak `null`).
@@ -41,6 +42,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.brain_opora import models
+from backend.api.brain_opora.flow_context import flow_context
 from backend.brain_opora.determinism import (
     brief,
     gate,
@@ -70,10 +72,13 @@ def _refused(error):
     return JSONResponse(error.body(), status_code=error.status)
 
 
-def _scope(service, payload):
-    """`{project, workspace, text}` → `(project, workspace, text)`; neznámý projekt 404."""
-    if not isinstance(payload, dict) or set(payload) != {"project", "workspace", "text"}:
-        raise invalid("Tělo je přesně {project, workspace, text}.", "Příklad: " + EXAMPLE)
+def _scope(service, payload, with_context=False):
+    """`{project, workspace, text}` → `(project, workspace, text)`; neznámý projekt 404. Volitelný `context`
+    (`flow_context.py`) smí jen `messages` (`with_context`), ostatní cesty ho odmítnou jako cizí klíč."""
+    if not isinstance(payload, dict) or set(payload) - ({"context"} if with_context else set()) != {
+            "project", "workspace", "text"}:
+        raise invalid("Tělo je přesně {project, workspace, text}" + (" a volitelně context" if with_context else "")
+                      + ".", "Příklad: " + EXAMPLE)
     project, workspace, text = payload["project"], payload["workspace"], payload["text"]
     if not isinstance(project, str) or not (project == "draft" or valid_id(project)) or not valid_id(workspace):
         raise invalid("Neplatné ID projektu nebo pracovního prostoru.", "Příklad: " + EXAMPLE)
@@ -120,7 +125,10 @@ def create_heart_router(service, heart):
             require_human(request.state.actor, "Srdci píše zprávu člověk v UI, nebo relé s tokenem pracovníka brány.")
         via = None
         try:
-            project, workspace, text = _scope(service, parse_body(await request.body()))
+            payload = parse_body(await request.body())
+            project, workspace, text = _scope(service, payload, with_context=True)
+            context = (await run_in_threadpool(flow_context, service, payload["context"])
+                       if payload.get("context") is not None else None)
             if not human:
                 session = await run_in_threadpool(gate.authenticate, service, header, project, ("worker",))
                 via = session["worker_name"]
@@ -129,7 +137,7 @@ def create_heart_router(service, heart):
                                 'Zapněte bránu: POST /api/brain/gate-setting {"project": "<id>", "enabled": true}.')
         except GateError as error:
             return _refused(error)
-        pending = await run_in_threadpool(heart.message, project, workspace, text, None, via)
+        pending = await run_in_threadpool(heart.message, project, workspace, text, None, via, context=context)
         return {"queued": True, "pending": pending}
 
     @router.get("/status", responses={404: {"model": models.Refusal}})

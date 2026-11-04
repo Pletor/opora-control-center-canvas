@@ -131,6 +131,15 @@ def _node_field_errors(node, ids):
     if retry is not None and not (isinstance(retry, dict) and isinstance(retry.get("maxTries"), int)
                                   and _number(retry["maxTries"], 1) and _number(retry.get("waitMs", 0), 0)):
         errors.append(f"Uzel {nid}: retry je {{maxTries ≥ 1, waitMs ≥ 0}}.")
+    if node.get("type") == "custom.step":
+        params = node.get("params") if isinstance(node.get("params"), dict) else {}
+        if "layer" not in node:
+            errors.append(f"Uzel {nid}: krok na míru (custom.step) musí mít vrstvu (layer).")
+        if not isinstance(params.get("title"), str) or not params["title"].strip():
+            errors.append(f"Uzel {nid}: krok na míru (custom.step) musí mít neprázdný titulek (params.title).")
+        if "branches" in params and not (isinstance(params["branches"], list)
+                                         and all(isinstance(b, str) and b.strip() for b in params["branches"])):
+            errors.append(f"Uzel {nid}: params.branches kroku na míru je seznam jmen větví.")
     errors += [f"Uzel {nid}: odkaz $('{ref}') vede na neexistující uzel." for text in _strings(node.get("params"))
                for ref in NODE_REF.findall(text) if ref not in ids]
     return errors

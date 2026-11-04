@@ -45,12 +45,13 @@ class Wakes:
             LOGGER.exception("Srdce: vstup brány ke zprávě projektu %s nešel zapsat.", project)
             return None
 
-    def message(self, project, workspace, text, now=None, via=None, *, record_intake=True):
+    def message(self, project, workspace, text, now=None, via=None, *, record_intake=True, context=None):
         """Zpráva člověka: nejdřív vstup brány a řádek do `brain/messages.jsonl` (přežije dávku i rotaci relace, §3a),
         pak vstup splatný hned; vrací počet čekajících vstupů projektu. Selhaný zápis se jen zaloguje, zpráva srdce
         budí dál. Stejná věta jako dřívější (`duplicate`) se uloží se značkou a srdce nebudí.
         `via` = jméno relace pracovníka, který zprávu předal (relé záměru, docs/brain-heart-orchestrator.md §8).
-        `record_intake=False` (odpověď člověka na eskalaci srdce) vstup brány nezapisuje."""
+        `record_intake=False` (odpověď člověka na eskalaci srdce) vstup brány nezapisuje.
+        `context` = ověřený kontext plátna z okna (`api/brain_opora/flow_context.py`), srdce ho čte jako data."""
         now = self.clock() if now is None else now
         entry = self._intake(project, workspace, text, now) if record_intake else None
         duplicate = entry["id"] if entry and entry["verdict"] == "duplicate" else None
@@ -59,7 +60,8 @@ class Wakes:
         except OSError:
             LOGGER.exception("Srdce: zprávu člověka projektu %s nešlo uložit.", project)
         if duplicate is None:
-            item = {"type": "message", "text": text} | ({"intake": intake.line_info(entry)} if entry else {})
+            item = ({"type": "message", "text": text} | ({"intake": intake.line_info(entry)} if entry else {})
+                    | ({"context": context} if context else {}))
             self._add(project, workspace, item, now)
             self.wakeup.set()
         with self.lock:

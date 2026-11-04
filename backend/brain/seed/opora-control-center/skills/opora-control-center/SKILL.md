@@ -162,7 +162,7 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | výbava karty: měření, náhled před claimem, ověřovatel fixture | cesty `harness-*` pod `/api/oporahub` | [harness.md](references/harness.md) |
 | plán nebo PR jako graf PR Lens, rozdíl commitů zadání | `/api/oporahub/plan-lens`, `/review-lens`, `/diff` | [hub-api.md](references/hub-api.md) |
 | verdikt brány 1:1, zelený běh testů; přesná cesta a kdo ji smí | `GET /api/sync-report`, `POST /api/check-run`; tabulka cest OporaHubu | [hub-api.md](references/hub-api.md) |
-| jakákoli jiná cesta backendu (přehledy, mazání, paměť, mapy) | tabulky cest; toky `/api/flow/*`; Brain `/api/brain-registry/*` | [routy.md](references/routy.md), [flow.md](references/flow.md), [brain.md](references/brain.md) |
+| jakákoli jiná cesta backendu (přehledy, mazání, paměť, mapy) | tabulky cest; toky `/api/flow/*`; Brain `/api/brain-registry/*` | [routy.md](references/routy.md), [flow.md](references/flow.md), kreslení procesu na plátno toku [proces-na-platne.md](references/proces-na-platne.md), [brain.md](references/brain.md) |
 | provést akci z agent-state (i lidskou při `autonomy.full`) | `opora_hub.py act --action-id ID` (víc = `--action-id` opakovaně nebo `--all-ready --verb V`) | [hub-loop.md](references/hub-loop.md) |
 | přijmout, uzavřít bez člověka (`autonomy.full`); zavolat cestu bez vlastního příkazu | `opora_api.py METHOD PATH [--json - | --json '…'] [--query k=v]` | [autonomie.md](references/autonomie.md) |
 | spustit, zastavit, restartovat Oporu | `uv run opora --no-open`, `opora_read.py status` | [provoz.md](references/provoz.md) |

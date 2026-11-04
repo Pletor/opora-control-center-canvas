@@ -10,7 +10,8 @@ Jen standardní knihovna. Nástroj sem předá sám sebe (`tool`): `call` s toke
   a plátno založí, když chybí, graf ověří (`graph-check`; chyba = nic se neuloží), uloží draft s `learnedFrom`
   a aktivuje ho;
 - `propose FLOW --file F [--note N]` uloží k plátnu ČLOVĚKA draft s poznámkou; přijme (aktivuje) ho nebo zamítne
-  člověk na plátně. Aktivovat v knihovně člověka srdce nesmí.
+  člověk na plátně. Aktivovat v knihovně člověka srdce nesmí;
+- `nodes add|set|connect FLOW …` kreslí do draftu plátna po uzlech (`opora_library_nodes.py`).
 Dávka srdce (`command.py`) soubor kopíruje do `brain/` vedle `opora_heart.py`.
 """
 import json
@@ -126,4 +127,6 @@ def library(args, tool):
         return get(tool, args.flow, args.version)
     if args.action == "save":
         return save(tool, args)
+    if args.action == "nodes":
+        return tool.research_module("opora_library_nodes").nodes(tool, args)
     return propose(tool, args.flow, args.file, args.note)
