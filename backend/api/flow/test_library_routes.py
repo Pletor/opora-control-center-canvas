@@ -103,3 +103,28 @@ def test_heart_proposes_a_draft_to_the_human_library_and_only_the_human_decides(
         c.post(f"/api/flow/versions/{vid}/activate", headers=heart, json={})
         listed = c.get("/api/library", params={"owner": "agent"}).json()["folders"][0]["flows"][0]
         assert listed["learnedFrom"] == learned and listed["activeN"] == 1
+
+
+def test_brief_route_serves_active_or_given_version_and_refuses_empty_or_missing(tmp_path):
+    from backend.flow.test_simulate import BAD_CASE, OK_CASE, bmi_graph
+
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as c:
+        folder = next(f for f in c.get("/api/library").json()["folders"] if f["slug"] == "functions")
+        flow = c.post("/api/library/flows", headers=HEADERS,
+                      json={"folder": folder["id"], "slug": "ulozit-bmi", "title": "Uložit BMI"}).json()
+        url, versions = f"/api/library/flows/{flow['id']}/brief", f"/api/flow/workflows/{flow['id']}/versions"
+        assert c.get(url).status_code == 404 and c.get(url).json()["detail"] == "Plátno nemá aktivní verzi."
+        empty = c.post(versions, headers=HEADERS, json={"graph": {"nodes": [], "edges": []}}).json()
+        assert c.get(url, params={"version": empty["n"]}).status_code == 422
+        assert c.get(url, params={"version": empty["n"]}).json()["detail"] == "Plátno nemá žádné kroky."
+        for case in ([OK_CASE], [OK_CASE, BAD_CASE]):
+            vid = c.post(versions, headers=HEADERS, json={"graph": bmi_graph(case)}).json()["id"]
+            c.post(f"/api/flow/versions/{vid}/candidate", headers=HEADERS, json={})
+            c.post(f"/api/flow/versions/{vid}/activate", headers=HEADERS, json={})
+        active = c.get(url).json()
+        assert "Neplatná výška (`bad`)" in active["markdown"] and active["markdown"].endswith("tiše.\n")
+        assert "opora:library:human:functions/ulozit-bmi@3" in active["markdown"]
+        first = c.get(url, params={"version": 2}).json()
+        assert "Neplatná výška (`bad`)" not in first["markdown"] and "@2" in first["markdown"]
+        assert c.get(url, params={"version": 9}).json()["detail"] == "Plátno nemá verzi 9."
+        assert c.get("/api/library/flows/nope/brief").status_code == 404

@@ -1,0 +1,19 @@
+/* ZADÁNÍ PRO AGENTA (blok `library-brief`)
+   Dialog se otevře přes plátno jako velký list papíru: nahoře název a Zavřít, uprostřed hotový text zadání psaný
+   monospace a zalamovaný, aby se dal přečíst celý bez bočního posouvání, dole Kopírovat. Je to jediná akce, kvůli které
+   člověk přišel, proto je zlatá. Pozadí je ztlumené, ale plátno pod ním pořád tuší. */
+.library-brief { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(0, 0, 0, 0.45); }
+.library-brief__dialog { display: grid; grid-template-rows: auto 1fr auto; gap: 10px; width: min(820px, 92vw); max-height: 86vh; padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-pop); }
+.library-brief__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.library-brief__title { margin: 0; font-size: 15px; }
+.library-brief__version { margin-left: 8px; color: var(--ink-muted); font-weight: 400; }
+.library-brief__text { margin: 0; overflow: auto; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--field);
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.library-brief__status, .library-brief__error { margin: 0; font-size: 12px; }
+.library-brief__error { color: var(--danger); }
+.library-brief__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.library-brief__hint { color: var(--ink-muted); font-size: 11px; }
+.library-brief__button { padding: 4px 12px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; font-size: 12px; cursor: pointer; }
+.library-brief__button--primary { border-color: var(--gold); color: var(--gold); }
+.library-brief__button:disabled { cursor: not-allowed; opacity: .55; }

@@ -43,6 +43,7 @@
     python opora_heart.py intent propose PAGE --file F [--dry-run]
     python opora_heart.py site show [--tokens] | propose --file F [--note N]
     python opora_heart.py library show [--owner human|agent] [--folder SLUG] | get FLOW [--version N]
+    python opora_heart.py library brief FLOW [--version N]
     python opora_heart.py library save --folder SLUG --slug SLUG --title T --file F [--learned-from JSON]
     python opora_heart.py library propose FLOW --file F [--note N]
     python opora_heart.py library nodes add FLOW --type T [--layer L] [--title X] [--params JSON] [--after NODEID] [--branches a,b]
@@ -105,7 +106,8 @@ proti aktivní verzi; schvaluje jen člověk v UI.
 graf verze, `save` uloží ověřený graf do knihovny agenta a aktivuje ho (`--learned-from` = odkud se ho naučil),
 `propose FLOW` uloží k plátnu člověka draft s poznámkou; přijme ho nebo zamítne člověk na plátně,
 `nodes add|set|connect` kreslí do draftu uzel po uzlu (`opora_library_nodes.py`, graf se po každé změně ověří, výstup nese `nodeId`),
-`case add FLOW --file case.json` přidá případ do nového draftu, `case run FLOW --case ID` ho přehraje (simulace: trasa a shoda s `expect`).
+`case add FLOW --file case.json` přidá případ do nového draftu, `case run FLOW --case ID` ho přehraje (simulace: trasa a shoda s `expect`),
+`brief FLOW [--version N]` vypíše markdown zadání karty vygenerované z plátna (výstup je text, ne JSON).
 `skill NAME` vypíše postup režimu ze `skills/NAME.md` vedle nástroje (výslech čte `skill vyslech`, jen při výslechu).
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
@@ -1583,6 +1585,9 @@ def parser():
     library_get = library.add_parser("get")
     library_get.add_argument("flow")
     library_get.add_argument("--version", type=int)
+    library_brief = library.add_parser("brief")
+    library_brief.add_argument("flow")
+    library_brief.add_argument("--version", type=int)
     library_save = library.add_parser("save")
     for flag in ("--folder", "--slug", "--title", "--file"):
         library_save.add_argument(flag, required=True)

@@ -79,6 +79,19 @@ Co kroky dělají:
 
 Trasa má nejvýš 200 kroků, případ nejvýš 20 tabulek po 200 řádcích.
 
+## Zadání pro agenta (P5)
+
+Z hotového plátna vznikne zadání karty, bez modelu a při každém volání znovu (pravda o chování je plátno):
+
+```bash
+python opora_heart.py library brief FLOW [--version N]   # markdown na stdout; bez --version aktivní verze
+```
+
+Sekce: Cíl, Kroky po vrstvách (FE, BE, DB, Infra), Rozhraní (endpointy a schémata), Data (tabulky, druhy dat na hranách),
+Chybové stavy, Případy jako testy (`input` → `expect` a výsledek simulace) a Odkaz zpět `opora:library:<část>:<složka>/<slug>@<n>`.
+Zadání patří do `node-brief` karty; odchylku od plátna hlas, plátno se nemění tiše. Plátno bez uzlů vrací
+`Plátno nemá žádné kroky.`
+
 ## `custom.step`: krok na míru
 
 Obecný typ pro krok, který katalog nezná. Povinné: `layer` (u uzlu, tool ji doplní z `--layer`, jinak `neutral`) a

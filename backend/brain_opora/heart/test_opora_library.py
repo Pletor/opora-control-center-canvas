@@ -63,6 +63,20 @@ def test_save_checks_the_graph_creates_the_agent_flow_and_activates_it(api, caps
     assert graph["meta"]["learnedFrom"]["result"] == "verified" and set(graph["graph"]) == {"nodes", "edges", "notes", "groups", "cases"}
 
 
+def test_brief_prints_the_generated_markdown_for_active_or_given_version(api, capsys, tmp_path):
+    from backend.flow.test_simulate import OK_CASE, bmi_graph
+
+    (tmp_path / "bmi.json").write_text(json.dumps(bmi_graph([OK_CASE])), encoding="utf-8")
+    code, saved = run(capsys, "library", "save", "--folder", "functions", "--slug", "bmi", "--title", "Uložit BMI",
+                      "--file", "bmi.json")
+    assert code == 0
+    assert opora_heart.main(["library", "brief", saved["flowId"]]) == 0
+    text = capsys.readouterr().out
+    assert text.startswith("# Zadání: Uložit BMI") and "opora:library:agent:functions/bmi@1" in text
+    assert opora_heart.main(["library", "brief", saved["flowId"], "--version", "7"]) == 1
+    assert json.loads(capsys.readouterr().out)["code"]
+
+
 def test_propose_leaves_a_draft_for_the_human_and_refuses_the_agent_part(api, capsys, tmp_path):
     c, _ = api
     folder = next(f for f in c.get("/api/library").json()["folders"] if f["slug"] == "ai-rag")
