@@ -9,7 +9,22 @@ export type PletorMessage = { role: PletorRole; text: string; at: string };
 export type PletorActionType = "heart_message" | "vault_note";
 export type PletorAction = { type: PletorActionType; text: string; ok: boolean; detail?: string };
 export type PletorReply = { reply: string; actions: PletorAction[] };
-export type PletorState = { messages: PletorMessage[]; heart: unknown; escalations: unknown[] };
+/** Zvolený mozek Pletora (P2): Claude pod předplatným, nebo lokální model v Ollamě; přepíná se větou v chatu. */
+export type PletorBrain = { brain: "claude" | "ollama"; model: string | null; available: string[] };
+export type PletorState = { messages: PletorMessage[]; heart: unknown; escalations: unknown[]; brain: PletorBrain };
+
+export const CLAUDE_BRAIN: PletorBrain = { brain: "claude", model: null, available: [] };
+
+/** Pole `brain` ze stavu; chybějící nebo cizí hodnota je Claude (výchozí mozek). */
+export function parseBrain(value: unknown): PletorBrain {
+  const raw = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  if (raw.brain !== "ollama") return CLAUDE_BRAIN;
+  const available = Array.isArray(raw.available) ? raw.available.filter((name): name is string => typeof name === "string") : [];
+  return { brain: "ollama", model: typeof raw.model === "string" ? raw.model : null, available };
+}
+
+/** Readout mozku do rohu HUD: `claude`, nebo `ollama · <model>`. */
+export const brainText = (brain: PletorBrain) => (brain.brain === "ollama" && brain.model ? `ollama · ${brain.model}` : brain.brain);
 
 const scope = (project: string, workspace: string) =>
   `project=${encodeURIComponent(project)}&workspace=${encodeURIComponent(workspace)}`;
@@ -23,6 +38,7 @@ export function parseState(value: unknown): PletorState {
       !!m && (m.role === "human" || m.role === "pletor") && typeof m.text === "string"),
     heart: raw.heart ?? null,
     escalations: Array.isArray(raw.escalations) ? raw.escalations : [],
+    brain: parseBrain(raw.brain),
   };
 }
 

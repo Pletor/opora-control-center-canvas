@@ -10,7 +10,7 @@ Dílky (`components/`):
 - `PletorHud`: rodič kokpitu (zelený Jarvis HUD): lišta, plátno s rohy, konzole s protokolem a příkazový řádek; Esc → okno.
 - `PletorHudBar`: horní lišta (PLETOR, čas, uptime od startu aplikace, stav srdce, „Vstoupit do OPORY“).
 - `PletorHudCanvas`: plátno s rAF smyčkou (DPR max 2, ResizeObserver, stojí ve skryté záložce, téměř statické při reduced motion).
-- `PletorHudCorners`: rohové readouty (projekt, FPS, stav, eskalace) a štítek stavu.
+- `PletorHudCorners`: rohové readouty (projekt, mozek `claude` nebo `ollama · <model>` z `brainText`, FPS, stav, eskalace) a štítek stavu. Mozek se přepíná větou v chatu, ne tlačítkem.
 - `PletorHeartLine`: jeden řádek se stavem srdce a počtem čekajících eskalací.
 - `PletorOrb`: svítící jádro nad rozhovorem (dýchá / přemýšlí / záblesk odpovědi / chyba); stav mu dává rodič.
 - `PletorMessages`: zprávy, člověk vpravo, Pletor vlevo.

@@ -1,8 +1,9 @@
 """Routy Pletora (docs/navrhy/2026-11-04-pletor-jarvis.md, P1). Logika je v `backend/pletor/`.
 
 - `POST /api/pletor/messages {project, workspace, text}` → `{reply, actions: [{type, text, ok, detail?}]}`.
-- `GET /api/pletor/state?project&workspace` → `{messages, heart, escalations}`.
-Obě jen pro člověka v UI a jen z tohoto počítače (`/api/pletor` v `backend/app/remote_access.py`).
+- `GET /api/pletor/state?project&workspace` → `{messages, heart, escalations, brain: {brain, model, available}}`.
+- `POST /api/pletor/brain {brain: claude | ollama, model?}` → `{ok, reply, brain}` (P2; selhání = `ok: false`).
+Všechny jen pro člověka v UI a jen z tohoto počítače (`/api/pletor` v `backend/app/remote_access.py`).
 """
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -12,6 +13,7 @@ from backend.api.pletor import models
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
+from backend.pletor import brains
 
 
 def _check(service, project, workspace):
@@ -42,6 +44,12 @@ def create_pletor_router(service, pletor):
             _check(service, project, workspace)
         except GateError as error:
             return JSONResponse(error.body(), status_code=error.status)
-        return pletor.state(project, workspace)
+        return {**pletor.state(project, workspace), "brain": brains.status(pletor.folder, pletor.transport)}
+
+    @router.post("/brain", response_model=models.PletorBrainOut)
+    def brain(body: models.PletorBrainIn, request: Request):
+        require_human(request.state.actor, "Mozek Pletora přepíná jen člověk v UI.")
+        ok, reply = brains.switch(pletor.folder, body.brain, body.model, pletor.transport)
+        return {"ok": ok, "reply": reply, "brain": brains.status(pletor.folder, pletor.transport)}
 
     return router

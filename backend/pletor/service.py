@@ -13,7 +13,7 @@ from pathlib import Path
 from backend.brain_opora.determinism import brain_files, gate, gate_setting
 from backend.brain_opora.heart import command
 from backend.brain_opora.heart.process import run_process
-from backend.pletor import actions, session, store
+from backend.pletor import actions, brains, store
 
 FOLDER = "pletor"
 
@@ -40,6 +40,7 @@ def prompt(project, workspace, heart, escalations, text):
 class Pletor:
     def __init__(self, service, heart, *, runner=run_process, find=command.find_claude, clock=time.time):
         self.service, self.heart, self.runner, self.find, self.clock = service, heart, runner, find, clock
+        self.transport = brains.http  # Ollama (P2); testy vyměňují
         self.folder = Path(service.root) / FOLDER
         self.lock = threading.Lock()  # jedna relace na aplikaci: tahy jdou po jednom
 
@@ -65,10 +66,16 @@ class Pletor:
     def message(self, project, workspace, text):
         """`{reply, actions: [{type, text, ok, detail?}]}`; selhání modelu je odpověď bez akcí, ne výjimka."""
         store.append_message(self.folder, _iso(self.clock()), project, workspace, "human", text)
+        switch = brains.command(text)  # přepnutí mozku je věta bez modelu (P2), modelu se nepředá
+        if switch:
+            reply = brains.switch(self.folder, *switch, transport=self.transport)[1]
+            store.append_message(self.folder, _iso(self.clock()), project, workspace, "pletor", reply)
+            return {"reply": reply, "actions": []}
         try:
             with self.lock:
-                reply, raw = session.turn(self.folder, prompt(project, workspace, *self._context(project, workspace),
-                                                              text), runner=self.runner, find=self.find)
+                reply, raw = brains.turn(self.folder, prompt(project, workspace, *self._context(project, workspace),
+                                                             text), runner=self.runner, find=self.find,
+                                         transport=self.transport)
         except RuntimeError as error:
             reply, raw = str(error), []
         done = []
