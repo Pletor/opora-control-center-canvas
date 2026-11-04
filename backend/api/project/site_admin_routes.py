@@ -113,6 +113,8 @@ def create_site_admin_router(service):
     @router.get("/fonts/{name}")
     def font_file(name: str, project: str = PROJECT):
         path, media = _errors(lambda: store.font_path(service, project, name))
-        return FileResponse(path, media_type=media, headers={"Content-Security-Policy": FILE_CSP})
+        # Náhled komponenty běží v iframu `sandbox=""` s neprůhledným původem; @font-face potřebuje CORS (bez cookies).
+        return FileResponse(path, media_type=media, headers={"Content-Security-Policy": FILE_CSP,
+                                                             "Access-Control-Allow-Origin": "*"})
 
     return router

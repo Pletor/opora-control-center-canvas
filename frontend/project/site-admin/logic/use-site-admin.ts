@@ -2,8 +2,8 @@
 // někdo uložil mezitím; 422 u vlastního CSS nese řádek) a vygenerovaný `tokens.css` a `components.css` uložené revize pro náhledy. Jediné místo, které na stránce zapisuje.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/shared/types/logic/types";
-import { fileToBase64, loadSiteAdmin, loadSiteCss, saveProblem, saveSiteAdmin, uploadFont, type SiteInvalid } from "./site-admin-api";
-import type { SiteDocument } from "./site-document";
+import { fileToBase64, loadSiteAdmin, loadSiteCss, saveProblem, saveSiteAdmin, uploadAsset, uploadFont, type SiteInvalid } from "./site-admin-api";
+import type { AssetFile, SiteDocument } from "./site-document";
 
 export type SiteAdminState = ReturnType<typeof useSiteAdmin>;
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -66,7 +66,18 @@ export function useSiteAdmin(project: string) {
     } catch (failure) { setUploadError(message(failure)); }
     finally { setUploading(false); }
   }
+  /** Assety jeden po druhém; každý nahraný záznam hned zapíše do rozepsaného dokumentu (uloží až Uložit). */
+  async function uploadAssets(group: string, files: File[], record: (file: AssetFile) => (document: SiteDocument) => SiteDocument) {
+    setUploading(true); setUploadError("");
+    try {
+      for (const file of files) {
+        const stored = await uploadAsset(project, group, file.name, await fileToBase64(file));
+        setDraft((current) => current && record(stored)(current));
+      }
+    } catch (failure) { setUploadError(message(failure)); }
+    finally { setUploading(false); }
+  }
   const change = (update: (document: SiteDocument) => SiteDocument) => setDraft((current) => current && update(current));
   return { revision, saved, draft, dirty: draft !== saved, tokensCss, componentsCss, invalid, loading, saving, error, conflict, notes, uploading, uploadError,
-    change, save: () => save(), overwrite, reload: load, upload, dismissNotes: () => setNotes([]) };
+    change, save: () => save(), overwrite, reload: load, upload, uploadAssets, dismissNotes: () => setNotes([]) };
 }

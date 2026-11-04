@@ -1,0 +1,36 @@
+/* ASSETY DESIGN SYSTÉMU (blok `ds-assets`)
+   Šuplík se značkou webu: nahoře „+ New set“ a jedna věta, že soubory jde pustit kamkoli. Každá skupina je karta
+   s jménem jako nadpisem, mřížkou dlaždic a README dole, protože poznámka (barva loga, velikost ikon) patří
+   k souborům, ne nad ně. Dlaždice jsou čtvercové a stejně velké, aby loga a ikony šlo porovnat okem; obrázek se do
+   dlaždice vejde celý na šachovnici, takže je vidět i průhledné SVG. Když nad kartou visí přetahovaný soubor,
+   karta se rozsvítí akcentem a řekne tím, kam soubor dopadne. */
+.ds-assets { display: flex; flex-direction: column; gap: var(--sp-4); min-height: 240px; }
+.ds-assets__bar { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.ds-assets__add { padding: 4px 12px; border: 1px solid var(--accent-line); border-radius: var(--radius); background: var(--accent-soft); color: var(--ink); font: inherit; font-size: var(--fs-2); cursor: pointer; }
+.ds-assets__hint { flex: 1; font-size: var(--fs-1); color: var(--ink-muted); }
+.ds-assets__status { font-size: var(--fs-1); color: var(--ink-2); }
+.ds-assets__errors { margin: 0; padding: var(--sp-2) var(--sp-3) var(--sp-2) 1.6em; border: 1px solid var(--danger-line); border-radius: var(--radius); background: var(--danger-soft); color: var(--danger); font-size: var(--fs-1); }
+.ds-assets__empty, .ds-assets__drop { margin: 0; padding: var(--sp-4); border: 1px dashed var(--line-strong); border-radius: var(--radius); color: var(--ink-muted); text-align: center; }
+
+/* Karta skupiny: hlavička v jedné řadě (jméno, počet, nahrát, odebrat), pod ní dlaždice a README. */
+.ds-assets__group { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.ds-assets__group--over { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.ds-assets__head { display: flex; align-items: center; gap: var(--sp-3); }
+.ds-assets__name { flex: 1; min-width: 0; padding: 2px 0; border: 0; border-bottom: 1px dashed var(--line); background: transparent; color: var(--ink); font: inherit; font-size: var(--fs-3); font-weight: 600; }
+.ds-assets__name:disabled { border-bottom-color: transparent; color: var(--ink); }
+.ds-assets__name--problem { border-bottom-color: var(--danger); }
+.ds-assets__problem { color: var(--danger); font-size: var(--fs-1); }
+.ds-assets__count { font-size: var(--fs-1); color: var(--ink-muted); }
+.ds-assets__pick, .ds-assets__remove { padding: 3px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: transparent; color: var(--ink-2); font: inherit; font-size: var(--fs-1); cursor: pointer; }
+.ds-assets__remove { border-color: var(--danger-line); color: var(--danger); }
+
+/* Dlaždice: čtverec s obrázkem na šachovnici, pod ním jméno a velikost; × v rohu odebere soubor z dokumentu. */
+.ds-assets__files { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--sp-3); margin: 0; padding: 0; list-style: none; }
+.ds-assets__file { position: relative; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ds-assets__thumb { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; border: 1px solid var(--line); border-radius: var(--radius); background: repeating-conic-gradient(#0000000d 0 25%, transparent 0 50%) 0 0 / 16px 16px, #fff; overflow: hidden; }
+.ds-assets__img { max-width: 80%; max-height: 80%; object-fit: contain; }
+.ds-assets__type { font-size: var(--fs-3); font-weight: 600; text-transform: uppercase; color: #555; }
+.ds-assets__file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-1); color: var(--ink); }
+.ds-assets__size { font-size: 11px; color: var(--ink-muted); }
+.ds-assets__file-remove { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.ds-assets__readme { padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); color: var(--ink); font: inherit; font-size: var(--fs-2); resize: vertical; }
