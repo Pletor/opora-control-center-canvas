@@ -129,6 +129,7 @@ from backend.integrations.typesafe_client import configured_provider
 from backend.integrations.typesafe_client import evaluate as typesafe_evaluate
 from backend.library.harness_memory import HarnessMemory
 from backend.memory.memory_service import AppSettings, MemoryService
+from backend.monitoring.monitor import Monitor
 from backend.paths import DIST_DIR, REPO_ROOT
 from backend.pletor.service import Pletor
 from backend.project.architecture.web_status import WebStatusService
@@ -169,6 +170,8 @@ def create_app(data_root=None):
     harness_memory = HarnessMemory(service, memory_service)
     # Strážci: tichý dohled bez modelu, jen čtou a hlásí (docs/strazci.md).
     guardian = GuardianManager(service)
+    # Monitoring hostů (plátno 4): tik 60 s, měří jen projekty se `settings.monitor.enabled` (backend/monitoring/).
+    monitor = Monitor(service)
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:
         raise ValueError("Neplatný lokální port.")
@@ -201,6 +204,7 @@ def create_app(data_root=None):
         auto_rebase.start()
         harness_memory.start()
         guardian.start()
+        monitor.start()
         # Brain: seed a generované skilly lokálních relací (`.claude/skills/`, backend/brain/README.md).
         await run_in_threadpool(local_skills.start, service)
         flow.start()
@@ -212,6 +216,7 @@ def create_app(data_root=None):
         auto_rebase.close()
         harness_memory.close()
         guardian.close()
+        monitor.close()
         service.close()
 
     app = FastAPI(title="Opora Canvas", lifespan=lifespan, docs_url=None, redoc_url=None)
