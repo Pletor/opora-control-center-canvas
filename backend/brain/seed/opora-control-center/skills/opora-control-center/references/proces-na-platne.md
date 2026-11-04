@@ -34,10 +34,55 @@ python opora_heart.py library nodes set FLOW be-endpoint-1 --file zmena.json   #
    hrany, každá větev vede dál a graf prošel (poslední `nodes` volání nevrátilo `errors`). Draft přijímá člověk na
    plátně (pás návrhu), aktivovat ho nesmíš.
 
+## Případy a simulace (P3)
+
+Hotovo není nakreslený proces, ale proces, který se dá přehrát. Ke grafu patří `cases[]`, pojmenované cesty s ukázkovými
+daty. Jeden případ je JSON `case.json`:
+
+```json
+{"id": "ok", "name": "V pořádku", "start": "fe-form-1", "input": {"height": 180, "weight": 80},
+ "env": {"tables": {"measurements": []}, "services": {"db-write-1": {"error": "DB nedostupná"}}},
+ "expect": {"result": {}, "path": ["fe-form-1", "be-endpoint-1"], "rows": {"measurements": []}, "notify": "text"}}
+```
+
+`start` je uzel grafu, `input` data na startu, `env.tables` simulovaná DB (tabulka = seznam řádků), `env.services`
+odpověď (nebo `{"error": "text"}` = chyba kroku) podle id uzlu `infra.*` nebo `db.*`. `expect` je zároveň test:
+`result` (poslední výstup), `path` (pořadí uzlů), `rows` (stav tabulek na konci), `notify` (poslední hláška).
+
+```bash
+python opora_heart.py library case add FLOW --file case.json   # přidá případ do nového draftu (stejné id ho nahradí)
+python opora_heart.py library case run FLOW --case ok           # přehraje a vypíše trasu a shodu s expect
+```
+
+`case run` vrací `{ok, result, trace, expect: {ok, diffs}, tables, notify}`; krok trasy má `nodeId`, `layer`, `in`, `out`,
+`rule`, `branch`, `note`, `error`. Nic se nespouští doopravdy a nic se nezapisuje. Doplň aspoň případ „v pořádku“
+a jeden chybový (neplatný vstup = větev `false` a chybová notifikace; výpadek DB = `env.services`), oba pusť
+a oprav graf, dokud `expect.ok` není pravda.
+
+**Pravidla kroků jsou výrazy** (malý bezpečný jazyk): `$json.pole.pod` čte data aktuálního kroku (chybějící pole je chyba
+kroku), čísla, texty, `+ - * / // % **`, porovnání, `and or not`, `a if podmínka else b` a funkce `round min max len abs
+number text lower upper contains`. Nic jiného (žádné atributy, smyčky, jiná volání), výraz má nejvýš 500 znaků.
+Co kroky dělají:
+
+| typ | simulace |
+|---|---|
+| `fe.click`, `fe.form`, `trigger.*` | `out` = `input` případu |
+| `fe.state`, `fe.navigate`, `be.endpoint`, `be.middleware`, `be.auth`, `db.transaction` | průchod |
+| `transform.set` | `params.assignments` `[{name, value}]` (value je výraz) |
+| `be.function`, `custom.step` | `params.rule` (výraz) do pole `params.outputName` (výchozí `result`); `custom.step` s `branches` + `branchRule` (výraz s jménem větve) vybere výstup |
+| `be.validate`, `flow.if` | `params.conditions` `[{left, operator, right}]` (`== != < <= > >= contains exists`), `combinator` `and` / `or`, větev `true` / `false`; `be.validate` bez hrany pro `false` skončí chybou „validace neprošla“ |
+| `db.write` | vloží řádek ze sloupců `params.columns` (prázdné = celý vstup) do `params.table`, `out.inserted` |
+| `db.read` | `params.where` (výraz nad řádkem jako `$json`) → `out.rows` |
+| `infra.*` | `out` z `env.services[id uzlu]`; `{error}` je chyba kroku (`onError: errorOutput` ji pošle výstupem `error`) |
+| `fe.show`, `fe.notify` | průchod, `note` = vyhodnocená `params.message` (výraz, jinak text) |
+| ostatní (`flow.merge`, `flow.switch`, `flow.loop`, `flow.wait`, `human.approval`, `ai.*`) | průchod nebo `example` uzlu, `note` „nesimulováno“ |
+
+Trasa má nejvýš 200 kroků, případ nejvýš 20 tabulek po 200 řádcích.
+
 ## `custom.step`: krok na míru
 
 Obecný typ pro krok, který katalog nezná. Povinné: `layer` (u uzlu, tool ji doplní z `--layer`, jinak `neutral`) a
-`params.title`. Volitelné: `params.description`, `params.rule` (výraz pro budoucí simulaci), `params.branches`
+`params.title`. Volitelné: `params.description`, `params.rule` (výraz pro simulaci, viz níže), `params.branches`
 (jména výstupů jako u Switche), `inputSchema` / `outputSchema` / `example` jako u ostatních uzlů.
 
 ## Příklad: Uložit BMI

@@ -270,3 +270,22 @@ def test_node_ports_follow_params_of_dynamic_types():
     error = c.post(url, json={"kind": kind, "type": "infra.api", "params": {}, "onError": "errorOutput"}).json()
     assert [p["name"] for p in error["ports"] if p["direction"] == "out"] == ["main", "error"]
     assert c.post(url, json={"kind": kind, "type": "nope"}).status_code == 404
+
+
+def test_simulate_route_replays_cases_reads_only_and_answers_422_in_czech(tmp_path):
+    from backend.flow.test_simulate import BAD_CASE, OK_CASE, bmi_graph
+
+    graph = bmi_graph([OK_CASE, BAD_CASE])
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as c:
+        done = c.post("/api/flow/simulate", headers=HEADERS, json={"graph": graph, "caseId": "ok"})
+        assert done.status_code == 200
+        body = done.json()
+        assert body["ok"] and body["expect"] == {"ok": True, "diffs": []} and body["notify"] == "BMI 24.7 uloženo"
+        assert body["trace"][3]["out"]["bmi"] == 24.7
+        bad = c.post("/api/flow/simulate", headers=HEADERS, json={"graph": graph, "case": BAD_CASE}).json()
+        assert bad["trace"][2]["branch"] == "false" and bad["notify"] == "Neplatná výška"
+        for payload, text in (({"graph": graph}, "právě jedno"), ({"graph": graph, "caseId": "x"}, "nemá případ"),
+                              ({"graph": {"nodes": 1}, "caseId": "x"}, "seznamy objektů")):
+            refused = c.post("/api/flow/simulate", headers=HEADERS, json=payload)
+            assert refused.status_code == 422 and text in refused.json()["detail"]
+        assert c.get("/api/flow/workflows").json() == {"workflows": []}  # čtení: do registru nic nepřibylo

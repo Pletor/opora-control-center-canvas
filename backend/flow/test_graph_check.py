@@ -51,3 +51,27 @@ def test_page_intent_needs_entry_done_and_matching_edge_kinds():
     assert graph_errors(lonely, INTENT_TYPES) == []  # pravidlo platí jen pro kind page_intent
     no_done = {"nodes": nodes[:2], "edges": [edge("1", "in", "d")]}  # s hranami (dřív je kind hrany přepsal)
     assert graph_errors(no_done, INTENT_TYPES, "page_intent") == ["Záměr stránky potřebuje aspoň jeden uzel intent.done."]
+
+
+def test_cases_of_a_library_flow_are_checked():
+    from backend.flow.node_types import catalog
+    from backend.flow.test_simulate import BAD_CASE, DOWN_CASE, OK_CASE, bmi_graph
+
+    def errors(*cases):
+        return graph_errors(bmi_graph(cases), catalog("library_flow"), "library_flow")
+
+    assert errors(OK_CASE, BAD_CASE, DOWN_CASE) == []
+    assert errors(OK_CASE, OK_CASE) == ["Případ 'ok' nemá jedinečné neprázdné id."]
+    assert errors({**OK_CASE, "id": " "}) == ["Případ ' ' nemá jedinečné neprázdné id."]
+    assert errors({**OK_CASE, "start": "nope"}) == ["Případ ok: start 'nope' není uzel grafu."]
+    assert errors({**OK_CASE, "name": ""}) == ["Případ ok nemá jméno."]
+    assert errors({k: v for k, v in OK_CASE.items() if k != "input"}) \
+        == ["Případ ok: chybí input (data na startu, klidně {})."]
+    assert "Případ ok: env je" in errors({**OK_CASE, "env": {"tables": {"t": ["ne objekt"]}}})[0]
+    assert errors({**OK_CASE, "env": {"services": {"ghost": {}}}}) == ["Případ ok: služba 'ghost' není uzel grafu."]
+    assert errors({**OK_CASE, "expect": {"path": ["form", "ghost"]}}) \
+        == ["Případ ok: expect.path vede přes neexistující uzel 'ghost'."]
+    assert "expect.rows" in errors({**OK_CASE, "expect": {"rows": {"t": 1}}})[0]
+    assert "expect.notify" in errors({**OK_CASE, "expect": {"notify": 5}})[0]
+    assert graph_errors({**bmi_graph(), "cases": "x"}, catalog("library_flow"), "library_flow") \
+        == ["cases musí být seznam."]

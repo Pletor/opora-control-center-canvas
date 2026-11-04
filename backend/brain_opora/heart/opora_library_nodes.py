@@ -5,6 +5,8 @@ Verze jsou neměnné, proto každá změna uloží NOVÝ draft z nejnovějšího
 z prázdného grafu); pás návrhu na plátně ukazuje nejnovější draft proti aktivní verzi. Graf se před uložením ověří
 (`graph-check`): chyba se vrátí a nic se neuloží. Oprávnění jako `propose`: do plátna člověka jen draft (aktivuje člověk).
 Výstup nese `nodeId` / `edgeId`, `versionId`, `n`.
+Případy plátna (`cases[]` grafu, §3–§4): `case add FLOW --file case.json` uloží případ (stejné `id` ho nahradí) do nového
+draftu, `case run FLOW --case ID` přehraje případ nad nejnovějším draftem přes `POST /api/flow/simulate` (čtení).
 """
 import json
 import re
@@ -118,5 +120,20 @@ def connect(tool, args):
     return _save(tool, args.flow, graph, source, f"Srdce: hrana {args.src} → {args.to}", {"edgeId": edge["id"]})
 
 
+def case_add(tool, args):
+    graph, source = _base(tool, args.flow)
+    case = tool.read_json("@" + args.file, "library_case_file", "--file je JSON případu {id, name, start, input, env?, expect?}.")
+    graph["cases"] = [c for c in graph.get("cases") or [] if c.get("id") != case.get("id")] + [case]
+    return _save(tool, args.flow, graph, source, f"Srdce: případ {case.get('id')}", {"caseId": case.get("id")})
+
+
+def case_run(tool, args):
+    graph, source = _base(tool, args.flow)
+    result = tool.call("POST", "/api/flow/simulate", {"graph": graph, "caseId": args.case})
+    return {"flowId": args.flow, "caseId": args.case, "version": source and source["n"], **result}
+
+
 def nodes(tool, args):
+    if args.action == "case":
+        return {"add": case_add, "run": case_run}[args.op](tool, args)
     return {"add": add, "set": set_node, "connect": connect}[args.op](tool, args)

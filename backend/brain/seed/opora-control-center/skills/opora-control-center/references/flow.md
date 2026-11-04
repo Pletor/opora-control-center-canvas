@@ -59,7 +59,7 @@ Typy nesou `accepts` (druhy dat, které smí do uzlu přijít) a `emits` (co typ
 zdroje) mimo `accepts` cíle je chyba. `nodes connect` bere `--kind K --schema JSON --example JSON`.
 Uzel nese navíc `notes`, `notesInFlow`, `inputSchema`, `outputSchema`, `example`, `mode` (`perItem` / `once`),
 `onError` (`stop` / `continue` / `errorOutput` = výstup `error`) a `retry {maxTries, waitMs}`; graf má `notes[]`
-(`{id, content, x, y, width, height, color}` rámec za uzly) a `groups[]` (`{id, name, description ≤ 145, nodeIds,
+(`{id, content, x, y, width, height, color}` rámec za uzly) `cases[]` (případy simulace procesu: `{id, name, description?, start, input, env?, expect?}`, `graph-check` hlídá unikátní `id`, `start` a `expect.path` mezi uzly) a `groups[]` (`{id, name, description ≤ 145, nodeIds,
 inputSchema?, outputSchema?}`: souvislý řetězec, vstup jen do prvního a výstup jen z posledního uzlu, sub-uzly se svým
 kořenem, bez spouštěče). `graph-check` hlásí i nepřipojený povinný port a `$('<id uzlu>')` na neexistující uzel.
 Převzetí do projektu (`adopt`) a vylepšení (`contribute`) založí nové plátno s aktivní v1, jejíž `derived_from` je
@@ -70,7 +70,7 @@ z aktivní verze, `result: "verified"` u plátna agenta = navrženo k povýšen�
 `human` smí uložit i srdce (token role `heart` kteréhokoli projektu) jako návrh, verze dostane
 `proposedBy {role: "heart", project}`. Kandidáta, aktivaci, návrat i zamítnutí (`POST /api/flow/versions/{id}/reject
 {reason}`, draft do `retired`, návrat ho přeskočí) v části člověka dělá jen člověk. Srdce to ovládá nástrojem
-`opora_heart.py library show|get|save|propose|nodes` ([srdce.md](srdce.md), kreslení procesu: [proces-na-platne.md](proces-na-platne.md)).
+`opora_heart.py library show|get|save|propose|nodes|case` ([srdce.md](srdce.md), kreslení procesu: [proces-na-platne.md](proces-na-platne.md)).
 
 | Cesta | Co |
 |---|---|
@@ -87,6 +87,7 @@ z aktivní verze, `result: "verified"` u plátna agenta = navrženo k povýšen�
 |---|---|
 | `/api/flow/node-types` | `GET ?kind=` → `{node_types}` registr typů uzlů: `type`, `version`, `trigger`, `params`, porty (`name`, `direction`, `kind`, `cardinality`, `schema`, `required`, `label`), `category`, `dynamicPorts`; `kind=page_intent` vrátí katalog záměru, `kind=library_flow` toky dat |
 | `/api/flow/node-ports` | `POST {kind, type, params, onError?}` → `{type, ports}` porty uzlu pro konkrétní `params` (dynamické typy: režim vektorového úložiště, `hasOutputParser`, větve Switch, vstupy Merge; `onError: errorOutput` přidá výstup `error`); neznámý typ 404 |
+| `/api/flow/simulate` | `POST {graph, caseId?, case?}` (právě jedno z `caseId` / `case`) → `{ok, result, trace, expect: {ok, diffs} \| null, tables, notify}` přehraje případ plátna procesu; čtení bez zápisu, 422 česky při špatném vstupu; limity 200 kroků, 20 tabulek × 200 řádků, výraz 500 znaků ([proces-na-platne.md](proces-na-platne.md)) |
 | `/api/flow/graph-check` | `POST {kind, graph}` → `{ok, errors}` ověří graf podle katalogu druhu, nic nezapíše |
 | `/api/flow/page-intents` | `GET ?project=` → `{pages: [{pageId, state, workflowId?, activeN?, candidateN?, doneCount}]}` stav záměru každé stránky |
 | `/api/flow/workflows` | `GET ?project=&kind=&owner_ref=` seznam; `POST {kind, name, project_id?, owner_ref?}` založí tok |
