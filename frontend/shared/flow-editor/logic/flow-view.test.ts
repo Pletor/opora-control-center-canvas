@@ -15,6 +15,13 @@ describe("graph to React Flow", () => {
     expect(nodes.find((n) => n.id === "jev")!.data.highlighted).toBe(true);
     expect(flowEdges(heartGraph(), { overlay }).find((e) => e.id === "jev-srdce")).toMatchObject({ animated: true, sourceHandle: "out:main", targetHandle: "in:main" });
   });
+  it("shows a custom step with its title and a custom flag", () => {
+    const step = [{ name: "main", direction: "in" as const, kind: "main" as const, cardinality: "many" as const }];
+    const types = new Map([["custom.step", { type: "custom.step", version: 1, trigger: false, ports: step }]]);
+    const [card] = flowNodes({ nodes: [{ id: "bmi", type: "custom.step", layer: "be", params: { title: "Spočítej BMI" } }], edges: [] }, types);
+    expect(card.data).toMatchObject({ name: "Spočítej BMI", custom: true, layer: "be" });
+    expect(flowNodes({ nodes: [{ id: "x", type: "custom.step", params: {} }], edges: [] }, types)[0].data.name).toBe("step");
+  });
   it("draws sub-port edges straight and dashed by class", () => {
     expect(flowEdges(heartGraph()).find((e) => e.id === "model-srdce")).toMatchObject({ type: "straight", className: "flow-edge flow-edge--sub" });
   });

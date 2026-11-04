@@ -6,6 +6,9 @@ import type { Project } from "@/shared/types/logic/types";
 import LibraryVersionBar from "../library-versions/components/LibraryVersionBar";
 import ProposalBar from "../library-versions/components/ProposalBar";
 import { pendingProposal, pickFlowVersion } from "../library-versions/logic/library-versions";
+import CommandBar from "../command-bar/components/CommandBar";
+import DrawingBar from "../command-bar/components/DrawingBar";
+import { useCommandBar } from "../command-bar/logic/use-command-bar";
 import LibraryActions from "../library-actions/components/LibraryActions";
 import { activateVersion, adoptFlow, contributeFlow, placeOf, promoteFlow, rejectVersion, rollbackFlow, saveFlowDraft } from "../logic/library-api";
 import { learnedText, lineageOf } from "../logic/lineage";
@@ -19,11 +22,12 @@ const PLACE = { human: "Knihovna · Člověk", agent: "Knihovna · Agent", proje
 /** Plátno toku v knihovně (`projectView=library&flow=<id>`): sdílený editor toků s katalogem „toky dat“, poznámkami,
  * rámci a inspektorem polí uzlu. Úprava se ukládá jako nový draft, draft se aktivuje bez schválení. Hlavička nese
  * rodokmen („vychází z …“, novější verze v knihovně) a akce převzetí, vylepšení a povýšení. Plátno se nespouští: pás
- * kontroly grafu ukazuje chyby serveru. U plátna člověka čeká návrh srdce (draft s poznámkou) s rozdílem proti aktivní
+ * kontroly grafu ukazuje chyby serveru. Příkazový řádek (`/`, Ctrl+K, tlačítko „Zadání“) pošle zadání srdci a plátno
+ * do jeho draftu samo načítá (`command-bar/`). U plátna člověka čeká návrh srdce (draft s poznámkou) s rozdílem proti aktivní
  * verzi a rozhodnutím Přijmout / Zamítnout; plátno agenta ukáže, kde se ho agent naučil. Rodič drží data a zápis,
  * dílky jen zobrazují a hlásí. */
-export default function LibraryCanvas({ flowId, project, projects, onOpenFlow, onBack }: {
-  flowId: string; project: string; projects: Project[]; onOpenFlow: (id: string) => void; onBack: () => void;
+export default function LibraryCanvas({ flowId, project, workspace, projects, onOpenFlow, onBack, onOpenAssistant }: {
+  flowId: string; project: string; workspace: string; projects: Project[]; onOpenFlow: (id: string) => void; onBack: () => void; onOpenAssistant?: () => void;
 }) {
   const data = useLibraryFlow(flowId);
   const [viewId, setViewId] = useState<string | null>(null);
@@ -43,6 +47,10 @@ export default function LibraryCanvas({ flowId, project, projects, onOpenFlow, o
   const active = versions.find((item) => item.status === "active");
   const showsProposal = !!proposal && viewing?.id === proposal.id && !edited;
   const diff = useMemo(() => showsProposal && proposal ? graphDiff(active?.graph ?? EMPTY, proposal.graph) : null, [showsProposal, proposal, active]);
+
+  const nodeIds = useMemo(() => node ? [node] : [], [node]);
+  const command = useCommandBar({ project, workspace, flowId, viewing, nodeIds, versions, reload: data.reload,
+    onWrote: () => { if (!edited) setViewId(null); setNotice("Srdce nakreslilo návrh do draftu."); } });
 
   const run = async <T,>(action: () => Promise<T>, done: (result: T) => void) => {
     setBusy(true);
@@ -76,13 +84,15 @@ export default function LibraryCanvas({ flowId, project, projects, onOpenFlow, o
     {proposal && <ProposalBar proposal={proposal} summary={diff && diffSummary(diff)} viewing={showsProposal} busy={busy} onView={() => view(proposal.id)}
       onAccept={() => write(() => activateVersion(proposal), `Návrh srdce přijat, v${proposal.n} je aktivní.`)}
       onReject={() => { const reason = window.prompt("Proč návrh srdce zamítnout?", "Návrh zamítnut člověkem."); if (reason?.trim()) write(() => rejectVersion(proposal.id, reason.trim()), "Návrh srdce zamítnut."); }}/>}
+    {command.open && <CommandBar selection={nodeIds} busy={command.busy} error={command.error} onSubmit={command.send} onClose={() => command.setOpen(false)}/>}
+    {command.phase !== "idle" && <DrawingBar phase={command.phase} seconds={command.seconds} onCancel={command.cancel} onOpenAssistant={onOpenAssistant}/>}
     <LibraryVersionBar versions={versions} viewing={viewing} dirty={!!edited} busy={busy} readOnly={false} onView={view} onDiscard={() => setEdited(null)}
       onSaveDraft={() => edited && write(() => saveFlowDraft(flowId, edited, viewing?.id ?? null), "Uloženo jako nový draft.")}
       onActivate={() => viewing && write(() => activateVersion(viewing), `Verze v${viewing.n} je aktivní.`)}
       onRollback={() => write(() => rollbackFlow(flowId), "Vráceno na předchozí verzi.")}/>
     <div className="library-canvas__editor">
       <FlowEditor graph={graph} types={data.types} readOnly={false} diff={diff} selected={node} onSelect={setNode} onChange={setEdited}
-        frames nodePorts={checks.nodePorts} checkErrors={checks.errors ?? []}/>
+        frames tools={<button type="button" className="flow-editor__tool" data-testid="library-command-open" title="Zadání pro srdce (klávesa / nebo Ctrl+K)" onClick={() => command.setOpen(true)}>Zadání</button>} nodePorts={checks.nodePorts} checkErrors={checks.errors ?? []}/>
     </div>
   </section>;
 }

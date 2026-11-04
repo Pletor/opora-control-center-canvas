@@ -21,6 +21,8 @@ type Props = {
   onSelectNode: (id: string | null) => void; onSelectEdge: (id: string | null) => void; onMove: (id: string, at: Point) => void;
   onConnect: (a: PortRef, b: PortRef) => void; onDropType: (type: string, at: Point) => void; onPlus: (request: PlusRequest) => void;
   /** Rámec vybraný klikem (id bez předpony) a uzly vybrané tahem s Shiftem nebo Ctrl+klikem (pro „Rámec z výběru“). */
+  /** Tažená vazba upuštěná do prázdna: port, ze kterého se táhlo („Co dál?“). */
+  onDropEmpty?: (from: PortRef) => void;
   onSelectGroup?: (id: string) => void; onSelection?: (nodeIds: string[]) => void; onMoveNote?: (id: string, at: Point) => void;
 };
 
@@ -39,7 +41,7 @@ export default function FlowCanvas(props: Props) {
 const VIEW: SurfaceView = { minZoom: 0.2, maxZoom: 2, fitPadding: 0.25, dotGap: 20, dotColor: "var(--canvas-dot)", controls: "top-left", minimapLabel: "Minimapa toku", minimapClass: "flow-editor__minimap" };
 const NO_FRAMES: FrameActions = { onNote: () => {}, onToggleGroup: () => {} };
 
-function Canvas({ nodes: next, edges, readOnly, frames, canConnect, onSelectNode, onSelectEdge, onMove, onConnect, onDropType, onPlus, onSelectGroup, onSelection, onMoveNote }: Props) {
+function Canvas({ nodes: next, edges, readOnly, frames, canConnect, onSelectNode, onSelectEdge, onMove, onConnect, onDropType, onPlus, onSelectGroup, onSelection, onMoveNote, onDropEmpty }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(next);
   // Přestavba uzlů nesmí zahodit změřený rozměr, jinak React Flow schová hrany, než uzly znovu změří.
   useEffect(() => setNodes((prev) => next.map((node) => ({ ...node, measured: prev.find((item) => item.id === node.id)?.measured }) as CanvasNode)), [next, setNodes]);
@@ -55,6 +57,10 @@ function Canvas({ nodes: next, edges, readOnly, frames, canConnect, onSelectNode
           nodesConnectable: !readOnly,
           isValidConnection: (c) => { const pair = ends(c); return !!pair && canConnect(pair[0], pair[1]); },
           onConnect: (c) => { const pair = ends(c); if (pair) onConnect(pair[0], pair[1]); },
+          onConnectEnd: (_, state) => {
+            const from = !state.isValid && !state.toNode && state.fromHandle ? parseHandle(state.fromHandle.nodeId, state.fromHandle.id) : null;
+            if (from) onDropEmpty?.(from);
+          },
           onNodeClick: (_, node) => click(node),
           onEdgeClick: (_, edge) => onSelectEdge(edge.id), onPaneClick: () => { onSelectNode(null); onSelectEdge(null); },
           onSelectionChange: onSelection && (({ nodes: picked }) => onSelection(picked.filter((node) => node.type === "flow-card").map((node) => node.id))),

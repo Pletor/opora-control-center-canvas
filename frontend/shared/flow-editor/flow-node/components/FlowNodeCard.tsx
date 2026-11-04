@@ -25,6 +25,7 @@ export default function FlowNodeCard({ data, selected }: NodeProps<FlowCardNode>
       {run && <span className={`flow-node__status flow-node__status--${run.status}`} aria-label={STATUS_LABEL[run.status]}>{STATUS_GLYPH[run.status]}</span>}
       {data.issue && <span className="flow-node__issue" aria-label="Chybí povinné nastavení">!</span>}
       {data.layer && data.layer !== "neutral" && <span className="flow-node__layer" data-testid={`flow-node-layer-${data.nodeId}`}>{LAYER_BADGE[data.layer]}</span>}
+      {data.custom && <span className="flow-node__custom" data-testid={`flow-node-custom-${data.nodeId}`}>na míru</span>}
       {data.pinned && <span className="flow-node__pin" aria-label="Připnutý výstup">pin</span>}
     </div>
     {data.role !== "agent" && <div className="flow-node__caption">
