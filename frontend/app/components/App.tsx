@@ -64,7 +64,7 @@ import AssistantButton from "@/layout/assistant-panel/components/AssistantButton
 import AssistantPanel from "@/layout/assistant-panel/components/AssistantPanel";
 import PletorButton from "@/pletor/components/PletorButton";
 import PletorWindow from "@/pletor/components/PletorWindow";
-import { readPletorOpen, writePletorOpen } from "@/pletor/logic/pletor-client";
+import type { PletorMode } from "@/pletor/logic/pletor-client";
 import { sendHeartMessage, type HeartRequest } from "@/layout/heart-channel/logic/heart-api";
 import type { CardRequest } from "@/project/architecture-editor/live-status/logic/session-state";
 import type { ArchitectureLiveProps } from "@/project/architecture-editor/components/ArchitectureEditor";
@@ -201,8 +201,8 @@ export default function App() {
   const [settings, setSettings] = useState(readSettings);
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
-  const [pletorOpen, setPletorOpen] = useState(readPletorOpen);
-  const togglePletor = (open: boolean) => { setPletorOpen(open); writePletorOpen(open); };
+  // Pletor startuje s OPOROU vždy v kokpitu (HUD) přes celou obrazovku; režim se neukládá.
+  const [pletorMode, setPletorMode] = useState<PletorMode>("hud");
   // Doména předvyplněná v modalu „Nový worktree“ z živého panelu; jinak se bere vybraný uzel.
   const [worktreeDomain, setWorktreeDomain] = useState<string | null>(null);
   // Podzáložka stránky Text (Uživatel/Agenti); resetuje se na Uživatel při přechodu na jinou vrstvu.
@@ -1043,6 +1043,8 @@ export default function App() {
       current?.digest === preview.digest ? null : current,
     );
   }
+  // Pletor leží nad každou obrazovkou (úvod, srdce, plátno) jako nejvyšší vrstva.
+  const pletorLayer = <PletorWindow mode={pletorMode} project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name ?? project} workspace={workspace} onMode={setPletorMode} />;
   // Úvodní obrazovka má týž rám jako zbytek aplikace, ale bez menu Editoru: nemá plátno ani vybranou kartu.
   if (screen === "home") return <>
     <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
@@ -1051,8 +1053,9 @@ export default function App() {
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
     <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
     {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} surface={{ value: settings, onChange: updateSettings }} />}
+    {pletorLayer}
   </>;
-  if (screen === "heart") return <HeartScreen project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onBack={() => setScreen("home")} />;
+  if (screen === "heart") return <><HeartScreen project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onBack={() => setScreen("home")} />{pletorLayer}</>;
   const artifactMapOpen = mode === "map" || mode === "office" || mode === "storyboard";
   const inspectorTools =
     mode === "map" || mode === "office" || mode === "storyboard" ? (
@@ -1097,7 +1100,7 @@ export default function App() {
     <SaveScopeProvider project={project} workspace={workspace}><div className="app desktop-v2 desktop-v3">
       <TopBar
         onHome={() => setScreen("home")}
-        trailing={<><PletorButton open={pletorOpen} onToggle={() => togglePletor(!pletorOpen)} /><AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} request={activityRequest} />}{versionsEnabled && <SaveVersionsTools key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
+        trailing={<><PletorButton open={pletorMode !== "closed"} onToggle={(full) => setPletorMode(full || pletorMode === "window" ? "hud" : "window")} /><AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} request={activityRequest} />}{versionsEnabled && <SaveVersionsTools key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
         projectNavigation={environment === "project" ? <ProjectMapNavigation value={projectMapKind} onChange={(kind) => { if (!saveAllBusy) setProjectMapKind(kind); }}/> : null}
         projects={projects}
         draftProject={draftProject}
@@ -1732,7 +1735,7 @@ export default function App() {
         </div>
       )}
       <AssistantPanel open={assistantOpen} scope={{ projectId: project, workspace }} nodes={graph.nodes} onClose={() => setAssistantOpen(false)} />
-      <PletorWindow open={pletorOpen} project={project} workspace={workspace} onClose={() => togglePletor(false)} />
+      {pletorLayer}
     </div></SaveScopeProvider>
   );
 }
