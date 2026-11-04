@@ -40,3 +40,12 @@
 .node-inspector__new { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 4px; padding-top: 8px; border-top: 1px dashed var(--line); }
 .node-inspector__button { padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-2); color: var(--ink); font: inherit; cursor: pointer; }
 .node-inspector__remove { align-self: flex-start; margin-top: auto; padding: 5px 10px; border: 1px solid var(--danger-line); border-radius: 5px; background: var(--danger-soft); color: var(--danger); font: inherit; cursor: pointer; }
+
+/* Plátno toku: blokové pole (JSON editor, výběr) zabere celou šířku, nápověda z registru stojí pod klíčem šedě
+   („insert | load | retrieve | retrieveAsTool“), aby člověk věděl, co do pole patří, bez hledání v katalogu.
+   Pokusy a čekání sedí vedle sebe, protože se nastavují spolu. */
+.node-inspector__field--block { grid-template-columns: 1fr; }
+.node-inspector__hint { grid-column: 1 / -1; color: var(--ink-muted); font-size: 10px; }
+.node-inspector__tabs--4 { grid-template-columns: repeat(4, 1fr); }
+.node-inspector__pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.node-inspector__check { display: flex; gap: 6px; align-items: center; }

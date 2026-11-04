@@ -2,11 +2,11 @@
 // editor neplatnou vazbu vůbec nenabídl. Vazba vede z výstupu na vstup, oba porty mají stejný kind, port s
 // `cardinality: "one"` nese jen jednu hranu a stejná vazba nevznikne dvakrát. Zobecněno ze Studia MODEL
 // (`connectionError`), kde roli kindu hraje datový typ portu.
-import type { FlowEdge, FlowGraph, NodeTypes, PortDirection, PortRef, PortSpec } from "./flow-types";
+import { specOf, type FlowEdge, type FlowGraph, type NodeTypes, type PortDirection, type PortRef, type PortSpec } from "./flow-types";
 
 export function portOf(graph: FlowGraph, types: NodeTypes, ref: PortRef): PortSpec | undefined {
   const node = graph.nodes.find((item) => item.id === ref.nodeId);
-  return node ? types.get(node.type)?.ports.find((port) => port.name === ref.port && port.direction === ref.direction) : undefined;
+  return node ? specOf(types, node)?.ports.find((port) => port.name === ref.port && port.direction === ref.direction) : undefined;
 }
 
 /** Jeden konec vazby pro obecnou kontrolu: uzel, port, směr a typ (kind) portu. `kind: null` = port neexistuje nebo

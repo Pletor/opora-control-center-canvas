@@ -66,6 +66,7 @@ Převzetí do projektu (`adopt`) a vylepšení (`contribute`) založí nové pl�
 | Cesta | Co |
 |---|---|
 | `/api/flow/node-types` | `GET ?kind=` → `{node_types}` registr typů uzlů: `type`, `version`, `trigger`, `params`, porty (`name`, `direction`, `kind`, `cardinality`, `schema`, `required`, `label`), `category`, `dynamicPorts`; `kind=page_intent` vrátí katalog záměru, `kind=library_flow` toky dat |
+| `/api/flow/node-ports` | `POST {kind, type, params, onError?}` → `{type, ports}` porty uzlu pro konkrétní `params` (dynamické typy: režim vektorového úložiště, `hasOutputParser`, větve Switch, vstupy Merge; `onError: errorOutput` přidá výstup `error`); neznámý typ 404 |
 | `/api/flow/graph-check` | `POST {kind, graph}` → `{ok, errors}` ověří graf podle katalogu druhu, nic nezapíše |
 | `/api/flow/page-intents` | `GET ?project=` → `{pages: [{pageId, state, workflowId?, activeN?, candidateN?, doneCount}]}` stav záměru každé stránky |
 | `/api/flow/workflows` | `GET ?project=&kind=&owner_ref=` seznam; `POST {kind, name, project_id?, owner_ref?}` založí tok |

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FIXTURE_TYPES } from "../../logic/flow-fixtures";
+import { FIXTURE_TYPES, LIBRARY_TYPES } from "../../logic/flow-fixtures";
 import { paletteGroups } from "./palette";
 
 describe("node palette", () => {
@@ -16,5 +16,15 @@ describe("node palette", () => {
   it("prefilters on the port the plus was clicked on", () => {
     expect(paletteGroups(FIXTURE_TYPES, "", { kind: "model", direction: "in" }).flatMap((g) => g.items.map((i) => i.type))).toEqual(["model.claude"]);
     expect(paletteGroups(FIXTURE_TYPES, "", { kind: "main", direction: "out" }).map((g) => g.id)).toEqual(["agent", "flow", "approval"]);
+  });
+  it("sorts the data-flow catalog into n8n categories with AI sub-categories by sub-port", () => {
+    expect(paletteGroups(LIBRARY_TYPES).map((g) => [g.label, g.items.map((i) => i.type)])).toEqual([
+      ["Spouštěče", ["trigger.chat"]], ["AI · Agent a řetězce", ["ai.agent"]], ["AI · Modely", ["ai.model"]], ["AI · Nástroje", ["ai.vectorStore"]],
+      ["AI · Načítače", ["ai.documentLoader"]], ["Transformace dat", ["transform.set"]], ["Tok", ["flow.if"]]]);
+  });
+  it("offers a type for a port through its variant (vector store as an agent tool)", () => {
+    const items = paletteGroups(LIBRARY_TYPES, "", { kind: "tool", direction: "in" }).flatMap((g) => g.items);
+    expect(items.map((i) => i.type)).toEqual(["ai.vectorStore"]);
+    expect(items[0].summary).toMatch(/→ Nástroj$/);
   });
 });

@@ -1,15 +1,20 @@
 import { useMemo, useState } from "react";
+import { checkTargets } from "../logic/check-strip";
 import { connectionError } from "../logic/connection-policy";
-import { nodeTypeMap, type FlowGraph, type NodeRun, type NodeTypeSpec, type Point, type PortRef } from "../logic/flow-types";
+import { nodeTypeMap, specOf, withNodePorts, type FlowGraph, type NodeRun, type NodeTypeSpec, type Point, type PortRef, type PortSpec } from "../logic/flow-types";
 import { flowEdges, flowNodes } from "../logic/flow-view";
+import { foldEdges, groupNodes, hiddenNodes, noteNodes } from "../logic/frame-view";
 import type { GraphDiff } from "../logic/graph-diff";
-import { addConnected, addNode, connect, moveNode, removeEdge, removeNode, setParam } from "../logic/graph-edit";
+import { addConnected, addNode, connect, moveNode, removeEdge, removeNode, setNodeField, setParam } from "../logic/graph-edit";
+import { addNote, groupFromSelection, setGroup, setNote, ungroup } from "../logic/graph-frames";
 import { readinessIssues } from "../logic/readiness";
 import type { RunOverlay } from "../logic/run-overlay";
 import type { PlusRequest } from "../flow-node/logic/port-actions";
 import NodePalette from "../node-palette/components/NodePalette";
 import NodeInspector from "../node-inspector/components/NodeInspector";
+import GroupInspector from "../flow-frame/components/GroupInspector";
 import FlowCanvas from "./FlowCanvas";
+import FlowToolbar from "./FlowToolbar";
 import "../styles/flow-editor.css";
 
 type Props = {
@@ -18,19 +23,35 @@ type Props = {
   selected: string | null; onSelect: (nodeId: string | null) => void;
   /** Každá úprava vrací celý nový graf; uloží ho (jako draft verze) rodič. */
   onChange: (graph: FlowGraph) => void;
+  /** Plátno toku (knihovna): poznámky, rámce a inspektor s poli uzlu (Data, Chyby, Poznámka). */
+  frames?: boolean;
+  /** Porty konkrétních uzlů podle jejich `params` (rodič je zjistí přes `POST /api/flow/node-ports`). */
+  nodePorts?: ReadonlyMap<string, PortSpec[]>;
+  /** Chyby kontroly grafu (`graph-check`); se seznamem pás „Kontrola grafu“ nahradí „Připraveno ke spuštění“. */
+  checkErrors?: readonly string[] | null;
 };
 
-/** Generický editor grafu verze workflow: plátno, paleta, inspektor a pás „Připraveno ke spuštění“. Neví nic
- * o srdci ani o API; typy uzlů dostává z registru, stav běhu a rozdíl verzí hotové v props a změny hlásí nahoru. */
-export default function FlowEditor({ graph, types, readOnly, overlay, diff, nodeRuns = [], selected, onSelect, onChange }: Props) {
-  const registry = useMemo(() => nodeTypeMap(types), [types]);
+/** Generický editor grafu verze workflow: plátno, paleta, inspektor a pás „Připraveno ke spuštění“ (u plátna toku pás
+ * kontroly grafu). Neví nic o srdci ani o API; typy uzlů dostává z registru, stav běhu, rozdíl verzí, porty uzlů a chyby
+ * kontroly hotové v props a změny hlásí nahoru. Stav sbalení rámců drží jen v prohlížeči (jako n8n). */
+export default function FlowEditor({ graph, types, readOnly, overlay, diff, nodeRuns = [], selected, onSelect, onChange, frames = false, nodePorts, checkErrors }: Props) {
+  const registry = useMemo(() => withNodePorts(nodeTypeMap(types), nodePorts, graph), [types, nodePorts, graph]);
   const [palette, setPalette] = useState<{ port: PlusRequest | null } | null>(null);
   const [edge, setEdge] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  const issues = useMemo(() => readinessIssues(graph, registry), [graph, registry]);
-  const issueNodes = useMemo(() => new Set(issues.flatMap((issue) => issue.nodeId ? [issue.nodeId] : [])), [issues]);
-  const nodes = useMemo(() => flowNodes(graph, registry, { overlay, diff, highlighted: selected, issues: issueNodes, readOnly }), [graph, registry, overlay, diff, selected, issueNodes, readOnly]);
-  const edges = useMemo(() => flowEdges(graph, { overlay, diff, readOnly }), [graph, overlay, diff, readOnly]);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [group, setGroupId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const issues = useMemo(() => checkErrors ? [] : readinessIssues(graph, registry), [graph, registry, checkErrors]);
+  const targets = useMemo(() => checkTargets(checkErrors ?? [], graph), [checkErrors, graph]);
+  const issueNodes = useMemo(() => new Set([...issues.flatMap((issue) => issue.nodeId ? [issue.nodeId] : []), ...targets.nodes]), [issues, targets]);
+  const hidden = useMemo(() => hiddenNodes(graph, collapsed), [graph, collapsed]);
+  const nodes = useMemo(() => {
+    const cards = flowNodes(graph, registry, { overlay, diff, highlighted: selected, issues: issueNodes, readOnly });
+    const shown = cards.filter((card) => !hidden.has(card.id));
+    return [...noteNodes(graph, readOnly), ...groupNodes(graph, cards, collapsed, targets.groups, group), ...shown];
+  }, [graph, registry, overlay, diff, selected, issueNodes, readOnly, hidden, collapsed, targets, group]);
+  const edges = useMemo(() => foldEdges(flowEdges(graph, { overlay, diff, readOnly }), graph, collapsed), [graph, overlay, diff, readOnly, collapsed]);
 
   const apply = (edit: () => FlowGraph) => {
     try { onChange(edit()); setMessage(""); } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
@@ -40,32 +61,47 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
     apply(() => port ? addConnected(graph, registry, type, port) : addNode(graph, registry, type, freeSpot(graph)).graph);
     setPalette(null);
   };
+  const toggle = (id: string) => setCollapsed((old) => { const next = new Set(old); if (!next.delete(id)) next.add(id); return next; });
+  const selectNode = (id: string | null) => { setGroupId(null); onSelect(id); };
   const node = graph.nodes.find((item) => item.id === selected) ?? null;
+  const frame = graph.groups?.find((item) => item.id === group) ?? null;
   const run = node ? [...nodeRuns].reverse().find((item) => item.node_id === node.id) ?? null : null;
   const selectedEdge = graph.edges.find((item) => item.id === edge);
 
   return <div className="flow-editor" data-testid="flow-editor">
     <div className="flow-editor__main">
-      {!readOnly && <div className="flow-editor__tools">
-        <button type="button" className="flow-editor__tool" onClick={() => setPalette({ port: null })}>+ Uzel</button>
-        {selectedEdge && <span className="flow-editor__edge">vazba {selectedEdge.source_node}.{selectedEdge.source_port} → {selectedEdge.target_node}.{selectedEdge.target_port}
-          <button type="button" className="flow-editor__tool" onClick={() => { apply(() => removeEdge(graph, selectedEdge.id)); setEdge(null); }}>Odebrat vazbu</button></span>}
-        {message && <span className="flow-editor__message" role="alert">{message}</span>}
-      </div>}
+      {!readOnly && <FlowToolbar edge={selectedEdge} message={message} frames={frames} selection={picked.length} onPalette={() => setPalette({ port: null })}
+        onRemoveEdge={() => { if (selectedEdge) apply(() => removeEdge(graph, selectedEdge.id)); setEdge(null); }}
+        onNote={() => apply(() => addNote(graph, noteSpot(graph)))}
+        onGroup={() => apply(() => { const made = groupFromSelection(graph, picked); setGroupId(made.group.id); onSelect(null); return made.graph; })}/>}
       <FlowCanvas nodes={nodes} edges={edges} readOnly={readOnly}
+        frames={{ onNote: (id, patch) => apply(() => setNote(graph, id, patch)), onToggleGroup: toggle }}
         canConnect={(a: PortRef, b: PortRef) => !connectionError(graph, registry, a, b)}
-        onSelectNode={onSelect} onSelectEdge={setEdge}
+        onSelectNode={selectNode} onSelectEdge={setEdge} onSelectGroup={frames ? (id) => { onSelect(null); setGroupId(id); } : undefined}
+        onSelection={frames ? setPicked : undefined} onMoveNote={(id, at) => { if (!readOnly) apply(() => setNote(graph, id, at)); }}
         onMove={(id: string, at: Point) => { if (!readOnly) apply(() => moveNode(graph, id, at)); }}
         onConnect={(a, b) => apply(() => connect(graph, registry, a, b))}
         onDropType={(type, at) => apply(() => addNode(graph, registry, type, at).graph)}
         onPlus={(port) => setPalette({ port })}/>
+      {checkErrors && <p className={`flow-editor__check${checkErrors.length ? "" : " flow-editor__check--ok"}`} data-testid="flow-check">
+        Kontrola grafu{checkErrors.length ? `: ${checkErrors.join(" · ")}` : ": v pořádku"} <small className="flow-editor__check-note">plátno se nespouští, popisuje tok</small></p>}
       {issues.length > 0 && <p className="flow-editor__readiness" data-testid="flow-readiness">Připraveno ke spuštění: {issues.map((issue) => issue.text).join(" · ")}</p>}
       {palette && !readOnly && <NodePalette types={types} port={palette.port} onPick={pick} onClearPort={() => setPalette({ port: null })} onClose={() => setPalette(null)}/>}
     </div>
-    {node && <NodeInspector key={node.id} node={node} spec={registry.get(node.type)} run={run} stall={overlay?.get(node.id)?.stall ?? null} readOnly={readOnly}
+    {node && <NodeInspector key={node.id} node={node} spec={specOf(registry, node)} run={run} stall={overlay?.get(node.id)?.stall ?? null} readOnly={readOnly}
       onParam={(key, value) => apply(() => setParam(graph, node.id, key, value))}
+      onField={frames ? (key, value) => apply(() => setNodeField(graph, node.id, key, value)) : undefined}
       onRemove={() => { apply(() => removeNode(graph, node.id)); onSelect(null); }} onClose={() => onSelect(null)}/>}
+    {!node && frame && <GroupInspector key={frame.id} group={frame} errors={targets.groups.get(frame.id) ?? []} collapsed={collapsed.has(frame.id)} readOnly={readOnly}
+      onChange={(patch) => apply(() => setGroup(graph, frame.id, patch))} onToggle={() => toggle(frame.id)}
+      onUngroup={() => { apply(() => ungroup(graph, frame.id)); setGroupId(null); }} onClose={() => setGroupId(null)}/>}
   </div>;
+}
+
+/** Nová poznámka jde nad levý horní roh grafu, aby nezakryla uzly; posune se tahem. */
+function noteSpot(graph: FlowGraph): Point {
+  const xs = graph.nodes.map((node) => node.position?.x ?? 0), ys = graph.nodes.map((node) => node.position?.y ?? 0);
+  return { x: xs.length ? Math.min(...xs) : 0, y: ys.length ? Math.min(...ys) - 240 : 0 };
 }
 
 /** Nový uzel bez portu jde pod nejnižší uzel grafu, aby nepřekryl existující. */

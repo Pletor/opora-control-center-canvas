@@ -9,6 +9,13 @@
 .flow-editor__tool:hover { border-color: var(--accent); }
 .flow-editor__edge { display: flex; gap: 8px; align-items: center; color: var(--ink-2); font-family: var(--mono, monospace); }
 .flow-editor__message { color: var(--danger); }
+/* Plátno toku se nespouští, místo „Připraveno ke spuštění“ má pás kontroly grafu: červený se všemi větami serveru,
+   když graf porušuje pravidla (povinný port, skupina, odkaz na uzel), klidně zelený, když je v pořádku. Dovětek
+   připomíná, že plátno tok popisuje, ne vykonává. */
+.flow-editor__check { margin: 0; padding: 6px 10px; border-top: 1px solid var(--danger-line); background: var(--danger-soft); color: var(--ink); font-size: 12px; }
+.flow-editor__check--ok { border-top-color: var(--line); background: var(--ok-soft); }
+.flow-editor__check-note { color: var(--ink-muted); }
+.flow-editor__tool:disabled { cursor: not-allowed; opacity: .55; }
 .flow-editor__readiness { margin: 0; padding: 6px 10px; border-top: 1px solid var(--warn-line); background: var(--warn-soft); color: var(--ink); font-size: 12px; }
 
 /* Plátno má tečkovanou mřížku jako n8n. Když se člověk dívá do minulosti (vybraný běh, jen ke čtení), dostane plátno

@@ -4,7 +4,9 @@ Generický editor grafu verze workflow engine toků (kontrakt `docs/navrhy/2026-
 
 - `components/FlowEditor.tsx` — rodič: skládá plátno, paletu, inspektor a pás „Připraveno ke spuštění“; drží jen UI stav (otevřená paleta, port u „+“, vybraná vazba, hláška).
 - `components/FlowCanvas.tsx` — React Flow (`@xyflow/react`): mřížka, zoom, minimapa, tah uzlů a vazeb, puštění typu z palety, šrafované pozadí jen ke čtení (pohled do minulosti).
-- `flow-node/` — karta uzlu a porty. `node-palette/` — šuplík typů s hledáním a předfiltrem na port. `node-inspector/` — parametry, vstup a výstup uzlu v běhu.
+- `components/FlowToolbar.tsx` — + Uzel, + Poznámka a „Rámec z výběru“ (jen s propem `frames`). Prop `checkErrors` nahradí pás připravenosti pásem kontroly grafu (`logic/check-strip.ts`: chyby → uzly a rámce), `nodePorts` doplní porty uzlů s dynamickými porty (`POST /api/flow/node-ports`) do registru jako `node:<id>` (`withNodePorts`, `specOf`).
+- `flow-frame/` — lepíky `notes[]` a rámce `groups[]` plátna knihovny.
+- `flow-node/` — karta uzlu a porty (povinný port `*`, plný port s max. 1 bez „+“, podtitul z `notesInFlow`). `node-palette/` — šuplík typů s hledáním a předfiltrem na port. `node-inspector/` — parametry, vstup a výstup uzlu v běhu.
 - `logic/flow-types.ts` — tvar dat `/api/flow/*`. `connection-policy.ts` — pravidla vazeb podle `kind` portu (výstup → vstup, stejný kind, `cardinality: one`, bez duplicit; stejná jako `backend/flow/graph_check.py`). `graph-edit.ts` — úpravy grafu jako čisté funkce. `node-role.ts` — role uzlu (spouštěč, agent, sub-uzel, krok) a poloha portů z registru. `run-overlay.ts` — stav uzlů z `node_runs` a prostojů, popisky hran (tokeny · cena · doba). `graph-diff.ts` — rozdíl dvou verzí (duchové odebraných uzlů). `readiness.ts` — co verzi chybí ke spuštění. `flow-view.ts` — graf → uzly a hrany React Flow (handle `in:<port>` / `out:<port>`). `flow-fixtures.ts` — výřez registru a grafu srdce pro testy.
 
 Testy: `logic/*.test.ts`, `node-palette/logic/palette.test.ts`, `node-inspector/logic/inspector-fields.test.ts` (`npm test`).
