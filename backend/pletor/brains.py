@@ -147,10 +147,13 @@ def ollama_turn(model, context, text, history=(), transport=http):
     return reply, actions
 
 
-def turn(folder, context, text, history=(), *, runner=run_process, find=claude_command.find_claude, transport=http):
+def turn(folder, context, text, history=(), *, runner=run_process, find=claude_command.find_claude, transport=http,
+         on_delta=None):
     """Tah zvoleným mozkem; vrací `(reply, actions)`, chyba je `RuntimeError` jako u `session.turn`.
-    Claude dostane podklady a zprávu v jednom vstupu (historii drží jeho relace), Ollama role a historii."""
+    Claude dostane podklady a zprávu v jednom vstupu (historii drží jeho relace), Ollama role a historii.
+    `on_delta` dostává kousky odpovědi jen u Claude; Ollamě celou odpověď doplní `Pletor.message` po tahu."""
     chosen = store.settings(folder)
     if chosen["brain"] == OLLAMA:
         return ollama_turn(chosen["ollamaModel"], context, text, history, transport)
-    return session.turn(folder, f"{context}\n\nZPRÁVA ČLOVĚKA:\n{text}", runner=runner, find=find)
+    return session.turn(folder, f"{context}\n\nZPRÁVA ČLOVĚKA:\n{text}", runner=runner, find=find,
+                        on_delta=on_delta)

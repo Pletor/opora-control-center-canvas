@@ -93,3 +93,50 @@ def test_parse_reply_reads_fenced_json_and_falls_back_to_text():
     assert session.parse_reply('```json\n{"reply": "Ano.", "actions": []}\n```') == ("Ano.", [])
     assert session.parse_reply("Jen text.") == ("Jen text.", [])
     assert session.parse_reply('{"actions": []}') == ('{"actions": []}', [])
+
+
+def feed_all(pieces):
+    stream = session.ReplyStream()
+    return [stream.feed(piece) for piece in pieces]
+
+
+def test_reply_stream_decodes_the_reply_field_across_any_split():
+    text = '```json\n{"reply": "Řádek\\n\\"citát\\" \\\\ \\u010d \\ud83d\\ude00 konec", "actions": [{"text": "x"}]}\n```'
+    whole = "Řádek\n\"citát\" \\ č \U0001F600 konec"
+    assert "".join(feed_all([text])) == whole
+    for size in (1, 2, 3, 5):  # kousky dělené uprostřed klíče, escape i páru \uXXXX
+        assert "".join(feed_all([text[i:i + size] for i in range(0, len(text), size)])) == whole
+    assert feed_all(['{"rep', 'ly" : "A', 'h\\', 'noj"', ', "reply": "znovu"}']) == ["", "A", "h", "\noj", ""]
+    assert feed_all(["Jen prostý text bez JSON."]) == [""]
+
+
+def stream_runner(text, pieces):
+    """Falešný `claude` se stream-json: události `text_delta` po kouscích do `on_line`, pak výsledek."""
+    def runner(command, *, cwd, env, stdin_text, timeout, on_line=None):
+        assert "--include-partial-messages" in command
+        lines = [json.dumps({"type": "stream_event", "event": {"type": "content_block_delta", "index": 0,
+                                                                "delta": {"type": "text_delta", "text": piece}}})
+                 for piece in pieces]
+        lines.append(json.dumps({"type": "result", "session_id": "s1", "is_error": False, "result": text}))
+        for line in lines:
+            on_line(line + "\n")
+        return Outcome(0, "\n".join(lines) + "\n", "")
+    return runner
+
+
+def test_message_streams_deltas_that_add_up_to_the_reply(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        answer = '{"reply": "Dobrý \\"den\\".", "actions": []}'
+        deltas = []
+        pletor = pletor_for(client, stream_runner(answer, [answer[:14], answer[14:20], answer[20:]]))
+        result = pletor.message("draft", "draft", "Ahoj", on_delta=deltas.append)
+        assert len(deltas) > 1 and "".join(deltas) == result["reply"] == 'Dobrý "den".'
+        deltas.clear()  # prostý text: extraktor nic nepozná, celá odpověď přijde jedním kouskem na konci
+        pletor.runner = stream_runner("Jen text.", ["Jen ", "text."])
+        assert pletor.message("draft", "draft", "Ahoj", on_delta=deltas.append)["reply"] == "Jen text."
+        assert deltas == ["Jen text."]
+        deltas.clear()  # přepnutí mozku: žádný kousek
+        assert pletor.message("draft", "draft", "Přepni zpět na Claude", on_delta=deltas.append)["reply"]
+        assert deltas == []
+        assert [m["role"] for m in pletor.state("draft", "draft")["messages"]] == ["human", "pletor"] * 3

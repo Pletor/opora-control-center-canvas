@@ -33,6 +33,36 @@ def test_message_and_state(tmp_path):
         assert state["brain"] == {"brain": "claude", "model": "sonnet", "available": ["qwen3:14b"]}
 
 
+def test_message_stream_sends_deltas_then_done(tmp_path):
+    from backend.pletor.test_service import stream_runner
+
+    answer = '{"reply": "Ahoj, pane.", "actions": [{"type": "vault_note", "text": "Web má dvě stránky."}]}'
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        pletor = client.app.state.pletor
+        pletor.runner, pletor.find = stream_runner(answer, [answer[:15], answer[15:]]), lambda: "claude"
+        response = client.post("/api/pletor/messages/stream", headers=HEADERS, json={**SCOPE, "text": "Ahoj"})
+        assert response.status_code == 200 and response.headers["content-type"] == "application/x-ndjson"
+        lines = [json.loads(line) for line in response.text.splitlines()]
+        assert {line["type"] for line in lines[:-1]} == {"delta"}
+        assert "".join(line["text"] for line in lines[:-1]) == "Ahoj, pane."
+        assert lines[-1] == {"type": "done", "reply": "Ahoj, pane.", "actions": [
+            {"type": "vault_note", "text": "Web má dvě stránky.", "ok": True,
+             "detail": "Zapsáno do brain/pletor_decisions.jsonl."}]}
+
+        def broken(*args, **kwargs):
+            raise ValueError("rozbito")
+
+        pletor.runner = broken  # i neočekávaná výjimka tahu končí řádkem done
+        lines = client.post("/api/pletor/messages/stream", headers=HEADERS, json={**SCOPE, "text": "x"}).text
+        assert [json.loads(line) for line in lines.splitlines()] == [
+            {"type": "done", "reply": "Pletor selhal: rozbito", "actions": []}]
+        assert client.post("/api/pletor/messages/stream", headers=AGENT, json={**SCOPE, "text": "x"}
+                           ).status_code == 403
+        assert client.post("/api/pletor/messages/stream", headers=HEADERS, json={**SCOPE, "text": " "}
+                           ).status_code == 422
+
+
 def test_voice_flag_reaches_the_model(tmp_path):
     seen = []
 
