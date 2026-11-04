@@ -11,13 +11,15 @@ Generuje je jen server z normalizovaného dokumentu (`design_system.normalize`),
 5. třída `.<styl>` na každý typografický styl, `@font-face` na každý font (`url("fonts/<soubor>")` vedle `tokens.css`)
 
 `components.css` jde po `tokens.css`: `@layer base` (prvky stránky z tokenů Vzhledu, jen ty tokeny, které existují),
-`@layer components` (tlačítka `.ds-btn`, jen přes `var()`) a `@layer custom` (sanitizované vlastní CSS).
+`@layer components` (tlačítka `.ds-btn`, hlavička `.ds-header`, patička `.ds-footer` a cookie lišta `.ds-cookie-bar`,
+jen přes `var()`) a `@layer custom` (sanitizované vlastní CSS).
 """
 
 import json
 import re
 
 from backend.project.site_admin import buttons as button_css
+from backend.project.site_admin import settings_readme, site_chrome
 from backend.project.site_admin.custom_css import compile_button
 from backend.project.site_admin.tokens import ALIAS, FIXED
 
@@ -153,6 +155,7 @@ def readme(document):
         for group in design["assetGroups"]:
             files = ", ".join(f"`{file['blob']}`" for file in group["files"]) or "zatím prázdná"
             out.append(f"- {group['name']}: {files}")
+    out += settings_readme.lines(document["settings"], variants)
     return "\n\n".join(out[:out.index("---")]) + "\n\n" + "\n".join(out[out.index("---"):]) + "\n"
 
 
@@ -214,7 +217,7 @@ def components_css(document):
     out = [f"/* {title} — components.css, generated from design-system.json; load after tokens.css */",
            "@layer base, components, custom;"]
     out += _layer("base", _base(document["design"]["tokens"]))
-    out += ["@layer components {", *button_css.css(settings["buttons"]), "}"]
+    out += ["@layer components {", *button_css.css(settings["buttons"]), *site_chrome.css(), "}"]
     custom = [block for block in custom if block]
     if custom:
         out += ["@layer custom {", *custom, "}"]
