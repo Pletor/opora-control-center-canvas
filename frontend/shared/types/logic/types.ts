@@ -218,6 +218,21 @@ export async function api<T>(url: string, body?: object, method: WriteMethod = "
   // Chybějící endpoint (statický 404) nesmí vypadat jako JSON chyba parseru: říká se HTTP stav.
   const raw = await response.text();
   if (!body) etags.remember(url, response.ok ? response.headers?.get?.("ETag") ?? null : null, raw);
+  return parsed<T>(url, response, raw);
+}
+/** Zápis, jehož odpověď čte volající po kouscích (proud NDJSON): doklad člověka, 428 i chyby stejně jako `api`. */
+export async function apiStream(url: string, body: object): Promise<ReadableStream<Uint8Array>> {
+  await ensureHumanSession();
+  let response = await send(url, body);
+  if (response.status === 428) {
+    await ensureHumanSession(true);
+    response = await send(url, body);
+  }
+  if (response.ok && response.body) return response.body;
+  parsed(url, response, await response.text());
+  throw new Error(`${url} není dostupné (HTTP ${response.status}).`);
+}
+function parsed<T>(url: string, response: Response, raw: string): T {
   let value: { error?: string } & Record<string, unknown>;
   try {
     value = JSON.parse(raw);

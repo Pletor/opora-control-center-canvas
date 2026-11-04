@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createServerOutput, pcmSamples, type Sound } from "./tts-output";
+import { pcmSamples, type Sound } from "./tts-audio";
+import { createServerOutput } from "./tts-output";
 import type { VoiceOutput } from "./voice-output";
 
 const JIRKA = "cs_CZ-jirka-medium";
@@ -161,6 +162,84 @@ describe("createServerOutput", () => {
     await flush();
     await flush();
     expect(fallback.speak).toHaveBeenCalledWith("Jedna. Dvě.", expect.anything());
+    expect(onEnd).toHaveBeenCalledOnce();
+  });
+
+  it("proud: dokončená věta hraje dřív, než přijde end; nedokončená čeká", async () => {
+    const server = fakeSpeech();
+    const { context, sources } = fakeAudio();
+    const onEnd = vi.fn();
+    const reading = createServerOutput(fakeFallback(), () => [EDGE], server.speech, () => context).begin({ onEnd });
+    reading.push("Dobrý den");
+    await flush();
+    expect(server.calls).toHaveLength(0);
+    reading.push(", pane. Srdce už");
+    await flush();
+    expect(server.calls.map((call) => call.text)).toEqual(["Dobrý den, pane."]);
+    server.answer(0, 1);
+    await flush();
+    expect(sources.map((source) => source.startAt)).toEqual([0]);
+    reading.push(" pracuje.");
+    reading.end();
+    await flush();
+    expect(server.calls.map((call) => call.text)).toEqual(["Dobrý den, pane.", "Srdce už pracuje."]);
+    server.answer(1, 2);
+    await flush();
+    expect(sources.map((source) => source.startAt)).toEqual([0, 1]);
+    expect(onEnd).not.toHaveBeenCalled();
+    sources[1].onended?.();
+    expect(onEnd).toHaveBeenCalledOnce();
+  });
+
+  it("proud: stop uprostřed utne zvuk i požadavky a další push nic nepřehraje", async () => {
+    const server = fakeSpeech();
+    const { context, sources } = fakeAudio();
+    const onEnd = vi.fn();
+    const output = createServerOutput(fakeFallback(), () => [EDGE], server.speech, () => context);
+    const reading = output.begin({ onEnd });
+    reading.push("Jedna. Dvě");
+    await flush();
+    server.answer(0, 1);
+    await flush();
+    output.stop();
+    expect(sources[0].stopped).toBe(true);
+    reading.push(". Tři.");
+    reading.end();
+    await flush();
+    expect(server.calls).toHaveLength(1);
+    expect(onEnd).not.toHaveBeenCalled();
+  });
+
+  it("proud: bez hlasu serveru čte prohlížeč věty po dávkách a konec ohlásí až po end", async () => {
+    const fallback = fakeFallback();
+    const onEnd = vi.fn();
+    const reading = createServerOutput(fallback, () => [], fakeSpeech().speech, () => null).begin({ onEnd });
+    reading.push("Jedna. Dv");
+    expect(fallback.speak).toHaveBeenLastCalledWith("Jedna.", expect.anything());
+    expect(onEnd).not.toHaveBeenCalled();
+    reading.push("ě. Tři");
+    expect(fallback.speak).toHaveBeenLastCalledWith("Dvě.", expect.anything());
+    reading.end();
+    expect(fallback.speak).toHaveBeenLastCalledWith("Tři", expect.anything());
+    expect(onEnd).toHaveBeenCalledOnce();
+  });
+
+  it("proud: když hlas serveru selže, zbytek i další věty dočte prohlížeč", async () => {
+    const server = fakeSpeech();
+    const { context } = fakeAudio();
+    const fallback = fakeFallback();
+    const onEnd = vi.fn();
+    const reading = createServerOutput(fallback, () => [JIRKA], server.speech, () => context).begin({ onEnd });
+    reading.push("Jedna. ");
+    await flush();
+    server.fail(0);
+    await flush();
+    await flush();
+    expect(fallback.speak).toHaveBeenLastCalledWith("Jedna.", expect.anything());
+    reading.push("Dvě.");
+    reading.end();
+    expect(fallback.speak).toHaveBeenLastCalledWith("Dvě.", expect.anything());
+    expect(server.calls).toHaveLength(1);
     expect(onEnd).toHaveBeenCalledOnce();
   });
 
