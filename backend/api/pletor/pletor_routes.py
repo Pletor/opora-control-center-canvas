@@ -1,6 +1,6 @@
 """Routy Pletora (docs/navrhy/2026-11-04-pletor-jarvis.md, P1). Logika je v `backend/pletor/`.
 
-- `POST /api/pletor/messages {project, workspace, text}` → `{reply, actions: [{type, text, ok, detail?}]}`.
+- `POST /api/pletor/messages {project, workspace, text, voice?}` → `{reply, actions: [{type, text, ok, detail?}]}`.
 - `GET /api/pletor/state?project&workspace` → `{messages, heart, escalations, brain: {brain, model, available}}`.
 - `POST /api/pletor/brain {brain: claude | ollama, model?}` → `{ok, reply, brain}` (P2; selhání = `ok: false`).
 Všechny jen pro člověka v UI a jen z tohoto počítače (`/api/pletor` v `backend/app/remote_access.py`).
@@ -35,7 +35,8 @@ def create_pletor_router(service, pletor):
                 raise invalid("text je neprázdný text.", 'Příklad: {"project": "<id>", "workspace": "main", "text": "…"}')
         except GateError as error:
             return JSONResponse(error.body(), status_code=error.status)
-        return await run_in_threadpool(pletor.message, body.project, body.workspace, body.text.strip())
+        return await run_in_threadpool(pletor.message, body.project, body.workspace, body.text.strip(),
+                                     body.voice)
 
     @router.get("/state", response_model=models.PletorStateOut)
     def state(request: Request, project: str = "", workspace: str = ""):

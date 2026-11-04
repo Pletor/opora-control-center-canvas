@@ -24,6 +24,12 @@ describe("volání Pletora", () => {
     expect(result).toEqual({ reply: "Předám srdci.", actions: [{ type: "heart_message", text: "záměr", ok: true }] });
   });
 
+  it("hlasová zpráva nese voice: true", async () => {
+    const calls = stubFetch({ reply: "Ano.", actions: [] });
+    await sendPletorMessage("p1", "main", "Jak to jde", true);
+    expect(JSON.parse(String(calls.find((call) => call.init?.method === "POST")!.init!.body))).toEqual({ project: "p1", workspace: "main", text: "Jak to jde", voice: true });
+  });
+
   it("načte stav a zahodí zprávy s neznámou rolí", async () => {
     const calls = stubFetch({
       messages: [{ role: "human", text: "a", at: "t" }, { role: "system", text: "x", at: "t" }, { role: "pletor", text: "b", at: "t" }],

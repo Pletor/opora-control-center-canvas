@@ -52,4 +52,14 @@ describe("stepHud", () => {
     for (let i = 0; i < 40; i++) stepHud(speaking, 0.05, "speaking", false);
     expect(speaking.amp).toBeGreaterThan(0.6);
   });
+  it("při poslechu jádro sleduje hlasitost, v klidu ji nebere", () => {
+    const loud = frame(), quiet = frame(), idle = frame();
+    for (let i = 0; i < 40; i++) {
+      stepHud(loud, 0.05, "listening", false, 1);
+      stepHud(quiet, 0.05, "listening", false, 0);
+      stepHud(idle, 0.05, "idle", false, 1);
+    }
+    expect(loud.amp).toBeGreaterThan(quiet.amp + 0.5);
+    expect(idle.amp).toBeLessThan(0.2);
+  });
 });

@@ -202,6 +202,89 @@
   font: inherit;
 }
 
+/* Mikrofon je kulaté tlačítko hned vedle pole, aby člověk mohl mluvit místo psaní jedním klepnutím.
+   V klidu je obrysové a tiché; když poslouchá, rozsvítí se akcentem a dýchá kruhem kolem sebe,
+   takže je i koutkem oka jasné, že Pletor právě slyší. Zakázané (mikrofon nepovolený) zešedne.
+   Prohlížeč bez rozpoznávání řeči dostane místo tlačítka jen tichou značku s vysvětlením v titulku. */
+.pletor-mic {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--pletor-line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--pletor-accent);
+  cursor: pointer;
+}
+.pletor-mic:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.pletor-mic:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+  outline-offset: 2px;
+}
+.pletor-mic--listening {
+  background: var(--pletor-accent-soft);
+  border-color: var(--pletor-accent);
+  animation: pletor-mic-listen 1.4s ease-in-out infinite;
+}
+.pletor-mic--none {
+  width: auto;
+  border: 0;
+  color: var(--pletor-dim);
+  font-size: 11px;
+  cursor: help;
+}
+.pletor-mic__icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+@keyframes pletor-mic-listen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(61, 255, 143, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(61, 255, 143, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pletor-mic--listening { animation: none; }
+}
+
+/* Přepínače hlasu jsou dvě drobná zaškrtávátka pod mikrofonem: volba se dělá jednou a pak se na ni
+   zapomene, proto nekonkurují poli ani tlačítku Odeslat. */
+.pletor-mic__toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--pletor-dim);
+}
+.pletor-mic__toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pletor-mic__toggle input {
+  margin: 0;
+  accent-color: var(--pletor-accent);
+}
+
+/* Hláška hlasu (mikrofon nepovolený, výpadek služby) je věcná řádka nad polem, ne poplach:
+   říká, co udělat, a psaní dál funguje. */
+.pletor-mic__error {
+  margin: 0;
+  padding: var(--sp-1) var(--sp-4);
+  color: var(--pletor-error);
+  font-size: 12px;
+}
+
 /* Jádro Pletora je malá svítící koule nad rozhovorem, jako Jarvis: člověk koutkem oka vidí, že Pletor
    žije, aniž by četl. V klidu pomalu dýchá (4 s), takže nepoutá pozornost. Když přemýšlí, dech zrychlí
    a kolem běží dva tenké prstence proti sobě, aby čekání bylo vidět jako práce, ne jako zamrznutí.

@@ -54,8 +54,9 @@ export function parseReply(value: unknown): PletorReply {
 export const fetchPletorState = (project: string, workspace: string) =>
   api<unknown>(`/api/pletor/state?${scope(project, workspace)}`).then(parseState);
 
-export const sendPletorMessage = (project: string, workspace: string, text: string) =>
-  api<unknown>("/api/pletor/messages", { project, workspace, text }).then(parseReply);
+/** `voice` (P3): zpráva vznikla hlasem nebo je zapnutý Hlas; server pak chce krátkou odpověď ke čtení nahlas. */
+export const sendPletorMessage = (project: string, workspace: string, text: string, voice = false) =>
+  api<unknown>("/api/pletor/messages", { project, workspace, text, ...(voice ? { voice } : {}) }).then(parseReply);
 
 /** Stav srdce jednou větou: řetězec ze serveru, nebo věta ze stavu srdce (`statusLine`), jinak přiznaná neznámá. */
 export function heartText(heart: unknown): string {

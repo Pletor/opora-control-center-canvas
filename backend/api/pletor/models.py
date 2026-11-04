@@ -11,6 +11,7 @@ class PletorMessageIn(BaseModel):
     project: str = Field(min_length=1, max_length=200)
     workspace: str = Field(min_length=1, max_length=200)
     text: str = Field(min_length=1, max_length=TEXT_LIMIT)
+    voice: bool = False  # P3: zpráva vznikla hlasem nebo je zapnutý Hlas; odpověď se čte nahlas
 
 
 class PletorAction(BaseModel):

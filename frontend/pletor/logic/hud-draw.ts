@@ -9,11 +9,15 @@ const N_BARS = 96;
 const SEEDS = Array.from({ length: N_BARS }, (_, i) => (Math.sin(i * 12.9898) * 43758.5453) % 1);
 const rgba = (c: string, a: number) => `rgba(${c},${a})`;
 
-/** Posune natočení a amplitudu o dt (s); bez pohybu (reduced) se otáčí jen nepatrně a vlny stojí nízko. */
-export function stepHud(frame: HudFrame, dt: number, state: HudState, reduced: boolean): void {
+/**
+ * Posune natočení a amplitudu o dt (s); bez pohybu (reduced) se otáčí jen nepatrně a vlny stojí nízko.
+ * `level` (0–1, P3) je hlasitost mikrofonu při poslechu nebo puls slov při čtení; jádro pak dýchá s hlasem.
+ */
+export function stepHud(frame: HudFrame, dt: number, state: HudState, reduced: boolean, level: number | null = null): void {
   const motion = hudMotion(state);
   let target = motion.amp;
   if (state === "idle") target += Math.sin(frame.t * 1.1) * 0.04;
+  if (level !== null && (state === "listening" || state === "speaking")) target = motion.amp * 0.5 + level * 0.7;
   if (state === "thinking") target = 0.25 + Math.abs(Math.sin(frame.t * 6)) * 0.25;
   if (reduced) target = Math.min(target, 0.1);
   frame.rot += dt * 0.25 * motion.speed * (reduced ? 0.02 : 1);

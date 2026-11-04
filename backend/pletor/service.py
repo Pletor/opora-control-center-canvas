@@ -22,8 +22,12 @@ def _iso(moment):
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(moment))
 
 
-def prompt(context, text):
-    return f"{context}\n\nZPRÁVA ČLOVĚKA:\n{text}"
+VOICE = "REŽIM: HLAS – odpověz nejvýš dvěma větami, prostým textem bez výčtů a markdownu, čitelným nahlas, česky."
+
+
+def prompt(context, text, voice=False):
+    mode = f"\n\n{VOICE}" if voice else ""
+    return f"{context}{mode}\n\nZPRÁVA ČLOVĚKA:\n{text}"
 
 
 class Pletor:
@@ -52,8 +56,9 @@ class Pletor:
                               action["text"])
         return True, f"Zapsáno do brain/{store.DECISIONS}."
 
-    def message(self, project, workspace, text):
-        """`{reply, actions: [{type, text, ok, detail?}]}`; selhání modelu je odpověď bez akcí, ne výjimka."""
+    def message(self, project, workspace, text, voice=False):
+        """`{reply, actions: [{type, text, ok, detail?}]}`; selhání modelu je odpověď bez akcí, ne výjimka.
+        `voice` (P3): odpověď se čte nahlas, vstup modelu dostane řádek `VOICE`."""
         store.append_message(self.folder, _iso(self.clock()), project, workspace, "human", text)
         switch = brains.command(text)  # přepnutí mozku je věta bez modelu (P2), modelu se nepředá
         if switch:
@@ -63,7 +68,7 @@ class Pletor:
         try:
             with self.lock:
                 reply, raw = brains.turn(self.folder, prompt(build_context(self.service, self.heart, project, workspace),
-                                                             text), runner=self.runner, find=self.find,
+                                                             text, voice), runner=self.runner, find=self.find,
                                          transport=self.transport)
         except RuntimeError as error:
             reply, raw = str(error), []
