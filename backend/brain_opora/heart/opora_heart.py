@@ -45,6 +45,9 @@
     python opora_heart.py library show [--owner human|agent] [--folder SLUG] | get FLOW [--version N]
     python opora_heart.py library save --folder SLUG --slug SLUG --title T --file F [--learned-from JSON]
     python opora_heart.py library propose FLOW --file F [--note N]
+    python opora_heart.py library nodes add FLOW --type T [--layer L] [--title X] [--params JSON] [--after NODEID] [--branches a,b]
+    python opora_heart.py library nodes set FLOW NODEID --file JSON
+    python opora_heart.py library nodes connect FLOW --from A --to B [--from-port main] [--via http] [--kind json]
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
 OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrnutí do `last_done.json` v cwd.
@@ -98,7 +101,8 @@ proti aktivní verzi; schvaluje jen člověk v UI.
 `propose --file F` návrh změny `{title?, settings?, design?}`; dokument nemění, přijme ho člověk na stránce Správa webu.
 `library` je globální knihovna pláten toku v `opora_library.py` vedle nástroje: `show` složky a plátna, `get FLOW`
 graf verze, `save` uloží ověřený graf do knihovny agenta a aktivuje ho (`--learned-from` = odkud se ho naučil),
-`propose FLOW` uloží k plátnu člověka draft s poznámkou; přijme ho nebo zamítne člověk na plátně.
+`propose FLOW` uloží k plátnu člověka draft s poznámkou; přijme ho nebo zamítne člověk na plátně,
+`nodes add|set|connect` kreslí do draftu uzel po uzlu (`opora_library_nodes.py`, graf se po každé změně ověří, výstup nese `nodeId`).
 `skill NAME` vypíše postup režimu ze `skills/NAME.md` vedle nástroje (výslech čte `skill vyslech`, jen při výslechu).
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
@@ -1584,6 +1588,24 @@ def parser():
     library_propose.add_argument("flow")
     library_propose.add_argument("--file", required=True)
     library_propose.add_argument("--note")
+    library_nodes = library.add_parser("nodes").add_subparsers(dest="op", required=True)
+    nodes_add = library_nodes.add_parser("add")
+    nodes_add.add_argument("flow")
+    nodes_add.add_argument("--type", required=True)
+    for flag in ("--layer", "--title", "--params", "--after", "--branches"):
+        nodes_add.add_argument(flag)
+    nodes_set = library_nodes.add_parser("set")
+    nodes_set.add_argument("flow")
+    nodes_set.add_argument("node")
+    nodes_set.add_argument("--file", required=True)
+    nodes_connect = library_nodes.add_parser("connect")
+    nodes_connect.add_argument("flow")
+    nodes_connect.add_argument("--from", dest="src", required=True)
+    nodes_connect.add_argument("--to", required=True)
+    nodes_connect.add_argument("--from-port", default="main")
+    nodes_connect.add_argument("--to-port", default="main")
+    nodes_connect.add_argument("--via")
+    nodes_connect.add_argument("--kind")
     duel = commands.add_parser("duel")
     for flag in ("--subject", "--a", "--b"):
         duel.add_argument(flag, required=True)

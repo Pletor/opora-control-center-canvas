@@ -15,6 +15,11 @@ def _t(name, ports, params, trigger=False):
     return NodeType(name, 1, ports, None, trigger=trigger, params=params, category=layer, layer=layer)
 
 
+def _custom_step(params):
+    names = [str(b) for b in params.get("branches") or () if str(b)] if isinstance(params.get("branches"), list) else []
+    return (MAIN_IN, *(Port(n, "out", label=n) for n in names)) if names else BOTH
+
+
 PROCESS_TYPES = (
     _t("fe.click", SOURCE, {"label": "popisek tlačítka", "element": "selektor nebo jméno prvku"}, trigger=True),
     _t("fe.form", SOURCE, {"fields": "[{name, type, required}]", "submit": "popisek odeslání"}, trigger=True),
@@ -36,4 +41,8 @@ PROCESS_TYPES = (
     _t("infra.queue", BOTH, {"queue": "jméno fronty", "message": "tělo zprávy"}),
     _t("infra.storage", BOTH, {"operation": "read | write", "path": "cesta"}),
     _t("infra.email", BOTH, {"to": "příjemce", "subject": "předmět", "template": "šablona"}),
+    # krok na míru (§1b): vrstvu a titulek vyžaduje `graph_check`, větve = jména výstupů jako u Switche
+    NodeType("custom.step", 1, BOTH, None, params={"title": "titulek", "description": "co krok dělá",
+                                                    "rule": "výraz pro simulaci", "branches": "[jména výstupů]"},
+             category="custom", dynamic=_custom_step),
 )
