@@ -11,8 +11,12 @@ a nevolá bránu `/api/gate`. Je jeden na aplikaci, projekt z požadavku je jen 
   jinak bere celý text jako odpověď bez akcí.
 - `actions.py` deterministická kontrola akcí: jen `heart_message` a `vault_note`, neprázdný text do 8000 znaků,
   nejvýš 3; zbytek `ok: false` s důvodem.
-- `service.py` `Pletor.message` (uloží zprávu, složí podklady = stav srdce `heart.status` a otevřené eskalace
-  `gate.escalations`, spustí tah, provede akce) a `Pletor.state`. `heart_message` jde stejnou cestou jako
+- `context.py` `build_context` blok PODKLADY do 6000 znaků, pevný strop po sekcích (ořez „…“): stav srdce
+  (`heart.status`), snímek srdce (`snapshot.snapshot`), tickety prostoru podle stavu (`ticket.list_tickets`, nejvýš 15,
+  titulek + kdo drží), otevřené eskalace (`gate.escalations`), posledních 10 rozhodnutí z `pletor_decisions.jsonl`,
+  stav hostů z `brain/monitor_state.json` a přehled Schránky (`latest_rows` + `live_ids`, druh, fáze, název; v `main`
+  prostor posledního plánu srdce). Jen čte. Chyba zdroje = „(nedostupné: důvod)“, prázdný zdroj = „(prázdné)“.
+- `service.py` `Pletor.message` (uloží zprávu, složí podklady `build_context`, spustí tah, provede akce) a `Pletor.state`. `heart_message` jde stejnou cestou jako
   `POST /api/brain/heart/messages` (`heart.message`), jen se zapnutou bránou projektu.
 - `store.py` rozhovor v `<data>/pletor/messages.jsonl` (`{at, project, workspace, role, text}`, žádná tajemství),
   rozhodnutí v `<data>/projects/<id>/brain/pletor_decisions.jsonl` a volba mozku v `<data>/pletor/settings.json`
@@ -37,3 +41,5 @@ Routy: `backend/api/pletor/`. Testy: `uv run pytest backend/pletor backend/api/p
   (nebo ho začne číst snímek srdce), přepojit `Pletor._run` na něj.
 - Lokální mozek nemá relaci: tah Ollamy vidí jen personu a podklady této zprávy, ne předchozí rozhovor. Upgrade:
   přidat posledních N zpráv ze `store.messages`, až bude lokální mozek potřebovat paměť.
+- Podklady nečtou události plátna 4 z `flow_log_events`: `backend/flow` pro ně nemá čtecí funkci, monitoring je jen
+  stav hostů. Upgrade: až flow dostane čtení logu pláten 2–4, přidat sekci do `context.py`.
