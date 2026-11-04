@@ -5,6 +5,8 @@ import SiteMenu from "../site-menu/components/SiteMenu";
 import { TokensStyle } from "../ds-preview/components/TokensScope";
 import DsSearch from "../ds-search/components/DsSearch";
 import { useHighlight } from "../ds-search/logic/use-highlight";
+import SiteProposals from "../site-proposals/components/SiteProposals";
+import { useSiteProposals } from "../site-proposals/logic/use-site-proposals";
 import SitePanel from "./SitePanel";
 import SiteSaveBar from "./SiteSaveBar";
 import "../styles/site-admin.css";
@@ -14,12 +16,14 @@ import "../styles/site-admin.css";
  *  a změny hlásí nahoru. Kontrakt `docs/navrhy/2026-11-04-sprava-webu-design-system.md` §1 a §3. */
 export default function SiteAdmin({ project, onBack }: { project: string; onBack: () => void }) {
   const state = useSiteAdmin(project);
+  const proposals = useSiteProposals(project, state.revision, () => void state.reload());
   const [section, setSection] = useState<SiteSection>(() => readSiteSection(new URLSearchParams(location.search).get("siteSection")));
   const [preview, setPreview] = useState("");
   const [hit, setHit] = useState({ target: "", stamp: 0 });
   useHighlight(hit.target, hit.stamp);
   const themes = state.draft?.design.tokens.color.themes ?? [];
   const theme = themes.some((item) => item.id === preview) ? preview : themes[0]?.id ?? "light";
+  const accept = () => { if (!state.dirty || window.confirm("Přijetí návrhu zahodí tvoje neuložené změny. Pokračovat?")) void proposals.accept(); };
   const back = () => { if (!state.dirty || window.confirm("Odejít bez uložení změn Správy webu?")) onBack(); };
   return <section className="site-admin" aria-label="Správa webu" data-testid="site-admin">
     <TokensStyle css={state.tokensCss} project={project}/>
@@ -33,6 +37,8 @@ export default function SiteAdmin({ project, onBack }: { project: string; onBack
       </label>}
       <SiteSaveBar revision={state.revision} dirty={state.dirty} saving={state.saving} disabled={!state.draft || state.loading} onSave={state.save}/>
     </header>
+    {proposals.proposal && <SiteProposals proposal={proposals.proposal} busy={proposals.busy} onAccept={accept} onReject={() => void proposals.reject()}/>}
+    {proposals.error && <div className="site-admin__alert" role="alert">Návrh srdce: {proposals.error}</div>}
     {state.conflict && <div className="site-admin__alert" role="alert">
       Správu webu mezitím někdo uložil (jiná revize). Tvoje změny jsou zachované.
       <button type="button" className="site-admin__alert-action" onClick={() => void state.overwrite()}>Uložit moje přes ni</button>

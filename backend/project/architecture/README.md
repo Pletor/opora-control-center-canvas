@@ -23,7 +23,7 @@ s obsahem `main`, bez Gitu `draft`; čte ho `work_status.architecture_graph`). B
 pravidel, pak id. Pravidla `journey.broken`, `journey.unrealized`, `journey.via-unknown` (sekce signálu přechodu,
 kterou stránka předchozího kroku nemá), `journey.unverified` (cesta bez prošlého a aktuálního dokladu přehrání;
 jen při čtení, doklady načte `map_check`), `page.no-goal`, `page.no-intent` (varování) a `page.intent-stale`
-(chyba; stav záměru stránky z `backend/flow/page_intents.py`, jen při čtení, načte ho `map_check`), `section.unrealized`, `section.unknown`,
+(chyba; stav záměru stránky z `backend/flow/page_intents.py`, jen při čtení, načte ho `map_check`), `site.no-design` (varování: webová doména v projektu bez design systému Správy webu; jen při čtení), `section.unrealized`, `section.unknown`,
 `command.no-receiver`, `state.no-error`, `edge.carries-unset`; komponenta je uzel pod nejbližší stránkou v řetězu
 `parentId`. Nová pole kontraktu se čtou jako nepovinná, nic se nedoplňuje.
 

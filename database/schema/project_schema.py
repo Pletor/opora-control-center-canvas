@@ -340,7 +340,7 @@ CREATE TABLE IF NOT EXISTS tickets(
     project_id TEXT NOT NULL, workspace_id TEXT NOT NULL, status TEXT NOT NULL, body TEXT NOT NULL,
     card_id TEXT, execution_id TEXT, card_version INTEGER, session_id TEXT, delivery TEXT,
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL, department TEXT, profile TEXT, successors TEXT,
-    predecessors TEXT, pins TEXT, intent TEXT);
+    predecessors TEXT, pins TEXT, intent TEXT, design TEXT);
 CREATE INDEX IF NOT EXISTS tickets_queue ON tickets(project_id, workspace_id, status, seq);
 CREATE INDEX IF NOT EXISTS tickets_holder ON tickets(session_id, status);
 CREATE INDEX IF NOT EXISTS tickets_execution ON tickets(execution_id);
@@ -446,9 +446,10 @@ def ensure_canvas_version_columns(db):
 
 def ensure_ticket_columns(db):
     """Oddělení a profil kanceláře, následníci a předchůdci karty, piny Brainu a kritéria záměru stránky (`intent`)
-    ve strojové vrstvě ticketu (docs/navrhy/2026-11-03-novy-zaklad.md §3.3, §3.4; plátno 2 §4)."""
+    ve strojové vrstvě ticketu (docs/navrhy/2026-11-03-novy-zaklad.md §3.3, §3.4; plátno 2 §4) a design systém webu
+    (`design`, kontrakt Správy webu §4)."""
     columns = _columns(db, "tickets")
-    for name in ("department", "profile", "successors", "predecessors", "pins", "intent"):
+    for name in ("department", "profile", "successors", "predecessors", "pins", "intent", "design"):
         if columns and name not in columns:
             add_column(db, "tickets", name)
 

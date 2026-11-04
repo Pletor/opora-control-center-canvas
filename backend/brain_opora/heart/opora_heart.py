@@ -41,6 +41,7 @@
     python opora_heart.py vault plan [--node ID]… [--workspace W]
     python opora_heart.py intent show PAGE | diff PAGE
     python opora_heart.py intent propose PAGE --file F [--dry-run]
+    python opora_heart.py site show [--tokens] | propose --file F [--note N]
 
 Adresa, token srdce, projekt a pracovní prostor jsou v prostředí (OPORA_BASE_URL, OPORA_HEART_TOKEN,
 OPORA_PROJECT, OPORA_WORKSPACE); token se nikam nezapisuje. `done` zapíše shrnutí do `last_done.json` v cwd.
@@ -90,6 +91,8 @@ posledního plánu.
 `intent` je záměr stránky (plátno 2) v `opora_intent.py` vedle nástroje: `show PAGE` aktivní a kandidátní verze
 kompaktně, `propose PAGE --file F` draft a kandidát (`--dry-run` jen ověří graf), `diff PAGE` rozdíl kandidáta
 proti aktivní verzi; schvaluje jen člověk v UI.
+`site` je design systém webu v `opora_site.py` vedle nástroje: `show` shrnutí (`--tokens` i celý `tokens.json`),
+`propose --file F` návrh změny `{title?, settings?, design?}`; dokument nemění, přijme ho člověk na stránce Správa webu.
 `skill NAME` vypíše postup režimu ze `skills/NAME.md` vedle nástroje (výslech čte `skill vyslech`, jen při výslechu).
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
@@ -1169,7 +1172,7 @@ def log_run(script, script_args, exit_code, ms, calls, cost):
 
 
 def research_module(name="opora_research"):
-    """`opora_research.py` / `opora_duel.py` / `opora_intent.py`: kopie vedle nástroje v `brain/`, v testech modul
+    """`opora_research.py` / `opora_duel.py` / `opora_intent.py` / `opora_site.py`: kopie vedle nástroje v `brain/`, v testech modul
     balíčku."""
     try:
         return importlib.import_module(name)
@@ -1352,6 +1355,8 @@ def run(args):
         return submit_plan(args)
     if args.command == "intent":
         return research_module("opora_intent").intent(args, sys.modules[__name__])
+    if args.command == "site":
+        return research_module("opora_site").site(args, sys.modules[__name__])
     if args.command == "vault":
         return (vault_ls(args.kind, args.q) if args.action == "ls" else vault_show(args.id) if args.action == "show"
                 else vault_plan(args.node))
@@ -1551,6 +1556,11 @@ def parser():
     propose.add_argument("page")
     propose.add_argument("--file", required=True)
     propose.add_argument("--dry-run", action="store_true")
+    site = commands.add_parser("site").add_subparsers(dest="action", required=True)  # design systém webu
+    site.add_parser("show").add_argument("--tokens", action="store_true")
+    site_propose = site.add_parser("propose")
+    site_propose.add_argument("--file", required=True)
+    site_propose.add_argument("--note")
     duel = commands.add_parser("duel")
     for flag in ("--subject", "--a", "--b"):
         duel.add_argument(flag, required=True)

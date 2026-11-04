@@ -249,6 +249,7 @@ přijatou architekturou (čtení) a nad dávkou plánu i návrhem změny grafu (
 | `page.no-goal` | stránka bez `goal` | jediná díra pro člověka |
 | `page.no-intent` | stránka bez záměru (plátno 2, `docs/navrhy/2026-11-03-platno-2-zamer-stranky.md` §5); jen při čtení | varování: záměr navrhne srdce |
 | `page.intent-stale` | stránka se změnila po schválení záměru (`path`, `goal`, `feel`, `sections`); jen při čtení | chyba: srdce navrhne novou verzi, člověk schválí |
+| `site.no-design` | webová doména (aplikace mimo Android/iOS, host nezačíná `app.` ani `admin`) v projektu bez design systému Správy webu (dokument neexistuje nebo nemá barvu, `docs/navrhy/2026-11-04-sprava-webu-design-system.md` §4); jen při čtení | varování: design nastaví člověk, srdce může navrhnout (`site propose`) |
 
 Provádí `backend/project/architecture/map_check.py`; čtení nad přijatou architekturou je
 `GET /api/project-architecture/map-check?project=`; výsledek je vidět na Mapě domény v panelu **Díry mapy** (nálezy domény po

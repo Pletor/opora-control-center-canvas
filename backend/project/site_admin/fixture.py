@@ -15,7 +15,9 @@ def ember():
             "customCss": {"button": {"primary": ":scope:hover { animation: glow 1s ease-out; }\n"
                                                 "@keyframes glow { to { opacity: 0.9; } }"}},
             "gdpr": {"cookieBar": {"enabled": True, "position": "bottom",
-                                   "categories": ["necessary", "analytics"], "consentDays": 180}},
+                                   "categories": ["necessary", "analytics"], "consentDays": 180,
+                                   "policyPageId": "zasady-cookies"},
+                     "contact": {"controller": "Ember s.r.o.", "email": "gdpr@example.cz"}},
         },
         "design": {
             "readme": "# Ember\n\nKrátké věty, bez vykřičníků.",

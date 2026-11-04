@@ -166,6 +166,21 @@ def test_issue_adds_successors_and_predecessors_of_the_card_from_its_workspace_g
     assert other["machine"]["predecessors"] == []
 
 
+def test_card_under_a_web_domain_carries_the_design_revision(service, monkeypatch):
+    from backend.project.site_admin import store
+    from backend.project.site_admin.fixture import ember
+    web = {"id": "web", "name": "www.ember.cz", "parentId": None, "site": {"kind": "application", "environments": []}}
+    view = service.view
+    monkeypatch.setattr(service, "view", lambda project, workspace: {"graph": {
+        "nodes": [web, {"id": "hero", "name": "Hero", "parentId": "web"}], "edges": []}} if workspace == "draft"
+        else view(project, workspace))
+    brain = heart(service)
+    assert "design" not in send(service, brain, "ticket.issue", ISSUE)["ticket"]["machine"]  # bez design systému
+    store.write(service, "draft", 0, ember())
+    issued = send(service, brain, "ticket.issue", ISSUE)["ticket"]
+    assert issued["machine"]["design"] == {"revision": 1, "export": "/api/site-admin/export?project=draft"}
+
+
 def test_department_and_profile_ride_in_the_machine_layer_and_are_checked(service):
     brain, office = heart(service), worker(service)
     plain = send(service, brain, "ticket.issue", {"body": ISSUE["body"], "profile": None})["ticket"]

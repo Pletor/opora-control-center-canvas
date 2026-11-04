@@ -2,7 +2,8 @@
 
 Ticket nese tělo pro dělníka bez ID (`body`, JSON), strojovou vrstvu (`card_id`, `execution_id`, `card_version`,
 oddělení a profil kanceláře `department` / `profile`, následníci a předchůdci karty `successors` / `predecessors`,
-piny Brainu `pins`, kritéria záměru stránky `intent` (`{workflowVersionId, nodeIds}`, jen zadané), JSON),
+piny Brainu `pins`, kritéria záměru stránky `intent` (`{workflowVersionId, nodeIds}`, jen zadané), design systém
+webu `design` (`{revision, export}`, jen u karty webové domény), JSON),
 držitele (`session_id`) a odevzdání (`delivery`, JSON). Položky zpětné vazby mají vlastní řádky s ID a odpovědí srdce.
 Otázkové lístky leží dál v `gate_tickets`. Změna stavu je compare-and-set na starý stav; které přechody smí, říká
 `backend/brain_opora/determinism/ticket_model.py`. Transakci vlastní volající."""
@@ -10,7 +11,7 @@ import json
 
 COLUMNS = ("seq", "id", "project_id", "workspace_id", "status", "body", "card_id", "execution_id", "card_version",
            "session_id", "delivery", "created_at", "updated_at", "department", "profile", "successors", "predecessors",
-           "pins", "intent")
+           "pins", "intent", "design")
 FEEDBACK = ("seq", "id", "ticket_id", "kind", "text", "session_id", "answer", "answered_at", "created_at")
 HELD = ("claimed", "in_progress", "needs_answer", "delivered")  # stavy, ve kterých ticket drží relace dělníka
 
@@ -41,7 +42,8 @@ def public(row, feedback=()):
                         "cardVersion": value["card_version"], "department": value["department"],
                         "profile": value["profile"], "successors": _load(value["successors"]) or [],
                         "predecessors": _load(value["predecessors"]) or [], "pins": _load(value["pins"]) or [],
-                        **({"intent": _load(value["intent"])} if value["intent"] else {})},
+                        **({"intent": _load(value["intent"])} if value["intent"] else {}),
+                        **({"design": _load(value["design"])} if value["design"] else {})},
             "sessionId": value["session_id"], "delivery": _load(value["delivery"]),
             "feedback": [public_feedback(item) for item in feedback],
             "createdAt": value["created_at"], "updatedAt": value["updated_at"]}
@@ -63,12 +65,13 @@ class TicketStore:
     def insert(self, ticket_id, workspace, status, body, machine, at):
         self.db.execute(
             "INSERT INTO tickets(id,project_id,workspace_id,status,body,card_id,execution_id,card_version,"
-            "department,profile,successors,predecessors,pins,intent,created_at,updated_at) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "department,profile,successors,predecessors,pins,intent,design,created_at,updated_at) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (ticket_id, self.project, workspace, status, _json(body), machine.get("cardId"),
              machine.get("executionId"), machine.get("cardVersion"), machine.get("department"),
              machine.get("profile"), _json(machine.get("successors", [])), _json(machine.get("predecessors", [])),
-             _json(machine.get("pins", [])), _json(machine["intent"]) if machine.get("intent") else None, at, at))
+             _json(machine.get("pins", [])), _json(machine["intent"]) if machine.get("intent") else None,
+             _json(machine["design"]) if machine.get("design") else None, at, at))
 
     def get(self, ticket_id):
         found = self._select("id=?", (ticket_id,))
