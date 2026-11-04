@@ -22,6 +22,7 @@ export const ENGINES: { id: Engine; label: string }[] = [
 ];
 const ORDER = ENGINES.map((engine) => engine.id);
 const CLOUD: Engine[] = ["elevenlabs", "edge"];
+const LEGACY_ELEVEN = "elevenlabs:voice";
 
 /** Platné hlasy seřazené podle enginu (XTTS → Edge → Piper); neznámý engine se zahodí. */
 export function parseVoices(value: unknown): ServerVoice[] {
@@ -41,6 +42,8 @@ export const fetchVoices = (warm: string | null) =>
  *  za nedostupný lokální hlas jen jiný lokální. */
 export function chosenVoice(pref: string | null, voices: ServerVoice[]): string | null {
   if (pref === BROWSER_VOICE) return null;
+  // Stará volba z doby jediného hlasu ElevenLabs: vlastní hlas z `.env`, jinak Brian.
+  if (pref === LEGACY_ELEVEN) pref = voices.some((voice) => voice.id === "elevenlabs:custom") ? "elevenlabs:custom" : "elevenlabs:brian";
   const saved = voices.find((voice) => voice.id === pref);
   const localOnly = !!saved && !CLOUD.includes(saved.engine);
   const usable = voices.filter((voice) => voice.available && !(localOnly && CLOUD.includes(voice.engine)));
@@ -61,20 +64,28 @@ export function voiceChain(chosen: string | null, voices: ServerVoice[]): string
   return [first.id, ...later.filter((id): id is string => !!id)];
 }
 
-/** Hlasy po skupinách enginů pro výběr v okně; prázdné skupiny vynechá. */
+/** Hlasy po skupinách enginů pro výběr v okně; prázdné skupiny vynechá. Kvóta ElevenLabs je jedna za účet, proto
+ *  stojí jednou v popisku skupiny, ne u každého hlasu. */
 export function voiceGroups(voices: ServerVoice[]) {
-  return ENGINES.map((engine) => ({ ...engine, voices: voices.filter((voice) => voice.engine === engine.id) }))
-    .filter((group) => group.voices.length);
+  return ENGINES.map((engine) => {
+    const members = voices.filter((voice) => voice.engine === engine.id);
+    const left = quotaText(members.find((voice) => voice.quota)?.quota);
+    return { ...engine, label: left ? `${engine.label} · ${left}` : engine.label, voices: members };
+  }).filter((group) => group.voices.length);
 }
 
-/** Popisek hlasu ve výběru: nedostupný s poznámkou, ElevenLabs se zbývajícími znaky (pod 10 % s varováním). */
-export function voiceLabel(voice: ServerVoice): string {
-  if (!voice.available) return `${voice.label} (nedostupný)`;
-  const { character_count: used, character_limit: limit } = voice.quota ?? {};
-  if (typeof used !== "number" || typeof limit !== "number" || limit <= 0) return voice.label;
+/** Zbývající znaky tarifu („zbývá 8 400 znaků“, pod 10 % s varováním), bez kvóty `null`. */
+function quotaText(quota: Quota | null | undefined): string | null {
+  const { character_count: used, character_limit: limit } = quota ?? {};
+  if (typeof used !== "number" || typeof limit !== "number" || limit <= 0) return null;
   const left = Math.max(0, limit - used);
   const text = `zbývá ${left.toLocaleString("cs-CZ")} znaků`;
-  return `${voice.label} · ${left < limit / 10 ? `pozor, ${text}` : text}`;
+  return left < limit / 10 ? `pozor, ${text}` : text;
+}
+
+/** Popisek hlasu ve výběru: nedostupný s poznámkou. */
+export function voiceLabel(voice: ServerVoice): string {
+  return voice.available ? voice.label : `${voice.label} (nedostupný)`;
 }
 
 /** Tooltip hlasu: proč nejde, jinak tarif a spotřeba ElevenLabs. */

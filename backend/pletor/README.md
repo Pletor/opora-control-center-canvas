@@ -51,7 +51,7 @@ a nevolá bránu `/api/gate`. Je jeden na aplikaci, projekt z požadavku je jen 
   `speakers_xtts.pth`) do `<data>/pletor/voices/xtts/` a založí `xtts/reference/` pro vlastní hlas.
 - `speech.py` jeden seznam hlasů ze čtyř enginů (`voices`, pořadí XTTS → ElevenLabs → Edge → Piper = výchozí volba okna),
   `warm` a `speak` (WAV jako bajty, MP3/PCM jako kousky; první kousek se čeká před odpovědí route).
-- `elevenlabs/` ElevenLabs (placený cloud, `elevenlabs:voice`, hlas `Pletor_MH`): klíč, tarif a kvóta viz `elevenlabs/README.md`.
+- `elevenlabs/` ElevenLabs (placený cloud, `elevenlabs:brian`, `elevenlabs:bill`, `elevenlabs:custom` z `.env`): klíč, tarif a kvóta viz `elevenlabs/README.md`.
 - `tts_edge.py` Edge neural (`edge-tts`): `edge:cs-CZ-AntoninNeural` (Antonín), `edge:cs-CZ-VlastaNeural` (Vlasta).
   **Neoficiální cloudová služba Microsoftu: text odchází z počítače.** Posílá se jen text odpovědi, který okno čte
   nahlas, nikdy podklady, kontext mozku ani tajemství. Zdarma, bez klíče; výpadek sítě = 503 a okno vezme další engine.

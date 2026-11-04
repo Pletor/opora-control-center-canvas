@@ -5,7 +5,9 @@ const voice = (id: string, engine: ServerVoice["engine"], gender: ServerVoice["g
   ({ id, label: id, gender, engine, available, reason: available ? null : "nedostupný" });
 
 const XTTS = voice("xtts:default", "xtts", "male");
-const ELEVEN = voice("elevenlabs:voice", "elevenlabs", "male");
+const ELEVEN = voice("elevenlabs:brian", "elevenlabs", "male");
+const BILL = voice("elevenlabs:bill", "elevenlabs", "male");
+const CUSTOM = voice("elevenlabs:custom", "elevenlabs", "male", false);
 const ANTONIN = voice("edge:cs-CZ-AntoninNeural", "edge", "male");
 const VLASTA = voice("edge:cs-CZ-VlastaNeural", "edge", "female");
 const JIRKA = voice("cs_CZ-jirka-medium", "piper", "male");
@@ -23,6 +25,15 @@ describe("chosenVoice", () => {
   it("ElevenLabs je druhý v pořadí, ale jen když je ověřeně dostupný", () => {
     expect(chosenVoice(null, [{ ...XTTS, available: false }, ELEVEN, ANTONIN])).toBe(ELEVEN.id);
     expect(chosenVoice(null, [{ ...XTTS, available: false }, { ...ELEVEN, available: false }, ANTONIN])).toBe(ANTONIN.id);
+  });
+  it("ElevenLabs = první ověřeně dostupný z Brian, Bill, vlastní; nedostupný vlastní hlas ostatní nezhasne", () => {
+    expect(chosenVoice(null, [{ ...XTTS, available: false }, { ...ELEVEN, available: false }, BILL, CUSTOM, ANTONIN]))
+      .toBe(BILL.id);
+    expect(chosenVoice(CUSTOM.id, [ELEVEN, BILL, CUSTOM, ANTONIN])).toBe(ELEVEN.id);
+  });
+  it("stará volba elevenlabs:voice = vlastní hlas, když ho server zná, jinak Brian", () => {
+    expect(chosenVoice("elevenlabs:voice", [XTTS, ELEVEN, BILL, { ...CUSTOM, available: true }])).toBe(CUSTOM.id);
+    expect(chosenVoice("elevenlabs:voice", [XTTS, ELEVEN, BILL])).toBe(ELEVEN.id);
   });
   it("za nedostupný lokální hlas jen jiný lokální, nikdy cloud", () => {
     expect(chosenVoice(JIRKA.id, [{ ...XTTS, available: false }, ELEVEN, ANTONIN, { ...JIRKA, available: false }, KASANDRA]))
@@ -64,16 +75,28 @@ describe("voiceGroups", () => {
   });
 });
 
+const quota = (used: number) => ({ tier: "free", character_count: used, character_limit: 10000 });
+
+describe("skupina ElevenLabs", () => {
+  it("tři hlasy v jedné skupině, zbývající znaky účtu jednou v popisku skupiny (pod 10 % s varováním)", () => {
+    const cloud = [ELEVEN, BILL, CUSTOM].map((item) => ({ ...item, quota: quota(1600) }));
+    const groups = voiceGroups([XTTS, ...cloud, ANTONIN]);
+    expect(groups.map((group) => group.id)).toEqual(["xtts", "elevenlabs", "edge"]);
+    expect(groups[1].voices.map((item) => item.id)).toEqual([ELEVEN.id, BILL.id, CUSTOM.id]);
+    expect(groups[1].label.replace(/\s/g, " ")).toBe("cloud · ElevenLabs · text opouští počítač · zbývá 8 400 znaků");
+    expect(voiceGroups([{ ...ELEVEN, quota: quota(9500) }])[0].label.replace(/\s/g, " ")).toMatch(/pozor, zbývá 500 znaků$/);
+    expect(groups[2].label).not.toMatch(/zbývá/);
+  });
+});
+
 describe("voiceLabel / voiceTitle", () => {
-  const quota = (used: number) => ({ ...ELEVEN, quota: { tier: "free", character_count: used, character_limit: 10000 } });
-  it("ElevenLabs ukáže zbývající znaky, pod 10 % s varováním; nedostupný s důvodem v tooltipu", () => {
-    expect(voiceLabel(quota(1600)).replace(/\s/g, " ")).toBe("elevenlabs:voice · zbývá 8 400 znaků");
-    expect(voiceLabel(quota(9500)).replace(/\s/g, " ")).toBe("elevenlabs:voice · pozor, zbývá 500 znaků");
+  it("nedostupný hlas s poznámkou a důvodem v tooltipu, dostupný ElevenLabs s tarifem v tooltipu", () => {
+    expect(voiceLabel({ ...ELEVEN, quota: quota(1600) })).toBe(ELEVEN.id);
     expect(voiceLabel(ANTONIN)).toBe(ANTONIN.id);
-    const denied = { ...quota(0), available: false, reason: "hlas Pletor_MH vyžaduje tarif Creator" };
-    expect(voiceLabel(denied)).toBe("elevenlabs:voice (nedostupný)");
+    const denied = { ...CUSTOM, quota: quota(0), reason: "hlas Pletor_MH vyžaduje tarif Creator" };
+    expect(voiceLabel(denied)).toBe("elevenlabs:custom (nedostupný)");
     expect(voiceTitle(denied)).toBe("hlas Pletor_MH vyžaduje tarif Creator");
-    expect(voiceTitle(quota(1600))?.replace(/\s/g, " ")).toBe("tarif free · 1 600 / 10 000 znaků tento měsíc");
+    expect(voiceTitle({ ...ELEVEN, quota: quota(1600) })?.replace(/\s/g, " ")).toBe("tarif free · 1 600 / 10 000 znaků tento měsíc");
     expect(voiceTitle(JIRKA)).toBeUndefined();
   });
 });

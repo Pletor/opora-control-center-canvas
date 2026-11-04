@@ -13,7 +13,7 @@ Tenký router pro `backend/pletor/` (docs/navrhy/2026-11-04-pletor-jarvis.md, P1
   neznámý model = `ok: false` s důvodem v `reply`, mozek zůstane. V UI se přepíná větou v chatu (`backend/pletor/brains.py`).
 - `GET /api/pletor/voices?warm=<id>` → `{voices: [{id, label, gender, engine: xtts | elevenlabs | edge | piper,
   available, reason, quota}]}` (P3b, `backend/pletor/speech.py`): všechny známé hlasy v pořadí XTTS → ElevenLabs → Edge → Piper, nedostupné
-  s důvodem (nestažený model, málo VRAM, chybějící balíček, tarif ElevenLabs); `quota` `{tier, character_count, character_limit}` jen u ElevenLabs (cache 60 s). Na pozadí načte dopředu `warm` (jinak nejlepší dostupný).
+  s důvodem (nestažený model, málo VRAM, chybějící balíček, tarif ElevenLabs); `quota` `{tier, character_count, character_limit}` jen u ElevenLabs (cache 60 s). ElevenLabs má samostatné položky `elevenlabs:brian`, `elevenlabs:bill` a `elevenlabs:custom` (jen z `.env`), každá s vlastní dostupností a společnou kvótou účtu; neznámý `elevenlabs:<klíč>` v `POST /tts` je 404. Na pozadí načte dopředu `warm` (jinak nejlepší dostupný).
 - `POST /api/pletor/tts {text, voice?}` (P3b): engine je v id hlasu. Piper `audio/wav`, Edge a ElevenLabs `audio/mpeg`
   (streamovaně, **cloud Microsoftu: text odchází z počítače**), XTTS `audio/pcm;rate=24000` (PCM 16 bit LE po
   kouscích). Odpověď přijde až s prvním kouskem zvuku. Text 1–600 znaků, prázdný nebo cizí klíč 422; nestažený či
