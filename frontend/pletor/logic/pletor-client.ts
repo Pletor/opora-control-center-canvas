@@ -71,21 +71,5 @@ export function actionLabel(action: PletorAction): { ok: boolean; text: string }
   return { ok: true, text: action.text || action.type };
 }
 
-/** Otevřenost okna je volba aplikace, ne projektu: jeden klíč pro všechny projekty. */
-export const PLETOR_PREFS_KEY = "opora:pletor:v1";
-
-export function readPletorOpen(): boolean {
-  try {
-    return JSON.parse(localStorage.getItem(PLETOR_PREFS_KEY) ?? "null")?.open === true;
-  } catch {
-    return false;
-  }
-}
-
-export function writePletorOpen(open: boolean): void {
-  try {
-    localStorage.setItem(PLETOR_PREFS_KEY, JSON.stringify({ open }));
-  } catch {
-    /* Bez úložiště volba platí jen do zavření stránky. */
-  }
-}
+/** Režim Pletora drží App a neukládá ho: každý start OPORY začíná v kokpitu (HUD), jeden pro všechny projekty. */
+export type PletorMode = "hud" | "window" | "closed";

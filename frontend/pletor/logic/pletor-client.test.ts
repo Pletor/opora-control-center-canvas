@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  actionLabel, escalationText, fetchPletorState, heartText, PLETOR_PREFS_KEY, readPletorOpen, sendPletorMessage, writePletorOpen,
+  actionLabel, escalationText, fetchPletorState, heartText, sendPletorMessage,
 } from "./pletor-client";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -61,18 +61,5 @@ describe("mapování pro okno", () => {
     expect(actionLabel({ type: "heart_message", text: "x", ok: true })).toEqual({ ok: true, text: "Poslal jsem srdci" });
     expect(actionLabel({ type: "vault_note", text: "x", ok: true })).toEqual({ ok: true, text: "Zapsal do Schránky" });
     expect(actionLabel({ type: "vault_note", text: "x", ok: false, detail: "revize" })).toEqual({ ok: false, text: "Selhalo: revize" });
-  });
-});
-
-describe("otevřenost okna", () => {
-  it("ukládá se jedním klíčem pro aplikaci", () => {
-    const store = new Map<string, string>();
-    vi.stubGlobal("localStorage", { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) });
-    expect(readPletorOpen()).toBe(false);
-    writePletorOpen(true);
-    expect(store.get(PLETOR_PREFS_KEY)).toBe('{"open":true}');
-    expect(readPletorOpen()).toBe(true);
-    store.set(PLETOR_PREFS_KEY, "{poškozené");
-    expect(readPletorOpen()).toBe(false);
   });
 });

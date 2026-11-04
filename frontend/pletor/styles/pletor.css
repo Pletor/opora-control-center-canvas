@@ -1,3 +1,19 @@
+/* Pletor má jeden hlas a jednu barvu: zelený kokpit. Okno, koule i HUD berou odstíny odsud, aby člověk
+   poznal Pletora na první pohled v kterémkoli režimu. Zelená je jasná jen tam, kde Pletor žije (jádro,
+   akcent); pozadí je skoro černé do zelena, čáry tlumené. Chyba jediná vybočí do tlumené červené. */
+:root {
+  --pletor-bg: #030d08;
+  --pletor-bg-2: #06140d;
+  --pletor-accent: #3dff8f;
+  --pletor-accent-soft: rgba(61, 255, 143, 0.12);
+  --pletor-dim: #6fbf92;
+  --pletor-ink: #d9ffe9;
+  --pletor-line: rgba(61, 255, 143, 0.18);
+  --pletor-core: #c9ffe0;
+  --pletor-scan: #aaffc8;
+  --pletor-error: #d66060;
+}
+
 /* Tlačítko Pletor stojí v horní liště hned vedle Asistenta a vypadá stejně tiše: obrysové, jen jméno.
    Oko ho najde na stejném místě ve všech projektech; otevřené se obarví akcentem, aby bylo vidět,
    že rozhovor s Pletorem je rozevřený. */
@@ -19,9 +35,9 @@
 }
 .pletor__toggle--open,
 .pletor__toggle--open:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent-line);
-  color: var(--accent);
+  background: var(--pletor-accent-soft);
+  border-color: var(--pletor-line);
+  color: var(--pletor-accent);
 }
 
 /* Okno Pletor je jeden úzký sloupec vpravo pod horní lištou, nad panelem Asistenta: člověk s Pletorem
@@ -111,7 +127,7 @@
 }
 .pletor__message--human {
   align-self: flex-end;
-  background: var(--accent-soft);
+  background: var(--pletor-accent-soft);
 }
 .pletor__message--pletor {
   align-self: flex-start;
@@ -190,10 +206,11 @@
    žije, aniž by četl. V klidu pomalu dýchá (4 s), takže nepoutá pozornost. Když přemýšlí, dech zrychlí
    a kolem běží dva tenké prstence proti sobě, aby čekání bylo vidět jako práce, ne jako zamrznutí.
    Příchod odpovědi ohlásí jedna krátká vlna (0,8 s) a jádro se vrátí k dechu. Chyba ho ztlumí do
-   červené a zastaví: není co oslavovat. Barva je akcent tlačítka Pletor, aby bylo jasné, čí je to hlas.
+   červené a zastaví: není co oslavovat. Barva je zelená Pletora (jako HUD), aby bylo jasné, čí je to hlas.
    Kdo nechce pohyb, vidí jen změnu barvy a jasu. */
 .pletor-orb {
-  --orb: var(--accent);
+  --orb: var(--pletor-accent);
+  --orb-core: var(--pletor-core);
   position: relative;
   flex: none;
   width: 76px;
@@ -208,7 +225,7 @@
 }
 .pletor-orb__core {
   inset: 22px;
-  background: radial-gradient(circle at 40% 35%, color-mix(in srgb, var(--orb) 80%, white), var(--orb) 55%, color-mix(in srgb, var(--orb) 40%, transparent));
+  background: radial-gradient(circle at 40% 35%, var(--orb-core), var(--orb) 55%, color-mix(in srgb, var(--orb) 40%, transparent));
   box-shadow: 0 0 18px color-mix(in srgb, var(--orb) 45%, transparent);
   animation: pletor-orb-breathe 4s ease-in-out infinite;
 }
@@ -251,7 +268,8 @@
 }
 
 .pletor-orb--error {
-  --orb: color-mix(in srgb, var(--danger) 70%, var(--ink-muted));
+  --orb: var(--pletor-error);
+  --orb-core: color-mix(in srgb, var(--pletor-error) 60%, white);
 }
 .pletor-orb--error .pletor-orb__core {
   animation: none;

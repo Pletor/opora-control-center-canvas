@@ -1,12 +1,16 @@
 Okno Pletor: jeden chat s Pletorem (Jarvis nad srdcem a Brainem), kontrakt `docs/navrhy/2026-11-04-pletor-jarvis.md`, milník P1.
 Pletor nezapisuje na plátno; záměr předá srdci a rozhodnutí zapíše do Schránky. Okno to ukazuje chipy provedených akcí.
 
-Otevřenost okna se ukládá jednou pro aplikaci (`localStorage` `opora:pletor:v1`), nikdy per projekt. Projekt a prostor jsou jen kontext.
+Režimy (`PletorMode`, drží `App.tsx`): `hud` (kokpit přes celou obrazovku, nejvyšší vrstva), `window` (plovoucí okno s koulí), `closed`. Každý start OPORY začíná v `hud`; režim se neukládá a je jeden pro všechny projekty. „Vstoupit do OPORY“ nebo Esc (mimo rozepsané pole) → `window`; tlačítko Pletor v liště: zavřený → okno, okno → HUD, Shift+klik → HUD; ⛶ v okně → HUD; `closed` jen křížkem v okně. Projekt a prostor jsou jen kontext.
 
 Dílky (`components/`):
 
-- `PletorButton`: tlačítko v horní liště vedle Asistenta, otevře a zavře okno.
-- `PletorWindow`: rodič. Drží stav konverzace a odesílá (`usePletor`); skládá dílky.
+- `PletorButton`: tlačítko v horní liště vedle Asistenta, hlásí klik (a Shift); režim mění App.
+- `PletorWindow`: rodič. Drží stav konverzace a odesílá (`usePletor`); podle režimu skládá okno nebo `PletorHud`.
+- `PletorHud`: rodič kokpitu (zelený Jarvis HUD): lišta, plátno s rohy, konzole s protokolem a příkazový řádek; Esc → okno.
+- `PletorHudBar`: horní lišta (PLETOR, čas, uptime od startu aplikace, stav srdce, „Vstoupit do OPORY“).
+- `PletorHudCanvas`: plátno s rAF smyčkou (DPR max 2, ResizeObserver, stojí ve skryté záložce, téměř statické při reduced motion).
+- `PletorHudCorners`: rohové readouty (projekt, FPS, stav, eskalace) a štítek stavu.
 - `PletorHeartLine`: jeden řádek se stavem srdce a počtem čekajících eskalací.
 - `PletorOrb`: svítící jádro nad rozhovorem (dýchá / přemýšlí / záblesk odpovědi / chyba); stav mu dává rodič.
 - `PletorMessages`: zprávy, člověk vpravo, Pletor vlevo.
@@ -15,8 +19,10 @@ Dílky (`components/`):
 
 Logika (`logic/`):
 
-- `pletor-client.ts` (test vedle): `POST /api/pletor/messages`, `GET /api/pletor/state`, mapování odpovědi na texty okna, uložení otevřenosti.
+- `pletor-client.ts` (test vedle): `POST /api/pletor/messages`, `GET /api/pletor/state`, mapování odpovědi na texty okna, typ režimu.
+- `hud-palette.ts` (test vedle): zelená paleta kokpitu (chyba tlumeně červená), stav jádra z `orbMode`, rychlost a amplituda.
+- `hud-draw.ts` (test vedle): `drawHud(ctx, frame, palette, state)` kreslí prstence a jádro, `stepHud` posouvá natočení a amplitudu.
 - `pletor-orb-mode.ts` (test vedle): stav jádra z odesílání, chyby a času poslední odpovědi.
 - `pletor-poll.ts`: polling stavu každé 4 s, jen když je okno otevřené (sdílený `usePolling`), a odeslání zprávy.
 
-Styl: `styles/pletor.css` (blok `pletor`, tlačítko `pletor__toggle`, jádro `pletor-orb`).
+Styl: `styles/pletor.css` (sdílené zelené proměnné `--pletor-*`, blok `pletor`, tlačítko `pletor__toggle`, jádro `pletor-orb`) a `styles/pletor-hud.css` (blok `pletor-hud`).
