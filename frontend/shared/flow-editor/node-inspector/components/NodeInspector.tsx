@@ -30,7 +30,7 @@ export default function NodeInspector({ node, spec, run, stall, readOnly, onPara
       <span className="node-inspector__title"><b>{node.id}</b><small className="node-inspector__muted">{node.type} · v{node.type_version ?? spec?.version ?? 1}</small></span>
       <button type="button" className="node-inspector__close" aria-label="Zavřít inspektor" onClick={onClose}>×</button>
     </header>
-    {onLayer && spec?.layer && <LayerField value={node.layer} typeLayer={spec.layer} readOnly={readOnly} onLayer={onLayer}/>}
+    {onLayer && spec && <LayerField value={node.layer} typeLayer={spec.layer} readOnly={readOnly} onLayer={onLayer}/>}
     {!spec && <p className="node-inspector__error">Typ uzlu není v registru.</p>}
     {run && <dl className="node-inspector__run">
       <dt className="node-inspector__term">Stav</dt><dd className={`node-inspector__status node-inspector__status--${run.status}`}>{STATUS_LABEL[run.status]} · pokus {run.attempt}</dd>

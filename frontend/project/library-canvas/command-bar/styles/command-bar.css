@@ -1,0 +1,19 @@
+/* PŘÍKAZOVÝ ŘÁDEK PLÁTNA (blok `command-bar`)
+   Úzký pruh přímo nad plátnem, aby se do pole vešla celá věta zadání. Pole je hlavní, vedle něj jen „Zadat“ a křížek;
+   pod ním malým písmem stojí, na co se zadání vztahuje (vybrané uzly, nebo celé plátno), takže člověk před Enterem
+   vidí, co srdce dostane. Zlatý okraj vlevo ho spojuje s ostatními pásy, kde mluví srdce. */
+.command-bar { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); border-left: 3px solid var(--gold); background: var(--surface); }
+.command-bar__input { min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; font-size: 13px; }
+.command-bar__input:focus { border-color: var(--accent); outline: none; }
+.command-bar__send { padding: 5px 12px; font-size: 12px; }
+.command-bar__close { padding: 3px 8px; font-size: 14px; line-height: 1; }
+.command-bar__scope { grid-column: 1 / -1; color: var(--ink-muted); font-size: 11px; }
+.command-bar__error { grid-column: 1 / -1; color: var(--danger); font-size: 12px; }
+
+/* STAV ZADÁNÍ (blok `command-bar-status`)
+   Po odeslání zmizí pole a zůstane tichá lišta „Srdce kreslí… 12 s“, protože srdce je pomalejší než klik a člověk má
+   vidět, že se něco děje. Po tříminutovém tichu zežloutne a odkáže na kanál Asistent, kde srdce případně čeká s dotazem. */
+.command-bar-status { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 6px 12px; border-bottom: 1px solid var(--line); border-left: 3px solid var(--accent); background: var(--surface); color: var(--ink-2); font-size: 12px; }
+.command-bar-status--timeout { border-left-color: var(--gold); color: var(--ink); }
+.command-bar-status__text { flex: 1; }
+.command-bar-status__button { padding: 3px 10px; font-size: 12px; }

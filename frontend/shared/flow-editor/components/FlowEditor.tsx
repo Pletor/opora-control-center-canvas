@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { checkTargets } from "../logic/check-strip";
-import { connectionError } from "../logic/connection-policy";
+import { connectionError, portOf } from "../logic/connection-policy";
 import { nodeTypeMap, specOf, withNodePorts, type FlowGraph, type NodeRun, type NodeTypeSpec, type Point, type PortRef, type PortSpec } from "../logic/flow-types";
 import { flowEdges, flowNodes } from "../logic/flow-view";
 import { foldEdges, groupNodes, hiddenNodes, noteNodes } from "../logic/frame-view";
@@ -14,6 +14,8 @@ import NodePalette from "../node-palette/components/NodePalette";
 import NodeInspector from "../node-inspector/components/NodeInspector";
 import GroupInspector from "../flow-frame/components/GroupInspector";
 import { arrangeLanes, laneNodes } from "../flow-lanes/logic/lanes";
+import { linkableTypes, settleAdded } from "../flow-lanes/logic/layer-links";
+import { effectiveLayer } from "../flow-lanes/logic/layers";
 import FlowCanvas from "./FlowCanvas";
 import FlowToolbar from "./FlowToolbar";
 import "../flow-lanes/styles/flow-lanes.css";
@@ -31,12 +33,14 @@ type Props = {
   nodePorts?: ReadonlyMap<string, PortSpec[]>;
   /** Chyby kontroly grafu (`graph-check`); se seznamem pás „Kontrola grafu“ nahradí „Připraveno ke spuštění“. */
   checkErrors?: readonly string[] | null;
+  /** Tlačítka navíc v pásu nástrojů (plátno knihovny: „Zadání“). */
+  tools?: ReactNode;
 };
 
 /** Generický editor grafu verze workflow: plátno, paleta, inspektor a pás „Připraveno ke spuštění“ (u plátna toku pás
  * kontroly grafu). Neví nic o srdci ani o API; typy uzlů dostává z registru, stav běhu, rozdíl verzí, porty uzlů a chyby
  * kontroly hotové v props a změny hlásí nahoru. Stav sbalení rámců drží jen v prohlížeči (jako n8n). */
-export default function FlowEditor({ graph, types, readOnly, overlay, diff, nodeRuns = [], selected, onSelect, onChange, frames = false, nodePorts, checkErrors }: Props) {
+export default function FlowEditor({ graph, types, readOnly, overlay, diff, nodeRuns = [], selected, onSelect, onChange, frames = false, nodePorts, checkErrors, tools }: Props) {
   const registry = useMemo(() => withNodePorts(nodeTypeMap(types), nodePorts, graph), [types, nodePorts, graph]);
   const [palette, setPalette] = useState<{ port: PlusRequest | null } | null>(null);
   const [edge, setEdge] = useState<string | null>(null);
@@ -60,9 +64,14 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
   };
   const pick = (type: string) => {
     const port = palette?.port;
-    apply(() => port ? addConnected(graph, registry, type, port) : addNode(graph, registry, type, freeSpot(graph)).graph);
+    apply(() => port ? settleAdded(addConnected(graph, registry, type, port), registry, port.nodeId) : settleAdded(addNode(graph, registry, type, freeSpot(graph)).graph, registry));
     setPalette(null);
   };
+  // „Co dál?“: vazba upuštěná do prázdna otevře paletu zúženou na vrstvy, které smějí navázat (jako „+“ u portu).
+  const dropEmpty = (from: PortRef) => { const kind = portOf(graph, registry, from)?.kind; if (kind && !readOnly) setPalette({ port: { ...from, kind } }); };
+  const anchor = palette?.port && graph.nodes.find((item) => item.id === palette.port!.nodeId);
+  const offered = useMemo(() => palette?.port && anchor ? linkableTypes(types, effectiveLayer(anchor, specOf(registry, anchor)), palette.port.direction) : types,
+    [types, palette, anchor, registry]);
   const toggle = (id: string) => setCollapsed((old) => { const next = new Set(old); if (!next.delete(id)) next.add(id); return next; });
   const selectNode = (id: string | null) => { setGroupId(null); onSelect(id); };
   const node = graph.nodes.find((item) => item.id === selected) ?? null;
@@ -72,7 +81,7 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
 
   return <div className="flow-editor" data-testid="flow-editor">
     <div className="flow-editor__main">
-      {!readOnly && <FlowToolbar edge={selectedEdge} message={message} frames={frames} selection={picked.length} onPalette={() => setPalette({ port: null })}
+      {!readOnly && <FlowToolbar edge={selectedEdge} message={message} frames={frames} extra={tools} selection={picked.length} onPalette={() => setPalette({ port: null })}
         onRemoveEdge={() => { if (selectedEdge) apply(() => removeEdge(graph, selectedEdge.id)); setEdge(null); }}
         onNote={() => apply(() => addNote(graph, noteSpot(graph)))}
         onLanes={frames ? () => apply(() => arrangeLanes(graph, registry)) : undefined}
@@ -82,19 +91,19 @@ export default function FlowEditor({ graph, types, readOnly, overlay, diff, node
         frames={{ onNote: (id, patch) => apply(() => setNote(graph, id, patch)), onToggleGroup: toggle }}
         canConnect={(a: PortRef, b: PortRef) => !connectionError(graph, registry, a, b)}
         onSelectNode={selectNode} onSelectEdge={setEdge} onSelectGroup={frames ? (id) => { onSelect(null); setGroupId(id); } : undefined}
-        onSelection={frames ? setPicked : undefined} onMoveNote={(id, at) => { if (!readOnly) apply(() => setNote(graph, id, at)); }}
+        onSelection={frames ? (ids) => setPicked((old) => old.length === ids.length && old.every((id, i) => id === ids[i]) ? old : ids) : undefined} onMoveNote={(id, at) => { if (!readOnly) apply(() => setNote(graph, id, at)); }}
         onMove={(id: string, at: Point) => { if (!readOnly) apply(() => moveNode(graph, id, at)); }}
         onConnect={(a, b) => apply(() => connect(graph, registry, a, b))}
-        onDropType={(type, at) => apply(() => addNode(graph, registry, type, at).graph)}
+        onDropType={(type, at) => apply(() => settleAdded(addNode(graph, registry, type, at).graph, registry))} onDropEmpty={dropEmpty}
         onPlus={(port) => setPalette({ port })}/>
       {checkErrors && <p className={`flow-editor__check${checkErrors.length ? "" : " flow-editor__check--ok"}`} data-testid="flow-check">
         Kontrola grafu{checkErrors.length ? `: ${checkErrors.join(" · ")}` : ": v pořádku"} <small className="flow-editor__check-note">plátno se nespouští, popisuje tok</small></p>}
       {issues.length > 0 && <p className="flow-editor__readiness" data-testid="flow-readiness">Připraveno ke spuštění: {issues.map((issue) => issue.text).join(" · ")}</p>}
-      {palette && !readOnly && <NodePalette types={types} port={palette.port} onPick={pick} onClearPort={() => setPalette({ port: null })} onClose={() => setPalette(null)}/>}
+      {palette && !readOnly && <NodePalette types={offered} port={palette.port} onPick={pick} onClearPort={() => setPalette({ port: null })} onClose={() => setPalette(null)}/>}
     </div>
     {node && <NodeInspector key={node.id} node={node} spec={specOf(registry, node)} run={run} stall={overlay?.get(node.id)?.stall ?? null} readOnly={readOnly}
       onParam={(key, value) => apply(() => setParam(graph, node.id, key, value))}
-      onLayer={frames && specOf(registry, node)?.layer ? (layer) => apply(() => setNodeField(graph, node.id, "layer", layer)) : undefined}
+      onLayer={frames && specOf(registry, node) ? (layer) => apply(() => setNodeField(graph, node.id, "layer", layer)) : undefined}
       onField={frames ? (key, value) => apply(() => setNodeField(graph, node.id, key, value)) : undefined}
       onRemove={() => { apply(() => removeNode(graph, node.id)); onSelect(null); }} onClose={() => onSelect(null)}/>}
     {!node && frame && <GroupInspector key={frame.id} group={frame} errors={targets.groups.get(frame.id) ?? []} collapsed={collapsed.has(frame.id)} readOnly={readOnly}

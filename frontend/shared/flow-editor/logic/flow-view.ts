@@ -16,10 +16,15 @@ export type FlowCardData = {
   subtitle?: string;
   /** Efektivní vrstva uzlu (`node.layer` ?? vrstva typu); bez ní karta nemá barevný pruh. */
   layer?: Layer;
+  /** Krok na míru (`custom.step`): karta ukazuje jeho titulek a odznak „na míru“. */
+  custom?: boolean;
 };
 export type FlowCardNode = Node<FlowCardData, "flow-card">;
 /** `hidden`: uzly sbalených rámců, místo nich stojí na plátně jeden uzel rámce (`frame-view.ts`). */
 export type ViewOptions = { overlay?: RunOverlay; diff?: GraphDiff | null; highlighted?: string | null; issues?: ReadonlySet<string>; readOnly?: boolean; hidden?: ReadonlySet<string> };
+
+/** Obecný krok, který nakreslil člověk nebo srdce, když žádný typ katalogu nesedí (kontrakt plátna procesů §1b). */
+export const CUSTOM_STEP = "custom.step";
 
 export const handleId = (direction: PortDirection, port: string) => `${direction}:${port}`;
 export function parseHandle(nodeId: string, handle: string | null | undefined): PortRef | null {
@@ -28,7 +33,9 @@ export function parseHandle(nodeId: string, handle: string | null | undefined): 
 }
 
 function card(node: FlowNode, graph: FlowGraph, types: NodeTypes, options: ViewOptions, ghost: boolean): FlowCardNode {
-  const spec = specOf(types, node), { family, name } = typeLabel(node.type);
+  const spec = specOf(types, node), label = typeLabel(node.type), custom = node.type === CUSTOM_STEP;
+  const title = custom && typeof node.params?.title === "string" ? node.params.title.trim() : "";
+  const { family } = label, name = title || label.name;
   const ports = portPlaces(spec).map((port): PortView => ({ ...port, handleId: handleId(port.direction, port.name),
     connected: graph.edges.filter((e) => port.direction === "out" ? e.source_node === node.id && e.source_port === port.name
       : e.target_node === node.id && e.target_port === port.name).length }));
@@ -38,7 +45,7 @@ function card(node: FlowNode, graph: FlowGraph, types: NodeTypes, options: ViewO
     data: { nodeId: node.id, family, name, glyph: nodeGlyph(spec), role: nodeRole(spec), ports, run: ghost ? null : options.overlay?.get(node.id) ?? null,
       mark: options.diff?.nodes.get(node.id) ?? null, ghost, highlighted: options.highlighted === node.id, issue: options.issues?.has(node.id) ?? false,
       pinned: node.pinned_output !== undefined && node.pinned_output !== null, readOnly: ghost || !!options.readOnly,
-      ...(node.notesInFlow && node.notes ? { subtitle: node.notes } : {}), ...(effectiveLayer(node, spec) ? { layer: effectiveLayer(node, spec) } : {}) },
+      ...(custom ? { custom } : {}), ...(node.notesInFlow && node.notes ? { subtitle: node.notes } : {}), ...(effectiveLayer(node, spec) ? { layer: effectiveLayer(node, spec) } : {}) },
   };
 }
 

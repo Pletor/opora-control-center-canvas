@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { EDGE_VIA, type EdgeVia, type FlowEdge } from "../logic/flow-types";
 
 type Props = {
@@ -5,13 +6,16 @@ type Props = {
   onPalette: () => void; onRemoveEdge: () => void; onNote: () => void; onGroup: () => void;
   /** Jen s propem `frames`: rozložit uzly do pruhů vrstev a nastavit `via` vybrané hrany. */
   onLanes?: () => void; onVia?: (via: EdgeVia | undefined) => void;
+  /** Tlačítka navíc od rodiče (plátno knihovny: „Zadání“). */
+  extra?: ReactNode;
 };
 
 /** Pás nástrojů nad plátnem: přidat uzel, u plátna toku přidat poznámku a rámec z výběru (Shift+tah nebo Ctrl+klik
  * vybere víc uzlů), odebrat vybranou vazbu a hláška, proč úprava nevznikla. */
-export default function FlowToolbar({ edge, message, frames, selection, onPalette, onRemoveEdge, onNote, onGroup, onLanes, onVia }: Props) {
+export default function FlowToolbar({ edge, message, frames, selection, onPalette, onRemoveEdge, onNote, onGroup, onLanes, onVia, extra }: Props) {
   return <div className="flow-editor__tools">
     <button type="button" className="flow-editor__tool" data-testid="flow-add-node" onClick={onPalette}>+ Uzel</button>
+    {extra}
     {frames && <>
       <button type="button" className="flow-editor__tool" data-testid="flow-add-note" onClick={onNote}>+ Poznámka</button>
       <button type="button" className="flow-editor__tool" data-testid="flow-add-group" disabled={selection < 2}

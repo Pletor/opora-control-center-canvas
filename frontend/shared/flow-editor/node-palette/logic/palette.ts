@@ -8,6 +8,7 @@ import { variantFor } from "../../logic/graph-edit";
 import { matchesWords, searchWords } from "./palette-search";
 import { LAYER_LABEL } from "../../flow-lanes/logic/layers";
 import { KIND_LABEL, nodeGlyph, nodeRole, typeLabel } from "../../logic/node-role";
+import { CUSTOM_STEP } from "../../logic/flow-view";
 
 export const PALETTE_DRAG_TYPE = "application/x-opora-flow-type";
 /** `use` / `avoid`: „kdy použít / nepoužít“ z registru, v paletě tooltip. */
@@ -56,7 +57,7 @@ export function paletteGroups(types: readonly NodeTypeSpec[], query = "", port: 
   for (const spec of shown) {
     const { id, label } = category(spec);
     const group = groups.get(id) ?? { id, label, items: [] };
-    const { family, name } = typeLabel(spec.type);
+    const typed = typeLabel(spec.type), family = typed.family, name = spec.type === CUSTOM_STEP ? "Krok na míru" : typed.name;
     group.items.push({ type: spec.type, name, family, glyph: nodeGlyph(spec), summary: summary((port && variantFor(spec, port)?.ports) || spec.ports),
       ...(spec.use ? { use: spec.use } : {}), ...(spec.avoid ? { avoid: spec.avoid } : {}) });
     groups.set(id, group);

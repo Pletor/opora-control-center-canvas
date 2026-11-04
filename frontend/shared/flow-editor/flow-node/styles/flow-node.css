@@ -109,3 +109,8 @@
 .flow-node--layer-infra { --layer-tone: var(--layer-infra); }
 .flow-node--layer-ai { --layer-tone: var(--layer-ai); }
 .flow-node--layer-neutral { --layer-tone: var(--layer-neutral); }
+
+/* Krok na míru (`custom.step`): nakreslil ho člověk nebo srdce, protože žádný typ z katalogu nesedl. Karta dole místo názvu
+   typu ukazuje jeho titulek a v pravém dolním rohu nese malý přerušovaný odznak „na míru“, aby bylo poznat, že tenhle krok
+   není z katalogu a jeho pravidlo si má člověk přečíst v inspektoru. */
+.flow-node__custom { position: absolute; right: -6px; bottom: -8px; padding: 0 5px; border: 1px dashed var(--layer-tone, var(--ink-muted)); border-radius: 4px; background: var(--surface); color: var(--ink-2); font-size: 9px; font-weight: 600; }

@@ -90,5 +90,8 @@ export const fetchHeartSteps = (query: string) => api<{ entries: ActivityEntry[]
 /** Připravený text pro srdce z jiné části aplikace (Kancelář, živý panel domény) a prostor, kterého se týká. */
 export type HeartRequest = { workspace: string; text: string };
 
-export const sendHeartMessage = (project: string, workspace: string, text: string) =>
-  api<{ queued: boolean; pending: number }>("/api/brain/heart/messages", { project, workspace, text });
+/** Kontext zprávy (data, ne příkaz): plátno toku, vybrané uzly a zobrazená verze (`docs/brain-heart-channel.md` §2). */
+export type HeartContext = { kind: "flow"; flowId: string; versionId?: string; nodeIds?: string[] };
+
+export const sendHeartMessage = (project: string, workspace: string, text: string, context?: HeartContext) =>
+  api<{ queued: boolean; pending: number }>("/api/brain/heart/messages", { project, workspace, text, ...(context ? { context } : {}) });
