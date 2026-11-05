@@ -1,4 +1,4 @@
-# Vlastní prostředí hlasu XTTS-v2 pro Pletora (backend/pletor/tts_xtts.py). Torch s CUDA má přes 2 GB, proto
+# Vlastní prostředí hlasu XTTS-v2 pro Pletora (backend/agi_pletor/tts_xtts.py). Torch s CUDA má přes 2 GB, proto
 # žije mimo hlavní projekt: `uv sync --project tools/xtts_server` (jednou), backend ho spouští sám jako podproces.
 [project]
 name = "opora-xtts-server"

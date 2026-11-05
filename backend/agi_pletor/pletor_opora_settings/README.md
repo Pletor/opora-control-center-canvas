@@ -24,7 +24,7 @@ a jejich měření) a API editoru (čtení a zápis skillů a funkcí). Skilly z
   `create_skill` (šablona s „Kdy použít“, „Postup“, „Ověření“), `read_file`, `write_file`. Zápis jen dovnitř složky
   skillu (bez `..`, absolutních cest, `\`, `:` a symlinků), přípony `.md .py .json .txt .yaml`, obsah do 200 000
   znaků bez `\0`; chybějící podsložky vytvoří. Ukázka: `skills/restart-opora`.
-- Routy: `backend/api/pletor/workshop_routes.py` (`/api/pletor/workshop/*`, jen člověk v UI; 422 špatný vstup,
+- Routy: `backend/api/agi_pletor/workshop_routes.py` (`/api/pletor/workshop/*`, jen člověk v UI; 422 špatný vstup,
   404 neznámé, 409 existující).
 
 **Nová funkce:** přidej `tools/<nazev>.py` a `tools/<nazev>.cases.json`, pak
