@@ -27,7 +27,11 @@ def _valid(name):
 
 
 def _cases(path):
-    cases = json.loads(path.read_text(encoding="utf-8"))
+    return _parse_cases(path.read_text(encoding="utf-8"))
+
+
+def _parse_cases(text):
+    cases = json.loads(text)
     if not isinstance(cases, list) or not all(isinstance(c, dict) and "name" in c and "input" in c
                                               and "expected" in c for c in cases):
         raise ValueError("Případy jsou seznam {name, input, expected}.")
@@ -104,3 +108,52 @@ def measure(folder, name, timeout=20):
     result["total"] = len(cases)
     result["durationMs"] = round((time.perf_counter() - started) * 1000)
     return result
+
+
+TOOL_TEMPLATE = '''"""{name}: popiš, co funkce vrací. Čistá funkce: bez náhodnosti, času a sítě, vše je ve vstupu."""
+
+
+def run(vstup: dict) -> dict:
+    """Vstup → výstup jako JSON objekty; stejný vstup dá vždy stejný výstup."""
+    return {{}}
+'''
+MAX_CODE = 200_000
+
+
+def read_tool(folder, name):
+    """Zdroj funkce pro editor: `{name, code, cases}` jako syrový text (`cases` = "" když chybí)."""
+    path = Path(folder) / f"{_valid(name)}.py"
+    if not path.is_file():
+        raise LookupError(f"Funkce {name} neexistuje.")
+    cases = path.with_suffix(".cases.json")
+    return {"name": name, "code": path.read_text(encoding="utf-8"),
+            "cases": cases.read_text(encoding="utf-8") if cases.is_file() else ""}
+
+
+def save_tool(folder, name, code, cases):
+    """Uloží kód a případy existující funkce → `{name, cases: počet}`; vadné případy jsou `ValueError` s důvodem."""
+    path = Path(folder) / f"{_valid(name)}.py"
+    if not path.is_file():
+        raise LookupError(f"Funkce {name} neexistuje.")
+    if not isinstance(code, str) or len(code) > MAX_CODE or "\0" in code:
+        raise ValueError(f"Kód je text do {MAX_CODE} znaků bez nulového znaku.")
+    if not isinstance(cases, str):
+        raise ValueError("Případy jsou text JSON.")
+    try:
+        count = len(_parse_cases(cases))
+    except ValueError as error:
+        raise ValueError(f"Případy nejsou platné: {error}") from None
+    path.write_text(code, encoding="utf-8", newline="")
+    path.with_suffix(".cases.json").write_text(cases, encoding="utf-8", newline="")
+    return {"name": name, "cases": count}
+
+
+def create_tool(folder, name):
+    """Založí šablonu funkce s jedním prázdným případem → `{name, cases: 1}`; existující je `FileExistsError`."""
+    path = Path(folder) / f"{_valid(name)}.py"
+    if path.exists():
+        raise FileExistsError(f"Funkce {name} už existuje.")
+    path.write_text(TOOL_TEMPLATE.format(name=name), encoding="utf-8", newline="")
+    path.with_suffix(".cases.json").write_text(
+        json.dumps([{"name": "priklad", "input": {}, "expected": {}}], indent=2) + "\n", encoding="utf-8", newline="")
+    return {"name": name, "cases": 1}
