@@ -121,6 +121,26 @@
 .pletor-workshop__new-input[aria-invalid="true"] {
   border-color: var(--pletor-error);
 }
+/* Pod seznamy je blok „Vygenerovat“: člověk napíše větou, co má funkce dělat, a model ji napíše i s případy. Je to
+   stejný sloupec a stejné drobné písmo jako zakládání nové položky, jen s vyšším polem na větu, aby se záměr vešel
+   na pár řádků a nikdo nemusel hádat, kam psát. */
+.pletor-workshop__generate {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 12px;
+}
+.pletor-workshop__generate-intent {
+  min-height: 64px;
+  padding: 3px 6px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--pletor-ink);
+  font: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
 .pletor-workshop__empty {
   margin: 0;
   color: var(--pletor-dim);
