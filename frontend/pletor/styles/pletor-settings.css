@@ -163,6 +163,13 @@
   cursor: not-allowed;
 }
 
+/* Záložka Dílna je jen rozcestník: jedna věta, co v dílně je, a tlačítko, které ji otevře přes celou obrazovku. */
+.pletor-settings__hint {
+  margin: 0;
+  color: var(--pletor-dim);
+  font-size: 11px;
+}
+
 .pletor-settings__switches {
   display: flex;
   flex-wrap: wrap;
