@@ -1,0 +1,29 @@
+import { describe, expect, it } from "vitest";
+import { parseLlm } from "@/agi-pletor/hud/logic/llm-settings";
+import { modelProblem, savedNote, settingsView } from "./settings-view";
+
+describe("settingsView", () => {
+  it("mapuje modely, úroveň uvažování a MCP servery", () => {
+    const view = settingsView(parseLlm({ claude: { available: true, model: "opus", mcp: ["a"] }, codex: { available: true, model: "gpt-6", reasoning: "high", mcp: ["b", "c"] } }));
+    expect(view.claude).toMatchObject({ available: true, model: "opus" });
+    expect(view.codex).toMatchObject({ model: "gpt-6", reasoning: "high" });
+    expect(view.connectors).toEqual([{ source: "Claude Code", names: ["a"] }, { source: "Codex", names: ["b", "c"] }]);
+  });
+  it("nedostupná sekce nese důvod, neznámé uvažování je prázdné, bez dat je vše prázdné", () => {
+    const view = settingsView(parseLlm({ claude: { available: false, reason: "chybí" }, codex: { available: true, reasoning: "extreme" } }));
+    expect(view.claude).toMatchObject({ available: false, reason: "chybí" });
+    expect(view.codex.reasoning).toBeNull();
+    expect(settingsView(null).claude.available).toBe(false);
+  });
+});
+
+describe("modelProblem / savedNote", () => {
+  it("validuje jako server", () => {
+    expect(modelProblem("claude-opus-4.5:x_1")).toBeNull();
+    for (const bad of ["", "a b", "x".repeat(101), 'a"b']) expect(modelProblem(bad)).not.toBeNull();
+  });
+  it("potvrzení se zálohou i bez", () => {
+    expect(savedNote("settings.json.bak-1")).toBe("uloženo, záloha settings.json.bak-1");
+    expect(savedNote(null)).toContain("bez zálohy");
+  });
+});

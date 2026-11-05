@@ -71,7 +71,11 @@ export function parseReply(value: unknown): PletorReply {
 /** Nastavení LLM na tomto počítači jen ke čtení (záložka LLM); vadná odpověď = sekce nedostupné s důvodem. */
 export const fetchPletorLlm = (): Promise<PletorLlm> => api<unknown>("/api/pletor/llm").then(parseLlm);
 
-export const fetchPletorState = (project: string, workspace: string) =>
+/** Zápis modelu (M2): `PUT /api/pletor/llm/claude|codex`; vrací název zálohy (`null` = soubor dosud nebyl). */
+export const putPletorLlm = (target: "claude" | "codex", body: { model: string; reasoning?: string }): Promise<string | null> =>
+  api<{ backup?: unknown }>(`/api/pletor/llm/${target}`, body, "PUT").then((out) => (typeof out.backup === "string" ? out.backup : null));
+
+export const fetchPletorState =(project: string, workspace: string) =>
   api<unknown>(`/api/pletor/state?${scope(project, workspace)}`).then(parseState);
 
 /** `voice` (P3): zpráva vznikla hlasem nebo je zapnutý Hlas; server pak chce krátkou odpověď ke čtení nahlas. */

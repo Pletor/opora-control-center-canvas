@@ -1,4 +1,4 @@
-import "../styles/pletor-dashboard.css";
+﻿import "../styles/pletor-dashboard.css";
 import "../styles/pletor-dashboard-parts.css";
 import { useEffect, useRef, useState } from "react";
 import PletorWorkshop from "@/agi-pletor/workshop/components/PletorWorkshop";
@@ -9,6 +9,7 @@ import DashboardHeart from "./DashboardHeart";
 import DashboardMessages from "./DashboardMessages";
 import DashboardMonitoring from "./DashboardMonitoring";
 import DashboardOverview from "./DashboardOverview";
+import DashboardSettings from "./DashboardSettings";
 import DashboardVoice from "./DashboardVoice";
 
 type Props = { project: string; workspace: string; onBack: () => void };
@@ -16,7 +17,7 @@ type Props = { project: string; workspace: string; onBack: () => void };
 /**
  * Velín AGI Pletor (`?screen=pletor`, docs/navrhy/2026-11-05-pletor-opora-dashboard.md §3): celá obrazovka s levou
  * navigací po částech. Aktivní část drží adresa (`part=`), takže odkaz otevře přímo Hlas nebo Dílnu. V1–V3 umí Přehled, Srdce, Podklady, Rozhovor, Monitoring,
- * Mozek a LLM, Hlas a Dílnu; Nastavení jen hlásí, ve kterém milníku přijdou. Esc vrací do kokpitu, kromě Dílny,
+ * Mozek a LLM, Hlas a Dílnu; V4 přidává Nastavení (modely LLM, konektory jen čtení). Esc vrací do kokpitu, kromě Dílny,
  * která si Esc bere sama (zavře se na Přehled).
  */
 export default function PletorDashboard({ project, workspace, onBack }: Props) {
@@ -33,7 +34,6 @@ export default function PletorDashboard({ project, workspace, onBack }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [part]);
 
-  const info = PARTS.find((item) => item.id === part)!;
   return (
     <div className="pletor-dashboard">
       <header className="pletor-dashboard__head">
@@ -57,7 +57,7 @@ export default function PletorDashboard({ project, workspace, onBack }: Props) {
         {part === "rozhovor" && <DashboardMessages project={project} workspace={workspace} />}
         {part === "monitoring" && <DashboardMonitoring project={project} />}
         {part === "dilna" && <div className="pletor-dashboard__workshop"><PletorWorkshop onClose={() => open("prehled")} /></div>}
-        {!info.ready && <p className="pletor-dashboard__note">Přijde v milníku {"milestone" in info ? info.milestone : ""}.</p>}
+        {part === "nastaveni" && <DashboardSettings />}
       </main>
     </div>
   );

@@ -41,6 +41,14 @@
   overflow-wrap: anywhere;
 }
 
+/* Nastavení: každý model (Claude Code, Codex) je malý oddíl pod nadpisem s odsazením, aby oči vedlo shora dolů:
+   „Teď: …“, pak jedním řádkem pole, volitelná úroveň a Uložit. Potvrzení nebo chyba se objeví hned pod ním. */
+.pletor-dashboard__setting {
+  margin: 0 0 14px;
+  padding-left: 10px;
+  border-left: 2px solid var(--pletor-line);
+}
+
 /* Rozhovor: nahoře hledání, výběr limitu a „celkem N“; zprávy pod sebou, každá se štítkem role, časem a textem. */
 .pletor-dashboard__tools {
   display: flex;
