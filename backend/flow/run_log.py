@@ -69,3 +69,10 @@ def read_log(db, run_id, after_seq=0, limit=500):
         "SELECT * FROM flow_log_events WHERE run_id=? AND seq>? ORDER BY seq LIMIT ?", (run_id, after_seq, limit)
     ).fetchall()
     return [{**dict(row), "payload": json.loads(row["payload"])} for row in rows]
+
+
+def read_canvas(db, canvas, project, limit=50):
+    """Posledních `limit` událostí plátna 2–4 projektu (podle `project` v payloadu), nejnovější poslední."""
+    rows = db.execute("SELECT * FROM flow_log_events WHERE canvas=? AND json_extract(payload,'$.project')=? "
+                      "ORDER BY seq DESC LIMIT ?", (canvas, project, limit)).fetchall()
+    return [{**dict(row), "payload": json.loads(row["payload"])} for row in reversed(rows)]

@@ -25,6 +25,10 @@ Tenký router pro `backend/agi_pletor/` (docs/navrhy/2026-11-04-pletor-jarvis.md
 - `GET /api/pletor/llm` → `{claude, codex, ollama, cswap}` (M1 nastavení LLM, jen ke čtení,
   `backend/agi_pletor/llm_settings/`). Sekce se čtou souběžně a každá selže zvlášť jako `{available: false, reason}`, route
   nikdy 500. Žádné parametry, cesty jen z `Path.home()`; tokeny ani úplné e-maily v odpovědi nejsou.
+- Velín, jen čtení (`dashboard_routes.py`, logika `backend/agi_pletor/dashboard/`): `GET /heart?project&workspace` → `{status, queue:
+  [{workspace, pending}], batches (20), gate, brain: {version, activatedAt} | null}`; `GET /context` → `{text, sections:
+  [{title, chars, cap, truncated}]}`; `GET /messages?project&workspace&limit=50&q=` → `{messages, total}`; `GET /monitoring?project`
+  → `{hosts, events (50), enabled}`. Sekce, jejíž zdroj selže, je `{error}`.
 - Dílna D0 (`workshop_routes.py`, logika `backend/agi_pletor/pletor_opora_settings/`): `GET /api/pletor/workshop/tools`
   → `{tools}`, `POST …/tools/{name}/measure` (tělo `{}`) → měření funkce; neznámá 404, špatný název 422.
 
