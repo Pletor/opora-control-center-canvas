@@ -3,11 +3,11 @@ export const PARTS = [
   { id: "prehled", label: "Přehled", ready: true },
   { id: "mozek", label: "Mozek a LLM", ready: true },
   { id: "hlas", label: "Hlas", ready: true },
-  { id: "srdce", label: "Srdce", ready: false, milestone: "V2" },
-  { id: "podklady", label: "Podklady", ready: false, milestone: "V2" },
+  { id: "srdce", label: "Srdce", ready: true },
+  { id: "podklady", label: "Podklady", ready: true },
   { id: "dilna", label: "Dílna", ready: true },
-  { id: "monitoring", label: "Monitoring", ready: false, milestone: "V3" },
-  { id: "rozhovor", label: "Rozhovor", ready: false, milestone: "V3" },
+  { id: "monitoring", label: "Monitoring", ready: true },
+  { id: "rozhovor", label: "Rozhovor", ready: true },
   { id: "nastaveni", label: "Nastavení", ready: false, milestone: "V4" },
 ] as const;
 

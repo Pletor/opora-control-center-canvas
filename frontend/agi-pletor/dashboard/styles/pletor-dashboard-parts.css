@@ -1,0 +1,70 @@
+/* Tabulky a výpisy částí Srdce, Podklady, Rozhovor a Monitoring: husté mono řádky s tenkou zelenou linkou, hlavičky
+   tlumené malými písmeny, aby oko hledalo data a ne rámečky. Podklady jsou celý text v prostém bloku, který se zalamuje. */
+.pletor-dashboard__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.pletor-dashboard__table th {
+  color: var(--pletor-dim);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.pletor-dashboard__table th,
+.pletor-dashboard__table td {
+  padding: 4px 10px 4px 0;
+  border-bottom: 1px solid var(--pletor-line);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.pletor-dashboard__empty {
+  color: var(--pletor-dim);
+}
+.pletor-dashboard__mono {
+  font-size: 11px;
+}
+.pletor-dashboard__tag {
+  padding: 1px 6px;
+  border: 1px solid var(--pletor-line);
+  background: var(--pletor-accent-soft);
+  color: var(--pletor-accent);
+  font-size: 11px;
+}
+.pletor-dashboard__pre {
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--pletor-line);
+  font: 12px/1.45 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Rozhovor: nahoře hledání, výběr limitu a „celkem N“; zprávy pod sebou, každá se štítkem role, časem a textem. */
+.pletor-dashboard__tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pletor-dashboard__input {
+  padding: 6px 10px;
+  border: 1px solid var(--pletor-line);
+  background: transparent;
+  color: var(--pletor-ink);
+  font: 12px var(--mono);
+}
+.pletor-dashboard__messages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pletor-dashboard__message {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__message-text {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
