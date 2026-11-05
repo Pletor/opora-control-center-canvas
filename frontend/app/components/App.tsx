@@ -206,7 +206,8 @@ export default function App() {
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   // Pletor startuje s OPOROU vždy v kokpitu (HUD) přes celou obrazovku; režim se neukládá.
-  const [pletorMode, setPletorMode] = useState<PletorMode>("hud");
+  // Přímý start ve velínu (`?screen=pletor`) ho složí do okna, jinak by kokpit velín překryl.
+  const [pletorMode, setPletorMode] = useState<PletorMode>(() => (initial.get("screen") === "pletor" ? "window" : "hud"));
   // Poslech Pletora: po startu vždy vypnutý (mikrofon se nezapne sám), neukládá se; chyba mikrofonu jde do tooltipu přepínače.
   const [pletorListen, setPletorListen] = useState({ on: false, error: "" });
   const onPletorListen = (on: boolean, error = "") => setPletorListen({ on, error });
