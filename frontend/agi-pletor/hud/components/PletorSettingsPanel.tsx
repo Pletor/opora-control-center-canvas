@@ -7,7 +7,7 @@ import type { usePletorVoice } from "../logic/use-pletor-voice";
 import PletorListenSwitch from "./PletorListenSwitch";
 import PletorSettingsLlm from "./PletorSettingsLlm";
 import PletorSettingsVoices from "./PletorSettingsVoices";
-import PletorWorkshop from "@/pletor-workshop/components/PletorWorkshop";
+import PletorWorkshop from "@/agi-pletor/workshop/components/PletorWorkshop";
 
 type Tab = "brain" | "voice" | "llm" | "workshop";
 const TABS: [Tab, string][] = [["brain", "Mozek a čtení"], ["voice", "Hlas"], ["llm", "LLM"], ["workshop", "Dílna"]];

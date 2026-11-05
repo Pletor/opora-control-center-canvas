@@ -26,4 +26,4 @@ Kontrakt API (`/api/pletor/workshop`):
 
 Nice-to-have, zatím ne: čísla řádků v editoru, kódový editor (CodeMirror až po schválení závislosti), panel Oprávnění / Testy / Verze a akce Aktivovat / Vrátit z §5.
 
-Styl: `styles/pletor-workshop.css`, blok `pletor-workshop`, zelené proměnné `--pletor-*` z `frontend/pletor/styles/pletor.css`.
+Styl: `styles/pletor-workshop.css`, blok `pletor-workshop`, zelené proměnné `--pletor-*` z `frontend/agi-pletor/hud/styles/pletor.css`.
