@@ -39,6 +39,15 @@ export function parseMeasure(value: unknown): Measure {
   };
 }
 
+/** Odpověď „Vygenerovat“: nový nástroj (případy jako text do editoru) a jeho první měření. */
+export function parseGenerated(value: unknown): { source: ToolSource; measure: Measure } {
+  const raw = obj(value);
+  return {
+    source: { name: str(raw.name), code: str(raw.code), cases: `${JSON.stringify(raw.cases ?? [], null, 2)}\n` },
+    measure: parseMeasure(raw.measure),
+  };
+}
+
 const BASE = "/api/pletor/workshop";
 const part = encodeURIComponent;
 
@@ -54,3 +63,4 @@ export const createTool = (name: string) => api<unknown>(`${BASE}/tools`, { name
 export const fetchTool = (name: string) => api<unknown>(`${BASE}/tools/${part(name)}`).then(parseToolSource);
 export const saveTool = (name: string, code: string, cases: string) => api<unknown>(`${BASE}/tools/${part(name)}`, { code, cases }, "PUT");
 export const measureTool = (name: string) => api<unknown>(`${BASE}/tools/${part(name)}/measure`, {}).then(parseMeasure);
+export const generateTool = (name: string, intent: string) => api<unknown>(`${BASE}/tools/generate`, { name, intent }).then(parseGenerated);

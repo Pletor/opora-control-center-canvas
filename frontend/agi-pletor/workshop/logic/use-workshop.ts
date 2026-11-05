@@ -59,6 +59,12 @@ export function useWorkshop() {
       const doc = current.current.tool;
       if (doc) setState(ws.measured(current.current, await wapi.measureTool(doc.name)));
     }),
+    generateTool: (name: string, intent: string) => run(async () => {
+      setNote("Model píše…");
+      const made = await wapi.generateTool(name, intent);
+      setState(ws.generated(current.current, name, made.source.code, made.source.cases, made.measure));
+      setTools(await wapi.fetchTools());
+    }, "Funkce vygenerována a změřena."),
     createSkill: (name: string) => run(async () => {
       await wapi.createSkill(name);
       setSkills(await wapi.fetchSkills());

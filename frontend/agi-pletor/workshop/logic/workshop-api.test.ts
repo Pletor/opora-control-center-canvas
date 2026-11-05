@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchSkillFile, fetchSkills, fetchTool, measureTool, parseMeasure, parseSkills, parseTools, saveSkillFile, saveTool } from "./workshop-api";
+import { fetchSkillFile, fetchSkills, fetchTool, measureTool, parseGenerated, parseMeasure, parseSkills, parseTools, saveSkillFile, saveTool } from "./workshop-api";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -57,5 +57,15 @@ describe("volání Dílny", () => {
     expect(measure.url).toBe("/api/pletor/workshop/tools/sum/measure");
     expect(measure.init?.method).toBe("POST");
     expect(JSON.parse(String(measure.init!.body))).toEqual({});
+  });
+});
+
+describe("parseGenerated", () => {
+  it("případy jdou do editoru jako formátovaný JSON a měření se přečte", () => {
+    const cases = [{ name: "c", input: {}, expected: {} }];
+    const done = parseGenerated({ name: "a", code: "x", cases, measure: { name: "a", passed: 1, total: 1 } });
+    expect(done.source.cases).toBe(`${JSON.stringify(cases, null, 2)}\n`);
+    expect(done.measure.passed).toBe(1);
+    expect(parseGenerated(null).source.cases).toBe("[]\n");
   });
 });

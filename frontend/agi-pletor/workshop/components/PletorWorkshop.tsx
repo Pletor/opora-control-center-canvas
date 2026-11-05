@@ -1,6 +1,7 @@
 import "../styles/pletor-workshop.css";
 import { useEffect, useRef, useState } from "react";
 import { useWorkshop } from "../logic/use-workshop";
+import WorkshopGenerate from "./WorkshopGenerate";
 import WorkshopList from "./WorkshopList";
 import WorkshopSkillEditor from "./WorkshopSkillEditor";
 import WorkshopToolEditor from "./WorkshopToolEditor";
@@ -34,7 +35,7 @@ export default function PletorWorkshop({ onClose }: { onClose: () => void }) {
       <header className="pletor-workshop__head">
         <strong className="pletor-workshop__title">Dílna</strong>
         <span className={"pletor-workshop__note" + (armed && dirty ? " pletor-workshop__note--warn" : "")} role="status">
-          {armed && dirty ? "Neuložené změny. Zavřít znovu = zahodit." : w.busy ? "Pracuji…" : w.note ?? "Skilly a měřitelné funkce Pletora."}
+          {armed && dirty ? "Neuložené změny. Zavřít znovu = zahodit." : w.busy ? w.note ?? "Pracuji…" : w.note ?? "Skilly a měřitelné funkce Pletora."}
         </span>
         <button type="button" className="pletor-workshop__button" onClick={() => void w.refresh()} disabled={w.busy}>Obnovit</button>
         <button type="button" className="pletor-workshop__button" onClick={requestClose}>Zavřít</button>
@@ -45,6 +46,7 @@ export default function PletorWorkshop({ onClose }: { onClose: () => void }) {
             items={w.skills.map((s) => ({ name: s.name, hint: s.description }))} />
           <WorkshopList title="Funkce" newLabel="Nová funkce" busy={w.busy} selected={state.tool?.name ?? null} onSelect={w.selectTool}
             onCreate={(name) => void w.createTool(name)} items={w.tools.map((t) => ({ name: t.name, hint: `${t.cases} případů měření` }))} />
+          <WorkshopGenerate busy={w.busy} blocked={w.toolDirty} onGenerate={(name, intent) => void w.generateTool(name, intent)} />
         </nav>
         <WorkshopSkillEditor doc={state.skill} files={w.skills.find((s) => s.name === skillName)?.files ?? []} dirty={w.skillDirty}
           pending={state.pending?.kind === "skill"} busy={w.busy} onFile={(path) => { w.selectFile(path); }} onEdit={w.editSkill}

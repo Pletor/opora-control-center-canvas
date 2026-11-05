@@ -10,6 +10,8 @@ export type WorkshopState = { skill: SkillDoc | null; tool: ToolDoc | null; meas
 
 export const EMPTY: WorkshopState = { skill: null, tool: null, measure: null, pending: null };
 export const NAME_RE = /^[a-z][a-z0-9-]*$/;
+/** Název funkce (`tools/<nazev>.py`) je modul Pythonu, takže s podtržítky. */
+export const TOOL_NAME_RE = /^[a-z][a-z0-9_]*$/;
 
 export const skillDirty = (s: WorkshopState) => Boolean(s.skill && s.skill.draft !== s.skill.saved);
 export const toolDirty = (s: WorkshopState) => Boolean(s.tool && (s.tool.code !== s.tool.savedCode || s.tool.cases !== s.tool.savedCases));
@@ -46,6 +48,9 @@ export const editTool = (state: WorkshopState, patch: Partial<Pick<ToolDoc, "cod
   (state.tool ? { ...state, tool: { ...state.tool, ...patch } } : state);
 export const savedTool = (state: WorkshopState, code: string, cases: string): WorkshopState =>
   (state.tool ? { ...state, tool: { ...state.tool, savedCode: code, savedCases: cases } } : state);
+/** Hotová vygenerovaná funkce: otevře se v editoru jako uložená a rovnou s výsledkem měření. */
+export const generated = (state: WorkshopState, name: string, code: string, cases: string, measure: Measure): WorkshopState =>
+  ({ ...loadedTool(state, name, code, cases), measure });
 export const measured = (state: WorkshopState, measure: Measure): WorkshopState => ({ ...state, measure });
 
 /** Výchozí soubor skillu: SKILL.md, jinak první ze seznamu. */

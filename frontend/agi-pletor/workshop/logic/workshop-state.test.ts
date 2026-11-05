@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  EMPTY, NAME_RE, askSwitch, defaultFile, discard, editSkill, editTool, keep, loadedSkill, loadedTool, measureLine, measured, savedSkill, savedTool,
+  EMPTY, NAME_RE, TOOL_NAME_RE, generated, askSwitch, defaultFile, discard, editSkill, editTool, keep, loadedSkill, loadedTool, measureLine, measured, savedSkill, savedTool,
   skillDirty, toolDirty,
 } from "./workshop-state";
 
@@ -54,5 +54,17 @@ describe("stav editorů Dílny", () => {
     expect(NAME_RE.test("nasad-server2")).toBe(true);
     expect(NAME_RE.test("Nasad")).toBe(false);
     expect(NAME_RE.test("2x")).toBe(false);
+  });
+});
+
+describe("vygenerovaná funkce", () => {
+  it("otevře se jako uložená, s měřením; název funkce bere podtržítka", () => {
+    const m = { name: "delka", passed: 1, total: 1, failed: [], durationMs: 3, deterministic: true, error: null };
+    const next = generated(EMPTY, "delka", "def run(v): ...", "[]\n", m);
+    expect(next.tool?.name).toBe("delka");
+    expect(next.measure).toBe(m);
+    expect(toolDirty(next)).toBe(false);
+    expect(TOOL_NAME_RE.test("rozdel_vety")).toBe(true);
+    expect(TOOL_NAME_RE.test("Rozdel")).toBe(false);
   });
 });

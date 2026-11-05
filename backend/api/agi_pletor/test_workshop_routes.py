@@ -59,3 +59,26 @@ def test_editor_routes(tmp_path, monkeypatch):
         for method, url in [("get", skills), ("post", skills), ("get", file), ("put", file), ("get", f"{BASE}/nova"),
                             ("put", f"{BASE}/nova"), ("post", BASE)]:
             assert getattr(client, method)(url, headers=AGENT, **({} if method == "get" else {"json": {}})).status_code == 403
+
+
+def test_generate_route(tmp_path, monkeypatch):
+    """Falešný mozek vrátí funkci; Dílna ji uloží a změří, existující název je 409, vadná odpověď 422 a nic se nezaloží."""
+    import json
+
+    from backend.agi_pletor import brains
+    monkeypatch.setattr(workshop, "TOOLS", tmp_path / "tools")
+    (tmp_path / "tools").mkdir()
+    reply = {"code": "def run(vstup):\n    return {'n': len(vstup['t'])}",
+             "cases": [{"name": "a", "input": {"t": "ab"}, "expected": {"n": 2}}]}
+    answers = [json.dumps(reply), "nic"]
+    monkeypatch.setattr(brains, "turn", lambda *args, **kwargs: (answers.pop(0), []))
+    url = f"{BASE}/generate"
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        done = client.post(url, headers=HEADERS, json={"name": "delka", "intent": "spočítej znaky"})
+        assert done.status_code == 201 and done.json()["measure"]["passed"] == 1
+        assert (tmp_path / "tools" / "delka.py").is_file()
+        assert client.post(url, headers=HEADERS, json={"name": "delka", "intent": "x"}).status_code == 409
+        assert client.post(url, headers=HEADERS, json={"name": "jina", "intent": "x"}).status_code == 422
+        assert not (tmp_path / "tools" / "jina.py").exists()
+        assert client.post(url, headers=HEADERS, json={"name": "Spatny", "intent": "x"}).status_code == 422
+        assert client.post(url, headers=AGENT, json={"name": "jina", "intent": "x"}).status_code == 403
