@@ -5,7 +5,7 @@ import "@/layout/account-corner/styles/account-corner.css";
  * Levý dolní roh: tlačítko aplikace, po kliknutí popup menu.
  * Dnes jediná položka: Nastavení. Další (jazyk, nápověda, účet) přibudou postupně.
  */
-export default function AccountCorner({ onSettings }: { onSettings: () => void }) {
+export default function AccountCorner({ onSettings, showIntro = false }: { onSettings: () => void; showIntro?: boolean }) {
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
 
@@ -30,6 +30,7 @@ export default function AccountCorner({ onSettings }: { onSettings: () => void }
       {open && (
         <div id="account-menu" className="menu account-menu" role="group" aria-label="Menu aplikace">
           <div className="menu-head">Opora Canvas · lokálně</div>
+          {showIntro && <a className="menu-item" href="/?screen=intro">Úvod Opory</a>}
           <button
             type="button"
             className="menu-item"
@@ -39,7 +40,7 @@ export default function AccountCorner({ onSettings }: { onSettings: () => void }
             }}
           >
             Nastavení
-            <small>Obecné, Plátno, Projekt, Skills, Connectors</small>
+            <small>Pletor a srdce · globální nastavení Opory</small>
           </button>
         </div>
       )}

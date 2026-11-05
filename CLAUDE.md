@@ -16,3 +16,9 @@
 - **Linie stavby.** Před kódem ohlas záměr a najdi, co už existuje; slabý základ zbourej a postav znovu, nestav na něm. Velká stavba jde jako vlak PR podle kontraktu (další PR se větví z předchozího, nečeká se na sloučení), drobnosti z čerstvého `origin/main`. Slučuje agent sám po ověření, vlak zdola nahoru (squash); po sloučení se nasazuje server i frontend; větev uklízí ten, kdo ji založil. Kód podle ponytailu (nejmenší úplná změna). Podrobně: `docs/cista-linie.md`.
 - Před hlášením „hotovo“: `uv run pytest backend`, `npm test`, `npm run build` a výstup v odpovědi.
 - **Hledání v kódu: nejdřív LSP.** Definice, reference, symboly a volání v TypeScriptu i Pythonu hledej nejdřív nástrojem `LSP` (`workspaceSymbol`, `goToDefinition`, `findReferences`, `incomingCalls`); Grep/Glob a čtení souborů přijdou na řadu až když LSP nic nenajde, server neběží nebo jde o text mimo symboly (CSS, Markdown, řetězce). Když LSP selže, řekni to jednou větou a pokračuj dalšími metodami, nečekej. TypeScript server bere `tsserver.js` z `typescript@5` vedle globálního `typescript-language-server` (projektový TypeScript 7 / `tsgo` ho nemá); Python obsluhuje Pyright.
+
+## LLM v terminálu
+- Před změnou nejdřív přečti kód a kontrakt, ke kterému se zadání váže.
+- Zadání ověř proti existující architektuře a rozhodnutím. Když se s nimi tluče, je nejasné nebo vede do slepé uličky, řekni to a navrhni lepší cestu, nespouštěj to.
+- Ptej se jen na to, co nejde zjistit z kódu nebo dokumentů, a vždy s doporučením.
+

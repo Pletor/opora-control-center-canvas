@@ -131,8 +131,8 @@ from backend.library.harness_memory import HarnessMemory
 from backend.memory.memory_service import AppSettings, MemoryService
 from backend.monitoring.monitor import Monitor
 from backend.paths import DIST_DIR, REPO_ROOT
-from backend.pletor import tts_xtts
-from backend.pletor.service import Pletor
+from backend.agi_pletor import tts_xtts
+from backend.agi_pletor.service import Pletor
 from backend.project.architecture.web_status import WebStatusService
 from backend.project.maps.map_refresh import MapRefresh
 from backend.project.workspace.workspace_sources import WorkspaceSources

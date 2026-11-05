@@ -1,0 +1,36 @@
+/* The entry shares Pletor's green HUD palette and Opora's type, grid and brand. */
+.intro { box-sizing: border-box; min-height: 100svh; width: 100%; overflow: hidden; padding: 22px clamp(20px, 4vw, 64px); color: var(--pletor-ink); font-family: var(--font); background: radial-gradient(ellipse at 50% 35%, #3dff8f0d, transparent 58%), repeating-linear-gradient(0deg, #3dff8f06 0 1px, transparent 1px 40px), repeating-linear-gradient(90deg, #3dff8f06 0 1px, transparent 1px 40px), linear-gradient(var(--pletor-bg-2), var(--pletor-bg)); }
+.intro *, .intro *::before, .intro *::after { box-sizing: border-box; }
+.intro__header, .intro__brand, .intro__footer, .intro__entry-top { display: flex; align-items: center; justify-content: space-between; }
+.intro__header { gap: 20px; max-width: 1400px; margin: auto; padding-bottom: 16px; border-bottom: 1px solid var(--pletor-line); }
+.intro__brand { justify-content: flex-start; gap: 13px; color: var(--pletor-accent); text-decoration: none; font: 650 22px var(--mono); letter-spacing: .22em; text-shadow: 0 0 16px #3dff8f40; }
+.intro__mark { width: 40px; height: 40px; border: 1px solid var(--pletor-line); border-radius: var(--radius); display: grid; place-items: center; background: var(--pletor-accent-soft); font: 600 26px var(--font); letter-spacing: 0; }
+.intro__brand-detail { display: block; margin-top: 3px; color: var(--pletor-dim); font: 10px var(--mono); letter-spacing: .17em; text-shadow: none; }
+.intro__motion { display: flex; gap: 13px; align-items: center; color: var(--pletor-dim); background: transparent; border: 1px solid var(--pletor-line); border-radius: 2px; padding: 10px 15px; font: 11px var(--mono); cursor: pointer; }
+/* The actual Pletor renderer supplies rings, scanner and core; no parallel orb implementation. */
+.intro__hero { text-align: center; padding: 10px 0 32px; }
+.intro__universe { position: relative; height: clamp(240px, 34vh, 370px); width: min(780px, 100%); margin: auto; }
+.intro__canvas { display: block; width: 100%; height: 100%; }
+.intro__coordinate { position: absolute; top: 46%; color: var(--pletor-dim); font: 9px/1.9 var(--mono); letter-spacing: .13em; text-align: left; }
+.intro__coordinate--left { left: 0; }.intro__coordinate--right { right: 0; text-align: right; }
+.intro__eyebrow { margin: 7px 0 17px; color: var(--pletor-dim); font: 10px var(--mono); letter-spacing: .17em; }
+.intro h1 { margin: 0; font: 400 clamp(32px, 3.7vw, 52px)/1.13 var(--font); letter-spacing: -.035em; color: var(--pletor-ink); }
+.intro h1 em { font-style: normal; color: var(--pletor-accent); }
+.intro__lead { color: var(--pletor-dim); font: 14px/1.7 var(--font); margin: 17px 0 0; }
+/* Three immediate entry points retain the quiet outlined controls of the speaking agent. */
+.intro__entries { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; max-width: 1120px; margin: 0 auto; }
+.intro__entry { position: relative; display: flex; flex-direction: column; text-decoration: none; color: var(--pletor-ink); padding: 23px; border: 1px solid var(--pletor-line); border-radius: var(--radius); background: #06140dcc; transition: border-color .2s, background .2s, transform .2s; }
+.intro__entry::before { content: ''; position: absolute; top: -1px; left: -1px; width: 19px; height: 19px; border-top: 1px solid var(--pletor-accent); border-left: 1px solid var(--pletor-accent); border-radius: var(--radius) 0 0; opacity: .6; }
+.intro__entry--pletor { background: var(--pletor-accent-soft); }
+.intro__entry:hover { transform: translateY(-3px); border-color: var(--pletor-accent); background: var(--pletor-accent-soft); }
+.intro__entry-top { gap: 8px; color: var(--pletor-dim); font: 10px var(--mono); letter-spacing: .025em; }
+.intro__arrow { font-size: 22px; color: var(--pletor-accent); }
+.intro__entry h2 { font: 500 24px var(--font); letter-spacing: -.02em; margin: 18px 0 10px; }
+.intro__entry p { font: 13px/1.7 var(--font); color: var(--pletor-dim); margin: 0 0 21px; max-width: 270px; }
+.intro__action { margin-top: auto; color: var(--pletor-accent); font: 11px var(--mono); }
+.intro__footer { max-width: 1120px; margin: 26px auto 0; gap: 20px; color: var(--pletor-dim); font: 10px var(--mono); letter-spacing: .03em; }
+.intro__footer > :last-child { font-size: 9px; letter-spacing: .14em; }
+.intro a:focus-visible, .intro button:focus-visible { outline: 2px solid var(--pletor-accent); outline-offset: 5px; }
+.intro--loading { display: grid; place-items: center; }
+@media (max-width: 680px) { .intro { padding: 18px; overflow: auto; }.intro__entries { grid-template-columns: 1fr; }.intro__entry { padding: 21px; }.intro__entry h2 { margin-top: 12px; }.intro__entry p { max-width: none; margin-bottom: 16px; }.intro__footer { align-items: flex-start; flex-direction: column; }.intro__eyebrow { font-size: 8px; letter-spacing: .08em; }.intro__coordinate { display: none; }.intro__motion { font-size: 10px; padding: 9px; } }
+@media (prefers-reduced-motion: reduce) { .intro *, .intro *::before, .intro *::after { transition: none !important; }.intro__entry:hover { transform: none; }.intro__motion { display: none; } }

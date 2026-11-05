@@ -26,7 +26,7 @@ from backend.api.pletor import models
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
-from backend.pletor import brains, llm_settings, speech, tts
+from backend.agi_pletor import brains, llm_settings, speech, tts
 
 
 def _check(service, project, workspace):

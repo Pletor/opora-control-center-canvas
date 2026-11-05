@@ -2,7 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import "@xyflow/react/dist/style.css";
 import "@/app/styles/style.css";
-import App from "@/app/components/App";
+import Entry from "@/app/intro/components/Entry";
 import AccessGate from "@/app/access-gate/components/AccessGate";
 import { installEmbedEscape } from "@/app/logic/embed-escape";
 (window as Window & { EXCALIDRAW_ASSET_PATH?: string }).EXCALIDRAW_ASSET_PATH =
@@ -12,7 +12,7 @@ installEmbedEscape(window, document.referrer);
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AccessGate>
-      <App />
+      <Entry />
     </AccessGate>
   </React.StrictMode>,
 );

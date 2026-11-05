@@ -3,8 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.pletor import tts
-from backend.pletor.actions import TEXT_LIMIT
+from backend.agi_pletor import tts
+from backend.agi_pletor.actions import TEXT_LIMIT
 
 
 class PletorMessageIn(BaseModel):

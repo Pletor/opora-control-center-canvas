@@ -108,7 +108,9 @@ import {
 import { catalogProfile, isLocalKind, projectCapabilities } from "@/shared/project-capabilities/logic/project-capabilities";
 import "@/layout/shell/styles/workspace-modes.css";
 import AccountCorner from "@/layout/account-corner/components/AccountCorner";
-import SettingsDialog from "@/settings/components/SettingsDialog";
+import SettingsPage from "@/settings/components/SettingsPage";
+import SettingsSurface from "@/settings/components/SettingsSurface";
+import { settingsRequested, underlyingScreen } from "@/settings/logic/settings-route";
 import "@/design-tokens/styles/theme-tokens.css";
 import NodePanel from "@/editor/node-detail/components/NodePanel";
 import CardDrawerHost from "@/hub/oporahub-card-drawer/components/CardDrawerHost";
@@ -156,7 +158,7 @@ const initial = new URLSearchParams(location.search);
 const initialModeEnvironment = resolveInitialModeEnvironment(initial);
 export default function App() {
   // `heart`: samostatná obrazovka srdce (plátno 1) mimo architekturu projektu, vstup ze stránky projektu.
-  const [screen, setScreen] = useState<"home" | "canvas" | "heart">(() => initial.get("screen") === "home" ? "home" : initial.get("screen") === "heart" ? "heart" : initial.get("screen") === "canvas" || initial.has("mode") || initial.has("layer") || initial.has("workspace") ? "canvas" : "home");
+  const [screen, setScreen] = useState<"home" | "canvas" | "heart">(() => underlyingScreen(initial));
   const [draftProject, setDraftProject] = useState<Project | undefined>();
   const [wireframeMode, setWireframeMode] = useState(initial.get("wireframe") === "1");
   const [wireframeInsert, setWireframeInsert] = useState<{ kind: WireframeKind; sequence: number }>();
@@ -201,10 +203,10 @@ export default function App() {
   const [vaultRequest, setVaultRequest] = useState<{ project: string; workspace: string; scope: string; focus: VaultFocus | null } | null>(null);
   const vaultNonce = useRef(0);
   const [settings, setSettings] = useState(readSettings);
-  const [appSettingsOpen, setAppSettingsOpen] = useState(false);
+  const [appSettingsOpen, setAppSettingsOpen] = useState(settingsRequested(initial));
   const [assistantOpen, setAssistantOpen] = useState(false);
-  // Pletor startuje s OPOROU vždy v kokpitu (HUD) přes celou obrazovku; režim se neukládá.
-  const [pletorMode, setPletorMode] = useState<PletorMode>("hud");
+  // Konverzaci otevírá vědomý vstup z úvodu; nepřekrývá projekty ani nastavení.
+  const [pletorMode, setPletorMode] = useState<PletorMode>(initial.get("entry") === "pletor" ? "hud" : "closed");
   // Poslech Pletora: po startu vždy vypnutý (mikrofon se nezapne sám), neukládá se; chyba mikrofonu jde do tooltipu přepínače.
   const [pletorListen, setPletorListen] = useState({ on: false, error: "" });
   const onPletorListen = (on: boolean, error = "") => setPletorListen({ on, error });
@@ -435,7 +437,8 @@ export default function App() {
     openArchitectureNode(pendingCard.nodeId);
   }, [pendingCard, workspace]);
   useEffect(() => {
-    const q = new URLSearchParams({ project, workspace, mode, screen, environment });
+    const q = new URLSearchParams({ project, workspace, mode, screen: appSettingsOpen ? "settings" : screen, environment });
+    if (appSettingsOpen) q.set("returnScreen", screen);
     if (parent) q.set("layer", parent);
     if (selected) q.set("node", selected);
     if (wireframeMode) q.set("wireframe", "1");
@@ -455,7 +458,7 @@ export default function App() {
     // Zanoření Studia (`studioFocus`, docs/studio.md §2) drží Studio samo; platí jen v jeho záložce a v tomtéž prostoru.
     if (!switchedScope && projectMapKind === "studio" && currentRoute.has("studioFocus")) q.set("studioFocus", currentRoute.get("studioFocus")!);
     history.replaceState(null, "", "/?" + q);
-  }, [project, workspace, parent, selected, mode, screen, wireframeMode, environment, projectMapKind, intentPage, libraryFlow]);
+  }, [project, workspace, parent, selected, mode, screen, appSettingsOpen, wireframeMode, environment, projectMapKind, intentPage, libraryFlow]);
   const completed = jobs
     .filter((j) => j.status === "complete" && j.project_id === project)
     .map((j) => j.id)
@@ -1053,16 +1056,15 @@ export default function App() {
   // Pletor leží nad každou obrazovkou (úvod, srdce, plátno) jako nejvyšší vrstva.
   const pletorLayer = <PletorWindow mode={pletorMode} project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name ?? project} workspace={workspace} onMode={setPletorMode} listening={pletorListen.on} onListening={onPletorListen} settings={pletorSettings} onSettings={setPletorSettings} />;
   // Úvodní obrazovka má týž rám jako zbytek aplikace, ale bez menu Editoru: nemá plátno ani vybranou kartu.
-  if (screen === "home") return <>
+  if (screen === "home") return <SettingsSurface page={appSettingsOpen && <SettingsPage onClose={() => setAppSettingsOpen(false)} surface={{ value: settings, onChange: updateSettings }} />}>
     <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
       <ProjectHome projects={projects} draftProject={draftProject} projectId={project} jobs={jobs} autonomy={agentAutonomy} onChoose={selectProject} onRefresh={bootstrap} onOpen={() => { changeEnvironment("project"); setScreen("canvas"); }} onOpenHeart={() => setScreen("heart")} onOpenSite={() => { setProjectMapKind("site"); changeEnvironment("project"); setScreen("canvas"); }} onConnected={() => { changeEnvironment("project"); setScreen("canvas"); }} onRemove={() => requestRemoval("project", project)} />
     </div>
     {removal && <RemovalDialog key={removal.digest} preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval} />}
-    <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
-    {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} surface={{ value: settings, onChange: updateSettings }} />}
+    <AccountCorner showIntro onSettings={() => setAppSettingsOpen(true)} />
     {pletorLayer}
-  </>;
-  if (screen === "heart") return <><HeartScreen project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onBack={() => setScreen("home")} />{pletorLayer}</>;
+  </SettingsSurface>;
+  if (screen === "heart") return <SettingsSurface page={appSettingsOpen && <SettingsPage onClose={() => setAppSettingsOpen(false)} surface={{ value: settings, onChange: updateSettings }} />}><HeartScreen project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onBack={() => setScreen("home")} />{pletorLayer}</SettingsSurface>;
   const artifactMapOpen = mode === "map" || mode === "office" || mode === "storyboard";
   const inspectorTools =
     mode === "map" || mode === "office" || mode === "storyboard" ? (
@@ -1104,7 +1106,25 @@ export default function App() {
     ),
   } : undefined;
   return (
-    <SaveScopeProvider project={project} workspace={workspace}><div className="app desktop-v2 desktop-v3">
+    <SaveScopeProvider project={project} workspace={workspace}><SettingsSurface page={appSettingsOpen && <SettingsPage
+        onClose={() => setAppSettingsOpen(false)}
+        surface={{ value: settings, onChange: updateSettings }}
+        project={{
+          name: activeProject?.name ?? draftProject?.name ?? "Lokální návrh",
+          localProject,
+          busy,
+          onProjectSettings: () => setScreen("home"),
+          onRefresh: () => run(refresh),
+          onSync: () => {
+            if (window.confirm("Aktualizovat pouze čistou spravovanou kopii ze schváleného upstreamu? Žádný push."))
+              run(async () => {
+                await api("/api/sync", { project, confirmed: true });
+                await bootstrap();
+              });
+          },
+          onRemoveProject: () => requestRemoval("project", project),
+        }}
+      />}><div className="app desktop-v2 desktop-v3">
       <TopBar
         onHome={() => setScreen("home")}
         trailing={<><PletorButton open={pletorMode !== "closed"} onToggle={(full) => setPletorMode(full || pletorMode === "window" ? "hud" : "window")} /><PletorListenSwitch tone="bar" on={pletorListen.on} error={pletorListen.error} onChange={(on) => onPletorListen(on)} /><PletorSettingsButton tone="bar" open={pletorSettings} onToggle={() => setPletorSettings((open) => !open)} /><AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} request={activityRequest} />}{versionsEnabled && <SaveVersionsTools key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
@@ -1571,25 +1591,6 @@ export default function App() {
         fragmentRefs: (id) => desktop.state.nodes[id]?.fragmentRefs,
       }} />
       <AccountCorner onSettings={() => setAppSettingsOpen(true)} />
-      {appSettingsOpen && <SettingsDialog
-        onClose={() => setAppSettingsOpen(false)}
-        surface={{ value: settings, onChange: updateSettings }}
-        project={{
-          name: activeProject?.name ?? draftProject?.name ?? "Lokální návrh",
-          localProject,
-          busy,
-          onProjectSettings: () => setScreen("home"),
-          onRefresh: () => run(refresh),
-          onSync: () => {
-            if (window.confirm("Aktualizovat pouze čistou spravovanou kopii ze schváleného upstreamu? Žádný push."))
-              run(async () => {
-                await api("/api/sync", { project, confirmed: true });
-                await bootstrap();
-              });
-          },
-          onRemoveProject: () => requestRemoval("project", project),
-        }}
-      />}
       {removal && (
         <RemovalDialog
           key={removal.digest}
@@ -1743,6 +1744,6 @@ export default function App() {
       )}
       <AssistantPanel open={assistantOpen} scope={{ projectId: project, workspace }} nodes={graph.nodes} onClose={() => setAssistantOpen(false)} />
       {pletorLayer}
-    </div></SaveScopeProvider>
+    </div></SettingsSurface></SaveScopeProvider>
   );
 }

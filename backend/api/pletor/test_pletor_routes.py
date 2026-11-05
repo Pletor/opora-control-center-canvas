@@ -34,7 +34,7 @@ def test_message_and_state(tmp_path):
 
 
 def test_message_stream_sends_deltas_then_done(tmp_path):
-    from backend.pletor.test_service import stream_runner
+    from backend.agi_pletor.test_service import stream_runner
 
     answer = '{"reply": "Ahoj, pane.", "actions": [{"type": "vault_note", "text": "Web má dvě stránky."}]}'
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
@@ -116,9 +116,9 @@ def available(client):
 
 
 def test_voices_and_tts(tmp_path, monkeypatch):
-    from backend.pletor import test_tts, test_tts_edge, tts, tts_edge, tts_xtts
-    from backend.pletor.elevenlabs import client as eleven
-    from backend.pletor.elevenlabs import test_client as fake_eleven
+    from backend.agi_pletor import test_tts, test_tts_edge, tts, tts_edge, tts_xtts
+    from backend.agi_pletor.elevenlabs import client as eleven
+    from backend.agi_pletor.elevenlabs import test_client as fake_eleven
 
     for name in ("ELEVENLABS_API_KEY", "ELEVENLABS_VOICE", "ELEVENLABS_VOICE_ID", "ELEVENLABS_MODEL"):
         monkeypatch.delenv(name, raising=False)
@@ -188,7 +188,7 @@ def test_voices_and_tts(tmp_path, monkeypatch):
 
 
 def test_llm_settings_read_only(tmp_path, monkeypatch):
-    from backend.pletor import llm_settings
+    from backend.agi_pletor import llm_settings
 
     def broken():
         raise OSError("disk")
