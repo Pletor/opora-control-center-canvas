@@ -73,8 +73,8 @@ from backend.api.editor.sync_routes import create_sync_router
 from backend.api.brain.brain_registry_routes import create_brain_registry_router
 from backend.api.flow.flow_routes import create_flow_router
 from backend.api.flow.library_routes import create_library_router
-from backend.api.pletor.pletor_routes import create_pletor_router
-from backend.api.pletor.workshop_routes import create_workshop_router
+from backend.api.agi_pletor.pletor_routes import create_pletor_router
+from backend.api.agi_pletor.workshop_routes import create_workshop_router
 from backend.api.project.design_system_routes import create_design_system_router
 from backend.api.project.graphify_routes import create_graphify_router
 from backend.api.project.map_refresh_routes import create_map_refresh_router
@@ -130,10 +130,10 @@ from backend.integrations.typesafe_client import configured_provider
 from backend.integrations.typesafe_client import evaluate as typesafe_evaluate
 from backend.library.harness_memory import HarnessMemory
 from backend.memory.memory_service import AppSettings, MemoryService
-from backend.monitoring.monitor import Monitor
+from backend.agi_pletor.monitoring.monitor import Monitor
 from backend.paths import DIST_DIR, REPO_ROOT
-from backend.pletor import tts_xtts
-from backend.pletor.service import Pletor
+from backend.agi_pletor import tts_xtts
+from backend.agi_pletor.service import Pletor
 from backend.project.architecture.web_status import WebStatusService
 from backend.project.maps.map_refresh import MapRefresh
 from backend.project.workspace.workspace_sources import WorkspaceSources
@@ -172,7 +172,7 @@ def create_app(data_root=None):
     harness_memory = HarnessMemory(service, memory_service)
     # Strážci: tichý dohled bez modelu, jen čtou a hlásí (docs/strazci.md).
     guardian = GuardianManager(service)
-    # Monitoring hostů (plátno 4): tik 60 s, měří jen projekty se `settings.monitor.enabled` (backend/monitoring/).
+    # Monitoring hostů (plátno 4): tik 60 s, měří jen projekty se `settings.monitor.enabled` (backend/agi_pletor/monitoring/).
     monitor = Monitor(service)
     port = int(os.environ.get("OPORA_CANVAS_PORT", "8740"))
     if not 1 <= port <= 65535:

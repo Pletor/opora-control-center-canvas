@@ -1,4 +1,4 @@
-"""Pomocný server hlasu XTTS-v2 pro Pletora; spouští ho `backend/pletor/tts_xtts.py` z vlastního prostředí.
+"""Pomocný server hlasu XTTS-v2 pro Pletora; spouští ho `backend/agi_pletor/tts_xtts.py` z vlastního prostředí.
 
     .venv/Scripts/python.exe server.py <složka modelu>
 

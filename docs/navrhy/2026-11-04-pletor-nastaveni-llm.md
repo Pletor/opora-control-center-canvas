@@ -3,7 +3,7 @@
 Ve chvíli, kdy Pletor stojí nad celou OPOROU, potřebuje člověk jedno místo, kde vidí a ovládá, **jaké modely a účty běží na tomto počítači**: Claude Code (`~/.claude`), Codex (`~/.codex`), lokální Ollama a mozek samotného Pletora. Dnes jsou to roztroušené soubory a příkazy. Nastavení je **globální pro počítač, ne per projekt** (jedno rozhraní pro všechny projekty).
 
 ## Kde to je
-Ozubené kolo Pletora (`PletorSettingsPanel`) dostane záložku **LLM** vedle záložky Hlas a Mozek. Backend: `backend/pletor/llm_settings/` s routerem `GET /api/pletor/llm` (jen loopback, jen člověk). Pletor sám toto nastavení nečte jako podklad a nikdy nevrací tajemství.
+Ozubené kolo Pletora (`PletorSettingsPanel`) dostane záložku **LLM** vedle záložky Hlas a Mozek. Backend: `backend/agi_pletor/llm_settings/` s routerem `GET /api/pletor/llm` (jen loopback, jen člověk). Pletor sám toto nastavení nečte jako podklad a nikdy nevrací tajemství.
 
 ## Vzor: claude-swap (`realiti4/claude-swap`)
 Stažen do `P:\opora-piskoviste\claude-swap` (MIT, stav 2026-11-04). Je to přepínač více účtů Claude Code: ukládá OAuth tokeny per účet, `cswap list` ukáže využití 5h/7d oken, `cswap switch` přepne výchozí přihlášení, `cswap auto` přepíná před dosažením limitu, `cswap run N` spustí účet jen v jednom terminálu. Data: Windows `~/.claude-swap-backup/`.
