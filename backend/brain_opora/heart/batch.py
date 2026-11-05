@@ -156,14 +156,17 @@ def _waiting(waits):
     return ", ".join(parts) or "—"
 
 
-def message(snapshot_text, inputs, modes=None):
+def message(snapshot_text, inputs, modes=None, extras=None):
     """Zpráva dávky: snímek, vstupy této dávky, u zprávy s kontextem plátna jednou celý postup `proces-na-platne`
-    (z `modes` skillů srdce) a pokyn k ukončení."""
+    (z `modes` skillů srdce), nabídka postupů z Dílny (`extras`: jméno → popis) a pokyn k ukončení."""
     lines = ["SNÍMEK PROJEKTU", snapshot_text, "", "VSTUPY TÉTO DÁVKY"]
     lines += [_input_line(item) for item in inputs] or ["- (žádné)"]
     flow = (modes or {}).get(FLOW_SKILL)
     if flow and any(isinstance(item.get("context"), dict) for item in inputs):
         lines += ["", f"POSTUP {FLOW_SKILL} (celý text, vložila ho aplikace)", flow]
+    if extras:
+        lines += ["", "DALŠÍ POSTUPY Z DÍLNY (text dá `python opora_heart.py skill NAME`; použij, když vstup odpovídá popisu)"]
+        lines += [f"- {name}: {description}" for name, description in extras.items()]
     return "\n".join([*lines, "", FINISH])
 
 
@@ -258,7 +261,7 @@ def run(spec, runner=run_process, clock=time.time):
     env = command.child_env(base_url=spec.base_url, token=spec.token, project=spec.project, workspace=spec.workspace,
                             source_root=spec.source_root)
     live = Steps(clock, started, spec.token, spec.steps)
-    outcome = runner(line, cwd=str(brain), env=env, stdin_text=message(spec.snapshot, spec.inputs, spec.skills.modes),
+    outcome = runner(line, cwd=str(brain), env=env, stdin_text=message(spec.snapshot, spec.inputs, spec.skills.modes, spec.skills.extras),
                      timeout=TIMEOUT, on_line=live.feed)
     result = parse(outcome.stdout)
     status = _status(outcome, result, outcome.stderr)

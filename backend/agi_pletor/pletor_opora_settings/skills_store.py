@@ -53,31 +53,56 @@ def _target(folder, path):
     return target
 
 
-def _description(text):
+AGENTS = ("pletor", "srdce")  # frontmatter `agent:` = kdo skill dostává (Pletor do promptu, srdce mezi postupy)
+
+
+def _front(text, key):
+    """Hodnota klíče z úvodního YAML frontmatteru (jen jednořádkové hodnoty), jinak ''."""
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
         return ""
     for line in lines[1:]:
         if line.strip() == "---":
             break
-        if line.startswith("description:"):
-            return line.removeprefix("description:").strip().strip("\"'")
+        if line.startswith(key + ":"):
+            return line.removeprefix(key + ":").strip().strip("\"'")
     return ""
+
+
+def _description(text):
+    return _front(text, "description")
+
+
+def _body(text):
+    """Text `SKILL.md` bez frontmatteru."""
+    if text.startswith("---\n"):
+        end = text.find("\n---\n", 4)
+        if end != -1:
+            return text[end + 5:]
+    return text
 
 
 def _files(folder):
     return sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file() and not p.is_symlink())
 
 
-def list_skills(root=SKILLS):
-    """Skilly ve složce: `[{name, description, files}]`; složka bez SKILL.md nebo se špatným názvem se přeskočí."""
-    skills = []
+def _read_all(root):
     for folder in sorted(Path(root).glob("*/SKILL.md")):
         folder = folder.parent
         if NAME.match(folder.name):
-            text = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
-            skills.append({"name": folder.name, "description": _description(text), "files": _files(folder)})
-    return skills
+            yield folder, (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+
+
+def list_skills(root=SKILLS):
+    """Skilly ve složce: `[{name, description, agent, files}]`; složka bez SKILL.md nebo se špatným názvem se přeskočí."""
+    return [{"name": folder.name, "description": _description(text), "agent": _front(text, "agent"), "files": _files(folder)}
+            for folder, text in _read_all(root)]
+
+
+def skills_for(agent, root=SKILLS):
+    """Skilly daného příjemce (`agent: pletor|srdce`): `{name: {description, body}}` v pořadí názvů."""
+    return {folder.name: {"description": _description(text), "body": _body(text)}
+            for folder, text in _read_all(root) if _front(text, "agent") == agent}
 
 
 def create_skill(root, name):

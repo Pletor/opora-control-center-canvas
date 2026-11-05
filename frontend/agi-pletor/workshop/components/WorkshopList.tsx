@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 import { NAME_RE } from "../logic/workshop-state";
 
-type Item = { name: string; hint: string };
+type Item = { name: string; hint: string; badge?: string };
 type Props = {
   title: string; newLabel: string; items: Item[]; selected: string | null; busy: boolean;
   onSelect: (name: string) => void; onCreate: (name: string) => void;
@@ -28,6 +28,7 @@ export default function WorkshopList({ title, newLabel, items, selected, busy, o
             <button type="button" className="pletor-workshop__item" aria-pressed={item.name === selected} title={item.hint || undefined}
               onClick={() => onSelect(item.name)}>
               {item.name}
+              {item.badge && <span className="pletor-workshop__badge">{item.badge}</span>}
             </button>
           </li>
         ))}

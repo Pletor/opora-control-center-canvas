@@ -31,7 +31,10 @@ def test_heart_reads_prompt_and_modes_from_the_active_brain_version(tmp_path):
     source = seed.SEED_DIR / "opora-heart" / "skills"
     assert skills.prompt == command.skill_body((source / "heart" / "SKILL.md").read_text(encoding="utf-8"))
     assert skills.prompt.startswith("# Srdce projektu OPORA") and "name: heart" not in skills.prompt
-    assert list(skills.modes) == ["vyslech", "proces-na-platne"] and skills.modes["vyslech"].startswith("# Výslech")
+    assert list(skills.modes) == ["vyslech", "proces-na-platne", "zadani-na-kanvas"] and skills.modes["vyslech"].startswith("# Výslech")
+    assert list(skills.extras) == ["zadani-na-kanvas"] and "plátna" in skills.extras["zadani-na-kanvas"]
+    only_brain = command.heart_skills(db, tmp_path, dilna={"vyslech": {"description": "x", "body": "y"}})
+    assert only_brain.modes["vyslech"].startswith("# Výslech") and only_brain.extras == {}
     sha = Store(tmp_path).version("opora-heart")
     assert skills.pins == {"heart": f"opora:brain:skill:heart@{sha[:12]}",
                            "vyslech": f"opora:brain:skill:vyslech@{sha[:12]}",

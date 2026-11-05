@@ -2,7 +2,7 @@ import { api } from "@/shared/types/logic/types";
 
 /** Volání Dílny (docs/navrhy/2026-11-05-dilna-skillu.md §3a, §5) a odolné čtení odpovědí: chybějící pole jsou prázdná. */
 
-export type WorkshopSkill = { name: string; description: string; files: string[] };
+export type WorkshopSkill = { name: string; description: string; agent: string; files: string[] };
 export type WorkshopTool = { name: string; path: string; cases: number };
 export type ToolSource = { name: string; code: string; cases: string };
 export type MeasureFailure = { name: string; got: unknown; expected: unknown };
@@ -18,7 +18,7 @@ const list = (value: unknown) => (Array.isArray(value) ? value.map(obj) : []);
 const named = (items: Raw[]) => items.filter((item) => str(item.name));
 
 export const parseSkills = (value: unknown): WorkshopSkill[] => named(list(obj(value).skills)).map((s) => ({
-  name: str(s.name), description: str(s.description),
+  name: str(s.name), description: str(s.description), agent: str(s.agent),
   files: Array.isArray(s.files) ? s.files.filter((f): f is string => typeof f === "string") : [],
 }));
 
