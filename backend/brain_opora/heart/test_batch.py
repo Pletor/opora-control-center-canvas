@@ -34,6 +34,12 @@ def spec(tmp_path, inputs=None):
 
 
 
+def test_message_offers_workshop_skills_by_name_and_description():
+    text = batch.message("S", [], {"zadani-na-kanvas": "# Tělo"}, {"zadani-na-kanvas": "Převést rozhovor na plátno."})
+    assert "DALŠÍ POSTUPY Z DÍLNY" in text and "- zadani-na-kanvas: Převést rozhovor na plátno." in text
+    assert "# Tělo" not in text and "DALŠÍ POSTUPY" not in batch.message("S", [], {"zadani-na-kanvas": "# Tělo"})
+
+
 def test_message_renders_merge_and_new_commits_in_czech():
     text = batch.message("S", [{"type": "merged", "nodeId": "n1", "executionId": "ex1", "mergeSha": "abcdef1234567890",
                                 "pr": 7},

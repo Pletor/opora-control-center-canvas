@@ -11,19 +11,29 @@ def test_sample_skill_is_listed():
     assert sample["files"] == ["SKILL.md"] and "8740" in sample["description"]
 
 
+def test_skills_for_pletor_and_heart_are_in_the_repo():
+    pletor, heart = skills_store.skills_for("pletor"), skills_store.skills_for("srdce")
+    assert "hloubkove-zadani" in pletor and "zadani-na-kanvas" in heart
+    assert pletor["hloubkove-zadani"]["body"].startswith("\n# Hloubkové zadání") and "rozhovor" in pletor["hloubkove-zadani"]["description"]
+    assert "restart-opora" not in pletor and "restart-opora" not in heart
+
+
 def test_create_read_write(tmp_path):
     assert skills_store.create_skill(tmp_path, "novy-skill") == {"name": "novy-skill", "files": ["SKILL.md"]}
     with pytest.raises(FileExistsError):
         skills_store.create_skill(tmp_path, "novy-skill")
     text = skills_store.read_file(tmp_path, "novy-skill", "SKILL.md")["content"]
     assert "## Kdy použít" in text and "## Ověření" in text
-    assert skills_store.list_skills(tmp_path) == [{"name": "novy-skill", "description": "", "files": ["SKILL.md"]}]
+    assert skills_store.list_skills(tmp_path) == [{"name": "novy-skill", "description": "", "agent": "", "files": ["SKILL.md"]}]
+    skills_store.write_file(tmp_path, "novy-skill", "SKILL.md", "---\nname: novy-skill\nagent: srdce\ndescription: D\n---\n# Tělo\n")
+    assert skills_store.skills_for("srdce", tmp_path) == {"novy-skill": {"description": "D", "body": "# Tělo\n"}}
+    assert skills_store.skills_for("pletor", tmp_path) == {}
 
     assert skills_store.write_file(tmp_path, "novy-skill", "scripts/a.py", "print('č')\n") == {
         "path": "scripts/a.py", "bytes": 12}
     skills_store.write_file(tmp_path, "novy-skill", "SKILL.md", '---\nname: x\ndescription: "Popis."\n---\n')
     assert skills_store.list_skills(tmp_path)[0] == {
-        "name": "novy-skill", "description": "Popis.", "files": ["SKILL.md", "scripts/a.py"]}
+        "name": "novy-skill", "description": "Popis.", "agent": "", "files": ["SKILL.md", "scripts/a.py"]}
 
 
 @pytest.mark.parametrize("path", ["../venku.md", "a/../../venku.md", "/etc/x.md", "C:/x.md", "a\\b.md", "x.exe",

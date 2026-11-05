@@ -14,9 +14,10 @@ import json
 import os
 import shutil
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
+from backend.agi_pletor.pletor_opora_settings import skills_store
 from backend.brain import registry
 from backend.brain.store import Store
 
@@ -57,8 +58,9 @@ BASH_TIMEOUT_MS = "700000"
 @dataclass(frozen=True)
 class HeartSkills:
     prompt: str  # tělo skillu `heart` (systémový prompt)
-    modes: dict  # {jméno režimu: tělo skillu}
+    modes: dict  # {jméno režimu: tělo skillu}; včetně postupů z Dílny
     pins: dict  # {jméno skillu: pin `opora:brain:skill:<name>@<sha12>`}
+    extras: dict = field(default_factory=dict)  # {jméno postupu z Dílny (`agent: srdce`): popis} – nabídka v dávce
 
 
 def skill_body(text):
@@ -70,8 +72,9 @@ def skill_body(text):
     return text
 
 
-def heart_skills(db, data_root):
-    """Aktivní verze skillů srdce z Brainu (registr → git); bez aktivní verze chyba, žádná záloha v souboru."""
+def heart_skills(db, data_root, dilna=None):
+    """Aktivní verze skillů srdce z Brainu (registr → git); bez aktivní verze chyba, žádná záloha v souboru.
+    K režimům přidá postupy z Dílny s `agent: srdce` (`dilna` = `skills_store.skills_for("srdce")`), bez pinu."""
     store, bodies, pins = Store(data_root), {}, {}
     for name, artifact in {"heart": HEART_SKILL, **MODE_SKILLS}.items():
         active = registry.active(db, artifact)
@@ -80,7 +83,11 @@ def heart_skills(db, data_root):
         bodies[name] = skill_body(store.read(active["plugin"], active["content_ref"], active["version"]))
         pins[name] = active["pin"]
     prompt = bodies.pop("heart")
-    return HeartSkills(prompt, bodies, pins)
+    extras = {}
+    for name, skill in (skills_store.skills_for("srdce") if dilna is None else dilna).items():
+        if name not in bodies:  # režim Brainu má přednost před stejnojmenným postupem Dílny
+            bodies[name], extras[name] = skill["body"], skill["description"]
+    return HeartSkills(prompt, bodies, pins, extras)
 
 
 def find_claude(which=shutil.which, nt=None):

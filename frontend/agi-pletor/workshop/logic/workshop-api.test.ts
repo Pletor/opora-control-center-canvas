@@ -16,7 +16,7 @@ const writes = (calls: { url: string; init?: RequestInit }[]) => calls.filter((c
 describe("čtení odpovědí Dílny", () => {
   it("chybějící pole jsou prázdná, položky bez jména pryč", () => {
     expect(parseSkills({ skills: [{ name: "deploy", files: ["SKILL.md", 3] }, { description: "bez jména" }] }))
-      .toEqual([{ name: "deploy", description: "", files: ["SKILL.md"] }]);
+      .toEqual([{ name: "deploy", description: "", agent: "", files: ["SKILL.md"] }]);
     expect(parseSkills(null)).toEqual([]);
     expect(parseTools({ tools: [{ name: "sum" }, "x"] })).toEqual([{ name: "sum", path: "", cases: 0 }]);
   });

@@ -43,7 +43,7 @@ export default function PletorWorkshop({ onClose }: { onClose: () => void }) {
       <div className="pletor-workshop__body">
         <nav className="pletor-workshop__side" aria-label="Skilly a funkce">
           <WorkshopList title="Skilly" newLabel="Nový skill" busy={w.busy} selected={skillName} onSelect={w.selectSkill} onCreate={(name) => void w.createSkill(name)}
-            items={w.skills.map((s) => ({ name: s.name, hint: s.description }))} />
+            items={w.skills.map((s) => ({ name: s.name, hint: s.description, badge: s.agent }))} />
           <WorkshopList title="Funkce" newLabel="Nová funkce" busy={w.busy} selected={state.tool?.name ?? null} onSelect={w.selectTool}
             onCreate={(name) => void w.createTool(name)} items={w.tools.map((t) => ({ name: t.name, hint: `${t.cases} případů měření` }))} />
           <WorkshopGenerate busy={w.busy} blocked={w.toolDirty} onGenerate={(name, intent) => void w.generateTool(name, intent)} />

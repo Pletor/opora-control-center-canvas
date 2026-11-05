@@ -92,6 +92,19 @@
   text-align: left;
   cursor: pointer;
 }
+/* Štítek vpravo na položce skillu říká, kdo skill dostává (pletor / srdce): člověk tak v seznamu na první pohled
+   vidí, čí postup upravuje, aniž by otevíral soubor. Drobný, tlumený, nesoutěží s názvem. */
+.pletor-workshop__badge {
+  float: right;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--pletor-accent-soft);
+  color: var(--pletor-accent);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 .pletor-workshop__item[aria-pressed="true"] {
   border-color: var(--pletor-accent);
   background: var(--pletor-accent-soft);

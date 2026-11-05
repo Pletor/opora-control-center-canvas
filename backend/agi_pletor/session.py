@@ -11,20 +11,30 @@ import os
 import re
 from pathlib import Path
 
+from backend.agi_pletor.pletor_opora_settings import skills_store
 from backend.brain_opora.heart import batch, command, session
 from backend.brain_opora.heart.process import run_process
 
 PERSONA = Path(__file__).resolve().parent / "persona.md"
+PROMPT_NAME = "system-prompt.md"  # persona + skilly Dílny s `agent: pletor`, zapsané do složky Pletora před tahem
 MODEL = "sonnet"  # mluví s člověkem: kvalita věty před cenou Haiku; bez poradce
 TIMEOUT = 180
 MAX_TURNS = 2  # bez nástrojů stačí jeden tah; druhý je rezerva
 
 
-def build_command(claude, session_id, resume):
+def build_command(claude, session_id, resume, prompt_path=PERSONA):
     return [claude, "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
             "--model", MODEL, *(["--resume", session_id] if resume else ["--session-id", session_id]),
             "--setting-sources", "project", "--strict-mcp-config", "--tools", "", "--permission-mode", "dontAsk",
-            "--system-prompt-file", str(PERSONA), "--disable-slash-commands", "--max-turns", str(MAX_TURNS)]
+            "--system-prompt-file", str(prompt_path), "--disable-slash-commands", "--max-turns", str(MAX_TURNS)]
+
+
+def system_prompt(skills=None):
+    """Persona a za ní skilly Pletora z Dílny (`skills_store.skills_for("pletor")`), každý pod nadpisem SKILL."""
+    parts = [PERSONA.read_text(encoding="utf-8").rstrip()]
+    for name, skill in (skills_store.skills_for("pletor") if skills is None else skills).items():
+        parts.append(f"SKILL {name}: {skill['description']}\nPostup skillu (platí, když se hodí na to, co člověk chce):\n{skill['body'].strip()}")
+    return "\n\n".join(parts) + "\n"
 
 
 def child_env(environ=None):
@@ -120,9 +130,12 @@ def turn(folder, stdin_text, *, runner=run_process, find=command.find_claude, on
     claude = find()
     if not claude:
         raise RuntimeError("Claude Code (`claude`) na tomto počítači chybí.")
-    digest = hashlib.sha256(PERSONA.read_bytes()).hexdigest()
+    prompt = system_prompt().encode("utf-8")
+    prompt_path = folder / PROMPT_NAME
+    prompt_path.write_bytes(prompt)
+    digest = hashlib.sha256(prompt).hexdigest()  # změna persony i skillu = nová relace
     session_id, resume = session.choose(folder, prompt_digest=digest)
-    outcome = runner(build_command(claude, session_id, resume), cwd=str(folder), env=child_env(),
+    outcome = runner(build_command(claude, session_id, resume, prompt_path), cwd=str(folder), env=child_env(),
                      stdin_text=stdin_text, timeout=TIMEOUT,
                      on_line=stream_lines(on_delta) if on_delta else None)
     result = batch.parse(outcome.stdout)

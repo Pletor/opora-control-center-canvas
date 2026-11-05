@@ -53,6 +53,9 @@ def test_message_runs_actions_and_resumes_the_session(tmp_path, monkeypatch):
         assert "ANTHROPIC_API_KEY" not in runner.calls[0]["env"]
         command = runner.calls[0]["command"]
         assert command[command.index("--tools") + 1] == "" and "--session-id" in command
+        # systémový prompt = persona + skilly Dílny pro Pletora, zapsaný do složky Pletora před tahem
+        prompt = open(command[command.index("--system-prompt-file") + 1], encoding="utf-8").read()
+        assert prompt.startswith("Jsi Pletor") and "SKILL hloubkove-zadani:" in prompt and "# Hloubkové zadání" in prompt
         # zpráva srdci jde stejnou cestou jako POST /api/brain/heart/messages
         assert client.app.state.heart.status("draft")["pending"] == 1
         brain = brain_files.brain_dir(client.app.state.service, "draft")
