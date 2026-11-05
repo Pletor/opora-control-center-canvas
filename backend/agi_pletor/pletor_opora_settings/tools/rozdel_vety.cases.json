@@ -1,0 +1,6 @@
+[
+  {"name": "dve_vety", "input": {"text": "Ahoj. Jak se máš?"}, "expected": {"sentences": ["Ahoj.", "Jak se máš?"]}},
+  {"name": "vic_znamenek", "input": {"text": "Co?! Ano... Hotovo!"}, "expected": {"sentences": ["Co?!", "Ano...", "Hotovo!"]}},
+  {"name": "bez_tecky_na_konci", "input": {"text": "První věta. Druhá bez tečky"}, "expected": {"sentences": ["První věta.", "Druhá bez tečky"]}},
+  {"name": "prazdny_text", "input": {"text": "   "}, "expected": {"sentences": []}}
+]
