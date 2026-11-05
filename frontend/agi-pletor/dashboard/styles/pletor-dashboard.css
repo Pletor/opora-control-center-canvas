@@ -1,0 +1,172 @@
+/* Velín je celá obrazovka v témže zeleném rytmu jako kokpit, jen klidnější: nahoře titulek a cesta zpět, vlevo úzký
+   sloupec částí, vpravo obsah jedné aktivní části. Leží pod HUD oknem (z-index nižší), aby šlo dál mluvit. */
+.pletor-dashboard {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  background: linear-gradient(var(--pletor-bg-2), var(--pletor-bg));
+  color: var(--pletor-ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  color-scheme: dark;
+}
+
+/* Lišta nahoře: titulek vlevo, tlačítko zpět vpravo, tenká zelená čára pod nimi odděluje velín od obsahu. */
+.pletor-dashboard__head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__title {
+  margin: 0;
+  color: var(--pletor-accent);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.pletor-dashboard__title:focus-visible {
+  outline: none;
+}
+.pletor-dashboard__button,
+.pletor-dashboard__choice {
+  padding: 7px 14px;
+  border: 1px solid var(--pletor-line);
+  background: var(--pletor-accent-soft);
+  color: var(--pletor-accent);
+  font: 12px var(--mono);
+  cursor: pointer;
+}
+.pletor-dashboard__button:focus-visible,
+.pletor-dashboard__choice:focus-visible,
+.pletor-dashboard__tab:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+  outline-offset: 2px;
+}
+
+/* Levá navigace: části pod sebou v pořadí z kontraktu; aktivní svítí akcentem a má zelený proužek vlevo. */
+.pletor-dashboard__nav {
+  padding: 12px 8px;
+  border-right: 1px solid var(--pletor-line);
+  overflow-y: auto;
+}
+.pletor-dashboard__tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pletor-dashboard__tab {
+  padding: 8px 10px;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--pletor-dim);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pletor-dashboard__tab[aria-selected="true"] {
+  border-left-color: var(--pletor-accent);
+  background: var(--pletor-accent-soft);
+  color: var(--pletor-accent);
+}
+
+/* Obsah: jedna část na celou plochu, posouvá se sám; Dílna a LLM mají vlastní rozvržení uvnitř. */
+.pletor-dashboard__content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 16px;
+  overflow-y: auto;
+}
+.pletor-dashboard__note {
+  margin: 0;
+  color: var(--pletor-dim);
+}
+.pletor-dashboard__error {
+  margin: 0;
+  color: var(--pletor-error);
+}
+
+/* Přehled: karty vedle sebe, každá s malým nadpisem, jednou hlavní větou a tlumenou poznámkou pod ní. */
+.pletor-dashboard__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.pletor-dashboard__card {
+  padding: 12px;
+  border: 1px solid var(--pletor-line);
+  background: rgba(61, 255, 143, 0.04);
+}
+.pletor-dashboard__card-title,
+.pletor-dashboard__group-title {
+  margin: 0 0 6px;
+  color: var(--pletor-dim);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.pletor-dashboard__card-value {
+  margin: 0 0 4px;
+  color: var(--pletor-ink);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.pletor-dashboard__card-note {
+  margin: 0;
+  color: var(--pletor-dim);
+  font-size: 11px;
+}
+
+/* Přepínač mozku: dvě tlačítka vedle sebe; zvolený mozek svítí, nedostupný (Ollama bez modelu) je tlumený. */
+.pletor-dashboard__switch {
+  display: flex;
+  gap: 8px;
+}
+.pletor-dashboard__choice[aria-pressed="true"] {
+  background: var(--pletor-accent);
+  color: var(--pletor-bg);
+}
+.pletor-dashboard__choice:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Hlasy jen ke čtení: skupina na engine, pod ní řádky se jménem, štítkem cloud/lokální a důvodem, když hlas nejde. */
+.pletor-dashboard__voices {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pletor-dashboard__voice {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__voice-tag,
+.pletor-dashboard__voice-off {
+  color: var(--pletor-dim);
+  font-size: 11px;
+}
+
+/* Dílna vložená do části: komponenta je jinak celoobrazovková vrstva, tady se vrací do toku a vyplní obsah. */
+.pletor-dashboard__workshop {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.pletor-dashboard__workshop .pletor-workshop {
+  position: absolute;
+  inset: 0;
+  z-index: auto;
+}

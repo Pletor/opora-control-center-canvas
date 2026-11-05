@@ -63,6 +63,8 @@ import TopBar from "@/layout/top-bar/components/TopBar";
 import AssistantButton from "@/layout/assistant-panel/components/AssistantButton";
 import AssistantPanel from "@/layout/assistant-panel/components/AssistantPanel";
 import PletorButton from "@/agi-pletor/hud/components/PletorButton";
+import PletorDashboard from "@/agi-pletor/dashboard/components/PletorDashboard";
+import { parsePart } from "@/agi-pletor/dashboard/logic/dashboard-route";
 import PletorWindow from "@/agi-pletor/hud/components/PletorWindow";
 import PletorListenSwitch from "@/agi-pletor/hud/components/PletorListenSwitch";
 import PletorSettingsButton from "@/agi-pletor/hud/components/PletorSettingsButton";
@@ -156,7 +158,7 @@ const initial = new URLSearchParams(location.search);
 const initialModeEnvironment = resolveInitialModeEnvironment(initial);
 export default function App() {
   // `heart`: samostatná obrazovka srdce (plátno 1) mimo architekturu projektu, vstup ze stránky projektu.
-  const [screen, setScreen] = useState<"home" | "canvas" | "heart">(() => initial.get("screen") === "home" ? "home" : initial.get("screen") === "heart" ? "heart" : initial.get("screen") === "canvas" || initial.has("mode") || initial.has("layer") || initial.has("workspace") ? "canvas" : "home");
+  const [screen, setScreen] = useState<"home" | "canvas" | "heart" | "pletor">(() => initial.get("screen") === "home" ? "home" : initial.get("screen") === "pletor" ? "pletor" : initial.get("screen") === "heart" ? "heart" : initial.get("screen") === "canvas" || initial.has("mode") || initial.has("layer") || initial.has("workspace") ? "canvas" : "home");
   const [draftProject, setDraftProject] = useState<Project | undefined>();
   const [wireframeMode, setWireframeMode] = useState(initial.get("wireframe") === "1");
   const [wireframeInsert, setWireframeInsert] = useState<{ kind: WireframeKind; sequence: number }>();
@@ -436,6 +438,7 @@ export default function App() {
   }, [pendingCard, workspace]);
   useEffect(() => {
     const q = new URLSearchParams({ project, workspace, mode, screen, environment });
+    if (screen === "pletor") q.set("part", parsePart(location.search));
     if (parent) q.set("layer", parent);
     if (selected) q.set("node", selected);
     if (wireframeMode) q.set("wireframe", "1");
@@ -1051,7 +1054,7 @@ export default function App() {
     );
   }
   // Pletor leží nad každou obrazovkou (úvod, srdce, plátno) jako nejvyšší vrstva.
-  const pletorLayer = <PletorWindow mode={pletorMode} project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name ?? project} workspace={workspace} onMode={setPletorMode} listening={pletorListen.on} onListening={onPletorListen} settings={pletorSettings} onSettings={setPletorSettings} />;
+  const pletorLayer = <PletorWindow mode={pletorMode} project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name ?? project} workspace={workspace} onMode={setPletorMode} onDashboard={() => { setScreen("pletor"); setPletorMode("window"); }} listening={pletorListen.on} onListening={onPletorListen} settings={pletorSettings} onSettings={setPletorSettings} />;
   // Úvodní obrazovka má týž rám jako zbytek aplikace, ale bez menu Editoru: nemá plátno ani vybranou kartu.
   if (screen === "home") return <>
     <div className="editor-frame" key={restorationEpoch} inert={saveAllBusy}>
@@ -1062,6 +1065,7 @@ export default function App() {
     {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} surface={{ value: settings, onChange: updateSettings }} />}
     {pletorLayer}
   </>;
+  if (screen === "pletor") return <><PletorDashboard project={project} workspace={workspace} onBack={() => { setScreen("home"); setPletorMode("hud"); }} />{pletorLayer}</>;
   if (screen === "heart") return <><HeartScreen project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onBack={() => setScreen("home")} />{pletorLayer}</>;
   const artifactMapOpen = mode === "map" || mode === "office" || mode === "storyboard";
   const inspectorTools =
