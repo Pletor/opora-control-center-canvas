@@ -93,12 +93,26 @@ def _vault(service, heart, project, workspace):
 SECTIONS = list(zip(CAPS, (_heart, _snapshot, _tickets, _escalations, _decisions, _monitoring, _vault)))
 
 
-def _section(title, read, service, heart, project, workspace):
+def _full_section(title, read, service, heart, project, workspace):
     try:
         lines = read(service, heart, project, workspace) or ["(prázdné)"]
     except Exception as error:  # noqa: BLE001 – výpadek jednoho zdroje nesmí shodit tah Pletora
         lines = [f"(nedostupné: {cut(str(error) or type(error).__name__, 160)})"]
-    return cut("\n".join([f"{title}:", *lines]), CAPS[title])
+    return "\n".join([f"{title}:", *lines])
+
+
+def _section(title, read, service, heart, project, workspace):
+    return cut(_full_section(title, read, service, heart, project, workspace), CAPS[title])
+
+
+def sections_report(service, heart, project, workspace):
+    """Přehled sekcí pro velín: `[{title, chars, cap, truncated}]`; `chars` po ořezu, `truncated` = před ořezem > cap."""
+    report = []
+    for title, read in SECTIONS:
+        full = _full_section(title, read, service, heart, project, workspace)
+        report.append({"title": title, "chars": min(len(full), CAPS[title]), "cap": CAPS[title],
+                       "truncated": len(full) > CAPS[title]})
+    return report
 
 
 def build_context(service, heart, project, workspace):
