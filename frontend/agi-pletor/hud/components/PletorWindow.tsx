@@ -16,7 +16,7 @@ import PletorSettingsButton from "./PletorSettingsButton";
 import PletorSettingsPanel from "./PletorSettingsPanel";
 
 type Props = {
-  mode: PletorMode; project: string; projectName: string; workspace: string; onMode: (mode: PletorMode) => void;
+  mode: PletorMode; project: string; projectName: string; workspace: string; onMode: (mode: PletorMode) => void; onDashboard?: () => void;
   listening: boolean; onListening: (on: boolean, error?: string) => void; settings: boolean; onSettings: (open: boolean) => void;
 };
 
@@ -29,7 +29,7 @@ type Props = {
  * Přepínač Poslech (`listening`) a otevřené nastavení (`settings`, ozubené kolo) drží App taky: zapnutý Poslech
  * trvale poslouchá i při zavřeném okně a mimo HUD ukazuje plovoucí popup PletorListener; nastavení skládá tady.
  */
-export default function PletorWindow({ mode, project, projectName, workspace, onMode, listening, onListening, settings, onSettings }: Props) {
+export default function PletorWindow({ mode, project, projectName, workspace, onMode, onDashboard, listening, onListening, settings, onSettings }: Props) {
   const active = mode !== "closed" || listening || settings;
   const pletor = usePletor(active, project, workspace);
   const voice = usePletorVoice(pletor, active, { on: listening, onFail: (message) => onListening(false, message) });
@@ -61,7 +61,7 @@ export default function PletorWindow({ mode, project, projectName, workspace, on
       <>
         <PletorHud pletor={pletor} state={state} label={label} voice={voice} mic={mic} voiceError={voiceError} project={projectName}
           onWindow={() => onMode("window")} settingsOpen={settings}
-          tools={<><PletorListenSwitch on={listening} onChange={(on) => onListening(on)} />{gear("dark")}</>} />
+          tools={<><PletorListenSwitch on={listening} onChange={(on) => onListening(on)} />{gear("dark")}{onDashboard && <button type="button" className="pletor-hud__button" onClick={onDashboard} title="Velín AGI Pletor">Velín</button>}</>} />
         {panel}
       </>
     );

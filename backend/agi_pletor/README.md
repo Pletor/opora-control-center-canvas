@@ -5,6 +5,7 @@ data na disku `<data>/pletor/`). Mapa podsložek:
 
 - jádro (tato složka): `service`, `session`, `brains`, `context`, `actions`, `store`, `speech`, `tts*`, `persona.md`;
 - `monitoring/`: plátno 4, měření hostů a detektor (velín);
+- `dashboard/`: velín jen ke čtení (srdce, rozhovor, monitoring; `context.sections_report` dává přehled sekcí podkladů);
 - `pletor_opora_settings/`: Dílna (skill a funkce Pletora);
 - `elevenlabs/`: hlas ElevenLabs;
 - `llm_settings/`: hlavní nastavení LLM (Claude, Codex, Ollama).

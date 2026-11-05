@@ -38,6 +38,17 @@ def test_only_failures_reach_the_outbox(db):
     assert json.loads(events[0][3]) == {"seq": 2, "canvas": 4, "kind": "monitor.failed", "payload": {"check": "uptime"}}
 
 
+def test_read_canvas_returns_latest_events_of_one_project(db):
+    from backend.flow.run_log import read_canvas
+
+    service = make_service(db)
+    for index in range(3):
+        log_canvas(service, "p", 4, "outage.failed", {"i": index}, "monitor")
+    log_canvas(service, "p", 3, "plan.changed", {}, "heart")
+    events = read_canvas(db, 4, "p", limit=2)
+    assert [event["payload"]["i"] for event in events] == [1, 2] and read_canvas(db, 4, "other") == []
+
+
 def test_canvas_one_and_unknown_project_are_refused(db):
     service = make_service(db)
     with pytest.raises(FlowInvalid):
