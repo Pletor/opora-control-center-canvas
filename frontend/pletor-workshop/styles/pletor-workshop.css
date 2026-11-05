@@ -1,0 +1,299 @@
+/* Dílna je celá obrazovka zeleného kokpitu, ne další popup: dva editory vedle sebe potřebují šířku, kterou malý
+   panel nastavení nemá. Leží nad vším (nad HUD i panelem), nahoře jedna lišta se jménem, větou stavu a tlačítky
+   Obnovit / Zavřít, pod ní tři sloupce: úzký seznam vlevo, skill a funkce rovným dílem vedle sebe. */
+.pletor-workshop {
+  position: fixed;
+  inset: 0;
+  z-index: 10300;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px 16px;
+  box-sizing: border-box;
+  background: linear-gradient(var(--pletor-bg-2), var(--pletor-bg));
+  color: var(--pletor-ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  color-scheme: dark;
+}
+.pletor-workshop:focus-visible {
+  outline: none;
+}
+.pletor-workshop__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--pletor-line);
+}
+.pletor-workshop__title {
+  color: var(--pletor-accent);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.pletor-workshop__note {
+  margin-right: auto;
+  color: var(--pletor-dim);
+  font-size: 11px;
+}
+.pletor-workshop__note--warn {
+  color: #e8c46a;
+}
+.pletor-workshop__body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) 1fr 1fr;
+  gap: 12px;
+}
+
+/* Levý sloupec jsou dva seznamy pod sebou, Skilly a Funkce, každý se svým „Nový…“ dole. Položka je tiché
+   tlačítko se jménem; otevřená svítí akcentem jako zvolený hlas v nastavení. Nové jméno se píše přímo do pole
+   (malá písmena a pomlčky), Založit se rozsvítí, až je jméno platné, takže chyba se ukáže dřív, než odejde. */
+.pletor-workshop__side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.pletor-workshop__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pletor-workshop__list-title {
+  margin: 0;
+  color: var(--pletor-dim);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.pletor-workshop__items {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pletor-workshop__item {
+  width: 100%;
+  min-height: 26px;
+  padding: 2px 8px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pletor-ink);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.pletor-workshop__item[aria-pressed="true"] {
+  border-color: var(--pletor-accent);
+  background: var(--pletor-accent-soft);
+  color: var(--pletor-accent);
+}
+.pletor-workshop__new {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pletor-workshop__new-label {
+  flex-basis: 100%;
+  color: var(--pletor-dim);
+  font-size: 11px;
+}
+.pletor-workshop__new-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--pletor-ink);
+  font: inherit;
+  font-size: 12px;
+}
+.pletor-workshop__new-input[aria-invalid="true"] {
+  border-color: var(--pletor-error);
+}
+.pletor-workshop__empty {
+  margin: 0;
+  color: var(--pletor-dim);
+  font-size: 11px;
+}
+
+/* Okno editoru je karta s lištou nahoře: co je otevřené (s tečkou „neuloženo“, když se text liší od uloženého),
+   pak volby a tlačítka. Uložit svítí jen při změně, aby člověk na první pohled viděl, jestli má co ukládat.
+   Text zabírá všechen zbytek výšky; u funkce se dělí na kód nahoře a případy měření dole. */
+.pletor-workshop__editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 8px;
+  overflow-y: auto;
+}
+.pletor-workshop__editor-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.pletor-workshop__editor-title {
+  margin: 0 auto 0 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pletor-workshop__dirty {
+  color: #e8c46a;
+  font-weight: 400;
+}
+.pletor-workshop__field-label {
+  color: var(--pletor-dim);
+  font-size: 11px;
+}
+.pletor-workshop__select {
+  padding: 2px 4px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+  background: var(--pletor-bg);
+  color: var(--pletor-ink);
+  font: inherit;
+  font-size: 12px;
+}
+.pletor-workshop__code {
+  flex: 1;
+  min-height: 160px;
+  padding: 6px 8px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--pletor-ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  tab-size: 4;
+  white-space: pre;
+  resize: none;
+}
+.pletor-workshop__code--cases {
+  flex: 0.6;
+  min-height: 100px;
+}
+
+/* Tlačítka mají jeden tvar napříč Dílnou: obrysová, tichá. Uložit je hlavní akce a s neuloženou změnou svítí
+   akcentem; Zahodit je jediné červené, protože jediné ztrácí práci. Vypnuté tlačítko zešedne. */
+.pletor-workshop__button {
+  flex: none;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pletor-ink);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.pletor-workshop__button--primary:not(:disabled) {
+  border-color: var(--pletor-accent);
+  background: var(--pletor-accent-soft);
+  color: var(--pletor-accent);
+}
+.pletor-workshop__button--danger {
+  border-color: var(--pletor-error);
+  color: var(--pletor-error);
+}
+.pletor-workshop__button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pletor-workshop__button:focus-visible,
+.pletor-workshop__item:focus-visible,
+.pletor-workshop__new-input:focus-visible,
+.pletor-workshop__select:focus-visible,
+.pletor-workshop__code:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+  outline-offset: 1px;
+}
+
+/* Varování o neuložené změně stojí v okně, kterého se týká, místo blokujícího dialogu: jantarový proužek s větou
+   a dvěma volbami. Člověk tak vidí text, o který by přišel, a rozhodne se nad ním. */
+.pletor-workshop__pending {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid #e8c46a;
+  border-radius: 6px;
+  background: rgba(232, 196, 106, 0.08);
+}
+.pletor-workshop__pending-text {
+  margin-right: auto;
+  color: #e8c46a;
+  font-size: 11px;
+}
+
+/* Výsledek měření je pod editorem funkce, kam oko sjede po stisku Změřit: nahoře skóre a čas, vedle štítek
+   determinismu (zelený klid, jantarové varování). Plný úspěch obtáhne kartu akcentem. Každé selhání má jméno
+   případu a pod ním dostal / čekal jako JSON, aby šly porovnat řádek pod řádkem. Chyba běhu je červený výpis. */
+.pletor-workshop__measure {
+  padding: 6px 8px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+}
+.pletor-workshop__measure--ok {
+  border-color: var(--pletor-accent);
+}
+.pletor-workshop__measure-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+}
+.pletor-workshop__badge {
+  margin-left: auto;
+  color: var(--pletor-accent);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.pletor-workshop__badge--warn {
+  color: #e8c46a;
+}
+.pletor-workshop__error {
+  margin: 6px 0 0;
+  color: var(--pletor-error);
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+.pletor-workshop__failures {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.pletor-workshop__failure {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+}
+.pletor-workshop__failure-name {
+  color: var(--pletor-error);
+}
+.pletor-workshop__failure-row {
+  color: var(--pletor-dim);
+  overflow-wrap: anywhere;
+}
