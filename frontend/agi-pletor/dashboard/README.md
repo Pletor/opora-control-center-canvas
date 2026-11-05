@@ -1,11 +1,11 @@
-# agi-pletor/dashboard
+﻿# agi-pletor/dashboard
 
-Velín AGI Pletor: stránka `?screen=pletor` s levou navigací po částech (kontrakt `docs/navrhy/2026-11-05-pletor-opora-dashboard.md`).
+VelĂ­n AGI Pletor: strĂˇnka `?screen=pletor` s levou navigacĂ­ po ÄŤĂˇstech (kontrakt `docs/navrhy/2026-11-05-pletor-opora-dashboard.md`).
 
-- `components/PletorDashboard.tsx`: rodič; drží aktivní část (`part=` v adrese), Esc a titulek s focusem. Skládá dílky `DashboardOverview`, `DashboardBrain`, `DashboardVoice` a vkládá `PletorWorkshop`.
-- `logic/dashboard-route.ts`: části, parsování a zápis `part=`; `overview-cards.ts`: stav Pletora na karty Přehledu; `use-voice-list.ts`: hlasy serveru.
+- `components/PletorDashboard.tsx`: rodiÄŤ; drĹľĂ­ aktivnĂ­ ÄŤĂˇst (`part=` v adrese), Esc a titulek s focusem. SklĂˇdĂˇ dĂ­lky `DashboardOverview`, `DashboardBrain`, `DashboardVoice` a vklĂˇdĂˇ `PletorWorkshop`.
+- `logic/dashboard-route.ts`: ÄŤĂˇsti, parsovĂˇnĂ­ a zĂˇpis `part=`; `overview-cards.ts`: stav Pletora na karty PĹ™ehledu; `use-voice-list.ts`: hlasy serveru.
 - `styles/pletor-dashboard.css`: blok `pletor-dashboard`.
 
-Milník V1: Přehled, Mozek a LLM, Hlas, Dílna. Srdce a Podklady (V2), Monitoring a Rozhovor (V3), Nastavení (V4) jsou zatím jen místo s hláškou.
+MilnĂ­k V1: PĹ™ehled, Mozek a LLM, Hlas, DĂ­lna. Srdce a Podklady (V2), Monitoring a Rozhovor (V3), NastavenĂ­ (V4) jsou zatĂ­m jen mĂ­sto s hlĂˇĹˇkou.
 
-Dluh V1: část Hlas je jen ke čtení. Výběr hlasu a „Vyzkoušet“ jsou v `usePletorVoice`, který drží jen `PletorWindow`; výběr zůstává v kokpitu (ozubené kolo). Vyřešit vytažením hlasu do sdíleného kontextu.
+Dluh V1: ÄŤĂˇst Hlas je jen ke ÄŤtenĂ­. VĂ˝bÄ›r hlasu a â€žVyzkouĹˇetâ€ś jsou v `usePletorVoice`, kterĂ˝ drĹľĂ­ jen `PletorWindow`; vĂ˝bÄ›r zĹŻstĂˇvĂˇ v kokpitu (ozubenĂ© kolo). VyĹ™eĹˇit vytaĹľenĂ­m hlasu do sdĂ­lenĂ©ho kontextu.

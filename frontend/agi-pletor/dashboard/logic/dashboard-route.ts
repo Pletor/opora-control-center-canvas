@@ -1,4 +1,4 @@
-/** Části velínu AGI Pletor v pořadí z kontraktu (§3); `ready` = od V1 funkční, ostatní jsou zatím jen místo na milník. */
+/** Části velínu AGI Pletor v pořadí z kontraktu (§3); od V4 jsou všechny funkční. */
 export const PARTS = [
   { id: "prehled", label: "Přehled", ready: true },
   { id: "mozek", label: "Mozek a LLM", ready: true },
@@ -8,7 +8,7 @@ export const PARTS = [
   { id: "dilna", label: "Dílna", ready: true },
   { id: "monitoring", label: "Monitoring", ready: true },
   { id: "rozhovor", label: "Rozhovor", ready: true },
-  { id: "nastaveni", label: "Nastavení", ready: false, milestone: "V4" },
+  { id: "nastaveni", label: "Nastavení", ready: true },
 ] as const;
 
 export type PartId = (typeof PARTS)[number]["id"];

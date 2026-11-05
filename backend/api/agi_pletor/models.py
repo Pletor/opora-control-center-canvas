@@ -90,3 +90,21 @@ class PletorLlmOut(BaseModel):
     codex: dict[str, Any]
     ollama: dict[str, Any]
     cswap: dict[str, Any]
+
+
+class PletorLlmClaudeIn(BaseModel):
+    model: str
+
+
+class PletorLlmCodexIn(BaseModel):
+    model: str
+    reasoning: str | None = None
+
+
+class PletorLlmClaudeIn(BaseModel):
+    model: str
+
+
+class PletorLlmCodexIn(BaseModel):
+    model: str
+    reasoning: str | None = None

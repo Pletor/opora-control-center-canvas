@@ -10,6 +10,8 @@
   `warm` (jinak nejlepší dostupný) se načte dopředu.
 - `GET /api/pletor/llm` → `{claude, codex, ollama, cswap}` jen ke čtení (docs/navrhy/2026-11-04-pletor-nastaveni-llm.md,
   M1); každá sekce selže zvlášť jako `{available: false, reason}`, cesty od klienta se nepřijímají.
+- `PUT /api/pletor/llm/claude {model}` a `PUT /api/pletor/llm/codex {model, reasoning?}` (M2): zapíšou model do
+  `~/.claude/settings.json` / `~/.codex/config.toml` se zálohou a vrátí novou sekci jako `GET /llm` + `backup`.
 - `POST /api/pletor/tts {text, voice?}` → zvuk podle enginu v id hlasu: `audio/wav` (Piper), `audio/mpeg` (Edge,
   ElevenLabs, cloud), `audio/pcm;rate=24000` (XTTS), streamovaně; nestažený hlas 404, nedostupný engine 503.
 Všechny jen pro člověka v UI a jen z tohoto počítače (`/api/pletor` v `backend/app/remote_access.py`).
@@ -27,6 +29,7 @@ from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
 from backend.agi_pletor import brains, llm_settings, speech, tts
+from backend.agi_pletor.llm_settings import write as llm_write
 
 
 def _check(service, project, workspace):
@@ -110,6 +113,22 @@ def create_pletor_router(service, pletor):
     def llm(request: Request):
         require_human(request.state.actor, "Nastavení LLM na tomto počítači čte jen člověk v UI.")
         return llm_settings.read_all()
+
+    def _write(write, *args):
+        try:
+            return write(*args)
+        except ValueError as error:
+            return JSONResponse(invalid(str(error), 'Příklad: {"model": "opus"}').body(), status_code=422)
+
+    @router.put("/llm/claude")
+    def llm_claude(body: models.PletorLlmClaudeIn, request: Request):
+        require_human(request.state.actor, "Model Claude Code přepisuje jen člověk v UI.")
+        return _write(llm_write.claude_model, body.model)
+
+    @router.put("/llm/codex")
+    def llm_codex(body: models.PletorLlmCodexIn, request: Request):
+        require_human(request.state.actor, "Model Codexu přepisuje jen člověk v UI.")
+        return _write(llm_write.codex_model, body.model, body.reasoning)
 
     @router.post("/tts")
     async def say(body: models.PletorSpeechIn, request: Request):

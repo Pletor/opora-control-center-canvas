@@ -203,3 +203,24 @@ def test_llm_settings_read_only(tmp_path, monkeypatch):
         assert answer.json()["claude"] == {"available": False, "reason": "OSError: disk"}
         assert answer.json()["cswap"]["installHint"] == "uv tool install claude-swap"
         assert client.get("/api/pletor/llm", headers=AGENT).status_code == 403
+
+
+def test_llm_model_write(tmp_path, monkeypatch):
+    import pathlib
+    from backend.agi_pletor.llm_settings import write
+
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(pathlib.Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(write.claude, "read", lambda: {"available": True})
+    monkeypatch.setattr(write.codex, "read", lambda: {"available": True})
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        ok = client.put("/api/pletor/llm/claude", headers=HEADERS, json={"model": "opus"})
+        assert ok.status_code == 200 and ok.json() == {"available": True, "backup": None}
+        done = client.put("/api/pletor/llm/codex", headers=HEADERS, json={"model": "gpt-6", "reasoning": "low"})
+        assert done.status_code == 200
+        assert 'model_reasoning_effort = "low"' in (home / ".codex" / "config.toml").read_text(encoding="utf-8")
+        assert client.put("/api/pletor/llm/claude", headers=HEADERS, json={"model": "a b"}).status_code == 422
+        assert client.put("/api/pletor/llm/codex", headers=HEADERS, json={"model": "x", "reasoning": "max"}).status_code == 422
+        assert client.put("/api/pletor/llm/claude", headers=AGENT, json={"model": "opus"}).status_code == 403
