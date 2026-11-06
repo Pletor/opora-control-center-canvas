@@ -166,7 +166,7 @@ def start(folder, root, branch, project, data_root, now, *, build=_build, spawn=
     record = _update(folder, name, slug=name, branch=branch, project=project, worktree=str(tree),
                      data=str(data), port=port, pid=None, state="building",
                      sha=git(tree, "rev-parse", "HEAD"), startedAt=now,
-                     url=f"http://127.0.0.1:{port}/?screen=pletor", log=str(base / "build.log"))
+                     url=f"http://127.0.0.1:{port}/?project={project}&workspace=main", log=str(base / "build.log"))
 
     def work():
         try:

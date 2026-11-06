@@ -21,10 +21,7 @@ def linie_view(folder, root):
                 "previews": running, "enforcement": ENFORCEMENT}
     rows = []
     for branch in git["branches"]:
-        stored = accepted["branches"].get(branch["name"])
-        acceptance_row = None
-        if isinstance(stored, dict):  # zkrácené sha (7+) platí jako předpona plného
-            acceptance_row = {**stored, "valid": bool(stored.get("sha")) and branch["sha"].startswith(stored["sha"])}
+        acceptance_row = acceptance.stamped(accepted["branches"].get(branch["name"]), branch["sha"])
         rows.append({**branch, "acceptance": acceptance_row, "preview": by_branch.get(branch["name"])})
     return {"main": git["main"], "develop": git["develop"], "server": git["server"],
             "deployed": accepted["deployed"], "branches": rows, "previews": running, "enforcement": ENFORCEMENT}

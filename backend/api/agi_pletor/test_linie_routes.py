@@ -25,6 +25,10 @@ def test_linie_accept_and_deployed(tmp_path, repo):
         assert state.status_code == 200
         assert set(state.json()) == {"main", "develop", "server", "deployed", "branches", "previews", "enforcement"}
         assert state.json()["enforcement"] == "nevynuceno" and state.json()["previews"] == []
+        drawn = client.get(f"{BASE}/graph", headers=HEADERS)
+        assert drawn.status_code == 200
+        assert set(drawn.json()) == {"lanes", "active", "server", "deployed", "enforcement"}
+        assert drawn.json()["lanes"][0]["name"] == "main"
         head = run(repo, "rev-parse", "feat/a")
         accepted = client.post(f"{BASE}/accept", headers=HEADERS,
                                json={"branch": "feat/a", "sha": head, "target": "topic/1-t", "note": "vzhled ok"})
@@ -52,7 +56,7 @@ def test_linie_accept_and_deployed(tmp_path, repo):
 def test_linie_refusals(tmp_path, repo):
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         body = {"branch": "feat/a", "sha": "abc1234", "target": "develop"}
-        for method, path, payload in (("get", "/", None), ("get", "/diff", None), ("post", "/accept", body),
+        for method, path, payload in (("get", "/", None), ("get", "/graph", None), ("get", "/diff", None), ("post", "/accept", body),
                                       ("delete", "/accept/feat/a", None), ("post", "/deployed", {"sha": "abc1234"}),
                                       ("post", "/previews", {"branch": "feat/a", "project": "draft"}),
                                       ("delete", "/previews/feat-a", None), ("get", "/previews/feat-a/log", None)):

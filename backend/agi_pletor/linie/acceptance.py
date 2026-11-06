@@ -1,7 +1,7 @@
 """Přijetí hlavy větve člověkem a nasazené SHA (kontrakt §5): `<pletor>/linie/acceptance.json`.
 
 Tvar `{"branches": {větev: {sha, target, at, note}}, "deployed": {sha, at} | null}`. Zapisuje jen člověk (routa);
-platnost (`sha == HEAD větve`) počítá `view.py`, tady se jen ukládá.
+platnost (`sha == HEAD větve`) přidává `stamped` při čtení pro Velín.
 """
 import json
 import re
@@ -26,6 +26,13 @@ def read(folder):
     branches = value.get("branches") if isinstance(value.get("branches"), dict) else {}
     deployed = value.get("deployed") if isinstance(value.get("deployed"), dict) else None
     return {"branches": branches, "deployed": deployed}
+
+
+def stamped(stored, head):
+    """Záznam přijetí s `valid`: zkrácené sha (7+) platí jako předpona plné hlavy větve; jinak None."""
+    if not isinstance(stored, dict):
+        return None
+    return {**stored, "valid": bool(stored.get("sha")) and head.startswith(stored["sha"])}
 
 
 def _write(folder, value):

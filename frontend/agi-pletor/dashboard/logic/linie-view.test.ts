@@ -1,63 +1,53 @@
 import { describe, expect, it } from "vitest";
-import { acceptanceLabel, acceptanceTone, canAccept, diffSentence, diffView, linieView, previewLabel, roleLabel, shortSha, targetOf } from "./linie-view";
+import { linieFixture } from "./linie-fixture";
+import { acceptanceLabel, canAccept, diffSentence, diffView, graphView, logTail, previewLabel, roleLabel, shortSha, workLane } from "./linie-view";
 
-const raw = {
-  main: { sha: "aaaaaaa111", remote: "aaaaaaa111" },
-  develop: null,
-  server: { branch: "feat/x", sha: "bbbbbbb222", dirty: true },
-  deployed: { error: "chybí soubor" },
-  branches: [
-    { name: "main", role: "main", parent: "", sha: "aaaaaaa111", ahead: 0, behind: 0, acceptance: null, preview: null },
-    { name: "feat/x", role: "feat", parent: "main", sha: "bbbbbbb222", ahead: 2, behind: 1, acceptance: { sha: "ccccccc333", target: "main", valid: false }, preview: { slug: "feat-x", state: "running", url: "http://127.0.0.1:9001" } },
-  ],
-  enforcement: "nevynuceno",
-};
-
-describe("linieView", () => {
-  it("mapuje sekce, větve a hlásí {error}", () => {
-    const view = linieView(raw);
-    expect(view.develop).toBeNull();
-    expect(view.deployed).toBeNull();
-    expect(view.server).toEqual({ branch: "feat/x", sha: "bbbbbbb222", dirty: true });
-    expect(view.problem).toBe("nedostupné: chybí soubor");
-    expect(view.branches[1]).toMatchObject({ ahead: 2, behind: 1, preview: { state: "running" } });
+describe("graphView", () => {
+  it("mapuje linie, commity, přijetí a PR", () => {
+    const view = graphView(linieFixture);
+    expect(view.lanes.map((lane) => lane.name)).toEqual(["main", "develop", "feat/detail-karty"]);
+    expect(view.lanes[0].parent).toBe("");
+    expect(view.lanes[1].commits[1].parents).toEqual(["d1", "f2"]);
+    expect(view.lanes[2].pr).toEqual({ number: 7, state: "open", url: "https://x/pr/7", base: "develop" });
+    expect(view.active).toBe("feat/detail-karty");
   });
   it("prázdná nebo chybná odpověď nespadne", () => {
-    expect(linieView(null).branches).toEqual([]);
-    const view = linieView({ branches: { error: "git" } });
-    expect(view.branches).toEqual([]);
-    expect(view.problem).toBe("nedostupné: git");
+    expect(graphView(null).lanes).toEqual([]);
+    const view = graphView({ lanes: { error: "git" }, deployed: { error: "chybí soubor" } });
+    expect(view.lanes).toEqual([]);
+    expect(view.deployed).toBeNull();
+    expect(view.problem).toBe("nedostupné: git · nedostupné: chybí soubor");
   });
 });
 
-describe("štítky", () => {
-  const [main, feat] = linieView(raw).branches;
+describe("štítky a výběr", () => {
+  const [main, develop, feat] = graphView(linieFixture).lanes;
   it("role, sha a náhled", () => {
     expect(roleLabel("feat")).toBe("pracovní");
     expect(roleLabel("nic")).toBe("jiná");
     expect(shortSha("0123456789")).toBe("0123456");
-    expect(previewLabel(feat.preview)).toBe("běží");
-    expect(previewLabel({ slug: "", state: "building", url: "", sha: "" })).toBe("sestavuje se…");
+    expect(previewLabel(develop.preview)).toBe("běží");
     expect(previewLabel(null)).toBe("bez náhledu");
   });
-  it("přijetí: nepřijato, zastaralé, platné", () => {
+  it("přijetí: nepřijato, platné, zastaralé", () => {
     expect(acceptanceLabel(main)).toBe("nepřijato");
-    expect(acceptanceTone(main)).toBe("none");
-    expect(acceptanceLabel(feat)).toBe("zastaralé (přijato ccccccc, teď bbbbbbb)");
-    expect(acceptanceTone(feat)).toBe("stale");
-    const fresh = { ...feat, acceptance: { sha: feat.sha, target: "main", at: "", note: "", valid: true } };
-    expect(acceptanceLabel(fresh)).toBe("přijato bbbbbbb do main");
-    expect(acceptanceTone(fresh)).toBe("ok");
+    expect(acceptanceLabel(feat)).toBe("přijato f2bbbbb do develop");
+    const stale = { ...feat, sha: "f3ccccccc", acceptance: { sha: "f2bbbbbbbb", target: "develop", at: "", note: "", valid: false } };
+    expect(acceptanceLabel(stale)).toBe("zastaralé (přijato f2bbbbb, teď f3ccccc)");
   });
-  it("kdo smí být přijat a kam", () => {
+  it("kdo smí být přijat a která větev je pracovní", () => {
     expect(canAccept(main)).toBe(false);
+    expect(canAccept(develop)).toBe(false);
     expect(canAccept(feat)).toBe(true);
-    expect(canAccept({ ...feat, sha: "" })).toBe(false);
-    expect(targetOf(feat)).toBe("main");
+    const lanes = [main, develop, feat];
+    expect(workLane(lanes, "", "")?.name).toBe("feat/detail-karty");
+    expect(workLane(lanes, "main", "")?.name).toBe("feat/detail-karty");
+    expect(workLane([main, develop], "", "")).toBeNull();
   });
-  it("diff a věta", () => {
+  it("diff, věta a konec logu", () => {
     const diff = diffView({ commits: [{ sha7: "abc1234", title: "t" }], stat: " a | 1 +", files: 3 });
     expect(diffSentence("main", diff)).toBe("Do main by přešlo 3 souborů, 1 commitů.");
     expect(diffView(null)).toEqual({ commits: [], stat: "", files: 0 });
+    expect(logTail({ build: "a\nb", server: "c" }, 2)).toBe("b\nc");
   });
 });

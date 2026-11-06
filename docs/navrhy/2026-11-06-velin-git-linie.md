@@ -92,9 +92,18 @@ Téma M1 je tento kontrakt sám (`feat/velin-linie` z `main`; `develop` se zakl�
 
 ### Frontend `frontend/agi-pletor/dashboard/` část **Linie**
 
-- `components/DashboardLinie.tsx` (+ `logic/linie-view.ts` s testem): bloky Main / Develop / Server a nasazení;
-  tabulka větví (role, HEAD, ahead/behind, přijetí platné/zastaralé/žádné, náhled: Otevřít / Spustit / Zastavit);
-  detail vybrané větve: commity a `diff --stat` vůči cíli, tlačítko „Přijmout tuto hlavu do <cíl>“ a „Zrušit přijetí“.
+Kontrolní bod 2026-11-06 12:30 (commit 54c76a59): první podoba byla tabulka větví. Člověk ji odmítl („nedá se
+zorientovat, žádný seznam větví“). Backend zůstává, UI se staví znovu jako **grafický pohled podle ilustrace**:
+
+- `GET /api/pletor/linie/graph` → linie `main` (zelená), `develop` (modrá), pracovní větve tématu (oranžová, experiment
+  fialová) s commity (nejstarší nahoře), odbočením z rodiče (merge-base) a sloučením zpět (merge commit), štítky
+  „PR: přijato do <cíl>“ / „přijetí zastaralé“, bublinou „Náhled (ukázka v aplikaci)“ a odkazem na PR.
+  Pracovní větev tématu = větev nesloučená do main se špičkou novější než špička main, nebo s přijetím či náhledem
+  (shortcut do M2, kdy ji určí ticket).
+- `components/LinieGraph.tsx` (SVG, `logic/linie-graph.ts` s testem) + tři karty vpravo PRACOVNÍ VĚTEV / DEVELOP / MAIN
+  s akcemi (Spustit / Otevřít / Zastavit náhled, log selhání, rozdíl vůči rodiči, Přijmout / Zrušit přijetí, nasazené SHA).
+  Žádná tabulka větví.
+- Adresa náhledu je kořen aplikace s projektem (`/?project=…&workspace=main`), ne `?screen=pletor`.
 - Štítek „nevynuceno“ u ochrany main/develop, dokud nejsou GitHub rulesets.
 
 ### Postupy pro Pletora, srdce a dělníky

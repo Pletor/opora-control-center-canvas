@@ -8,6 +8,6 @@ Velín AGI Pletor: stránka `?screen=pletor` s levou navigací po částech (kon
 
 Všechny části jsou funkční: Přehled, Mozek a LLM, Hlas, Dílna (V1), Srdce a Podklady (V2), Monitoring a Rozhovor (V3), Nastavení (V4).
 
-Linie (`DashboardLinie`, `LinieBranchDetail`, `logic/linie-view.ts`, kontrakt `docs/navrhy/2026-11-06-velin-git-linie.md` §5) ukazuje main, develop, server s nasazením a větve s přijetím a náhledem; člověk odtud spouští náhledy, přijímá hlavu větve do rodiče a zapisuje nasazené sha.
+Linie (`DashboardLinie`, `LinieGraph`, `LinieWorkCard`, `LiniePreview`, `logic/linie-graph.ts`, `logic/linie-view.ts`, styl `pletor-dashboard-linie.css`, kontrakt `docs/navrhy/2026-11-06-velin-git-linie.md` §5) kreslí větve jako graf z `GET /api/pletor/linie/graph` (main, develop, témata s oblouky, štítky přijetí a náhledu) a vpravo karty PRACOVNÍ VĚTEV / DEVELOP / MAIN, odkud člověk spouští náhledy, přijímá hlavu větve do rodiče a zapisuje nasazené sha.
 
 Dluh V1: část Hlas je jen ke čtení. Výběr hlasu a „Vyzkoušet“ jsou v `usePletorVoice`, který drží jen `PletorWindow`; výběr zůstává v kokpitu (ozubené kolo). Vyřešit vytažením hlasu do sdíleného kontextu.

@@ -1,6 +1,7 @@
 """Routy Linie ve Velínu (docs/navrhy/2026-11-06-velin-git-linie.md §5), prefix `/api/pletor/linie`, jen člověk.
 
 - `GET /` → `{main, develop, server, deployed, branches, previews, enforcement}`.
+- `GET /graph` → `{lanes, active, server, deployed, enforcement}` (git-flow obrázek, `linie/graph.py`).
 - `GET /diff?branch&target` → `{commits: [{sha7, title}], stat, files}`.
 - `POST /previews {branch, project}` → záznam náhledu (`building`); `DELETE /previews/{slug}` → stop;
   `GET /previews/{slug}/log` → `{build, server}`.
@@ -13,7 +14,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from backend.agi_pletor.linie import acceptance, branches, previews
+from backend.agi_pletor.linie import acceptance, branches, graph, previews
 from backend.agi_pletor.linie.view import linie_view
 from backend.api.agi_pletor.models import LinieAcceptIn, LinieDeployedIn, LiniePreviewIn
 from backend.api.agi_pletor.pletor_routes import _check
@@ -47,6 +48,18 @@ def create_linie_router(service, pletor, root=None):
     @router.get("/")
     def state(request: Request):
         return guarded(request, lambda: linie_view(pletor.folder, root))
+
+    @router.get("/graph")
+    def graph_state(request: Request):
+        def act():
+            view = linie_view(pletor.folder, root)
+            data = graph.graph(root, pletor.folder)
+            for lane in data["lanes"]:  # origin sha pro karty MAIN a DEVELOP
+                summary = view.get(lane["name"])
+                lane["remote"] = summary.get("remote") if isinstance(summary, dict) else None
+            return {**data, **{key: view[key] for key in ("server", "deployed", "enforcement")}}
+
+        return guarded(request, act)
 
     @router.get("/diff")
     def diff(request: Request, branch: str = "", target: str = ""):

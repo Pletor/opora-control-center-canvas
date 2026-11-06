@@ -68,7 +68,7 @@ def test_start_stop_remove(tmp_path):
                             spawn=lambda tree, port, data, log: process, run=lambda work: None)
     assert record["state"] == "building" and record["slug"] == "feat-a" and record["port"] >= 8790
     assert record["sha"] == run(repo, "rev-parse", "feat/a")
-    assert record["url"] == f"http://127.0.0.1:{record['port']}/?screen=pletor"
+    assert record["url"] == f"http://127.0.0.1:{record['port']}/?project=p1&workspace=main"
     copy = folder / "linie" / "previews" / "feat-a" / "data"
     with sqlite3.connect(copy / "registry.sqlite") as db:
         assert db.execute("select id from projects").fetchall() == [("p1",)]

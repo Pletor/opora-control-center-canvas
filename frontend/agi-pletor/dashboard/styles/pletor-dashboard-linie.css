@@ -1,0 +1,148 @@
+/* Linie: člověk vidí vývoj jako metro mapu, ne jako seznam. Vlevo na tmavém podkladu svislé linie main (zelená),
+   develop (modrá) a témata (oranžová, experiment fialový); větev odbočuje a vrací se obloukem, u špičky visí štítek
+   přijetí nebo bublina náhledu. Vpravo úzký sloupec 320 px se třemi kartami, každá s levým okrajem v barvě své linie,
+   aby oko spojilo kartu s čarou. Dole přes celou šířku jedna fialová lišta s pravidlem, které platí pro všechno nad ní. */
+.pletor-dashboard__linie {
+  --linie-main: #4ade80;
+  --linie-develop: #60a5fa;
+  --linie-feat: #fb923c;
+  --linie-experiment: #c084fc;
+  --linie-stale: #d6a960;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 14px;
+}
+.pletor-dashboard__linie-graph {
+  max-height: 72vh;
+  overflow: auto;
+  border: 1px solid var(--pletor-line);
+  background: var(--pletor-bg);
+}
+.pletor-dashboard__linie-svg {
+  display: block;
+  font: 11px var(--mono);
+}
+.pletor-dashboard__linie-head {
+  cursor: pointer;
+}
+.pletor-dashboard__linie-head rect {
+  fill: var(--pletor-bg);
+  stroke-width: 2;
+}
+.pletor-dashboard__linie-head--selected rect {
+  stroke-width: 3;
+  fill: var(--pletor-accent-soft);
+}
+.pletor-dashboard__linie-head:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+}
+.pletor-dashboard__linie-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+.pletor-dashboard__linie-sub {
+  fill: var(--pletor-dim);
+}
+.pletor-dashboard__linie-dot {
+  stroke: var(--pletor-bg);
+  stroke-width: 2;
+}
+/* Popisek přechází přes sousední linie; tmavý obrys pod písmem ho drží čitelný. */
+.pletor-dashboard__linie-label {
+  fill: var(--pletor-ink);
+  paint-order: stroke;
+  stroke: var(--pletor-bg);
+  stroke-width: 4px;
+}
+.pletor-dashboard__linie-sha {
+  fill: var(--pletor-dim);
+}
+.pletor-dashboard__linie-badge rect {
+  fill: var(--pletor-bg);
+  stroke-width: 1.5;
+}
+.pletor-dashboard__linie-badge[role="link"] {
+  cursor: pointer;
+}
+.pletor-dashboard__linie-badge--accepted rect { stroke: var(--linie-main); }
+.pletor-dashboard__linie-badge--accepted text { fill: var(--linie-main); }
+.pletor-dashboard__linie-badge--stale rect { stroke: var(--linie-stale); }
+.pletor-dashboard__linie-badge--stale text { fill: var(--linie-stale); }
+.pletor-dashboard__linie-badge--preview rect { stroke: var(--linie-develop); }
+.pletor-dashboard__linie-badge--preview text { fill: var(--linie-develop); }
+.pletor-dashboard__linie-badge--pr rect { stroke: var(--linie-experiment); }
+.pletor-dashboard__linie-badge--pr text { fill: var(--linie-experiment); }
+
+/* Karty vpravo: nadpis velkými písmeny v barvě linie, pod ním odrážky „kdo co dělá“ a teprve pak ovládání. */
+.pletor-dashboard__linie-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pletor-dashboard__linie-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--pletor-line);
+  border-left: 4px solid var(--linie-color);
+}
+.pletor-dashboard__linie-card p {
+  margin: 0;
+}
+.pletor-dashboard__linie-card--work { --linie-color: var(--linie-feat); }
+.pletor-dashboard__linie-card--develop { --linie-color: var(--linie-develop); }
+.pletor-dashboard__linie-card--main { --linie-color: var(--linie-main); }
+.pletor-dashboard__linie-card-title {
+  margin: 0;
+  color: var(--linie-color);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.pletor-dashboard__linie-points {
+  margin: 0;
+  padding-left: 18px;
+}
+.pletor-dashboard__linie-points li::marker {
+  color: var(--linie-color);
+}
+.pletor-dashboard__linie-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.pletor-dashboard__linie-preview .pletor-dashboard__tools {
+  flex-wrap: wrap;
+}
+.pletor-dashboard__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pletor-accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.pletor-dashboard__tag--warn {
+  background: transparent;
+  color: var(--pletor-dim);
+}
+
+/* Lišta pravidla: přes obě kolonky, fialový rámeček jako na obrázku, velká věta a pod ní pravidlo menším písmem. */
+.pletor-dashboard__linie-rule {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  border: 2px solid var(--linie-experiment);
+  border-radius: 10px;
+}
+.pletor-dashboard__linie-rule strong {
+  color: var(--linie-experiment);
+  font-size: 15px;
+}
