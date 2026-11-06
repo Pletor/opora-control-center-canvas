@@ -120,8 +120,10 @@ def with_tree(rows, balls, heads):
     Ruční řádek drží svou větev (`branch`, jinak větev své první kuličky); větve kuliček bez řádku dostanou
     automatický řádek `auto:<větev>`. Ruční řádky bez větve (nebo s už obsazenou) jdou na konec jako `planned`.
     """
+    # Blokovaná kulička na větvi, která už v gitu není, řádek nezakládá: zůstává na svém ručním řádku jako historie.
+    live = [ball for ball in balls if not ball.get("blocked") or ball["branch"] in heads]
     first = {}
-    for ball in balls:
+    for ball in live:
         first.setdefault(ball["rowId"], ball["branch"])
     claimed, leftover = {}, []
     for row in rows:
@@ -130,15 +132,23 @@ def with_tree(rows, balls, heads):
             claimed[branch] = row
         else:
             leftover.append(row)
-    known = set(heads) | set(claimed) | {ball["branch"] for ball in balls}
-    for ball in balls:
-        branch = ball["branch"]
-        if branch not in claimed:
-            kind = "items" if tree.role(branch) == "items" else "work"
-            above = tree.parent(branch, known)
-            claimed[branch] = {"id": "auto:" + branch, "name": branch, "type": kind, "ticketId": None,
-                               "branch": branch, "base": {"branch": above, "sha": None}, "target": above,
-                               "collapsed": False, "auto": True}
+    known = set(heads) | set(claimed) | {ball["branch"] for ball in live}
+
+    def auto(branch):
+        above = tree.parent(branch, known)
+        return {"id": "auto:" + branch, "name": branch, "type": "items" if tree.role(branch) == "items" else "work",
+                "ticketId": None, "branch": branch, "base": {"branch": above, "sha": None}, "target": above,
+                "collapsed": False, "auto": True}
+
+    for ball in live:
+        if ball["branch"] not in claimed:
+            claimed[ball["branch"]] = auto(ball["branch"])
+    # Rodič bez vlastní práce (kořen komponenty, který teprve sbírá děti) dostane řádek, pokud větev v gitu existuje.
+    for branch in list(claimed):
+        above = tree.parent(branch, known)
+        while above and above in heads and above not in claimed and above not in rows_mod.MAPPING:
+            claimed[above] = auto(above)
+            above = tree.parent(above, known)
     place = {name: index for index, name in enumerate(tree.order(known))}
 
     def shaped(row, branch, planned):
@@ -164,7 +174,7 @@ def board(service, project, workspace, root, *, pr_lookup=gh_prs):
     rows = with_tree(found["rows"] + extra, balls, set(branches._heads(root)))
     row_of = {row["branch"]: row["id"] for row in rows if not row["planned"]}
     for ball in balls:  # kulička patří řádku své větve; spojnice na větve míří na jejich řádky
-        ball["rowId"] = row_of[ball["branch"]]
+        ball["rowId"] = row_of.get(ball["branch"], ball["rowId"])
         for link in ball["links"]:
             if link["kind"] != "follows":
                 link["to"] = row_of.get(link["to"], link["to"])

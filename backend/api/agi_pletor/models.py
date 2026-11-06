@@ -129,6 +129,7 @@ class LinieRowIn(BaseModel):
 class LinieRowPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, min_length=1, max_length=120)
+    branch: str | None = Field(default=None, max_length=200)
     target: str | None = Field(default=None, max_length=200)
     collapsed: bool | None = None
 

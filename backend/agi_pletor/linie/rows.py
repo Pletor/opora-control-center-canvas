@@ -89,12 +89,14 @@ def _find(stored, row_id):
 
 
 def patch(data_root, project, row_id, changes):
-    """Změní jen `name`, `target`, `collapsed` (klíče, které přišly)."""
+    """Změní jen `name`, `branch`, `target`, `collapsed` (klíče, které přišly)."""
     with LOCK:
         stored = _stored(data_root, project)
         row = _find(stored, row_id)
         if "name" in changes:
             row["name"] = _text(changes["name"], "name")
+        if "branch" in changes:  # řádek = větev: člověk přiřadí ručnímu řádku jeho větev (git tím nevzniká)
+            row["branch"] = _target(changes["branch"])
         if "target" in changes:
             row["target"] = _target(changes["target"])
         if "collapsed" in changes:

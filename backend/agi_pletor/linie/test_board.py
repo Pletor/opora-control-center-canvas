@@ -89,6 +89,18 @@ def test_with_tree_orders_depth_first_and_chains_rows():
     assert {r["id"]: r["parent"] for r in found}["linie"] == "feat/velin"
 
 
+def test_with_tree_skips_dead_blocked_branch_and_adds_git_parent():
+    """Blokovaná kulička na smazané větvi řádek nebere; rodič jen v gitu (bez práce) dostane automatický řádek."""
+    rows = [{"id": "main", "branch": "main"}, {"id": "develop", "branch": "develop"},
+            {"id": "velin", "branch": None, "base": {"branch": "develop"}, "order": 1}]
+    balls = [{"rowId": "velin", "branch": "topic/stara", "blocked": {"reason": "nahrazeno"}},
+             {"rowId": "velin", "branch": "feat/velin-linie-strom"}]
+    found = board.with_tree(rows, balls, {"main", "develop", "feat/velin", "feat/velin-linie"})
+    assert [(r["id"], r["branch"], r["depth"]) for r in found] == [
+        ("main", "main", 0), ("develop", "develop", 1), ("auto:feat/velin", "feat/velin", 2),
+        ("auto:feat/velin-linie", "feat/velin-linie", 3), ("velin", "feat/velin-linie-strom", 4)]
+
+
 def test_board_row_is_branch_with_manual_row_on_first_branch_and_planned_at_end(setup):
     """Tři větve na jednom ručním řádku → tři řádky ve stromovém pořadí; prázdný ruční řádek na konec jako planned."""
     service, repo, tid = setup
