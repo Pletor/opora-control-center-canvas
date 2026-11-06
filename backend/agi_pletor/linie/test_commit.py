@@ -13,7 +13,8 @@ def test_commit_with_ticket_and_without(setup, tmp_path):  # noqa: F811
     service, repo, tid = setup
     sha = agent_commit(repo)  # na feat/uzel z develop = rozsah ticketu
     found = commit_mod.detail(service, "draft", "main", repo, sha[:7], tmp_path, **NO_PR)
-    assert found["commit"]["sha"] == sha and found["commit"]["files"] == 1 and "feat/uzel" in found["commit"]["branches"]
+    assert found["commit"]["sha"] == sha and found["commit"]["files"] == 1 and found["commit"]["paths"] == ["u.txt"]
+    assert found["commit"]["branches"] == ["feat/uzel"] and found["commit"]["stat"].startswith("1 file changed")
     ticket = found["ticket"]
     assert ticket["ticketId"] == tid and ticket["state"] == "open" and ticket["body"]["essence"] == "Proč a k čemu."
     assert ticket["card"] is None and ticket["office"] is None and ticket["plan"] == []

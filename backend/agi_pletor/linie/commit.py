@@ -30,12 +30,13 @@ def _commit(root, sha):
         raise GateError(404, "commit_not_found", "Commit v repozitáři není.", "Zadejte sha z Git grafu.")
     full, at, author, title, body = (line.split("\x1f", 4) + [""])[:5]  # prázdné tělo: výstup gitu je oříznutý
     trailers = {kind.lower(): value for kind, value in TRAILER.findall(body)}
-    stat = (git(root, "show", "--stat", "--format=", full, timeout=TIMEOUT, optional=True) or "").strip()
-    files = len((git(root, "show", "--name-only", "--format=", full, timeout=TIMEOUT, optional=True) or "").split())
-    branches = (git(root, "branch", "--format=%(refname:short)", "--contains", full, timeout=TIMEOUT, optional=True)
-                or "").split()
+    stat = (git(root, "show", "--shortstat", "--format=", full, timeout=TIMEOUT, optional=True) or "").strip()
+    paths = (git(root, "show", "--name-only", "--format=", full, timeout=TIMEOUT, optional=True) or "").split()
+    # for-each-ref místo `branch --contains`: v odpojeném worktree náhledu by `branch` vypsalo i „(HEAD detached …)“
+    branches = (git(root, "for-each-ref", "refs/heads", "--format=%(refname:short)", "--contains", full,
+                    timeout=TIMEOUT, optional=True) or "").split()
     return {"sha": full, "sha7": full[:7], "title": title, "body": body.strip(), "at": at, "author": author,
-            "files": files, "stat": stat, "branches": branches,
+            "files": len(paths), "paths": paths[:40], "stat": stat, "branches": branches,
             "trailers": {"node": trailers.get("node"), "execution": trailers.get("execution")}}
 
 

@@ -75,7 +75,8 @@ export default function LinieCommit({ sha, query, onClose, onPickTicket }: Props
 
       <Layer title="Co">
         <Row k="commit"><span className="pletor-dashboard__mono">{c.sha7}</span> {c.title}</Row>
-        <Row k="soubory">{c.files || "—"}{c.stat && <> · <span className="pletor-dashboard__mono">{c.stat}</span></>}</Row>
+        <Row k="soubory">{c.stat || c.files || "—"}</Row>
+        {c.paths.length > 0 && <ul className="pletor-dashboard__linie-commit-paths">{c.paths.map((path) => <li key={path} className="pletor-dashboard__mono">{path}</li>)}</ul>}
         <Row k="větve">{c.branches.join(", ") || "—"}</Row>
         <Row k="PR">{pr ? <a href={pr.url} target="_blank" rel="noreferrer">PR #{pr.number} ({pr.state}) ↗</a> : "bez PR"}</Row>
         {preview?.url && <button type="button" className="pletor-dashboard__button" onClick={() => window.open(preview.url, "_blank", "noopener")}>Otevřít náhled</button>}

@@ -30,7 +30,7 @@ do plánu.
 ```json
 {
   "commit": {"sha": "…", "sha7": "2522dc8", "title": "fix(pletor): …", "body": "…", "at": "2026-11-06T13:42:00Z",
-             "author": "Pletor", "files": 3, "stat": "3 files changed, …", "branches": ["feat/velin-linie"],
+             "author": "Pletor", "files": 3, "paths": ["backend/…", "…"], "stat": "3 files changed, …", "branches": ["feat/velin-linie"],
              "trailers": {"node": "hero" | null, "execution": "ex_…" | null}},
   "ticket": {"ticketId": "tk_…", "state": "open", "stateLabel": "otevřeno", "next": "…",
              "body": {"essence": "…", "build": "…", "doneCriteria": ["…"]},

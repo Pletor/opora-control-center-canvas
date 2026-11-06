@@ -48,3 +48,12 @@
   stroke: var(--pletor-accent);
   stroke-width: 3;
 }
+
+/* Seznam souborů commitu: každá cesta na vlastním řádku drobným monospace, dlouhé cesty se lámou kdekoli,
+   aby úzký sloupec nikdy neutekl do strany. */
+.pletor-dashboard__linie-commit-paths {
+  margin: 0 0 6px;
+  padding-left: 14px;
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
