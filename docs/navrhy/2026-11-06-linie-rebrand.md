@@ -42,7 +42,9 @@ důvodem) vznikají v **jedné funkci** nad týmiž důkazy (`evaluate(ticket) �
 Nikdy nesmí detail říkat „člověk znovu přijme“, když pravidlo akci `accept` zakazuje. Testy ověřují, že pro každý
 klíč souhrnu je `next` konzistentní s `allowed`.
 
-Vyhodnocuje se **nejdřív aktuální pokus a revize (HEAD = poslední neopuštěný commit pokusu), teprve pak celý úkol**.
+Vyhodnocuje se **nejdřív aktuální pokus a revize (HEAD = skutečná špička větve pokusu podle gitu / `headSha`
+z hlášení), teprve pak celý úkol**. Označení commitu jako opuštěného HEAD nemění (viz §5): editor i Pletor vždy hodnotí
+kód, který na větvi skutečně leží.
 `checks` a `acceptance` platí jen pro sha, pro které byly zaznamenány; pro jiný HEAD jsou „chybí“ / „zastaralé“.
 Historické začlenění nepřebije novou, dosud nezačleněnou revizi: má-li úkol commit po `integration.at`, hodnotí se
 nová revize a souhrn nese předponu „nová revize po začlenění <sha>“.
@@ -134,15 +136,28 @@ Vše, co git má, se dá v Linii vidět; nic se nedělá přímo gitem z prohlí
 | commit | kostka na čáře práce; sha při přiblížení; hover sha · zpráva · čas · úkol | `git log` větve |
 | větev / rodič | řádek a strom (L5) | `tree.py` |
 | merge | plný oblouk do cíle + bod; barva cíle | merge commit |
-| PR otevřený | pilulka `PR #350` na čárkované šipce plánu; stav review barvou | GitHub API (když nedostupné: `incomplete: ["prs"]`, pilulka šedá „neověřeno“) |
+| PR otevřený | pilulka `PR #350` na čárkované šipce plánu; stav review barvou | GitHub API; při výpadku zůstává **poslední známý stav** označený „zastaralé · nyní neověřeno“, `incomplete: ["prs"]`; zdroj nese `lastSuccessAt` i `attemptedAt` zvlášť; výpadek PR nikdy nezneplatní začlenění doložené merge logem |
 | PR sloučený | oblouk merge nese číslo PR | GitHub + merge commit |
 | squash merge | oblouk z posledního commitu práce do jednoho commitu cíle; kostky práce zůstávají, cíl má jednu | merge log služby (`mode: squash`); bez záznamu „začleněno · způsob neověřen“ |
 | revert | nová kostka se šipkou zpět k revertovanému sha | záznam služby `revert {sha}`; commit s `This reverts` je jen navržená vazba |
 | rebase / posunutý cíl | kostky se přesunou; tenká stopa „bylo zde“ do dalšího snímku; `acceptance.stale` | záznam služby `rebase {from, to}`; pouhá změna sha nebo posun cíle rebase nedokazuje |
-| tag | svislá značka na řádku s názvem | `git tag` |
-| nasazení | značka `env@sha` na řádku cíle, jen z potvrzení prostředí | `POST /deploy` |
-| worktree | pruh pod osou větve, tečkovaná odbočka; při vazbě na agenta jméno agenta a od–do | `git worktree list` + relace |
-| opuštěná práce | kostka s ✕ a odbočkou; souhrn úkolu nezmění | `abandon {sha, why}` |
+| tag | svislá značka **u commitu** (lehký i anotovaný); tag patří objektu, ne větvi – řádek, na kterém se kreslí, je prezentační volba (větev, kde commit leží první), ne vlastnictví | `git for-each-ref refs/tags` |
+| nasazení | značka `env@sha` na řádku cíle. Zápis nasazovacím skriptem po ověření běžící revize = „potvrzeno prostředím“; ruční zápis z Velína = „hlášeno člověkem“ a nikdy se netváří jako potvrzení prostředí; backend ověří oprávnění zapisujícího pro dané prostředí | `POST /deploy {env, sha, by}` |
+| worktree | pruh pod osou větve, tečkovaná odbočka. Jméno agenta a od–do jen při **explicitní vazbě** relace na pokus `{ticket, attempt, repo, worktree}` s aktuálním heartbeat/lease; samotný výpis `git worktree list` dává jen adresář bez agenta a bez od–do | `git worktree list --porcelain` + vazba relace |
+| opuštěná práce | kostka s ✕ a odbočkou; **evidence rozhodnutí**, nemění git, HEAD ani osy: opuštěný commit může zůstat předkem HEAD a jeho změny v kódu; odstranění změn je samostatná git operace (revert) | `abandon {sha, why}` |
+
+### 5a. Merge log a nasazení přežijí částečné selhání
+
+- Každé začlenění službou má **identifikátor operace** a dva záznamy: `started {op, ticket, repo, source_sha, target,
+  target_sha_before, mode, by, at}` před gitem a `finished {op, result_sha, ok, at}` po ověření výsledku v gitu.
+  Opakovaný požadavek se stejným `op` (nebo stejnou dvojicí `source_sha` → `target`, která už má `finished.ok`) **neprovede
+  další merge**, jen vrátí záznam. Záznam `started` bez `finished` je „operace zahájena, výsledek neověřen“ a UI ho tak píše.
+- Historie se **nedopočítává** jako záznam operace služby. Starší začlenění lze doložit gitem (merge commit, `--is-ancestor`)
+  nebo GitHubem (PR merged) a důkaz nese tento původ (`src: git` / `src: GitHub`); způsob (squash/merge) bez záznamu zůstává
+  „způsob neověřen“. Neexistence merge logu sama o sobě nedokazuje ani začlenění, ani jeho absenci.
+- Živá relace dokazuje aktivitu jen s explicitní vazbou na pokus (úkol, pokus, repozitář, worktree) a čerstvým heartbeat;
+  „agent někde běží“ nestačí.
+- Nová data **nezapínají uživateli vrstvy**: zpřístupní přepínač a obnoví obsah, zvolená viditelnost i poloha grafu zůstávají.
 
 Operace přes službu OPORY (každá zapíše do deníku, každá se znovu ověří): založit pokus (větev z rodiče podle jména),
 otevřít PR, přijmout (s sha), začlenit (`linie.py merge`), označit opuštěné, zaparkovat, blokovat, potvrdit nasazení.
@@ -197,8 +212,11 @@ Interaktivní rebase a force-push editor neumí záměrně.
 1. **Kontrakt významů a důkazů** – tento dokument + `axes`/`evidence`/`snapshotId` v backendu (`work.py`, `board.py`,
    modely), testy pravidla souhrnu včetně `stale`, squash, chybějící GitHub.
 2. **L7 rozložení a ovládání** – frontend podle §6 na větvi `…-rebrand`; vitest na kolize popisků, souhrn, Esc, zoom.
-3. **Napojení skutečných dat** – PR, tagy, worktree, opuštěné, nasazení; co není evidováno, nese `incomplete` a v UI
-   „neověřeno“.
+3. **Napojení skutečných dat (L7c)** – merge log s `op`/`started`/`finished` (§5a), PR s posledním známým stavem a
+   `lastSuccessAt`, tagy u commitu, nasazení s původem (prostředí / člověk) a oprávněním, worktree s explicitní vazbou
+   relace, `abandon` jako evidence bez změny HEAD; co není evidováno, nese `incomplete` a v UI „neověřeno“. Testy: abandon
+   zachová HEAD a přidá důvod; výpadek GitHubu nechá poslední stav PR jako zastaralý a nezneplatní merge log; opakovaný
+   merge se stejným `op` nic neprovede; tag ≠ nasazení; worktree bez vazby nemá agenta; příchod dat nemění vrstvy ani posun.
 4. **Vazby na plán** – `planCardId`, `directionCardId`, seskupení podle plánu, drobek; společný board pro Pletora.
 5. **Operace a pokročilé události** – přijetí s sha, PR ze služby, opuštěno/parkování/nasazení, revert a rebase stopy.
 
