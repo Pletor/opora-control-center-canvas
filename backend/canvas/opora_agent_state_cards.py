@@ -35,6 +35,13 @@ def historical(latest, claim, accepted):
     return bool(claim) and bool(latest["results"]) and rules.stale_evidence(latest, accepted)
 
 
+def evidence_results(reported, cards, offered, accepted):
+    """Results counted by the `evidence` stage: open cards only, historical results (see `historical`) are left out
+    so the stage agrees with the per-card view. `offered` maps nodeId to the claim offer."""
+    return [item for item in rules.open_results(reported, cards)
+            if not historical(item, offered.get(item["nodeId"]), accepted)]
+
+
 def card_stage(card, accepted, latest, claim, link, gate, now):
     """Stage of one card; `latest`, `claim`, `link` and `gate` are None when the card has none."""
     node = card["nodeId"]
