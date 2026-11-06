@@ -67,7 +67,8 @@ export default function LinieBoard({ layout, selected, chips, onPick, onRename, 
     setEditing("");
     if (value.trim() && value.trim() !== row.name) onRename(row.id, value.trim());
   };
-  const label = (row: LaidRow) => row.name || row.branch;
+  // Automatický řádek nese jen část jména za rodičem (feat/velin-linie-strom → „strom“): rodiče čte oko ze stromu, celá větev je v meta řádku.
+  const label = (row: LaidRow) => (row.auto && row.parent && row.branch.startsWith(`${row.parent}-`) ? row.branch.slice(row.parent.length + 1) : row.name || row.branch);
   const renamable = (row: LaidRow) => !row.fixed && !row.git && !row.auto;
   const chip = (row: LaidRow) => (row.planned ? "plánováno · bez větve" : row.git ? "z gitu" : row.auto ? "z větve" : TYPE_LABEL[row.type]);
   const key = (ball: LaidBall) => (event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPick(ball.ticketId); } };
