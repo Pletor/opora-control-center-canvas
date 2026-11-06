@@ -16,7 +16,8 @@ export default function DashboardLinie({ project }: { project: string }) {
   const [raw, setRaw] = useState<unknown>(null);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
-  const [selected, setSelected] = useState("");
+  // Hluboký odkaz `?branch=` (z PR, Pletora) otevře detail větve rovnou.
+  const [selected, setSelected] = useState(() => new URLSearchParams(location.search).get("branch") ?? "");
   const poll = usePolling(() => api<unknown>(`${BASE}/`).then(
     (next) => { setRaw(next); setError(""); },
     (failure: unknown) => setError(failure instanceof Error ? failure.message : "Načtení selhalo."),
