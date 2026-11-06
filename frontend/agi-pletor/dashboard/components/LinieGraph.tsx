@@ -1,7 +1,7 @@
 import type { KeyboardEvent } from "react";
 import { HEAD, badgeWidth, clip, textWidth, type GraphBadge, type GraphLayout } from "../logic/linie-graph";
 
-type Props = { layout: GraphLayout; selected: string; links: Record<string, string>; onPick: (name: string) => void };
+type Props = { layout: GraphLayout; selected: string; links: Record<string, string>; onPick: (name: string) => void; onPickCommit?: (sha: string) => void };
 
 const ICON: Record<GraphBadge["kind"], string> = { accepted: "✓ ", stale: "! ", preview: "◉ ", pr: "" };
 const HEADER_MAX = 22;
@@ -17,7 +17,7 @@ const curve = ({ from, to }: { from: { x: number; y: number }; to: { x: number; 
  * body commitů s titulkem střídavě nad a pod bodem a sha pod ním, štítky za špičkou. Bublina náhledu a štítek PR
  * otevřou odkaz z `links` (klíč `kind:lane`). Plný titulek commitu je v <title> bodu.
  */
-export default function LinieGraph({ layout, selected, links, onPick }: Props) {
+export default function LinieGraph({ layout, selected, links, onPick, onPickCommit }: Props) {
   const key = (name: string) => (event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPick(name); } };
   const open = (badge: GraphBadge) => {
     const url = links[`${badge.kind}:${badge.lane}`];
@@ -57,7 +57,10 @@ export default function LinieGraph({ layout, selected, links, onPick }: Props) {
       {layout.dots.map((dot) => {
         const lane = layout.lanes.find((item) => item.name === dot.lane);
         return (
-          <g key={dot.sha}>
+          <g key={dot.sha} className={onPickCommit ? "pletor-dashboard__linie-commit-pick" : undefined}
+            role={onPickCommit ? "button" : undefined} tabIndex={onPickCommit ? 0 : undefined} aria-label={onPickCommit ? `Detail commitu ${dot.sha7}` : undefined}
+            onClick={onPickCommit && (() => onPickCommit(dot.sha))}
+            onKeyDown={onPickCommit && ((event) => { if (event.key === "Enter") onPickCommit(dot.sha); })}>
             <circle cx={dot.x} cy={dot.y} r={7} fill={lane?.color} className="pletor-dashboard__linie-dot"><title>{`${dot.sha7} ${dot.title}`}</title></circle>
             <text x={dot.x} y={dot.above ? dot.y - 16 : dot.y + 36} textAnchor="middle" className="pletor-dashboard__linie-label">{dot.title}</text>
             <text x={dot.x} y={dot.above ? dot.y - 30 : dot.y + 22} textAnchor="middle" className="pletor-dashboard__linie-sha">{dot.sha7}</text>

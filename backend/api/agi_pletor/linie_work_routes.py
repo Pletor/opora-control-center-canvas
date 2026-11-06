@@ -8,7 +8,7 @@ block / defer / resume; agent se prokáže `X-Opora-Actor: agent; name=…` nebo
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from backend.agi_pletor.linie import board, merge, previews, rows, work
+from backend.agi_pletor.linie import board, commit, merge, previews, rows, work
 from backend.api.agi_pletor.models import (
     LinieAcceptIn,
     LinieAllowIn,
@@ -97,6 +97,12 @@ def create_linie_work_router(service, pletor, root=None):
     @router.get("/work/{ticket_id}")
     def work_get(request: Request, ticket_id: str, project: str = ""):
         return anyone(request, project, ticket_id, lambda by: work.get(service, project, ticket_id))
+
+    @router.get("/commit/{sha}")
+    def commit_get(request: Request, sha: str, project: str = "", workspace: str = "main"):
+        """Detail commitu: plán, karta, kancelář, PR a náhled (docs/navrhy/2026-11-06-linie-detail-commitu.md)."""
+        return answer(lambda: (_check(service, project, workspace),
+                               commit.detail(service, project, workspace, root, sha, pletor.folder))[1])
 
     @router.post("/work/{ticket_id}/report")
     def work_report(request: Request, ticket_id: str, body: LinieReportIn, project: str = ""):

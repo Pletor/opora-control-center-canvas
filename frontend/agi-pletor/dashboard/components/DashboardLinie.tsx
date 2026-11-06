@@ -1,6 +1,6 @@
 import "../styles/pletor-dashboard-linie.css";
 import "../styles/pletor-dashboard-linie-editor.css";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useElementBox } from "@/editor/storyboard/logic/use-element-box";
 import { api, type WriteMethod } from "@/shared/types/logic/types";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
@@ -10,6 +10,7 @@ import { graphView, shortSha } from "../logic/linie-view";
 import { failureText } from "../logic/linie-work";
 import LinieBoard from "./LinieBoard";
 import LinieDetail, { type LinieAct } from "./LinieDetail";
+import LinieCommit from "./LinieCommit";
 import LinieGraph from "./LinieGraph";
 import LinieLegend from "./LinieLegend";
 import LinieRowForm from "./LinieRowForm";
@@ -34,6 +35,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
   // Hluboký odkaz `?ticket=` nebo `?branch=` (z PR, Pletora) předvybere kuličku.
   const [picked, setPicked] = useState(() => new URLSearchParams(location.search).get("ticket") ?? "");
   const [hint, setHint] = useState(() => new URLSearchParams(location.search).get("branch") ?? "");
+  const [commit, setCommit] = useState("");
   const query = new URLSearchParams({ project, workspace }).toString();
   const fail = (failure: unknown) => setError(failureText(failure, "Načtení selhalo."));
   const poll = usePolling(() => Promise.all([
@@ -47,6 +49,13 @@ export default function DashboardLinie({ project, workspace }: { project: string
     () => { setNote(done); setError(""); void poll.refresh(); return true; },
     (failure: unknown) => { setError(failureText(failure)); return false; },
   );
+
+  useEffect(() => {
+    if (!commit) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setCommit(""); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [commit]);
 
   const plotRef = useRef<HTMLDivElement>(null);
   const box = useElementBox(plotRef, true);
@@ -92,9 +101,12 @@ export default function DashboardLinie({ project, workspace }: { project: string
               onRename={(id, name) => void write(`/rows/${encodeURIComponent(id)}`, { name }, `Řádek přejmenován na ${name}.`, "PATCH")}
               onFold={(id, collapsed) => void write(`/rows/${encodeURIComponent(id)}`, { collapsed }, collapsed ? "Řádek sbalen." : "Řádek rozbalen.", "PATCH")} />
           ) : (
-            <LinieGraph layout={layoutGraph(view.lanes)} selected={hint} links={links} onPick={pickBranch} />
+            <LinieGraph layout={layoutGraph(view.lanes)} selected={hint} links={links} onPick={pickBranch} onPickCommit={setCommit} />
           )}
         </div>
+        {commit ? (
+          <LinieCommit sha={commit} query={query} onClose={() => setCommit("")} onPickTicket={(id) => { setCommit(""); setPicked(id); }} />
+        ) : (
         <section className="pletor-dashboard__linie-card pletor-dashboard__linie-card--main" aria-label="Main">
           <h2 className="pletor-dashboard__linie-card-title">Main</h2>
           <ul className="pletor-dashboard__linie-points">
@@ -109,6 +121,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
           <button type="button" className="pletor-dashboard__button" disabled={!view.server.sha}
             onClick={() => void write("/deployed", { sha: view.server.sha }, `Nasazené zapsáno: ${shortSha(view.server.sha)}.`)}>Zapsat nasazené = HEAD serveru</button>
         </section>
+        )}
         {mode === "editor" && !selected && <LinieLegend board={board} />}
       </div>
     </>
