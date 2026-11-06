@@ -38,6 +38,22 @@ jako dosud.
    odsazuje podle hloubky.
 5. **Role `topic` zaniká.** Staré řádky typu `topic` se čtou jako `items`.
 
+## Řádek = větev (doplněk po živém ověření 6. 11. večer)
+
+Na náhledu seděly všechny kuličky na jednom ručním řádku a strom nebyl vidět. Proto platí: **řádek editoru je větev.**
+Kulička je jednotka práce na té větvi (na `feat/velin-linie` jich může být víc za sebou). Board skládá řádky takto:
+
+1. Pevné `main`, `develop`.
+2. Jeden řádek na každou větev z množiny: větve ručních řádků (`rows[].branch`), větve kuliček (`work.branch`) a
+   nesloučené větve z gitu (pravidlo z L3). Pořadí a hloubka `tree.order` / `tree.depth`, `parent` ze jména.
+   Ruční řádek dodá název, typ, sbalení a `id`, pokud má tu větev (`branch`, jinak větev své první kuličky); další
+   větve téhož ručního řádku dostanou automatický řádek pojmenovaný větví. Kulička patří řádku své větve, ne `rowId`.
+3. Ruční řádky bez větve a bez kuliček zůstávají na konci jako „plánováno, bez větve“.
+
+`POST /work`: `rowId` je volitelné; bez něj (nebo když řádek už drží jinou větev) backend řádek založí sám
+(`rows.add`, název = větev, typ `work`, base = rodič) a kuličku na něj položí. Starý typ řádku `topic` se čte jako `work`
+(ne `items`: téma drželo práci, ne univerzální díl). Kuličky se stejným časem vzniku se v editoru rozestoupí (nepřekrývají se).
+
 ## Datový model
 
 - `tree.py` (čistý): `role(name)`, `parent(name, heads)`, `depth(name, heads)`, `order(heads)`, `is_child(branch, base)`.

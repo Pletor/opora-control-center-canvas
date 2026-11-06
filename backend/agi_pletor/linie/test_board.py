@@ -27,7 +27,8 @@ def test_board_links_and_real_merges(setup):
     assert [row["id"] for row in found["rows"]][:2] == ["main", "develop"] and found["mapping"]["develop"] == "develop"
     first, follow, lone = found["balls"]
     assert first["ticketId"] == tid and first["title"] == "Uzel" and first["state"] == "accepted_unmerged"
-    assert first["links"] == [{"to": second, "kind": "follows"}, {"to": "develop", "kind": "planned"}]
+    assert first["links"] == [{"to": "develop", "kind": "planned"}]  # druhá větev má vlastní řádek, bez follows
+    assert follow["rowId"] != first["rowId"] and follow["ticketId"] == second
     assert first["counts"] == {"commits": 1, "prs": None, "merges": 0} and first["mergedAt"] is None
     assert follow["title"] == "Proč a k čemu." and kinds(follow) == ["planned"] and lone["links"] == [{"to": "main", "kind": "planned"}]  # target výchozí = baseBranch
     assert all("merged" not in kinds(ball) for ball in found["balls"])  # plán nikdy jako merged (bod 12)
@@ -38,7 +39,7 @@ def test_board_links_and_real_merges(setup):
     first = found["balls"][0]
     tip = run(repo, "rev-parse", "develop")
     assert first["state"] == "merged" and first["mergedAt"] == NOW
-    assert first["links"][1] == {"to": "develop", "kind": "merged", "sha": tip}
+    assert first["links"] == [{"to": "develop", "kind": "merged", "sha": tip}]
     assert first["counts"] == {"commits": 1, "prs": 1, "merges": 1}
     assert [(m["target"], m["sha"]) for m in found["realMerges"] if m["parents"]] == [("develop", tip)]
     assert kinds(found["balls"][1]) == ["planned"]  # nezačleněná kulička dál jen plán
@@ -86,3 +87,25 @@ def test_with_tree_orders_depth_first_and_chains_rows():
     assert [(r["id"], r["depth"]) for r in found] == [
         ("main", 0), ("develop", 1), ("items", 2), ("velin", 2), ("linie", 3), ("vodotisk", 4), ("volny", 2)]
     assert {r["id"]: r["parent"] for r in found}["linie"] == "feat/velin"
+
+
+def test_board_row_is_branch_with_manual_row_on_first_branch_and_planned_at_end(setup):
+    """Tři větve na jednom ručním řádku → tři řádky ve stromovém pořadí; prázdný ruční řádek na konec jako planned."""
+    service, repo, tid = setup
+    run(repo, "branch", "feat/velin", "develop")
+    run(repo, "branch", "feat/velin-linie", "feat/velin")
+    shared = work.get(service, "draft", tid)["work"]["rowId"]
+    for n, branch in enumerate(("feat/velin-linie", "feat/velin")):  # zastaralá data: víc větví na jednom řádku
+        twin = f"tk_{n}" + "a" * 30
+        with work.store_for(service, "draft") as store:
+            store.insert(twin, "main", "issued", {"essence": "x", "build": "y", "doneCriteria": ["z"]}, {"pins": []}, NOW)
+        work.attach(service, "draft", twin, {"rowId": shared, "branch": branch}, NOW, root=repo)
+    empty = rows.add(service.root, "draft", "Nápad", "work")["id"]
+    found = board.board(service, "draft", "main", repo, pr_lookup=lambda root: {})
+    listed = [(r["id"], r["branch"], r["depth"], r["planned"], r["auto"]) for r in found["rows"]]
+    assert listed == [("main", "main", 0, False, False), ("develop", "develop", 1, False, False),
+                      (shared, "feat/uzel", 2, False, False), ("auto:feat/velin", "feat/velin", 2, False, True),
+                      ("auto:feat/velin-linie", "feat/velin-linie", 3, False, True), (empty, None, 2, True, False)]
+    assert {b["branch"]: b["rowId"] for b in found["balls"]} == {
+        "feat/uzel": shared, "feat/velin": "auto:feat/velin", "feat/velin-linie": "auto:feat/velin-linie"}
+    assert next(r for r in found["rows"] if r["id"] == "auto:feat/velin-linie")["parent"] == "feat/velin"

@@ -26,11 +26,11 @@ def test_rows_without_git(tmp_path):
     assert [row["id"] for row in rows.read(tmp_path, "p1")["rows"]] == ["main", "develop", second["id"]]
 
 
-def test_legacy_topic_row_reads_as_items(tmp_path):
+def test_legacy_topic_row_reads_as_work(tmp_path):
     kept = rows.add(tmp_path, "p1", "Starý", "items")
     path = tmp_path / "projects" / "p1" / "linie" / "rows.json"
     path.write_text(path.read_text(encoding="utf-8").replace('"items"', '"topic"'), encoding="utf-8")
-    assert [row["type"] for row in rows.read(tmp_path, "p1")["rows"] if row["id"] == kept["id"]] == ["items"]
+    assert [row["type"] for row in rows.read(tmp_path, "p1")["rows"] if row["id"] == kept["id"]] == ["work"]
 
 
 @pytest.mark.parametrize("act, code", [

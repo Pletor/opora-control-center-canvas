@@ -168,3 +168,22 @@ def test_hierarchy_derives_parent_and_refuses_wrong_one(setup):
     assert refused(lambda: made("feat/velin-linie", target="develop")).code == "target_not_parent"
     assert made("items/tlacitko", target="feat/velin")["target"] == "feat/velin"  # items smí do feat
     assert made("fix/x", baseBranch="feat/velin")["target"] == "feat/velin"
+
+
+def test_create_without_row_or_with_taken_row_makes_branch_row(setup):
+    service, repo, tid = setup
+    first_row = work.get(service, "draft", tid)["work"]["rowId"]
+
+    def made(**extra):
+        return work.create(service, "draft", "main", BODY, {"branch": "feat/dalsi", **extra}, NOW, root=repo)["work"]
+
+    own = made()  # bez rowId: řádek větve se založí
+    fresh = [r for r in rows.read(service.root, "draft")["rows"] if r["id"] == own["rowId"]][0]
+    assert (fresh["name"], fresh["type"], fresh["base"]["branch"], fresh["target"]) == ("feat/dalsi", "work", "develop", "develop")
+    assert made(rowId=first_row, branch="feat/treti")["rowId"] not in (first_row, own["rowId"])  # řádek drží feat/uzel
+    assert work.create(service, "draft", "main", BODY, {"branch": "items/dil", "rowId": own["rowId"]}, NOW,
+                       root=repo)["work"]["rowId"] != own["rowId"]
+    assert made(rowId=first_row, branch="feat/uzel")["rowId"] == first_row  # tatáž větev zůstává na svém řádku
+    assert refused(lambda: made(rowId="row_nic")).status == 404
+    assert refused(lambda: made(branch="feat/x", baseBranch="main")).code == "branch_hierarchy"  # řádek se nezaloží
+    assert [r["name"] for r in rows.read(service.root, "draft")["rows"]].count("feat/x") == 0

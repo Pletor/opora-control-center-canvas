@@ -7,8 +7,8 @@ import { list, rec, str } from "./view-common";
 export type RowType = "main" | "develop" | "items" | "work" | "experiment" | "fix";
 export type BallState = "open" | "awaiting_checks" | "blocked" | "deferred" | "accepted_unmerged" | "merged" | "stale";
 export type LinkKind = "follows" | "planned" | "merged";
-/** `git` = řádek odvozený ze skutečné větve bez ticketu (jen ke čtení), `ahead` = commity před rodičem. */
-export type BoardRow = { id: string; name: string; type: RowType; branch: string; baseBranch: string; baseSha: string; target: string; collapsed: boolean; fixed: boolean; git: boolean; ahead: number; parent: string; depth: number };
+/** `auto` = řádek odvozený z větve bez ručního záznamu, `planned` = ruční řádek bez větve. `git` = řádek odvozený ze skutečné větve bez ticketu (jen ke čtení), `ahead` = commity před rodičem. */
+export type BoardRow = { id: string; name: string; type: RowType; branch: string; baseBranch: string; baseSha: string; target: string; collapsed: boolean; fixed: boolean; git: boolean; ahead: number; parent: string; depth: number; auto: boolean; planned: boolean };
 export type BoardBall = {
   ticketId: string; mark: string; rowId: string; title: string; state: BallState; stateLabel: string; branch: string; headSha7: string;
   createdAt: string; mergedAt: string; counts: { commits: number; prs: number; merges: number }; links: { to: string; kind: LinkKind }[];
@@ -38,7 +38,7 @@ export function boardView(raw: unknown): Board {
     const r = rec(item);
     const type = pick(r.type === "topic" ? "items" : r.type, TYPES, "work"); // topic zanikl, čte se jako items
     return { id: str(r.id), name: str(r.name), type, branch: str(r.branch), baseBranch: str(rec(r.base).branch), baseSha: str(rec(r.base).sha),
-      target: str(r.target), collapsed: r.collapsed === true, fixed: r.fixed === true || type === "main" || type === "develop", git: r.git === true, ahead: num(r.ahead), parent: str(r.parent), depth: num(r.depth) };
+      target: str(r.target), collapsed: r.collapsed === true, fixed: r.fixed === true || type === "main" || type === "develop", git: r.git === true, ahead: num(r.ahead), parent: str(r.parent), depth: num(r.depth), auto: r.auto === true, planned: r.planned === true };
   }).filter((row) => row.id);
   const balls: BoardBall[] = list(root.balls).map((item) => {
     const b = rec(item), c = rec(b.counts);

@@ -145,6 +145,7 @@ class LinieAttachIn(BaseModel):
 
 class LinieWorkIn(LinieAttachIn):
     """Nový ticket z editoru: tělo pro dělníka (`essence`, `build`, `doneCriteria`) ověří `ticket_model.body_payload`."""
+    rowId: str | None = Field(default=None, min_length=1, max_length=80)  # chybí → řádek větve se založí sám
     title: str = Field(min_length=1, max_length=200)
     essence: str
     build: str

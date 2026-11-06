@@ -5,6 +5,8 @@ předchůdce karty je karta této kuličky, jinak další kulička téhož řád
 začleněno) a `merged` jen podle `work.merged` (zapisuje jen služba po ověřené Git operaci). Plán se nikdy nevrací
 jako `merged`. `realMerges` jsou skutečné merge commity main a develop z gitu a špičky větví z gitu.
 
+Řádek editoru je větev (`with_tree`, kontrakt „Řádek = větev“): kulička leží na řádku své větve.
+
 Editor ukazuje i skutečný stav: pracovní větev z gitu mladší než main, která má commity před rodičem a nemá řádek, dostane
 řádek `git: True` (jen ke čtení, id `git:<větev>`) se špičkou větve jako bodem; kulička vznikne až s ticketem.
 """
@@ -113,36 +115,41 @@ def _follows(tickets, balls):
 
 
 def with_tree(rows, balls, heads):
-    """Řádky s `parent` (z `base.branch`, jinak ze jména větve) a `depth`, seřazené depth-first podle `tree.order`.
+    """Řádek = větev: jeden řádek na větev ručních řádků, kuliček a gitu, seřazený depth-first podle `tree.order`.
 
-    Větev řádku je jeho `branch`, jinak větev první kuličky na něm; řádky bez větve jdou na konec podle `order`.
+    Ruční řádek drží svou větev (`branch`, jinak větev své první kuličky); větve kuliček bez řádku dostanou
+    automatický řádek `auto:<větev>`. Ruční řádky bez větve (nebo s už obsazenou) jdou na konec jako `planned`.
     """
-    owner = {}
+    first = {}
     for ball in balls:
-        owner.setdefault(ball["rowId"], ball["branch"])
-    branch_of = {row["id"]: row.get("branch") or owner.get(row["id"]) for row in rows}
-    by_branch = {}
+        first.setdefault(ball["rowId"], ball["branch"])
+    claimed, leftover = {}, []
     for row in rows:
-        if branch_of[row["id"]]:
-            by_branch.setdefault(branch_of[row["id"]], row)
-    parents = {}
-    for row in rows:
-        branch = branch_of[row["id"]]
-        parents[row["id"]] = (row.get("base") or {}).get("branch") or (tree.parent(branch, heads) if branch else None)
+        branch = row.get("branch") or first.get(row["id"])
+        if branch and branch not in claimed:
+            claimed[branch] = row
+        else:
+            leftover.append(row)
+    known = set(heads) | set(claimed) | {ball["branch"] for ball in balls}
+    for ball in balls:
+        branch = ball["branch"]
+        if branch not in claimed:
+            kind = "items" if tree.role(branch) == "items" else "work"
+            above = tree.parent(branch, known)
+            claimed[branch] = {"id": "auto:" + branch, "name": branch, "type": kind, "ticketId": None,
+                               "branch": branch, "base": {"branch": above, "sha": None}, "target": above,
+                               "collapsed": False, "auto": True}
+    place = {name: index for index, name in enumerate(tree.order(known))}
 
-    def depth(row, seen=()):
-        base = parents[row["id"]]
-        if base is None:
-            return 0 if branch_of[row["id"]] == "main" else tree.depth("develop", heads) + 1
-        above = by_branch.get(base)
-        if above is None or above is row or above["id"] in seen:
-            return tree.depth(base, heads) + 1
-        return depth(above, (*seen, row["id"])) + 1
+    def shaped(row, branch, planned):
+        above = (row.get("base") or {}).get("branch") or (tree.parent(branch, known) if branch else None)
+        deep = tree.depth(branch, known) if branch else tree.depth("develop", known) + 1
+        return {**row, "branch": branch, "parent": above, "depth": deep, "baseBranch": above,
+                "auto": bool(row.get("auto") or row.get("git")), "planned": planned}
 
-    names = tree.order({*heads, *branch_of.values()} - {None})
-    place = {name: index for index, name in enumerate(names)}
-    ordered = sorted(rows, key=lambda row: place.get(branch_of[row["id"]], len(names)))
-    return [{**row, "parent": parents[row["id"]], "depth": depth(row)} for row in ordered]
+    ordered = sorted(claimed.items(), key=lambda item: place.get(item[0], len(place)))
+    return ([shaped(row, branch, False) for branch, row in ordered]
+            + [shaped(row, None, True) for row in sorted(leftover, key=lambda r: r.get("order", 0))])
 
 
 def board(service, project, workspace, root, *, pr_lookup=gh_prs):
@@ -155,5 +162,11 @@ def board(service, project, workspace, root, *, pr_lookup=gh_prs):
     _follows(tickets, balls)
     extra, tips = git_rows(root, found["rows"], balls)
     rows = with_tree(found["rows"] + extra, balls, set(branches._heads(root)))
+    row_of = {row["branch"]: row["id"] for row in rows if not row["planned"]}
+    for ball in balls:  # kulička patří řádku své větve; spojnice na větve míří na jejich řádky
+        ball["rowId"] = row_of[ball["branch"]]
+        for link in ball["links"]:
+            if link["kind"] != "follows":
+                link["to"] = row_of.get(link["to"], link["to"])
     return {"rows": rows, "balls": balls, "mapping": found["mapping"],
             "realMerges": real_merges(root) + tips}

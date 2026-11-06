@@ -8,12 +8,12 @@ const EMPTY = { title: "", essence: "", build: "", doneCriteria: "", branch: "",
 type Field = keyof typeof EMPTY;
 
 /**
- * Nová kulička = zadání práce (`POST /work`): řádek, název, podstata, stavba, kritéria hotovo (řádek = jedno kritérium),
+ * Nová kulička = zadání práce (`POST /work`): řádek (prázdný = server založí podle větve), název, podstata, stavba, kritéria hotovo (řádek = jedno kritérium),
  * jméno větve, výchozí větev a cíl. Větev se nezakládá; založí ji agent z výchozí větve. Zápis hlásí rodiči.
  */
 export default function LinieWorkForm({ rows, heads, onSubmit, onClose }: Props) {
-  const work = rows.filter((row) => !row.fixed);
-  const [rowId, setRowId] = useState(work[0]?.id ?? "");
+  const work = rows.filter((row) => !row.fixed && !row.auto && !row.git);
+  const [rowId, setRowId] = useState("");
   const [form, setForm] = useState(EMPTY);
   // Dokud uživatel výchozí větev a cíl sám nezměnil, sledují rodiče odvozeného ze jména větve.
   const [touched, setTouched] = useState<Field[]>([]);
@@ -30,7 +30,7 @@ export default function LinieWorkForm({ rows, heads, onSubmit, onClose }: Props)
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const doneCriteria = form.doneCriteria.split("\n").map((line) => line.trim()).filter(Boolean);
-    void onSubmit({ rowId, ...form, doneCriteria, target: form.target.trim() || null }).then((ok) => { if (ok) { setForm(EMPTY); setTouched([]); onClose(); } });
+    void onSubmit({ ...(rowId ? { rowId } : {}), ...form, doneCriteria, target: form.target.trim() || null }).then((ok) => { if (ok) { setForm(EMPTY); setTouched([]); onClose(); } });
   };
   const text = (key: Field, label: string, placeholder = "") => (
     <label className="pletor-dashboard__linie-field">{label}
@@ -38,14 +38,15 @@ export default function LinieWorkForm({ rows, heads, onSubmit, onClose }: Props)
     </label>
   );
 
-  if (!work.length) return <p className="pletor-dashboard__note">Nejdřív přidej pracovní řádek; kulička leží vždy na řádku.</p>;
   return (
     <form className="pletor-dashboard__linie-form" onSubmit={submit} aria-label="Nová kulička">
       <label className="pletor-dashboard__linie-field">řádek
         <select className="pletor-dashboard__input" value={rowId} onChange={(event) => setRowId(event.target.value)}>
+          <option value="">(nový řádek podle větve)</option>
           {work.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
         </select>
       </label>
+      <span className="pletor-dashboard__note">Řádek = větev; nová větev dostane vlastní řádek pod rodičem.</span>
       {text("title", "název", "např. Panel detailu karty")}
       {text("essence", "podstata (essence)")}
       {text("build", "co postavit (build)")}

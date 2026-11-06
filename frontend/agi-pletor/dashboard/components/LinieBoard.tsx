@@ -50,6 +50,9 @@ export default function LinieBoard({ layout, selected, onPick, onRename, onFold 
     setEditing("");
     if (value.trim() && value.trim() !== row.name) onRename(row.id, value.trim());
   };
+  const label = (row: LaidRow) => row.name || row.branch;
+  const renamable = (row: LaidRow) => !row.fixed && !row.git && !row.auto;
+  const chip = (row: LaidRow) => (row.planned ? "plánováno · bez větve" : row.git ? "z gitu" : row.auto ? "z větve" : TYPE_LABEL[row.type]);
   const key = (ball: LaidBall) => (event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPick(ball.ticketId); } };
 
   return (
@@ -61,16 +64,16 @@ export default function LinieBoard({ layout, selected, onPick, onRename, onFold 
             <div className="pletor-dashboard__linie-row-top">
               {row.fixed || row.git
                 ? <span className="pletor-dashboard__linie-lock" title={row.git ? "větev z gitu bez úkolu" : "pevný řádek"}>{row.git ? "⎇" : "■"}</span>
-                : <button type="button" className="pletor-dashboard__linie-fold" aria-expanded={!row.collapsed} aria-label={`${row.collapsed ? "Rozbalit" : "Sbalit"} ${row.name}`}
+                : <button type="button" className="pletor-dashboard__linie-fold" aria-expanded={!row.collapsed} aria-label={`${row.collapsed ? "Rozbalit" : "Sbalit"} ${label(row)}`}
                     onClick={() => onFold(row.id, !row.collapsed)}>{row.collapsed ? "▸" : "▾"}</button>}
               {editing === row.id ? (
                 <input className="pletor-dashboard__linie-rename" aria-label="Nový název řádku" value={value} autoFocus onChange={(event) => setValue(event.target.value)}
                   onBlur={() => commit(row)} onKeyDown={(event) => { if (event.key === "Enter") commit(row); if (event.key === "Escape") setEditing(""); }} />
               ) : (
-                <span className="pletor-dashboard__linie-row-name" style={{ color: row.color }} title={row.fixed || row.git ? row.name : "dvojklik = přejmenovat"}
-                  onDoubleClick={row.fixed || row.git ? undefined : () => { setEditing(row.id); setValue(row.name); }}>{row.name}</span>
+                <span className="pletor-dashboard__linie-row-name" style={{ color: row.color }} title={renamable(row) ? "dvojklik = přejmenovat" : label(row)}
+                  onDoubleClick={renamable(row) ? () => { setEditing(row.id); setValue(row.name); } : undefined}>{label(row)}</span>
               )}
-              <span className="pletor-dashboard__linie-chip">{row.git ? "z gitu" : TYPE_LABEL[row.type]}</span>
+              <span className="pletor-dashboard__linie-chip">{chip(row)}</span>
             </div>
             <div className={`pletor-dashboard__linie-meta${row.branch ? "" : " pletor-dashboard__linie-meta--none"}`}>{row.branchText}</div>
             {!row.collapsed && (row.fixed

@@ -82,8 +82,20 @@ def _mark(service, project, ticket_id):
     return mark if mark not in taken else "OP-" + ticket_id[9:15].upper()
 
 
-def _new_work(service, project, root, work_in, ticket_id):
-    if work_in.get("rowId") not in {row["id"] for row in rows.read(service.root, project)["rows"]}:
+def _row_id(service, project, work_in, branch, base, target):
+    """Řádek pro kuličku: zadaný, pokud drží tuto větev nebo žádnou; jinak se založí řádek větve (název = větev)."""
+    row = next((r for r in rows.read(service.root, project)["rows"] if r["id"] == work_in.get("rowId")), None)
+    held = {t["work"]["branch"] for t in _all(service, project) if row and t["work"]["rowId"] == row["id"]}
+    held |= {row["branch"]} if row and row.get("branch") else set()
+    if row and (not held or branch in held):
+        return row["id"]
+    kind = "items" if tree.role(branch) == "items" else "work"
+    return rows.add(service.root, project, branch, kind, base={"branch": base}, target=target)["id"]
+
+
+def _new_work(service, project, root, work_in, ticket_id, auto_row=False):
+    if (work_in.get("rowId") or not auto_row) and work_in.get("rowId") not in {
+            row["id"] for row in rows.read(service.root, project)["rows"]}:
         raise WorkError("row_not_found", 404, "Řádek Linie neexistuje.", "Řádky vrací GET /board.")
     branch = _name(work_in.get("branch"), "branch")
     out = git(root, "for-each-ref", "refs/heads", "--format=%(refname:short)", timeout=TIMEOUT, optional=True) or ""
@@ -101,7 +113,8 @@ def _new_work(service, project, root, work_in, ticket_id):
         raise WorkError("base_missing", 422, f"Výchozí větev {base} v repozitáři neexistuje.", "Zvolte main, develop "
                         "nebo existující větev rodiče.")
     # shortcut: repozitář je vždy OPORA sama (REPO_ROOT); `sourcePath` projektu až v M3.
-    return {"rowId": work_in["rowId"], "title": (work_in.get("title") or "").strip() or None, "repository": str(root),
+    row_id = _row_id(service, project, work_in, branch, base, target) if auto_row else work_in["rowId"]
+    return {"rowId": row_id, "title": (work_in.get("title") or "").strip() or None, "repository": str(root),
             "worktree": None, "mark": _mark(service, project, ticket_id), "runs": [], "branch": branch, "baseBranch": base, "baseSha": base_sha, "headSha": None,
             "target": target, "checks": [], "preview": None, "acceptance": None, "mergeAllowed": None,
             "merged": None, "blocked": None, "deferred": False}
@@ -113,7 +126,7 @@ def create(service, project, workspace, body, work_in, now, *, root=None):
     if not gate.workspace_known(service, project, workspace):
         raise WorkError("workspace_not_found", 404, "Pracovní prostor v projektu neexistuje.", "Použijte main.")
     new_id = "tk_" + uuid.uuid4().hex
-    work = _new_work(service, project, root or REPO_ROOT, work_in, new_id)
+    work = _new_work(service, project, root or REPO_ROOT, work_in, new_id, auto_row=True)
     with store_for(service, project) as store:
         store.insert(new_id, workspace, "issued", worker_body, {"pins": []}, now)
         store.set_work(new_id, work, now)

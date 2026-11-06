@@ -28,8 +28,8 @@ def _stored(data_root, project):
     except (OSError, ValueError):
         return []
     found = value.get("rows") if isinstance(value, dict) else None
-    # staré řádky typu topic se čtou jako items (role topic zanikla)
-    return [{**row, "type": "items" if row.get("type") == "topic" else row.get("type")}
+    # staré řádky typu topic se čtou jako work (téma drželo práci, ne univerzální díl) (role topic zanikla)
+    return [{**row, "type": "work" if row.get("type") == "topic" else row.get("type")}
             for row in found if isinstance(row, dict) and row.get("id")] if isinstance(found, list) else []
 
 

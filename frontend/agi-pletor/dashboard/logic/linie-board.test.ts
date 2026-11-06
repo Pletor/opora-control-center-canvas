@@ -58,6 +58,18 @@ describe("layoutBoard", () => {
     expect(layout.ticks).toHaveLength(3);
     expect(layout.width).toBeGreaterThanOrEqual(PAD + SPAN + PAD);
   });
+  it("kuličky se stejným časem na jednom řádku se rozestoupí a nepřekryjí", () => {
+    const at = "2026-11-01T10:00:00Z";
+    const ball3 = ["a", "b", "c"].map((id) => ({ ticketId: id, rowId: "row_k", title: id, createdAt: at }));
+    const xs = layoutBoard(boardView({ ...boardFixture, balls: ball3, realMerges: [] })).balls.map((b) => b.x);
+    expect(new Set(xs).size).toBe(3);
+    expect(xs[1] - xs[0]).toBeGreaterThanOrEqual(MIN_GAP);
+    expect(xs[2] - xs[1]).toBeGreaterThanOrEqual(MIN_GAP);
+  });
+  it("auto a planned jsou bezpečně false", () => {
+    expect(board.rows.every((row) => !row.auto && !row.planned)).toBe(true);
+    expect(boardView({ rows: [{ id: "a", auto: true, planned: true }] }).rows[0]).toMatchObject({ auto: true, planned: true });
+  });
   it("řádek z gitu (větev bez úkolu) je jen ke čtení a osa se roztáhne na zadanou šířku", () => {
     const withGit = boardView({ ...boardFixture, rows: [...boardFixture.rows, { id: "git:feat/x", name: "feat/x", type: "work", branch: "feat/x", base: { branch: "develop" }, target: "develop", git: true, ahead: 4 }] });
     const row = withGit.rows[5];

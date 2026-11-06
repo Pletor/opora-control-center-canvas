@@ -153,3 +153,15 @@ def test_linie_run_and_trace(tmp_path, repo):
         found = client.get(f"{BASE}/trace/{mark}", headers=HEADERS, params=q)
         assert found.status_code == 200 and found.json()["mark"] == mark and found.json()["runs"][0]["agent"] == "dev"
         assert client.get(f"{BASE}/trace/OP-000000", headers=HEADERS, params=q).json()["code"] == "mark_not_found"
+
+
+def test_linie_work_without_row_creates_branch_row(tmp_path, repo):
+    q = {"project": "draft", "workspace": "main"}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        body = {"title": "Uzel", "essence": "Proč.", "build": "Uzel.", "doneCriteria": ["testy"], "branch": "feat/uzel"}
+        created = client.post(f"{BASE}/work", headers=HEADERS, params=q, json=body)
+        assert created.status_code == 200
+        board = client.get(f"{BASE}/board", headers=HEADERS, params=q).json()
+        row = next(r for r in board["rows"] if r["branch"] == "feat/uzel")
+        assert (row["name"], row["type"], row["depth"]) == ("feat/uzel", "work", 2)
+        assert board["balls"][0]["rowId"] == row["id"] == created.json()["work"]["rowId"]
