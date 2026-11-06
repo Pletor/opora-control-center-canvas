@@ -14,6 +14,11 @@
   justify-content: space-between;
   gap: 10px;
 }
+/* Tlačítko Zavřít zůstává jedním slovem na řádku; dlouhá věta se láme, tlačítko ne. */
+.pletor-dashboard__linie-commit-head .pletor-dashboard__button {
+  flex: none;
+  white-space: nowrap;
+}
 .pletor-dashboard__linie-commit-sentence {
   margin: 0;
 }
