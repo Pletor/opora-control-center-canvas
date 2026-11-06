@@ -49,6 +49,12 @@ Kulička je jednotka práce na té větvi (na `feat/velin-linie` jich může bý
    Ruční řádek dodá název, typ, sbalení a `id`, pokud má tu větev (`branch`, jinak větev své první kuličky); další
    větve téhož ručního řádku dostanou automatický řádek pojmenovaný větví. Kulička patří řádku své větve, ne `rowId`.
 3. Ruční řádky bez větve a bez kuliček zůstávají na konci jako „plánováno, bez větve“.
+4. **Items je pevný řádek** (jako Main a Develop) hned za Develop, bez vlastní větve: hlavička, pod kterou leží
+   `items/<díl>` o hloubku níž. Rodič bez vlastní práce (kořen `feat/velin` bez commitů navíc) dostane řádek, pokud
+   větev v gitu existuje; blokovaná kulička na smazané větvi řádek nebere. `PATCH /rows` přijme `branch`.
+
+**Barvy** (editor i Git graf): main zelená, develop modrá, `items` fialová `#c084fc`, feat `#c2255c` – kořen plnou
+barvou, každé zanoření o 20 % průhlednější (nejméně 40 %), aby hloubka byla vidět bez čtení názvů.
 
 `POST /work`: `rowId` je volitelné; bez něj (nebo když řádek už drží jinou větev) backend řádek založí sám
 (`rows.add`, název = větev, typ `work`, base = rodič) a kuličku na něj položí. Starý typ řádku `topic` se čte jako `work`

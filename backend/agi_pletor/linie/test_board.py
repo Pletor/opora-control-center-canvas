@@ -78,14 +78,14 @@ def test_board_rows_carry_parent_and_depth(setup):
 def test_with_tree_orders_depth_first_and_chains_rows():
     def row(id, branch, base, order=0):
         return {"id": id, "branch": branch, "base": {"branch": base} if base else None, "order": order}
-    rows = [row("main", "main", None), row("develop", "develop", None), row("velin", None, "develop"),
+    rows = [row("main", "main", None), row("develop", "develop", None), row("items", None, "develop"), row("velin", None, "develop"),
             row("linie", None, "feat/velin"), row("vodotisk", None, "feat/velin-linie"), row("volny", None, None),
-            row("items", "items/btn", "develop")]
+            row("btn", "items/btn", "develop")]
     balls = [{"rowId": "vodotisk", "branch": "feat/velin-linie-vodotisk"}, {"rowId": "velin", "branch": "feat/velin"},
              {"rowId": "linie", "branch": "feat/velin-linie"}]
     found = board.with_tree(rows, balls, {"main", "develop", "items/btn"})
-    assert [(r["id"], r["depth"]) for r in found] == [
-        ("main", 0), ("develop", 1), ("items", 2), ("velin", 2), ("linie", 3), ("vodotisk", 4), ("volny", 2)]
+    assert [(r["id"], r["depth"]) for r in found] == [  # hlavička Items hned za develop, items/<díl> pod ní
+        ("main", 0), ("develop", 1), ("items", 2), ("btn", 3), ("velin", 2), ("linie", 3), ("vodotisk", 4), ("volny", 2)]
     assert {r["id"]: r["parent"] for r in found}["linie"] == "feat/velin"
 
 
@@ -114,8 +114,9 @@ def test_board_row_is_branch_with_manual_row_on_first_branch_and_planned_at_end(
         work.attach(service, "draft", twin, {"rowId": shared, "branch": branch}, NOW, root=repo)
     empty = rows.add(service.root, "draft", "Nápad", "work")["id"]
     found = board.board(service, "draft", "main", repo, pr_lookup=lambda root: {})
-    listed = [(r["id"], r["branch"], r["depth"], r["planned"], r["auto"]) for r in found["rows"]]
-    assert listed == [("main", "main", 0, False, False), ("develop", "develop", 1, False, False),
+    # řádky z gitu (feat/a z fixture) závisí na sekundě commitu vůči main; test sleduje jen ruční a automatické řádky
+    listed = [(r["id"], r["branch"], r["depth"], r["planned"], r["auto"]) for r in found["rows"] if not r.get("git")]
+    assert listed == [("main", "main", 0, False, False), ("develop", "develop", 1, False, False), ("items", None, 2, False, False),
                       (shared, "feat/uzel", 2, False, False), ("auto:feat/velin", "feat/velin", 2, False, True),
                       ("auto:feat/velin-linie", "feat/velin-linie", 3, False, True), (empty, None, 2, True, False)]
     assert {b["branch"]: b["rowId"] for b in found["balls"]} == {

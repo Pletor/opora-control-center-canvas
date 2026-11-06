@@ -14,7 +14,8 @@ def test_rows_without_git(tmp_path):
     assert run(repo, "for-each-ref", "refs/heads") == before  # přidání řádku nezakládá větev
     found = rows.read(tmp_path, "p1")
     assert found["mapping"] == {"main": "main", "develop": "develop"}
-    assert [row["id"] for row in found["rows"]] == ["main", "develop", first["id"], second["id"]]
+    assert [row["id"] for row in found["rows"]] == ["main", "develop", "items", first["id"], second["id"]]
+    assert found["rows"][2]["fixed"] and found["rows"][2]["branch"] is None  # Items: pevná hlavička bez větve
     assert first["branch"] is None and first["base"] == {"branch": "develop", "sha": None}
     renamed = rows.patch(tmp_path, "p1", first["id"], {"name": "Uzel", "collapsed": True})
     assert renamed["name"] == "Uzel" and renamed["collapsed"] is True and renamed["target"] == "develop"
@@ -23,7 +24,7 @@ def test_rows_without_git(tmp_path):
         rows.remove(tmp_path, "p1", first["id"], {first["id"]})
     assert caught.value.code == "row_in_use"
     assert rows.remove(tmp_path, "p1", first["id"], set()) == {"removed": first["id"]}
-    assert [row["id"] for row in rows.read(tmp_path, "p1")["rows"]] == ["main", "develop", second["id"]]
+    assert [row["id"] for row in rows.read(tmp_path, "p1")["rows"]] == ["main", "develop", "items", second["id"]]
 
 
 def test_legacy_topic_row_reads_as_work(tmp_path):
@@ -36,6 +37,7 @@ def test_legacy_topic_row_reads_as_work(tmp_path):
 @pytest.mark.parametrize("act, code", [
     (lambda root: rows.patch(root, "p1", "main", {"name": "x"}), "row_fixed"),
     (lambda root: rows.remove(root, "p1", "develop", set()), "row_fixed"),
+    (lambda root: rows.patch(root, "p1", "items", {"name": "x"}), "row_fixed"),
     (lambda root: rows.patch(root, "p1", "row_nic", {"name": "x"}), "row_not_found"),
     (lambda root: rows.add(root, "p1", "x", "main"), "invalid_payload"),
     (lambda root: rows.add(root, "p1", "x", "topic"), "invalid_payload"),

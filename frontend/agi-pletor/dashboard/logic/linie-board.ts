@@ -22,8 +22,11 @@ export const STATE_LABEL: Record<BallState, string> = {
   merged: "začleněno", accepted_unmerged: "hotovo, ještě nezačleněno", open: "otevřeno", awaiting_checks: "čeká na ověření",
   blocked: "blokováno", deferred: "odloženo", stale: "zastaralé přijetí",
 };
-export const ROW_COLOR: Record<RowType, string> = { main: "#4ade80", develop: "#60a5fa", items: "#2dd4bf", work: "#c084fc", fix: "#f87171", experiment: "#a39cc4" };
+export const ROW_COLOR: Record<RowType, string> = { main: "#4ade80", develop: "#60a5fa", items: "#c084fc", work: "#c2255c", fix: "#f87171", experiment: "#a39cc4" };
 export const TYPE_LABEL: Record<RowType, string> = { main: "pevný", develop: "pevný", items: "univerzální díl", work: "práce", experiment: "experiment", fix: "oprava" };
+/** Feat strom: kořen (hloubka 2) plnou barvou, každé zanoření o čtvrtinu průhlednější, nejméně 40 %. */
+export const shade = (hex: string, depth: number) => `${hex}${Math.round(255 * Math.max(0.4, 1 - 0.2 * Math.max(0, depth - 2))).toString(16).padStart(2, "0")}`;
+export const rowColor = (row: { type: RowType; depth: number }) => (row.type === "work" ? shade(ROW_COLOR.work, row.depth) : ROW_COLOR[row.type]);
 
 const TYPES = Object.keys(ROW_COLOR) as RowType[];
 const STATES = Object.keys(FILL) as BallState[];
@@ -91,9 +94,9 @@ export function layoutBoard(board: Board, span = SPAN): BoardLayout {
   const rows: LaidRow[] = board.rows.map((row) => {
     const height = row.collapsed ? ROW_FOLDED : ROW_OPEN;
     const laid = {
-      ...row, top, height, y: top + height / 2, color: ROW_COLOR[row.type],
-      branchText: row.git ? `větev: ${row.branch} · ${row.ahead} před ${row.baseBranch} · bez úkolu` : row.branch ? `větev: ${row.branch}` : "bez větve",
-      mappingText: row.fixed ? `mapování: ${row.name} → ${row.branch || (row.type === "main" ? board.mapping.main : board.mapping.develop)}` : "",
+      ...row, top, height, y: top + height / 2, color: rowColor(row),
+      branchText: row.git ? `větev: ${row.branch} · ${row.ahead} před ${row.baseBranch} · bez úkolu` : row.branch ? `větev: ${row.branch}` : row.fixed ? "větve items/<díl>" : "bez větve",
+      mappingText: !row.fixed ? "" : row.type === "items" ? "cíl: develop nebo feat větev, kde je díl potřeba" : `mapování: ${row.name} → ${row.branch || (row.type === "main" ? board.mapping.main : board.mapping.develop)}`,
     };
     top += height;
     return laid;

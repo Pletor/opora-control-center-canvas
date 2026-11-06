@@ -27,8 +27,8 @@ describe("layoutGraph", () => {
     const at = (sha: string) => ({ x: dot(sha).x, y: dot(sha).y });
     expect(layout.links).toEqual([
       { from: at("m1"), to: at("d1"), kind: "fork", color: "#60a5fa" },
-      { from: at("d1"), to: at("f1"), kind: "fork", color: "#fb923c" },
-      { from: at("f2"), to: at("d2"), kind: "merge", color: "#fb923c" },
+      { from: at("d1"), to: at("f1"), kind: "fork", color: "#c2255cff" },
+      { from: at("f2"), to: at("d2"), kind: "merge", color: "#c2255cff" },
       { from: at("d2"), to: at("m2"), kind: "merge", color: "#60a5fa" },
     ]);
   });
@@ -41,11 +41,12 @@ describe("layoutGraph", () => {
     ] as never);
     const at = (sha: string) => deep.dots.find((d) => d.sha === sha)!;
     expect(deep.links.find((l) => l.to.x === at("c1").x)!.from).toEqual({ x: at("b1").x, y: at("b1").y });
-    expect(laneColor("items")).toBe("#2dd4bf");
+    expect(laneColor("items")).toBe("#c084fc");
+    expect([laneColor("feat", 2), laneColor("feat", 3), laneColor("feat", 4)]).toEqual(["#c2255cff", "#c2255ccc", "#c2255c99"]); // hlubší dítě = průhlednější
   });
   it("base mimo commity rodiče → oblouk z hlavičky rodiče", () => {
     const moved = lanes.map((lane) => (lane.name === "feat/detail-karty" ? { ...lane, base: "neznámý" } : lane));
-    const fork = layoutGraph(moved).links.find((link) => link.color === "#fb923c" && link.kind === "fork")!;
+    const fork = layoutGraph(moved).links.find((link) => link.color === "#c2255cff" && link.kind === "fork")!;
     expect(fork.from).toEqual({ x: HEAD, y: 60 + LANE_GAP });
   });
   it("štítky u špičky: přijetí, náhled, PR, zastaralé", () => {
@@ -62,7 +63,7 @@ describe("layoutGraph", () => {
     expect(layoutGraph(stale).badges[1]).toMatchObject({ kind: "stale", text: "přijetí zastaralé (f2bbbbb)" });
   });
   it("barvy, podtitulky, zkrácení a prázdný graf", () => {
-    expect([laneColor("main"), laneColor("develop"), laneColor("hotfix"), laneColor("experiment")]).toEqual(["#4ade80", "#60a5fa", "#fb923c", "#c084fc"]);
+    expect([laneColor("main"), laneColor("develop"), laneColor("hotfix"), laneColor("experiment")]).toEqual(["#4ade80", "#60a5fa", "#fb923c", "#a39cc4"]);
     expect(laneSubtitle({ name: "main", role: "main" })).toBe("Stabilní přijaté vydání");
     expect(laneSubtitle({ name: "develop", role: "develop" })).toBe("Společné ověření");
     expect(clip("x".repeat(60))).toHaveLength(20);

@@ -5,8 +5,9 @@
 .pletor-dashboard__linie {
   --linie-main: #4ade80;
   --linie-develop: #60a5fa;
-  --linie-feat: #fb923c;
-  --linie-experiment: #c084fc;
+  --linie-feat: #c2255c;
+  --linie-items: #c084fc;
+  --linie-experiment: #a39cc4;
   --linie-stale: #d6a960;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;

@@ -15,6 +15,9 @@ TYPES = ("items", "work", "experiment", "fix")
 MAPPING = {"main": "main", "develop": "develop"}
 FIXED = [{"id": name, "name": name.capitalize(), "type": name, "ticketId": None, "branch": name, "base": None,
           "target": None, "collapsed": False, "order": order, "fixed": True} for order, name in enumerate(MAPPING)]
+# Items je pevná hlavička bez vlastní větve: pod ní leží větve items/<díl> (do develop nebo feat větve, kde je díl potřeba).
+FIXED.append({"id": "items", "name": "Items", "type": "items", "ticketId": None, "branch": None,
+              "base": {"branch": "develop", "sha": None}, "target": None, "collapsed": False, "order": 2, "fixed": True})
 LOCK = threading.Lock()  # čtení-změna-zápis souboru z více vláken serveru
 
 
@@ -80,8 +83,8 @@ def add(data_root, project, name, kind, base=None, target=None):
 
 
 def _find(stored, row_id):
-    if row_id in MAPPING:
-        raise GateError(409, "row_fixed", "Main a Develop jsou pevné řádky.", "Měňte jen pracovní řádky.")
+    if any(row["id"] == row_id for row in FIXED):
+        raise GateError(409, "row_fixed", "Main, Develop a Items jsou pevné řádky.", "Měňte jen pracovní řádky.")
     for row in stored:
         if row["id"] == row_id:
             return row

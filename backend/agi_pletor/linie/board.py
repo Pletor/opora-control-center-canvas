@@ -125,8 +125,11 @@ def with_tree(rows, balls, heads):
     first = {}
     for ball in live:
         first.setdefault(ball["rowId"], ball["branch"])
+    header = next((row for row in rows if row.get("id") == "items"), None)  # pevná hlavička Items bez větve
     claimed, leftover = {}, []
     for row in rows:
+        if row is header:
+            continue
         branch = row.get("branch") or first.get(row["id"])
         if branch and branch not in claimed:
             claimed[branch] = row
@@ -154,12 +157,17 @@ def with_tree(rows, balls, heads):
     def shaped(row, branch, planned):
         above = (row.get("base") or {}).get("branch") or (tree.parent(branch, known) if branch else None)
         deep = tree.depth(branch, known) if branch else tree.depth("develop", known) + 1
+        if branch and tree.role(branch) == "items":
+            deep += 1  # items/<díl> leží pod hlavičkou Items
         return {**row, "branch": branch, "parent": above, "depth": deep, "baseBranch": above,
                 "auto": bool(row.get("auto") or row.get("git")), "planned": planned}
 
     ordered = sorted(claimed.items(), key=lambda item: place.get(item[0], len(place)))
-    return ([shaped(row, branch, False) for branch, row in ordered]
-            + [shaped(row, None, True) for row in sorted(leftover, key=lambda r: r.get("order", 0))])
+    found = [shaped(row, branch, False) for branch, row in ordered]
+    if header:
+        at = next((i for i, row in enumerate(found) if row["branch"] not in rows_mod.MAPPING), len(found))
+        found.insert(at, shaped(header, None, False))
+    return found + [shaped(row, None, True) for row in sorted(leftover, key=lambda r: r.get("order", 0))]
 
 
 def board(service, project, workspace, root, *, pr_lookup=gh_prs):

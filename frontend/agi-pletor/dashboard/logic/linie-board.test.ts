@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { boardFixture } from "./linie-fixture";
-import { MIN_GAP, PAD, ROW_FOLDED, ROW_OPEN, SPAN, boardView, layoutBoard, legend, pletorSentence } from "./linie-board";
+import { MIN_GAP, PAD, ROW_FOLDED, ROW_OPEN, SPAN, boardView, layoutBoard, legend, pletorSentence, shade } from "./linie-board";
 
 const board = boardView(boardFixture);
 const layout = layoutBoard(board);
@@ -33,7 +33,10 @@ describe("layoutBoard", () => {
     expect(layout.height).toBe(4 * ROW_OPEN + ROW_FOLDED);
   });
   it("barvy podle typu, popis větve a mapování", () => {
-    expect(layout.rows.map((row) => row.color)).toEqual(["#4ade80", "#60a5fa", "#2dd4bf", "#c084fc", "#f87171"]);
+    // items fialová; feat (work) #c2255c plnou barvou v kořeni (hloubka 2) – row_k bez depth se bere jako kořen
+    expect(layout.rows.map((row) => row.color)).toEqual(["#4ade80", "#60a5fa", "#c084fc", "#c2255cff", "#f87171"]);
+    expect([shade("#c2255c", 3), shade("#c2255c", 4), shade("#c2255c", 9)]).toEqual(["#c2255ccc", "#c2255c99", "#c2255c66"]);
+    expect(layoutBoard(boardView({ rows: [{ id: "items", type: "items", fixed: true }] })).rows[0]).toMatchObject({ branchText: "větve items/<díl>", mappingText: "cíl: develop nebo feat větev, kde je díl potřeba" });
     expect(layout.rows[0].mappingText).toBe("mapování: Main → main");
     expect(layout.rows[3].branchText).toBe("bez větve");
     expect(layout.rows[2].branchText).toBe("větev: topic/knihovna");
