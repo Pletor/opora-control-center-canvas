@@ -5,7 +5,7 @@ předchůdce karty je karta této kuličky, jinak další kulička téhož řád
 začleněno) a `merged` jen podle `work.merged` (zapisuje jen služba po ověřené Git operaci). Plán se nikdy nevrací
 jako `merged`. `realMerges` jsou skutečné merge commity main a develop z gitu a špičky větví z gitu.
 
-Editor ukazuje i skutečný stav: pracovní větev z gitu, která má commity před rodičem a nemá vlastní řádek, dostane
+Editor ukazuje i skutečný stav: pracovní větev z gitu mladší než main, která má commity před rodičem a nemá řádek, dostane
 řádek `git: True` (jen ke čtení, id `git:<větev>`) se špičkou větve jako bodem; kulička vznikne až s ticketem.
 """
 import time
@@ -55,9 +55,14 @@ GIT_TYPE = {"feat": "work", "hotfix": "fix"}  # role větve → typ řádku edit
 def git_rows(root, rows, balls):
     """Řádky z gitu pro nesloučené pracovní větve bez řádku ani kuličky + jejich špičky jako body `realMerges`."""
     known = {row.get("branch") for row in rows} | {ball["branch"] for ball in balls}
+    # shortcut: větev mladší než špička main = rozpracovaná; starší (squashem už v main) by editor jen zaplevelily.
+    stamps = git(root, "for-each-ref", "refs/heads", "--format=%(refname:short)	%(committerdate:unix)",
+                 timeout=TIMEOUT, optional=True) or ""
+    when = {name: int(at) for name, _, at in (line.partition("	") for line in stamps.splitlines()) if at.isdigit()}
     found, tips = [], []
     for order, b in enumerate(branches.summary(root)["branches"]):
-        if b["role"] not in branches.ROLES or b["name"] in known or not b["ahead"]:
+        if (b["role"] not in branches.ROLES or b["name"] in known or not b["ahead"]
+                or when.get(b["name"], 0) <= when.get("main", 0)):
             continue
         found.append({"id": "git:" + b["name"], "name": b["name"], "type": GIT_TYPE.get(b["role"], b["role"]),
                       "ticketId": None, "branch": b["name"], "base": {"branch": b["parent"], "sha": None},
