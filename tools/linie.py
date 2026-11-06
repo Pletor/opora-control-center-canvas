@@ -47,7 +47,11 @@ def read_json(path):
     return json.loads(path.read_text("utf-8")) if path.is_file() else {}
 
 
+SCOPE = {}  # project/workspace z voleb nebo .opora/linie.json; všechny routy Linie je chtějí
+
+
 def call(cwd, method, path, body=None, query=None):
+    query = {**{k: v for k, v in SCOPE.items() if v}, **(query or {})}
     base = os.environ.get("OPORA_BASE_URL", DEFAULT_BASE).rstrip("/")
     headers = {"Accept": "application/json", "Origin": base}
     gate = read_json(Path(cwd) / GATE)
@@ -80,6 +84,7 @@ def scope(cwd, args):  # projekt a workspace: volby, pak .opora/linie.json, pak 
     saved = read_json(Path(cwd) / STATE)
     project = args.project or saved.get("project") or os.environ.get("OPORA_PROJECT")
     workspace = args.workspace or saved.get("workspace") or os.environ.get("OPORA_WORKSPACE")
+    SCOPE.update(project=project, workspace=workspace)
     return project, workspace
 
 
@@ -120,7 +125,11 @@ def task(cwd, args):
     work = found.get("work") or {}
     top, branch = git(cwd, "rev-parse", "--show-toplevel"), git(cwd, "branch", "--show-current")
     expected = work.get("worktree") or work.get("repository")
-    if not (same_path(top, work.get("repository")) or same_path(top, work.get("worktree"))) \
+    # worktree téhož repozitáře (i náhled z Velínu) sdílí společný .git; cesty se liší
+    common = git(cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    same_repo = bool(common) and same_path(common, git(work.get("repository") or ".", "rev-parse",
+                                                       "--path-format=absolute", "--git-common-dir"))
+    if not (same_repo or same_path(top, work.get("repository")) or same_path(top, work.get("worktree"))) \
             or branch != work.get("branch"):
         raise Stop(EXIT_CONTEXT, f"Jiný kontext: očekává se {work.get('branch')} v {expected}, jsi na "
                                  f"{branch or '(žádná větev)'} v {top or cwd}. Nezačínej, nic nezahazuj.")
@@ -188,6 +197,7 @@ def parser():
 def main(argv=None, cwd=None):
     args = parser().parse_args(argv)
     try:
+        scope(Path(cwd or os.getcwd()), args)
         print(COMMANDS[args.command](Path(cwd or os.getcwd()), args))
     except Stop as stop:
         print(stop.text)
