@@ -5,7 +5,7 @@ import { acceptanceSentence, failureText, previewSentence, short, workActions, w
 
 /** Zápis přes rodiče: vrátí větu k zobrazení (hotovo, nebo `message` odmítnutí 409). */
 export type LinieAct = (path: string, body: object, done: string, method?: WriteMethod) => Promise<string>;
-type Props = { ticketId: string; query: string; main: string; onAct: LinieAct; onClose: () => void };
+type Props = { ticketId: string; query: string; main: string; onAct: LinieAct; onClose: () => void; onPickTrace: (mark: string) => void };
 
 const Row = ({ k, children }: { k: string; children: ReactNode }) => (
   <div className="pletor-dashboard__linie-kv"><span className="pletor-dashboard__linie-k">{k}</span><span>{children}</span></div>
@@ -15,7 +15,7 @@ const Row = ({ k, children }: { k: string; children: ReactNode }) => (
  * Detail kuličky z `GET /work/{ticketId}`: zadání, větev a revize, commity, PR, kontroly, přijetí, cíl a náhled s revizí.
  * Tlačítka mačká jen člověk; po každé akci se detail načte znovu a odmítnutí backendu se ukáže textem.
  */
-export default function LinieDetail({ ticketId, query, main, onAct, onClose }: Props) {
+export default function LinieDetail({ ticketId, query, main, onAct, onClose, onPickTrace }: Props) {
   const [detail, setDetail] = useState<WorkDetail | null>(null);
   const [error, setError] = useState("");
   const [flash, setFlash] = useState("");
@@ -51,6 +51,7 @@ export default function LinieDetail({ ticketId, query, main, onAct, onClose }: P
         <button type="button" className="pletor-dashboard__button" onClick={onClose}>← zpět na linii</button>
         <h2 className="pletor-dashboard__linie-detail-title">{d.title || d.ticketId}</h2>
         <span className="pletor-dashboard__tag">{d.stateLabel || d.state}</span>
+        {d.mark && <><span className="pletor-dashboard__mono">{d.mark}</span><button type="button" className="pletor-dashboard__button" onClick={() => onPickTrace(d.mark)}>Celá cesta</button></>}
         {d.next && <span className="pletor-dashboard__note">další krok: {d.next}</span>}
       </div>
       <div className="pletor-dashboard__linie-detail-cols">

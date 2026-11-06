@@ -120,3 +120,20 @@ def test_linie_work_refusals(tmp_path, repo):
         nobody = client.get(f"{BASE}/work/tk_1", headers=HEADERS, params=q)
         assert nobody.status_code == 428 and nobody.json()["code"] == "identity_required"
         assert client.post(f"{BASE}/work/tk_1/merge", headers=AGENT, params=q).status_code == 404
+
+
+def test_linie_run_and_trace(tmp_path, repo):
+    q = {"project": "draft"}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        row = client.post(f"{BASE}/rows", headers=HEADERS, params=q, json={"name": "Uzel", "type": "work"}).json()["id"]
+        body = {"rowId": row, "title": "Uzel", "essence": "Proč.", "build": "Uzel.", "doneCriteria": ["testy"],
+                "branch": "feat/uzel", "baseBranch": "develop", "target": "develop"}
+        created = client.post(f"{BASE}/work", headers=HEADERS, params={**q, "workspace": "main"}, json=body).json()
+        tid, mark = created["ticketId"], created["work"]["mark"]
+        agent_commit(repo)
+        for _ in range(2):  # opakování = aktualizace, ne duplikát
+            ran = client.post(f"{BASE}/work/{tid}/run", headers=AGENT, params=q, json={"sessionId": "s1", "agent": "dev"})
+        assert ran.status_code == 200 and len(ran.json()["work"]["runs"]) == 1
+        found = client.get(f"{BASE}/trace/{mark}", headers=HEADERS, params=q)
+        assert found.status_code == 200 and found.json()["mark"] == mark and found.json()["runs"][0]["agent"] == "dev"
+        assert client.get(f"{BASE}/trace/OP-000000", headers=HEADERS, params=q).json()["code"] == "mark_not_found"

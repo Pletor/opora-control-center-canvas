@@ -31,7 +31,7 @@ export const boardFixture = {
     { id: "row_f", name: "Řešení", type: "fix", ticketId: null, branch: "fix/popis", base: null, target: "develop", collapsed: true, order: 4 },
   ],
   balls: [
-    { ticketId: "tk_1", rowId: "row_k", title: "Panel detailu karty", state: "accepted_unmerged", stateLabel: "hotovo, ještě nezačleněno", branch: "feat/detail-karty", headSha7: "9c8050f",
+    { ticketId: "tk_1", mark: "OP-3F9A1C", rowId: "row_k", title: "Panel detailu karty", state: "accepted_unmerged", stateLabel: "hotovo, ještě nezačleněno", branch: "feat/detail-karty", headSha7: "9c8050f",
       createdAt: "2026-11-05T10:00:00Z", mergedAt: null, counts: { commits: 3, prs: 1, merges: 0 },
       links: [{ to: "tk_2", kind: "follows" }, { to: "row_t", kind: "planned" }] },
     { ticketId: "tk_2", rowId: "row_k", title: "Datový uzel", state: "open", stateLabel: "otevřeno", branch: "feat/datovy-uzel", headSha7: "288491d",

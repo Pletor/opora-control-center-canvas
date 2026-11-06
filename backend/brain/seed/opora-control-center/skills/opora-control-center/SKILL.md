@@ -74,7 +74,7 @@ rozepiš do `spec.steps`, ne do karet. Build a test pusť **jednou na kartu** p�
    prázdné a chybové stavy → testy). Cesty zákazníka a další pole: [canvas-plan.md](references/canvas-plan.md).
 3. `H act --all-ready --verb propose_graph --verb accept` – jedno volání, **žádná smyčka přes ID** (`{done, skipped, next}`).
 4. Pro každou kartu `H start --node N` (kontext, claim i zadání v jednom volání; vrátí `executionId` a `steps`, `assignment` netřeba).
-5. Kód a commit s trailerem `Opora-Node: <nodeId>`; kroky zvlášť ohlašovat netřeba.
+5. Kód a commit s trailerem `Opora-Node: <nodeId>` a `Opora-Mark: <mark>` z ticketu Linie, je-li; kroky zvlášť ohlašovat netřeba.
 6. `npm run build`, a když projde, `npm test` **jednou**, jako dva samostatné příkazy. Zřetězený příkaz
    (`&&`, `;`, `|`) pravidla oprávnění zamítnou; zamítnutý příkaz rozděl a spusť znovu.
 7. `H deliver --execution E --summary "…" --check "npm test=green"` – jedno volání zapíše kroky (evidence kroku
@@ -96,7 +96,7 @@ Detail a tvar výsledku: [hub-loop.md](references/hub-loop.md). **Doporučená c
 1. `opora_hub.py state` (ETag, `304` = beze změny) → první **`ready`** akce `claim`; blokovanou (`human_only`,
    `budget_exhausted`, …) nikdy neopakuj.
 2. `opora_hub.py start --node N` → kontext v2, claim i zadání (`executionId`, `steps`, `next`); token jen v souboru klienta.
-3. Worktree z čerstvého `origin/main`; kroky `spec.steps` podle `dependsOn`/`order`, commit s `Opora-Node: <nodeId>`;
+3. Worktree z čerstvého `origin/main`; kroky `spec.steps` podle `dependsOn`/`order`, commit s `Opora-Node: <nodeId>` a `Opora-Mark: <mark>` z ticketu Linie, je-li;
    `build` a `tests` jednou na posledním commitu.
 4. `opora_hub.py deliver --execution E --summary "…" --check "npm test=green"` → kroky, výsledky, `local-merge`,
    check-run a při plné autonomii a splněné bráně uzavření; jinak `missing` a `next`. `deliver` přijme i vypršelý

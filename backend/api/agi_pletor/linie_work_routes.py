@@ -2,13 +2,14 @@
 
 Všude `?project=`; `GET /board` a `POST /work` navíc `&workspace=`. Jen člověk: board, řádky, `POST /work`, attach,
 preview, accept (i DELETE), allow-merge. Agent i člověk: `GET /work/{id}`, report, merge (provádí služba),
-block / defer / resume; agent se prokáže `X-Opora-Actor: agent; name=…` nebo tokenem brány `X-Opora-Gate-Token`
+block / defer / resume, run (relace LLM); čtení bez identity: `GET /commit/{sha}` a `GET /trace/{mark}` (cesta práce
+podle vodotisku OP-XXXXXX, 404 `mark_not_found`); agent se prokáže `X-Opora-Actor: agent; name=…` nebo tokenem brány `X-Opora-Gate-Token`
 (projekt i prostor ticketu musí sedět), bez identity 428. Odmítnutí je JSON `{error, code, hint}`.
 """
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from backend.agi_pletor.linie import board, commit, merge, previews, rows, work
+from backend.agi_pletor.linie import board, commit, merge, previews, rows, trace, work
 from backend.api.agi_pletor.models import (
     LinieAcceptIn,
     LinieAllowIn,
@@ -17,6 +18,7 @@ from backend.api.agi_pletor.models import (
     LinieReportIn,
     LinieRowIn,
     LinieRowPatch,
+    LinieRunIn,
     LinieWorkIn,
 )
 from backend.api.agi_pletor.pletor_routes import _check
@@ -103,6 +105,17 @@ def create_linie_work_router(service, pletor, root=None):
         """Detail commitu: plán, karta, kancelář, PR a náhled (docs/navrhy/2026-11-06-linie-detail-commitu.md)."""
         return answer(lambda: (_check(service, project, workspace),
                                commit.detail(service, project, workspace, root, sha, pletor.folder))[1])
+
+    @router.get("/trace/{mark}")
+    def trace_get(request: Request, mark: str, project: str = "", workspace: str = "main"):
+        """Celá cesta práce podle vodotisku (docs/navrhy/2026-11-06-linie-vodotisk-cesty.md)."""
+        return answer(lambda: (_check(service, project, workspace),
+                               trace.trace(service, project, workspace, root, mark, pletor.folder))[1])
+
+    @router.post("/work/{ticket_id}/run")
+    def work_run(request: Request, ticket_id: str, body: LinieRunIn, project: str = ""):
+        return anyone(request, project, ticket_id, lambda by: work.run(service, project, ticket_id, body.model_dump(),
+                                                                       tokens.stamp()))
 
     @router.post("/work/{ticket_id}/report")
     def work_report(request: Request, ticket_id: str, body: LinieReportIn, project: str = ""):

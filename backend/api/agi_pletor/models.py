@@ -164,6 +164,14 @@ class LinieReportIn(BaseModel):
     worktree: str | None = Field(default=None, max_length=500)
 
 
+class LinieRunIn(BaseModel):
+    """Relace LLM na úkolu; stejné `sessionId` záznam jen osvěží."""
+    model_config = ConfigDict(extra="forbid")
+    sessionId: str = Field(min_length=1, max_length=200)
+    agent: str | None = Field(default=None, max_length=200)
+    transcriptPath: str | None = Field(default=None, max_length=500)
+
+
 class LinieAcceptIn(BaseModel):
     """Přijetí přesně aktuální hlavy ticketu (`sha == headSha`)."""
     model_config = ConfigDict(extra="forbid")

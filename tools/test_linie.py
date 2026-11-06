@@ -35,7 +35,8 @@ class Server:
         self.routes = {("GET", f"/work/{TICKET}"): {
             "ticket": {"id": TICKET, "title": "Datový uzel", "body": {"essence": "E", "build": "B", "doneCriteria": "D"}},
             "work": {"repository": str(repo), "worktree": None, "branch": "feat/x", "baseBranch": "develop",
-                     "baseSha": "0" * 40, "next": "report"}, "state": "open"}} | (routes or {})
+                     "baseSha": "0" * 40, "next": "report"}, "state": "open"},
+            ("POST", f"/work/{TICKET}/run"): {}} | (routes or {})
 
     def __call__(self, request, timeout):
         path = request.full_url.split("/api/pletor/linie", 1)[1].split("?")[0]
@@ -78,7 +79,7 @@ def test_task_remembers_ticket_and_session_restart_finds_it(repo, monkeypatch, c
     assert ".opora" not in git(repo, "status", "--porcelain")
     code, out = run(monkeypatch, capsys, server, repo, "task")
     assert code == 0 and f"Úkol {TICKET}" in out
-    assert [call[1] for call in server.calls] == [f"/work/{TICKET}"] * 2
+    assert [call[1] for call in server.calls] == [f"/work/{TICKET}", f"/work/{TICKET}/run"] * 2
 
 
 def test_task_without_memory_picks_ball_by_current_branch(repo, monkeypatch, capsys):
@@ -120,3 +121,48 @@ def test_server_down_exits_3_and_keeps_code(repo, monkeypatch, capsys):
     code, out = run(monkeypatch, capsys, server, repo, "task", "--ticket", TICKET)
     assert code == 3 and out.startswith("Evidence nedostupná, kód zachován, blokace:")
     assert (repo / "a.txt").read_text() == "rozpracováno"
+
+
+def marked(repo, trailer=True):
+    return {("GET", f"/work/{TICKET}"): {"work": {"repository": str(repo), "branch": "feat/x", "mark": "OP-3F9A1C"}},
+            ("POST", f"/work/{TICKET}/report"): {"ok": True}}
+
+
+def test_task_sends_run_with_session_from_hook_and_prints_mark(repo, monkeypatch, capsys):
+    (repo / ".opora").mkdir()
+    (repo / ".opora" / "session.json").write_text(json.dumps({"sessionId": "s-1", "transcriptPath": "t.jsonl"}))
+    server = Server(repo, marked(repo))
+    code, out = run(monkeypatch, capsys, server, repo, "task", "--ticket", TICKET)
+    method, path, body, _ = server.calls[-1]
+    assert code == 0 and (method, path) == ("POST", f"/work/{TICKET}/run")
+    assert body == {"sessionId": "s-1", "agent": "terminal", "transcriptPath": "t.jsonl"}
+    assert "Vodotisk: OP-3F9A1C" in out and 'trailer "Opora-Mark: OP-3F9A1C"' in out
+    assert "Vodotisk: neevidován" in run(monkeypatch, capsys, Server(repo), repo, "task", "--ticket", TICKET)[1]
+
+
+def test_report_without_trailer_exits_2_without_post_and_with_trailer_passes(repo, monkeypatch, capsys):
+    server = Server(repo, marked(repo))
+    code, out = run(monkeypatch, capsys, server, repo, "report", "--ticket", TICKET)
+    assert code == 2 and "Opora-Mark: OP-3F9A1C" in out and "git commit --amend" in out
+    assert not [c for c in server.calls if c[0] == "POST"]
+    assert run(monkeypatch, capsys, server, repo, "report", "--ticket", TICKET, "--allow-unmarked")[0] == 0
+    git(repo, "commit", "-q", "--allow-empty", "-m", "x\n\nOpora-Mark: OP-3F9A1C")
+    server.calls.clear()
+    assert run(monkeypatch, capsys, server, repo, "report", "--ticket", TICKET)[0] == 0
+    assert [c[0] for c in server.calls] == ["GET", "POST"]
+
+
+def test_trace_prints_layers_and_sentence(repo, monkeypatch, capsys):
+    answer = {"ticket": {"title": "Datový uzel", "body": {"essence": "E"}}, "card": {"name": "Karta"}, "revision": "r2",
+              "plan": [{"order": 1, "title": "Krok"}],
+              "runs": [{"agent": "terminal", "startedAt": "2026-11-06", "fromSha": "a" * 40, "status": "verified"}],
+              "commits": [{"sha7": "abc1234", "title": "feat", "status": "inferred", "runId": None}],
+              "code": [{"path": "a.py", "line": 3, "symbol": "def f", "status": "verified"}],
+              "pr": {"number": 12, "state": "OPEN"}, "gaps": [{"text": "Commit bez relace"}], "sentence": "OP-3F9A1C: E."}
+    server = Server(repo, {("GET", "/trace/OP-3F9A1C"): answer})
+    code, out = run(monkeypatch, capsys, server, repo, "trace", "--mark", "OP-3F9A1C")
+    assert code == 0 and "OP-3F9A1C: Datový uzel" in out and "terminal 2026-11-06 od aaaaaaa verified" in out
+    assert "abc1234 feat inferred bez relace" in out and "a.py:3 def f verified" in out
+    assert "PR: number=12, state=OPEN" in out and "Commit bez relace" in out and out.rstrip().endswith("OP-3F9A1C: E.")
+    server = Server(repo, marked(repo) | {("GET", "/trace/OP-3F9A1C"): {}})
+    assert run(monkeypatch, capsys, server, repo, "trace", "--ticket", TICKET)[0] == 0

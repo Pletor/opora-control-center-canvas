@@ -89,7 +89,7 @@ def _ball(ticket, work, rows, prs):
         links.append({"to": _row_for(rows, work["merged"]["target"]), "kind": "merged", "sha": work["merged"]["sha"]})
     elif work.get("target"):
         links.append({"to": _row_for(rows, work["target"]), "kind": "planned"})
-    return {"ticketId": ticket["ticketId"], "rowId": work["rowId"],
+    return {"ticketId": ticket["ticketId"], "rowId": work["rowId"], "mark": work.get("mark"),
             "title": work.get("title") or ticket["body"]["essence"].split("\n")[0][:120],
             "state": shown["state"], "stateLabel": shown["stateLabel"], "next": shown["next"],
             "branch": work["branch"], "headSha7": (work.get("headSha") or "")[:7] or None,

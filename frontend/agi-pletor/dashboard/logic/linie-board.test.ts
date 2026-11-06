@@ -46,6 +46,8 @@ describe("layoutBoard", () => {
     expect(layout.links.filter((link) => link.kind === "merged")).toHaveLength(1);
   });
   it("hover nese název, stav, počty a větev; skutečné merge leží na řádku cíle", () => {
+    expect(ball("tk_1").hover.mark).toBe("OP-3F9A1C");
+    expect(ball("tk_2").hover.mark).toBe("");
     expect(ball("tk_1").hover).toMatchObject({ title: "Panel detailu karty", state: "hotovo, ještě nezačleněno", merged: "—", counts: "3 | 1 | 0", branch: "feat/detail-karty @ 9c8050f" });
     expect(layout.merges).toEqual([{ x: PAD, y: ROW_OPEN / 2, sha7: "abcdef0", title: "develop → main", color: "#4ade80" }]);
     expect(layout.ticks).toHaveLength(3);

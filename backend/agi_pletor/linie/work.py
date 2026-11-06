@@ -75,7 +75,14 @@ def _name(value, key):
     return value
 
 
-def _new_work(service, project, root, work_in):
+def _mark(service, project, ticket_id):
+    """Vodotisk cesty `OP-XXXXXX` z UUID ticketu; při kolizi s jiným ticketem projektu dalších 6 znaků."""
+    taken = {t["work"].get("mark") for t in _all(service, project)}
+    mark = "OP-" + ticket_id[3:9].upper()
+    return mark if mark not in taken else "OP-" + ticket_id[9:15].upper()
+
+
+def _new_work(service, project, root, work_in, ticket_id):
     if work_in.get("rowId") not in {row["id"] for row in rows.read(service.root, project)["rows"]}:
         raise WorkError("row_not_found", 404, "Řádek Linie neexistuje.", "Řádky vrací GET /board.")
     branch, base = _name(work_in.get("branch"), "branch"), _name(work_in.get("baseBranch"), "baseBranch")
@@ -86,7 +93,7 @@ def _new_work(service, project, root, work_in):
                         "nebo existující topic/*.")
     # shortcut: repozitář je vždy OPORA sama (REPO_ROOT); `sourcePath` projektu až v M3.
     return {"rowId": work_in["rowId"], "title": (work_in.get("title") or "").strip() or None, "repository": str(root),
-            "worktree": None, "branch": branch, "baseBranch": base, "baseSha": base_sha, "headSha": None,
+            "worktree": None, "mark": _mark(service, project, ticket_id), "runs": [], "branch": branch, "baseBranch": base, "baseSha": base_sha, "headSha": None,
             "target": target or None, "checks": [], "preview": None, "acceptance": None, "mergeAllowed": None,
             "merged": None, "blocked": None, "deferred": False}
 
@@ -96,8 +103,8 @@ def create(service, project, workspace, body, work_in, now, *, root=None):
     worker_body = body_payload(body)
     if not gate.workspace_known(service, project, workspace):
         raise WorkError("workspace_not_found", 404, "Pracovní prostor v projektu neexistuje.", "Použijte main.")
-    work = _new_work(service, project, root or REPO_ROOT, work_in)
     new_id = "tk_" + uuid.uuid4().hex
+    work = _new_work(service, project, root or REPO_ROOT, work_in, new_id)
     with store_for(service, project) as store:
         store.insert(new_id, workspace, "issued", worker_body, {"pins": []}, now)
         store.set_work(new_id, work, now)
@@ -105,7 +112,7 @@ def create(service, project, workspace, body, work_in, now, *, root=None):
 
 
 def attach(service, project, ticket_id, work_in, now, *, root=None):
-    work = _new_work(service, project, root or REPO_ROOT, work_in)
+    work = _new_work(service, project, root or REPO_ROOT, work_in, ticket_id)
     with store_for(service, project) as store:
         if _ticket(store, ticket_id, need_work=False).get("work"):
             raise WorkError("work_exists", 409, "Ticket už práci Linie má.")
@@ -133,21 +140,38 @@ def apply_report(work, sha, checks, worktree, now, by):
         if full == work["headSha"]:
             return work
         raise WorkError("work_merged", 409, "Práce je už začleněná; další commit patří do nového úkolu.")
+    runs, who = work.get("runs") or [], by.split(":", 1)[-1]
+    mine = [r for r in runs if r.get("agent") == who] or runs  # relace téhož agenta, jinak poslední vůbec
+    run_id = mine[-1]["runId"] if mine else None
     fresh = []
     for check in checks or []:
         name, status = check.get("name"), check.get("status")
         if not isinstance(name, str) or not name.strip() or len(name) > 200 or status not in STATUSES:
             raise WorkError("invalid_payload", 422, "Kontrola je {name, status: green|red|pending}.")
-        fresh.append({"name": name.strip(), "status": status, "sha": full, "at": now, "by": by})
+        fresh.append({"name": name.strip(), "status": status, "sha": full, "at": now, "by": by, "runId": run_id})
     names = {check["name"] for check in fresh}
     kept = [check for check in work["checks"] if not (check["sha"] == full and check["name"] in names)]
-    return {**work, "headSha": full, "checks": kept + fresh, "worktree": worktree or work.get("worktree")}
+    return {**work, "headSha": full, "headRunId": run_id, "checks": kept + fresh,
+            "worktree": worktree or work.get("worktree")}
 
 
 def report(service, project, ticket_id, sha, checks, worktree, now, by):
     """Commit (a kontroly k němu) na větvi úkolu. Kuličku neuzavírá."""
     return _change(service, project, ticket_id, now,
                    lambda ticket: apply_report(ticket["work"], sha, checks, worktree, now, by))
+
+
+def run(service, project, ticket_id, payload, now):
+    """Relace LLM na úkolu: nové `sessionId` přidá záznam (zamkne `fromSha` a revizi zadání), stejné ho jen osvěží."""
+    def change(ticket):
+        work, runs = ticket["work"], list(ticket["work"].get("runs") or [])
+        old = next((r for r in runs if r["sessionId"] == payload["sessionId"]), None)
+        record = {"runId": "run_" + uuid.uuid4().hex, "sessionId": payload["sessionId"], "startedAt": now,
+                  "fromSha": rev(work["repository"], work["branch"]), "revision": ticket["machine"].get("cardVersion"),
+                  **(old or {}), "agent": payload.get("agent") or (old or {}).get("agent"),
+                  "transcriptPath": payload.get("transcriptPath") or (old or {}).get("transcriptPath")}
+        return {**work, "runs": [record if r is old else r for r in runs] + ([] if old else [record])}
+    return _change(service, project, ticket_id, now, change)
 
 
 def accept(service, project, ticket_id, sha, note, now):

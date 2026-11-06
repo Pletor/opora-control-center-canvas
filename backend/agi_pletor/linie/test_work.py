@@ -120,3 +120,32 @@ def test_gate_deliver_goes_through_report(setup):
     kinds.run(service, office, {"kind": "ticket.deliver", "body": {"ticketId": tid, "summary": "Hotovo.", "sha": head}})
     found = work.get(service, "draft", tid)
     assert found["status"] == "delivered" and found["work"]["headSha"] == head and found["state"] == "awaiting_checks"
+
+
+def test_mark_runs_and_report_run_id(setup):
+    service, repo, tid = setup
+    created = work.get(service, "draft", tid)["work"]
+    assert created["mark"] == "OP-" + tid[3:9].upper() and created["runs"] == []
+    head = agent_commit(repo)  # větev už existuje → relace zamkne fromSha
+    first = work.run(service, "draft", tid, {"sessionId": "s1", "agent": "dev"}, NOW)["work"]["runs"][0]
+    assert first["fromSha"] == head and first["startedAt"] == NOW
+    again = work.run(service, "draft", tid, {"sessionId": "s1", "transcriptPath": "/t.jsonl"}, "2026-11-06T11:00:00Z")
+    (only,) = again["work"]["runs"]
+    assert only["runId"] == first["runId"] and only["startedAt"] == NOW and only["transcriptPath"] == "/t.jsonl"
+    assert only["agent"] == "dev"
+    work.run(service, "draft", tid, {"sessionId": "s2", "agent": "other"}, NOW)
+    head = agent_commit(repo, name="v.txt")
+    done = work.report(service, "draft", tid, head, [{"name": "npm test", "status": "green"}], None, NOW, "agent:dev")
+    assert done["work"]["headRunId"] == first["runId"] and done["work"]["checks"][0]["runId"] == first["runId"]
+    odd = work.report(service, "draft", tid, head, [], None, NOW, "human")  # bez shodného agenta: poslední relace
+    assert odd["work"]["headRunId"] == odd["work"]["runs"][-1]["runId"]
+
+
+def test_mark_collision_takes_next_chars(setup):
+    service, repo, tid = setup
+    row = rows.add(service.root, "draft", "Druhý", "work")
+    twin = "tk_" + tid[3:9] + "a" * 26  # stejných prvních 6 znaků
+    with work.store_for(service, "draft") as store:
+        store.insert(twin, "main", "issued", {"essence": "x", "build": "y", "doneCriteria": ["z"]}, {"pins": []}, NOW)
+    found = work.attach(service, "draft", twin, {"rowId": row["id"], "branch": "feat/dva", "baseBranch": "develop"}, NOW, root=repo)
+    assert found["work"]["mark"] == "OP-" + twin[9:15].upper()

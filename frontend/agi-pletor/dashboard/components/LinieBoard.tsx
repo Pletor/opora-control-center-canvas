@@ -108,6 +108,7 @@ export default function LinieBoard({ layout, selected, onPick, onRename, onFold 
           {tip && (
             <div className="pletor-dashboard__linie-tip" style={{ left: Math.min(tip.x + 16, layout.width - TIP_W), top: Math.max(tip.y - 70, 4) }}>
               <strong className="pletor-dashboard__linie-tip-title">{tip.hover.title}</strong>
+              {tip.hover.mark && <span><span className="pletor-dashboard__linie-tip-key">značka</span>{tip.hover.mark}</span>}
               <span><span className="pletor-dashboard__linie-tip-key">stav</span>{tip.hover.state}</span>
               <span><span className="pletor-dashboard__linie-tip-key">vznik</span>{tip.hover.created}</span>
               <span><span className="pletor-dashboard__linie-tip-key">začlenění</span>{tip.hover.merged}</span>

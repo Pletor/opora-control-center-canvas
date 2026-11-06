@@ -52,6 +52,10 @@ Hlášení říká: která větev, jaké SHA, jaký cíl, co chybí.
 - `uv run python tools/linie.py report --check "npm test=green"` po commitu a testech (pošle HEAD a kontroly); commit kuličku neuzavírá.
 - `uv run python tools/linie.py merge` jen přes službu OPORY; 409 vypíše důvod. Přijetí za člověka nezapisuj. Exit 3 = evidence nedostupná, kód zachovej a hlas blokaci.
 
+## Vodotisk
+
+Každý commit úkolu nese trailer `Opora-Mark: OP-…` (značka je ve výpisu `linie task`). Komentář `# OP-….<krok>: proč` patří jen k podstatě kroku, ne k každé funkci. Před hlášením „hotovo“ spusť `uv run python tools/linie.py trace`. Stavy hran: `verified` je doloženo z Gitu a evidence, `claimed` je jen tvrzení agenta, `inferred` je odvozeno z větve bez značky, `missing` hrana chybí (pravdivý stav práce mimo proces).
+
 ## Git operace
 
 - `topic -> develop` a `develop -> main`: merge commit. Squash jen u krátkých `feat/*` a `fix/*`.

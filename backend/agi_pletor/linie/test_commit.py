@@ -33,7 +33,7 @@ def test_trailer_names_card_and_preview_matches_branch(setup, tmp_path):  # noqa
     service, repo, _ = setup
     run(repo, "checkout", "-q", "-b", "feat/uzel", "develop")
     (repo / "k.txt").write_text("k", encoding="utf-8")
-    run(repo, "add", "k.txt"), run(repo, "commit", "-q", "-m", "karta\n\nOpora-Node: hero")
+    run(repo, "add", "k.txt"), run(repo, "commit", "-q", "-m", "karta\n\nOpora-Node: hero@2\nOpora-Mark: OP-ABCDEF")
     sha = run(repo, "rev-parse", "HEAD")
     run(repo, "checkout", "-q", "main")
     folder = tmp_path / "pletor"
@@ -42,6 +42,6 @@ def test_trailer_names_card_and_preview_matches_branch(setup, tmp_path):  # noqa
         f'{{"p": {{"slug": "p", "branch": "feat/uzel", "state": "running", "sha": "{sha}", "port": 1, "url": "http://x"}}}}',
         encoding="utf-8")
     found = commit_mod.detail(service, "draft", "main", repo, sha, folder, **NO_PR)
-    assert found["commit"]["trailers"] == {"node": "hero", "execution": None}
+    assert found["commit"]["trailers"] == {"node": "hero", "execution": None, "mark": "OP-ABCDEF"}
     assert found["ticket"]["card"]["id"] == "hero" and "ohCard=hero" in found["ticket"]["card"]["link"]
     assert found["preview"] is None  # port 1 neposlouchá → náhled není živý

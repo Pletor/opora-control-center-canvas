@@ -11,6 +11,7 @@ import { failureText } from "../logic/linie-work";
 import LinieBoard from "./LinieBoard";
 import LinieDetail, { type LinieAct } from "./LinieDetail";
 import LinieCommit from "./LinieCommit";
+import LinieTrace from "./LinieTrace";
 import LinieGraph from "./LinieGraph";
 import LinieLegend from "./LinieLegend";
 import LinieRowForm from "./LinieRowForm";
@@ -36,6 +37,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
   const [picked, setPicked] = useState(() => new URLSearchParams(location.search).get("ticket") ?? "");
   const [hint, setHint] = useState(() => new URLSearchParams(location.search).get("branch") ?? "");
   const [commit, setCommit] = useState("");
+  const [trace, setTrace] = useState("");
   const query = new URLSearchParams({ project, workspace }).toString();
   const fail = (failure: unknown) => setError(failureText(failure, "Načtení selhalo."));
   const poll = usePolling(() => Promise.all([
@@ -51,11 +53,11 @@ export default function DashboardLinie({ project, workspace }: { project: string
   );
 
   useEffect(() => {
-    if (!commit) return;
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setCommit(""); };
+    if (!commit && !trace) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") { if (trace) setTrace(""); else setCommit(""); } };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [commit]);
+  }, [commit, trace]);
 
   const plotRef = useRef<HTMLDivElement>(null);
   const box = useElementBox(plotRef, true);
@@ -95,7 +97,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
       <div className="pletor-dashboard__linie">
         <div className="pletor-dashboard__linie-graph" ref={plotRef}>
           {selected ? (
-            <LinieDetail ticketId={selected} query={query} main={board.mapping.main} onAct={act} onClose={close} />
+            <LinieDetail ticketId={selected} query={query} main={board.mapping.main} onAct={act} onClose={close} onPickTrace={setTrace} />
           ) : mode === "editor" ? (
             <LinieBoard layout={layout} selected={selected} onPick={setPicked}
               onRename={(id, name) => void write(`/rows/${encodeURIComponent(id)}`, { name }, `Řádek přejmenován na ${name}.`, "PATCH")}
@@ -104,8 +106,11 @@ export default function DashboardLinie({ project, workspace }: { project: string
             <LinieGraph layout={layoutGraph(view.lanes)} selected={hint} links={links} onPick={pickBranch} onPickCommit={setCommit} />
           )}
         </div>
-        {commit ? (
-          <LinieCommit sha={commit} query={query} onClose={() => setCommit("")} onPickTicket={(id) => { setCommit(""); setPicked(id); }} />
+        {trace ? (
+          <LinieTrace mark={trace} query={query} onClose={() => setTrace("")}
+            onPickTicket={(id) => { setTrace(""); setCommit(""); setPicked(id); }} onPickCommit={(sha) => { setTrace(""); setCommit(sha); }} />
+        ) : commit ? (
+          <LinieCommit sha={commit} query={query} onClose={() => setCommit("")} onPickTicket={(id) => { setCommit(""); setPicked(id); }} onPickTrace={setTrace} />
         ) : (
         <section className="pletor-dashboard__linie-card pletor-dashboard__linie-card--main" aria-label="Main">
           <h2 className="pletor-dashboard__linie-card-title">Main</h2>

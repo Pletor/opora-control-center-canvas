@@ -10,7 +10,7 @@ export type LinkKind = "follows" | "planned" | "merged";
 /** `git` = řádek odvozený ze skutečné větve bez ticketu (jen ke čtení), `ahead` = commity před rodičem. */
 export type BoardRow = { id: string; name: string; type: RowType; branch: string; baseBranch: string; baseSha: string; target: string; collapsed: boolean; fixed: boolean; git: boolean; ahead: number };
 export type BoardBall = {
-  ticketId: string; rowId: string; title: string; state: BallState; stateLabel: string; branch: string; headSha7: string;
+  ticketId: string; mark: string; rowId: string; title: string; state: BallState; stateLabel: string; branch: string; headSha7: string;
   createdAt: string; mergedAt: string; counts: { commits: number; prs: number; merges: number }; links: { to: string; kind: LinkKind }[];
 };
 export type Board = { rows: BoardRow[]; balls: BoardBall[]; mapping: { main: string; develop: string }; realMerges: { sha: string; target: string; at: string; title: string }[] };
@@ -44,7 +44,7 @@ export function boardView(raw: unknown): Board {
     const b = rec(item), c = rec(b.counts);
     const state = pick(b.state, STATES, "open");
     return {
-      ticketId: str(b.ticketId), rowId: str(b.rowId), title: str(b.title), state, stateLabel: str(b.stateLabel) || STATE_LABEL[state],
+      ticketId: str(b.ticketId), mark: str(b.mark), rowId: str(b.rowId), title: str(b.title), state, stateLabel: str(b.stateLabel) || STATE_LABEL[state],
       branch: str(b.branch), headSha7: str(b.headSha7), createdAt: str(b.createdAt), mergedAt: str(b.mergedAt),
       counts: { commits: num(c.commits), prs: num(c.prs), merges: num(c.merges) },
       links: list(b.links).map((link) => ({ to: str(rec(link).to), kind: pick(rec(link).kind, KINDS, "follows") })).filter((link) => link.to),
@@ -55,7 +55,7 @@ export function boardView(raw: unknown): Board {
 }
 
 export type Point = { x: number; y: number };
-export type Hover = { title: string; state: string; created: string; merged: string; counts: string; branch: string };
+export type Hover = { mark: string; title: string; state: string; created: string; merged: string; counts: string; branch: string };
 export type LaidRow = BoardRow & { top: number; height: number; y: number; color: string; branchText: string; mappingText: string };
 export type LaidBall = { ticketId: string; rowId: string; title: string; label: string; stateLabel: string; fill: Fill; x: number; y: number; color: string; hover: Hover };
 /** `openEnd` = cíl plánu bez kuličky: kreslí se přerušovaný kroužek. Bod merge má jen `merged`. */
@@ -110,7 +110,7 @@ export function layoutBoard(board: Board, span = SPAN): BoardLayout {
     lastX.set(row.id, x);
     balls.push({
       ticketId: ball.ticketId, rowId: row.id, title: ball.title, label: clip(ball.title), stateLabel: ball.stateLabel, fill: FILL[ball.state], x, y: row.y, color: row.color,
-      hover: { title: ball.title, state: ball.stateLabel, created: when(ball.createdAt), merged: ball.mergedAt ? when(ball.mergedAt) : "—",
+      hover: { mark: ball.mark, title: ball.title, state: ball.stateLabel, created: when(ball.createdAt), merged: ball.mergedAt ? when(ball.mergedAt) : "—",
         counts: `${ball.counts.commits} | ${ball.counts.prs} | ${ball.counts.merges}`, branch: ball.branch ? `${ball.branch} @ ${ball.headSha7 || "—"}` : "bez větve" },
     });
   }

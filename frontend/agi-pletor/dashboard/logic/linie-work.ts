@@ -5,7 +5,7 @@ import { list, rec, str } from "./view-common";
  * Backend vrací ticket ploše (`{ticketId, body, status, work, state, …}`); obálku `{ticket, work}` bere taky.
  */
 export type WorkDetail = {
-  ticketId: string; title: string; essence: string; build: string; doneCriteria: string; status: string;
+  ticketId: string; mark: string; title: string; essence: string; build: string; doneCriteria: string; status: string;
   state: string; stateLabel: string; next: string;
   branch: string; baseBranch: string; baseSha: string; headSha: string; target: string;
   checks: { name: string; status: string; sha: string }[];
@@ -28,7 +28,7 @@ export function workDetail(raw: unknown): WorkDetail {
   const w = rec(root.work ?? ticket.work);
   const acceptance = opt(w.acceptance), allowed = opt(w.mergeAllowed), merged = opt(w.merged), preview = opt(w.preview), pr = opt(root.pr ?? ticket.pr);
   return {
-    ticketId: str(ticket.ticketId ?? ticket.id), title: str(w.title) || str(ticket.title) || str(body.essence).split("\n")[0],
+    ticketId: str(ticket.ticketId ?? ticket.id), mark: str(w.mark), title: str(w.title) || str(ticket.title) || str(body.essence).split("\n")[0],
     essence: str(body.essence), build: str(body.build), doneCriteria: list(body.doneCriteria).map(str).join("\n") || str(body.doneCriteria), status: str(ticket.status),
     state: str(root.state), stateLabel: str(root.stateLabel), next: str(root.next),
     branch: str(w.branch), baseBranch: str(w.baseBranch), baseSha: str(w.baseSha), headSha: str(w.headSha), target: str(w.target),

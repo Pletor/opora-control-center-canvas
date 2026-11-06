@@ -1,7 +1,8 @@
 """Agent v terminálu nad úkolem Linie (docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §4), jen standardní knihovna.
 
     uv run python tools/linie.py task [--ticket tk_…] [--project P --workspace W]
-    uv run python tools/linie.py report [--check "npm test=green"]… [--sha HEAD]
+    uv run python tools/linie.py report [--check "npm test=green"]… [--sha HEAD] [--allow-unmarked]
+    uv run python tools/linie.py trace [--mark OP-…]
     uv run python tools/linie.py status | preview | merge | defer | resume | block --reason "…"
 
 Server je v OPORA_BASE_URL (výchozí http://127.0.0.1:8740), identita OPORA_AGENT_NAME → `X-Opora-Actor`, token brány
@@ -13,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -22,6 +24,7 @@ DEFAULT_BASE = "http://127.0.0.1:8740"
 API = "/api/pletor/linie"
 STATE = Path(".opora") / "linie.json"
 GATE = Path(".opora") / "gate.json"
+SESSION = Path(".opora") / "session.json"  # zapisuje hook SessionStart (tools/opora_session_hook.py)
 TIMEOUT = 30
 EXIT_REFUSED, EXIT_CONTEXT, EXIT_DOWN = 1, 2, 3
 _open = build_opener(ProxyHandler({})).open  # loopback bez systémové proxy; testy ho podvrhnou
@@ -134,6 +137,10 @@ def task(cwd, args):
         raise Stop(EXIT_CONTEXT, f"Jiný kontext: očekává se {work.get('branch')} v {expected}, jsi na "
                                  f"{branch or '(žádná větev)'} v {top or cwd}. Nezačínej, nic nezahazuj.")
     remember(cwd, ticket_id, args)
+    session = read_json(Path(cwd) / SESSION)
+    call(cwd, "POST", f"/work/{quote(ticket_id)}/run", {
+        "sessionId": session.get("sessionId") or os.environ.get("OPORA_SESSION_ID") or uuid.uuid4().hex,
+        "agent": os.environ.get("OPORA_AGENT_NAME") or "terminal", "transcriptPath": session.get("transcriptPath")})
     ticket = found.get("ticket") or {}
     brief = ticket.get("body") or ticket
     dirty = git(cwd, "status", "--porcelain")
@@ -143,6 +150,9 @@ def task(cwd, args):
              f"Stav: {found.get('stateLabel') or found.get('state')}; další krok: {work.get('next') or '-'}"]
     lines += [f"{label}: {brief[key]}" for key, label in (("essence", "Podstata"), ("build", "Stavba"),
                                                          ("doneCriteria", "Hotovo když")) if brief.get(key)]
+    mark = work.get("mark")
+    lines += [f"Vodotisk: {mark}", f'Commit: trailer "Opora-Mark: {mark}"; podstata v kódu "# {mark}.<krok>: proč"'] \
+        if mark else ["Vodotisk: neevidován"]
     lines.append("Necommitnuté změny:\n" + dirty if dirty else "Necommitnuté změny: žádné")
     return "\n".join(lines)
 
@@ -170,10 +180,48 @@ def report(cwd, args):
     sha = git(cwd, "rev-parse", args.sha or "HEAD")
     if not sha:
         raise Stop(EXIT_CONTEXT, f"Commit {args.sha or 'HEAD'} v {cwd} neexistuje.")
+    mark = (call(cwd, "GET", f"/work/{quote(find_ticket(cwd, args))}").get("work") or {}).get("mark")
+    if mark and not args.allow_unmarked \
+            and f"Opora-Mark: {mark}" not in git(cwd, "log", "-1", "--format=%B", sha).splitlines():
+        raise Stop(EXIT_CONTEXT, f"Commit {sha[:7]} nemá řádek \"Opora-Mark: {mark}\". Doplň ho "
+                                 f"(`git commit --amend`, jen u vlastního nesdíleného commitu), nebo použij "
+                                 f"--allow-unmarked u cizího commitu či úklidu.")
     return post(cwd, args, "report", {"sha": sha, "checks": checks, "worktree": str(cwd)})
 
 
-COMMANDS = {"task": task, "status": status, "report": report,
+def trace(cwd, args):
+    mark = args.mark or (call(cwd, "GET", f"/work/{quote(find_ticket(cwd, args))}").get("work") or {}).get("mark")
+    if not mark:
+        raise Stop(EXIT_CONTEXT, "Úkol nemá vodotisk (starý ticket); zadej --mark OP-….")
+    t = call(cwd, "GET", f"/trace/{quote(mark)}")
+    ticket, card = t.get("ticket") or {}, t.get("card") or {}
+
+    def flat(value):  # PR, přijetí, … jako "klíč=hodnota"; tvar hran určuje server
+        return ", ".join(f"{k}={v}" for k, v in value.items() if v not in (None, "", [], {})) if value else "-"
+
+    out = [f"== {mark}: {ticket.get('title') or '-'} ==", "Proč",
+           f"  karta: {card.get('name') or '-'}{' ' + card['link'] if card.get('link') else ''}; "
+           f"revize: {t.get('revision') or '-'}",
+           f"  podstata: {(ticket.get('body') or {}).get('essence') or '-'}"]
+    out += [f"  krok {step.get('order')}: {step.get('title')}" for step in t.get("plan") or []]
+    out.append("Kdo")
+    out += [f"  {r.get('agent')} {r.get('startedAt')} od {(r.get('fromSha') or '')[:7] or '-'} {r.get('status')}"
+            for r in t.get("runs") or []] or ["  žádná relace"]
+    out.append("Co")
+    out += [f"  {c.get('sha7')} {c.get('title')} {c.get('status')} {c.get('runId') or 'bez relace'}"
+            for c in t.get("commits") or []]
+    out += [f"  {c.get('path')}:{c.get('line')} {c.get('symbol') or '-'} {c.get('status')}"
+            for c in t.get("code") or []]
+    out.append("Kde")
+    out += [f"  {label}: {flat(t.get(key))}" for key, label in (("pr", "PR"), ("acceptance", "přijetí"),
+                                                                  ("merged", "začlenění"), ("preview", "náhled"))]
+    out += [f"  kontrola: {flat(check)}" for check in t.get("checks") or []]
+    out.append("Mezery")
+    out += [f"  {gap.get('text')}" for gap in t.get("gaps") or []] or ["  žádné"]
+    return "\n".join(out + ["", t.get("sentence") or ""]).rstrip()
+
+
+COMMANDS = {"task": task, "status": status, "report": report, "trace": trace,
             "block": lambda cwd, args: post(cwd, args, "block", {"reason": args.reason})}
 COMMANDS |= {action: lambda cwd, args, action=action: post(cwd, args, action)
              for action in ("preview", "merge", "defer", "resume")}
@@ -189,6 +237,9 @@ def parser():
         if name == "report":
             command.add_argument("--check", action="append", default=[], help='"npm test=green"')
             command.add_argument("--sha", help="výchozí HEAD")
+            command.add_argument("--allow-unmarked", action="store_true", help="přeskočí kontrolu Opora-Mark")
+        if name == "trace":
+            command.add_argument("--mark", help="OP-…, výchozí značka úkolu")
         if name == "block":
             command.add_argument("--reason", required=True)
     return root
