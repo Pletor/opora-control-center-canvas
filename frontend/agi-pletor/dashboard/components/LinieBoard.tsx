@@ -88,6 +88,8 @@ export default function LinieBoard({ layout, selected, chips, onPick, onRename, 
               ) : (
                 <span className={`pletor-dashboard__linie-row-name${row.branch ? " pletor-dashboard__linie-row-name--focusable" : ""}`} style={{ color: row.color }}
                   title={[row.branch && "klik = zaměřit", renamable(row) && "dvojklik = přejmenovat"].filter(Boolean).join(", ") || label(row)}
+                  role={row.branch ? "button" : undefined} tabIndex={row.branch ? 0 : undefined}
+                  onKeyDown={row.branch ? (event) => { if (event.key === "Enter") onFocus(row.branch); } : undefined}
                   onClick={row.branch ? () => { clearTimeout(clickTimer.current); clickTimer.current = setTimeout(() => onFocus(row.branch), CLICK_MS); } : undefined}
                   onDoubleClick={renamable(row) ? () => { clearTimeout(clickTimer.current); setEditing(row.id); setValue(row.name); } : undefined}>{label(row)}</span>
               )}
@@ -120,7 +122,7 @@ export default function LinieBoard({ layout, selected, chips, onPick, onRename, 
                 className={`pletor-dashboard__linie-pick${ball.ticketId === selected ? " pletor-dashboard__linie-pick--selected" : ""}`}
                 onClick={() => onPick(ball.ticketId)} onKeyDown={key(ball)}
                 onMouseEnter={() => setTip(ball)} onMouseLeave={() => setTip(null)} onFocus={() => setTip(ball)} onBlur={() => setTip(null)}>
-                <LinieBall fill={ball.fill} color={ball.color} toColor={ball.toColor} x={ball.x} y={ball.y} />
+                <LinieBall fill={ball.fill} color={ball.color} toColor={ball.toColor !== ball.color ? ball.toColor : undefined} x={ball.x} y={ball.y} />
                 <text x={ball.x} y={ball.y + 26} className="pletor-dashboard__linie-ball-name">{ball.label}</text>
                 <text x={ball.x} y={ball.y + 39} className="pletor-dashboard__linie-ball-state">{ball.stateLabel}</text>
               </g>

@@ -42,7 +42,9 @@ describe("layoutBoard", () => {
     expect(layout.rows[2].branchText).toBe("větev: topic/knihovna");
   });
   it("x podle času, y podle řádku, výplň podle stavu; sbalený řádek kuličky skryje", () => {
-    expect(ball("tk_3").x).toBeCloseTo(PAD + (24 / 72) * SPAN);
+    // osa začíná první kuličkou (4. 11. 10:00) a končí posledním časem (6. 11. 10:00)
+    expect(ball("tk_3").x).toBe(PAD);
+    expect(ball("tk_1").x).toBeCloseTo(PAD + (24 / 48) * SPAN);
     expect(ball("tk_1").y).toBe(2 * ROW_THIN + ROW_OPEN + ROW_OPEN / 2);
     expect(ball("tk_2").x - ball("tk_1").x).toBe(MIN_GAP);
     expect([ball("tk_1").fill, ball("tk_2").fill, ball("tk_3").fill]).toEqual(["done", "open", "merged"]);
@@ -64,7 +66,9 @@ describe("layoutBoard", () => {
     expect(ball("tk_1").hover.mark).toBe("OP-3F9A1C");
     expect(ball("tk_2").hover.mark).toBe("");
     expect(ball("tk_1").hover).toMatchObject({ title: "Panel detailu karty", state: "hotovo, ještě nezačleněno", merged: "—", counts: "3 | 1 | 0", branch: "feat/detail-karty @ 9c8050f" });
-    expect(layout.merges).toEqual([{ x: PAD, y: ROW_THIN / 2, sha7: "abcdef0", title: "develop → main", color: "#4ade80" }]);
+    expect(layout.merges).toEqual([]); // merge 3. 11. je starší než první kulička, osa ho nekreslí
+    const inside = layoutBoard(boardView({ ...boardFixture, realMerges: [{ ...boardFixture.realMerges[0], at: "2026-11-05T10:00:00Z" }] }));
+    expect(inside.merges).toEqual([{ x: PAD + SPAN / 2, y: ROW_THIN / 2, sha7: "abcdef0", title: "develop → main", color: "#4ade80" }]);
     expect(layout.ticks).toHaveLength(3);
     expect(layout.width).toBeGreaterThanOrEqual(PAD + SPAN + PAD);
   });
@@ -85,8 +89,8 @@ describe("layoutBoard", () => {
     const row = withGit.rows[5];
     expect([row.git, row.ahead, row.fixed]).toEqual([true, 4, false]);
     expect(layoutBoard(withGit).rows[5].branchText).toBe("větev: feat/x · 4 před develop · bez úkolu");
-    expect(ball("tk_3").x).toBeCloseTo(PAD + (24 / 72) * SPAN);
-    expect(layoutBoard(board, 2000).balls.find((b) => b.ticketId === "tk_3")!.x).toBeCloseTo(PAD + (24 / 72) * 2000);
+    expect(ball("tk_1").x).toBeCloseTo(PAD + (24 / 48) * SPAN);
+    expect(layoutBoard(board, 2000).balls.find((b) => b.ticketId === "tk_1")!.x).toBeCloseTo(PAD + (24 / 48) * 2000);
   });
 });
 

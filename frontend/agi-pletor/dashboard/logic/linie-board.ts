@@ -85,8 +85,11 @@ const time = (iso: string) => { const t = Date.parse(iso); return Number.isNaN(t
 
 /** `span` = šířka časové osy; volající ji odvodí z šířky plátna, aby osa vyplnila obrazovku (nejméně SPAN). */
 export function layoutBoard(board: Board, span = SPAN): BoardLayout {
-  const times = [...board.balls.flatMap((b) => [b.createdAt, b.mergedAt]), ...board.realMerges.map((m) => m.at)].map(time).filter((t): t is number => t !== null);
-  const min = Math.min(...times), max = Math.max(...times);
+  const ok = (t: number | null): t is number => t !== null;
+  const ballTimes = board.balls.flatMap((b) => [b.createdAt, b.mergedAt]).map(time).filter(ok);
+  const times = [...ballTimes, ...board.realMerges.map((m) => m.at).map(time).filter(ok)];
+  // Osa začíná prvním dnem s kuličkou; starší skutečné merge leží vlevo od osy a nekreslí se.
+  const min = Math.min(...(ballTimes.length ? ballTimes : times)), max = Math.max(...times);
   const xOf = (iso: string) => { const t = time(iso); return t === null ? PAD : PAD + (max > min ? ((t - min) / (max - min)) * span : span / 2); };
 
   let top = 0;
@@ -141,7 +144,7 @@ export function layoutBoard(board: Board, span = SPAN): BoardLayout {
   const byBranch = new Map(rows.map((row) => [row.branch, row]));
   const merges = board.realMerges.flatMap((m) => {
     const row = byBranch.get(m.target);
-    return row && !row.collapsed && time(m.at) !== null ? [{ x: xOf(m.at), y: row.y, sha7: m.sha.slice(0, 7), title: m.title, color: row.color }] : [];
+    return row && !row.collapsed && time(m.at) !== null && xOf(m.at) >= PAD ? [{ x: xOf(m.at), y: row.y, sha7: m.sha.slice(0, 7), title: m.title, color: row.color }] : [];
   });
 
   const seen = new Set<string>();
