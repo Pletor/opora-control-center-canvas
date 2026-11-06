@@ -54,7 +54,7 @@ export default function PletorDashboard({ project, workspace, onBack }: Props) {
         {part === "mozek" && <DashboardBrain project={project} workspace={workspace} />}
         {part === "hlas" && <DashboardVoice />}
         {part === "srdce" && <DashboardHeart project={project} workspace={workspace} />}
-        {part === "linie" && <DashboardLinie project={project} />}
+        {part === "linie" && <DashboardLinie project={project} workspace={workspace} />}
         {part === "podklady" && <DashboardContext project={project} workspace={workspace} />}
         {part === "rozhovor" && <DashboardMessages project={project} workspace={workspace} />}
         {part === "monitoring" && <DashboardMonitoring project={project} />}

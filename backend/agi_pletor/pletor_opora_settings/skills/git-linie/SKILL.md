@@ -46,6 +46,12 @@ Hlášení říká: která větev, jaké SHA, jaký cíl, co chybí.
 - Náhled se spouští z Velínu (část Linie) nad worktree větve, na vlastním portu a s kopií dat. Nikdy ne přes merge do `main` ani restartem 8740.
 - Nasazení je samostatná akce po sloučení: ff pull, build, restart, ověření. Pak člověk zapíše nasazené SHA do Velínu. Merge sám nic nenasazuje.
 
+## Nástroj v terminálu
+
+- `uv run python tools/linie.py task` před editací: ověří, že jsi v repozitáři/worktree a na větvi úkolu; exit 2 = jiný kontext, nezačínej a nic nezahazuj.
+- `uv run python tools/linie.py report --check "npm test=green"` po commitu a testech (pošle HEAD a kontroly); commit kuličku neuzavírá.
+- `uv run python tools/linie.py merge` jen přes službu OPORY; 409 vypíše důvod. Přijetí za člověka nezapisuj. Exit 3 = evidence nedostupná, kód zachovej a hlas blokaci.
+
 ## Git operace
 
 - `topic -> develop` a `develop -> main`: merge commit. Squash jen u krátkých `feat/*` a `fix/*`.

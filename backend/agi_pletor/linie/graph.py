@@ -1,15 +1,15 @@
 """Linie jako git-flow obrázek (kontrakt §5): svislé linie main / develop / pracovní větve s commity.
 
-`graph(root, folder)` → `{lanes: [{name, role, parent, sha, base, commits, acceptance, preview, pr}], active}`.
+`graph(root, folder, accepted)` → `{lanes: [{name, role, parent, sha, base, commits, acceptance, preview, pr}], active}`.
 Commity linie jsou nejstarší první; `base` je merge-base s rodičem (odbočení). Git přes `integrations.gitio.git`,
-chyba gitu je `ValueError`. PR z `gh` je jen doplněk: chybí-li gh nebo selže, `pr` je `null`.
+chyba gitu je `ValueError`. Přijetí `accepted` = `{větev: work.acceptance}` z ticketů (routa). PR z `gh` je jen doplněk: chybí-li gh nebo selže, `pr` je `null`.
 """
 import json
 import shutil
 import subprocess
 from datetime import UTC, datetime
 
-from backend.agi_pletor.linie import acceptance, branches, previews
+from backend.agi_pletor.linie import branches, previews
 from backend.integrations.gitio import git
 
 TIMEOUT = branches.TIMEOUT
@@ -25,6 +25,13 @@ def _commits(root, *args):
         rows.append({"sha": sha, "sha7": sha[:7], "title": title, "parents": parents.split(),
                      "at": datetime.fromisoformat(at).astimezone(UTC).isoformat().replace("+00:00", "Z")})
     return rows
+
+
+def stamped(stored, head):
+    """Záznam přijetí s `valid`: zkrácené sha (7+) platí jako předpona plné hlavy větve; jinak None."""
+    if not isinstance(stored, dict):
+        return None
+    return {**stored, "valid": bool(stored.get("sha")) and head.startswith(stored["sha"])}
 
 
 def gh_prs(root):
@@ -47,7 +54,7 @@ def gh_prs(root):
     return prs
 
 
-def graph(root, folder, *, pr_lookup=gh_prs):
+def graph(root, folder, accepted=None, *, pr_lookup=gh_prs):
     found = branches.summary(root)
     rows = {b["name"]: b for b in found["branches"]}
     if "main" not in rows:
@@ -57,7 +64,7 @@ def graph(root, folder, *, pr_lookup=gh_prs):
     when = {name: int(at) for name, _, at in (line.partition("\t") for line in stamps.splitlines()) if at.isdigit()}
     unmerged = set(git(root, "for-each-ref", "--no-merged", "main", "refs/heads", "--format=%(refname:short)",
                        timeout=TIMEOUT).splitlines())
-    accepted = acceptance.read(folder)["branches"]
+    accepted = accepted or {}
     running = {p.get("branch"): p for p in previews.status(folder)}
     # shortcut: aktivní téma = nesloučené větve mladší než špička main (poslední přijaté vydání);
     # po M2 nahradí vazba na ticket.
@@ -82,7 +89,7 @@ def graph(root, folder, *, pr_lookup=gh_prs):
             commits = (_commits(root, "-n", "31", name, "--not", base + "^@") if name == "develop"
                        else _commits(root, "-n", "30", f"{row['parent']}..{name}"))
         lanes.append({"name": name, "role": row["role"], "parent": row["parent"], "sha": row["sha"], "base": base,
-                      "commits": commits, "acceptance": acceptance.stamped(accepted.get(name), row["sha"]),
+                      "commits": commits, "acceptance": stamped(accepted.get(name), row["sha"]),
                       "preview": running.get(name), "pr": prs.get(name)})
     active = max(sorted(work), key=lambda name: when.get(name, 0), default=None)
     return {"lanes": lanes, "active": active}

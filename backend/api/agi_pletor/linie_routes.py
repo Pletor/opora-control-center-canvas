@@ -1,22 +1,23 @@
 """Routy Linie ve Velínu (docs/navrhy/2026-11-06-velin-git-linie.md §5), prefix `/api/pletor/linie`, jen člověk.
 
-- `GET /` → `{main, develop, server, deployed, branches, previews, enforcement}`.
-- `GET /graph` → `{lanes, active, server, deployed, enforcement}` (git-flow obrázek, `linie/graph.py`).
+- `GET /?project` → `{main, develop, server, deployed, branches, previews, enforcement}`.
+- `GET /graph?project` → `{lanes, active, server, deployed, enforcement}` (git-flow obrázek, `linie/graph.py`).
+  Přijetí větví se čte z ticketů projektu (`work.acceptance`); bez `project` není nic přijato.
 - `GET /diff?branch&target` → `{commits: [{sha7, title}], stat, files}`.
 - `POST /previews {branch, project}` → záznam náhledu (`building`); `DELETE /previews/{slug}` → stop;
   `GET /previews/{slug}/log` → `{build, server}`.
-- `POST /accept {branch, sha, target, note}`, `DELETE /accept/{branch}` → stav přijetí.
-- `POST /deployed {sha}` → stav přijetí s `deployed`.
-Agent dostane 403 na všechno: přijetí a nasazení zapisuje jen člověk z UI. Logika je v `backend/agi_pletor/linie/`.
+- `POST /deployed {sha}` → `{deployed}`.
+Agent dostane 403 na všechno: nasazení zapisuje jen člověk z UI. Editor s kuličkami a přijetí práce jsou
+v `linie_work_routes.py`. Logika je v `backend/agi_pletor/linie/`.
 """
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from backend.agi_pletor.linie import acceptance, branches, graph, previews
+from backend.agi_pletor.linie import acceptance, branches, graph, previews, work
 from backend.agi_pletor.linie.view import linie_view
-from backend.api.agi_pletor.models import LinieAcceptIn, LinieDeployedIn, LiniePreviewIn
+from backend.api.agi_pletor.models import LinieDeployedIn, LiniePreviewIn
 from backend.api.agi_pletor.pletor_routes import _check
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas.activity_log import require_human
@@ -45,15 +46,22 @@ def create_linie_router(service, pletor, root=None):
         except GateError as error:
             return JSONResponse(error.body(), status_code=error.status)
 
+    def accepted(project):
+        if not project:
+            return {}
+        _check(service, project, "main")
+        return work.accepted(service, project)
+
     @router.get("/")
-    def state(request: Request):
-        return guarded(request, lambda: linie_view(pletor.folder, root))
+    def state(request: Request, project: str = ""):
+        return guarded(request, lambda: linie_view(pletor.folder, root, accepted(project)))
 
     @router.get("/graph")
-    def graph_state(request: Request):
+    def graph_state(request: Request, project: str = ""):
         def act():
-            view = linie_view(pletor.folder, root)
-            data = graph.graph(root, pletor.folder)
+            found = accepted(project)
+            view = linie_view(pletor.folder, root, found)
+            data = graph.graph(root, pletor.folder, found)
             for lane in data["lanes"]:  # origin sha pro karty MAIN a DEVELOP
                 summary = view.get(lane["name"])
                 lane["remote"] = summary.get("remote") if isinstance(summary, dict) else None
@@ -81,17 +89,8 @@ def create_linie_router(service, pletor, root=None):
     def preview_log(request: Request, slug: str):
         return guarded(request, lambda: previews.log(pletor.folder, slug))
 
-    @router.post("/accept")
-    def accept(request: Request, body: LinieAcceptIn):
-        return guarded(request, lambda: acceptance.accept(pletor.folder, body.branch, body.sha, body.target,
-                                                          body.note, _now()))
-
-    @router.delete("/accept/{branch:path}")
-    def revoke(request: Request, branch: str):
-        return guarded(request, lambda: acceptance.revoke(pletor.folder, branch))
-
     @router.post("/deployed")
     def deployed(request: Request, body: LinieDeployedIn):
-        return guarded(request, lambda: acceptance.set_deployed(pletor.folder, body.sha, _now()))
+        return guarded(request, lambda: {"deployed": acceptance.set_deployed(pletor.folder, body.sha, _now())})
 
     return router

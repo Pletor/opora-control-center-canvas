@@ -1,7 +1,7 @@
 /* Linie: člověk vidí vývoj jako metro mapu, ne jako seznam. Vlevo na tmavém podkladu svislé linie main (zelená),
    develop (modrá) a témata (oranžová, experiment fialový); větev odbočuje a vrací se obloukem, u špičky visí štítek
-   přijetí nebo bublina náhledu. Vpravo úzký sloupec 320 px se třemi kartami, každá s levým okrajem v barvě své linie,
-   aby oko spojilo kartu s čarou. Dole přes celou šířku jedna fialová lišta s pravidlem, které platí pro všechno nad ní. */
+   přijetí nebo bublina náhledu. Stejné barvy nese editor kuliček. Vpravo úzký sloupec 320 px s kartou MAIN se zeleným
+   levým okrajem, aby oko spojilo kartu s hlavní čarou. Dole přes celou šířku jedna fialová lišta s pravidlem, které platí pro všechno nad ní. */
 .pletor-dashboard__linie {
   --linie-main: #4ade80;
   --linie-develop: #60a5fa;
@@ -73,12 +73,7 @@
 .pletor-dashboard__linie-badge--pr rect { stroke: var(--linie-experiment); }
 .pletor-dashboard__linie-badge--pr text { fill: var(--linie-experiment); }
 
-/* Karty vpravo: nadpis velkými písmeny v barvě linie, pod ním odrážky „kdo co dělá“ a teprve pak ovládání. */
-.pletor-dashboard__linie-side {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+/* Karta vpravo: nadpis velkými písmeny v barvě linie, pod ním odrážky „kdo co dělá“ a teprve pak ovládání. */
 .pletor-dashboard__linie-card {
   display: flex;
   flex-direction: column;
@@ -91,8 +86,6 @@
 .pletor-dashboard__linie-card p {
   margin: 0;
 }
-.pletor-dashboard__linie-card--work { --linie-color: var(--linie-feat); }
-.pletor-dashboard__linie-card--develop { --linie-color: var(--linie-develop); }
 .pletor-dashboard__linie-card--main { --linie-color: var(--linie-main); }
 .pletor-dashboard__linie-card-title {
   margin: 0;
@@ -107,24 +100,6 @@
 }
 .pletor-dashboard__linie-points li::marker {
   color: var(--linie-color);
-}
-.pletor-dashboard__linie-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 100%;
-}
-.pletor-dashboard__linie-preview .pletor-dashboard__tools {
-  flex-wrap: wrap;
-}
-.pletor-dashboard__link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--pletor-accent);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
 }
 .pletor-dashboard__tag--warn {
   background: transparent;

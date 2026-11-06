@@ -1,7 +1,7 @@
 """Graf Linie z dočasného repozitáře: které větve mají linii, odbočení, commity nejstarší první, přijetí, PR."""
 import pytest
 
-from backend.agi_pletor.linie import acceptance, graph
+from backend.agi_pletor.linie import graph
 from backend.agi_pletor.linie.test_branches import commit, make_repo, run
 
 OLD, NEW, NEWEST = "2026-01-01T10:00:00+01:00", "2026-02-01T10:00:00Z", "2026-03-01T10:00:00Z"
@@ -14,7 +14,7 @@ def test_graph(tmp_path, monkeypatch):
     run(repo, "checkout", "-q", "fix/old")
     commit(repo, "old.txt")  # nesloučená, ale stejně stará jako main → bez linie
     run(repo, "branch", "feat/merged", "main")  # sloučená, ale s přijetím → linie
-    acceptance.accept(folder, "feat/merged", run(repo, "rev-parse", "main"), "develop", "", "t")
+    accepted = {"feat/merged": {"sha": run(repo, "rev-parse", "main"), "by": "human"}}  # work.acceptance z ticketu
     monkeypatch.setenv("GIT_COMMITTER_DATE", NEW)
     run(repo, "checkout", "-q", "develop")
     develop_tip = commit(repo, "dev.txt")
@@ -23,7 +23,7 @@ def test_graph(tmp_path, monkeypatch):
     head = commit(repo, "e.txt")
     run(repo, "checkout", "-q", "main")
 
-    found = graph.graph(repo, folder, pr_lookup=lambda root: {"feat/a": {"number": 7, "state": "OPEN", "url": "u",
+    found = graph.graph(repo, folder, accepted, pr_lookup=lambda root: {"feat/a": {"number": 7, "state": "OPEN", "url": "u",
                                                                           "base": "topic/1-t"}})
     lanes = {lane["name"]: lane for lane in found["lanes"]}
     main = run(repo, "rev-parse", "main")

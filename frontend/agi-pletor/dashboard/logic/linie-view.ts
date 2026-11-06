@@ -1,6 +1,6 @@
 import { list, rec, str, unavailable, type Raw } from "./view-common";
 
-/** Linie (docs/navrhy/2026-11-06-velin-git-linie.md §5): odpovědi `GET /api/pletor/linie/graph` a `/diff` na bezpečný pohled. */
+/** Linie (docs/navrhy/2026-11-06-velin-git-linie.md §5): odpověď `GET /api/pletor/linie/graph` (Git graf a karta MAIN) na bezpečný pohled. */
 export type LiniePreview = { slug: string; state: string; url: string; sha: string };
 export type LinieAcceptance = { sha: string; target: string; at: string; note: string; valid: boolean };
 export type LinieCommit = { sha: string; sha7: string; title: string; at: string; parents: string[] };
@@ -17,7 +17,6 @@ export type LinieGraphView = {
   enforcement: string;
   problem: string;
 };
-export type DiffView = { commits: { sha7: string; title: string }[]; stat: string; files: number };
 
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 /** Sekce bez dat nebo s `{error}` je null; problém se hlásí zvlášť v `problem`. */
@@ -65,40 +64,4 @@ export function graphView(raw: unknown): LinieGraphView {
     enforcement: str(root.enforcement) || "nevynuceno",
     problem: [root.lanes, root.server, root.deployed].map(unavailable).filter(Boolean).join(" · "),
   };
-}
-
-export function diffView(raw: unknown): DiffView {
-  const root = rec(raw);
-  return { commits: list(root.commits).map((item) => ({ sha7: str(rec(item).sha7), title: str(rec(item).title) })), stat: str(root.stat), files: num(root.files) };
-}
-
-const ROLES: Record<string, string> = { main: "stabilní základ", develop: "společná vývojová", topic: "téma", feat: "pracovní", experiment: "experiment", fix: "oprava", hotfix: "hotfix", other: "jiná" };
-export const roleLabel = (role: string) => ROLES[role] ?? ROLES.other;
-
-export function acceptanceLabel(lane: LinieLane): string {
-  const a = lane.acceptance;
-  if (!a) return "nepřijato";
-  return a.valid ? `přijato ${shortSha(a.sha)} do ${a.target}` : `zastaralé (přijato ${shortSha(a.sha)}, teď ${shortSha(lane.sha)})`;
-}
-
-const PREVIEW: Record<string, string> = { building: "sestavuje se…", running: "běží", failed: "selhal", stopped: "zastaven" };
-export const previewLabel = (preview: LiniePreview | null) => (preview ? PREVIEW[preview.state] ?? preview.state : "bez náhledu");
-
-/** Pracovní větev = vše kromě main a develop; ty jsou cíle, ne kandidáti přijetí. */
-export const isWork = (lane: LinieLane) => !["main", "develop"].includes(lane.role) && !["main", "develop"].includes(lane.name);
-export const canAccept = (lane: LinieLane) => isWork(lane) && !!lane.sha && !!lane.parent;
-
-/** Karta PRACOVNÍ VĚTEV: vybraná, jinak aktivní (server na ní stojí), jinak poslední pracovní větev. */
-export function workLane(lanes: LinieLane[], picked: string, active: string): LinieLane | null {
-  const work = lanes.filter(isWork);
-  return work.find((lane) => lane.name === picked) ?? work.find((lane) => lane.name === active) ?? work[work.length - 1] ?? null;
-}
-
-export const diffSentence = (target: string, diff: DiffView) => `Do ${target} by přešlo ${diff.files} souborů, ${diff.commits.length} commitů.`;
-
-/** Posledních `count` řádků logu náhledu (sestavení, pak server). */
-export function logTail(raw: unknown, count = 40): string {
-  const root = rec(raw);
-  const lines = [str(root.build), str(root.server)].filter(Boolean).join("\n").split("\n");
-  return lines.slice(-count).join("\n");
 }

@@ -19,3 +19,27 @@ export const linieFixture = {
   deployed: null,
   enforcement: "nevynuceno",
 };
+
+/** Testovací odpověď `GET /api/pletor/linie/board` podle skici: pevné Main a Develop, téma, práce se dvěma kuličkami, oprava. */
+export const boardFixture = {
+  mapping: { main: "main", develop: "develop" },
+  rows: [
+    { id: "main", name: "Main", type: "main", ticketId: null, branch: "main", base: null, target: null, collapsed: false, order: 0, fixed: true },
+    { id: "develop", name: "Develop", type: "develop", ticketId: null, branch: "develop", base: null, target: null, collapsed: false, order: 1, fixed: true },
+    { id: "row_t", name: "Knihovna prvků", type: "topic", ticketId: null, branch: "topic/knihovna", base: { branch: "develop", sha: "d1" }, target: "develop", collapsed: false, order: 2 },
+    { id: "row_k", name: "Komponenty", type: "work", ticketId: null, branch: null, base: { branch: "topic/knihovna", sha: "t1" }, target: "topic/knihovna", collapsed: false, order: 3 },
+    { id: "row_f", name: "Řešení", type: "fix", ticketId: null, branch: "fix/popis", base: null, target: "develop", collapsed: true, order: 4 },
+  ],
+  balls: [
+    { ticketId: "tk_1", rowId: "row_k", title: "Panel detailu karty", state: "accepted_unmerged", stateLabel: "hotovo, ještě nezačleněno", branch: "feat/detail-karty", headSha7: "9c8050f",
+      createdAt: "2026-11-05T10:00:00Z", mergedAt: null, counts: { commits: 3, prs: 1, merges: 0 },
+      links: [{ to: "tk_2", kind: "follows" }, { to: "row_t", kind: "planned" }] },
+    { ticketId: "tk_2", rowId: "row_k", title: "Datový uzel", state: "open", stateLabel: "otevřeno", branch: "feat/datovy-uzel", headSha7: "288491d",
+      createdAt: "2026-11-05T10:30:00Z", mergedAt: null, counts: { commits: 4, prs: 0, merges: 0 }, links: [{ to: "row_t", kind: "planned" }] },
+    { ticketId: "tk_3", rowId: "row_t", title: "Kostra knihovny", state: "merged", stateLabel: "začleněno", branch: "topic/knihovna", headSha7: "6b0e4f2",
+      createdAt: "2026-11-04T10:00:00Z", mergedAt: "2026-11-06T10:00:00Z", counts: { commits: 2, prs: 1, merges: 1 }, links: [{ to: "develop", kind: "merged" }] },
+    { ticketId: "tk_4", rowId: "row_f", title: "Oprava: ukládání popisu", state: "blocked", stateLabel: "blokováno", branch: "fix/popis", headSha7: null,
+      createdAt: "2026-11-06T09:00:00Z", mergedAt: null, counts: { commits: 0, prs: 0, merges: 0 }, links: [] },
+  ],
+  realMerges: [{ sha: "abcdef0123", target: "main", parents: ["a", "b"], at: "2026-11-03T10:00:00Z", title: "develop → main" }],
+};

@@ -117,13 +117,68 @@ class LiniePreviewIn(BaseModel):
     project: str = Field(min_length=1, max_length=200)
 
 
-class LinieAcceptIn(BaseModel):
-    """Přijetí přesně této hlavy větve do cíle; tvar sha a cíle ověřuje `linie/acceptance.py`."""
+class LinieRowIn(BaseModel):
+    """Řádek editoru Linie (docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §3); tvar ověřuje `linie/rows.py`."""
     model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=120)
+    type: Literal["topic", "work", "experiment", "fix"]
+    base: dict[str, Any] | None = None
+    target: str | None = Field(default=None, max_length=200)
+
+
+class LinieRowPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    target: str | None = Field(default=None, max_length=200)
+    collapsed: bool | None = None
+
+
+class LinieAttachIn(BaseModel):
+    """Práce Linie k ticketu: řádek, větev (agent ji založí z `baseBranch`), cíl."""
+    model_config = ConfigDict(extra="forbid")
+    rowId: str = Field(min_length=1, max_length=80)
     branch: str = Field(min_length=1, max_length=200)
+    baseBranch: str = Field(min_length=1, max_length=200)
+    target: str | None = Field(default=None, max_length=200)
+    title: str | None = Field(default=None, max_length=200)
+
+
+class LinieWorkIn(LinieAttachIn):
+    """Nový ticket z editoru: tělo pro dělníka (`essence`, `build`, `doneCriteria`) ověří `ticket_model.body_payload`."""
+    title: str = Field(min_length=1, max_length=200)
+    essence: str
+    build: str
+    doneCriteria: list[str]
+
+
+class LinieCheckIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=200)
+    status: Literal["green", "red", "pending"]
+
+
+class LinieReportIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     sha: str = Field(min_length=7, max_length=40)
-    target: str = Field(min_length=1, max_length=200)
+    checks: list[LinieCheckIn] = Field(default_factory=list, max_length=50)
+    worktree: str | None = Field(default=None, max_length=500)
+
+
+class LinieAcceptIn(BaseModel):
+    """Přijetí přesně aktuální hlavy ticketu (`sha == headSha`)."""
+    model_config = ConfigDict(extra="forbid")
+    sha: str = Field(min_length=7, max_length=40)
     note: str = Field(default="", max_length=2000)
+
+
+class LinieAllowIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    target: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class LinieBlockIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=1, max_length=2000)
 
 
 class LinieDeployedIn(BaseModel):
