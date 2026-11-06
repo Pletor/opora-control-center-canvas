@@ -105,19 +105,3 @@
   background: transparent;
   color: var(--pletor-dim);
 }
-
-/* Lišta pravidla: přes obě kolonky, fialový rámeček jako na obrázku, velká věta a pod ní pravidlo menším písmem. */
-.pletor-dashboard__linie-rule {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 10px;
-  border: 2px solid var(--linie-experiment);
-  border-radius: 10px;
-}
-.pletor-dashboard__linie-rule strong {
-  color: var(--linie-experiment);
-  font-size: 15px;
-}

@@ -105,10 +105,6 @@ export default function DashboardLinie({ project, workspace }: { project: string
             onClick={() => void write("/deployed", { sha: view.server.sha }, `Nasazené zapsáno: ${shortSha(view.server.sha)}.`)}>Zapsat nasazené = HEAD serveru</button>
         </section>
         {mode === "editor" && !selected && <LinieLegend board={board} />}
-        <footer className="pletor-dashboard__linie-rule">
-          <strong>Každý náhled: větev + commit + vlastní testovací data.</strong>
-          <span>Pravidlo: merge až po kontrolách a tvém přijetí konkrétního výsledku.</span>
-        </footer>
       </div>
     </>
   );
