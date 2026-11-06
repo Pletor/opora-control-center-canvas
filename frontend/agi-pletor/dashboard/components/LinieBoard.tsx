@@ -57,7 +57,7 @@ export default function LinieBoard({ layout, selected, onPick, onRename, onFold 
       <div className="pletor-dashboard__linie-rows">
         <div className="pletor-dashboard__linie-axis">řádek · větev · cíl</div>
         {layout.rows.map((row) => (
-          <div key={row.id} className="pletor-dashboard__linie-row" style={{ minHeight: row.height, height: row.height }}>
+          <div key={row.id} className={`pletor-dashboard__linie-row pletor-dashboard__linie-row--depth-${Math.min(row.depth, 4)}`} style={{ minHeight: row.height, height: row.height }}>
             <div className="pletor-dashboard__linie-row-top">
               {row.fixed || row.git
                 ? <span className="pletor-dashboard__linie-lock" title={row.git ? "větev z gitu bez úkolu" : "pevný řádek"}>{row.git ? "⎇" : "■"}</span>
@@ -75,7 +75,7 @@ export default function LinieBoard({ layout, selected, onPick, onRename, onFold 
             <div className={`pletor-dashboard__linie-meta${row.branch ? "" : " pletor-dashboard__linie-meta--none"}`}>{row.branchText}</div>
             {!row.collapsed && (row.fixed
               ? <div className="pletor-dashboard__linie-meta">{row.mappingText}</div>
-              : <div className="pletor-dashboard__linie-meta">z {row.baseBranch || "—"} → cíl {row.target || "zatím neurčeno"}</div>)}
+              : <div className="pletor-dashboard__linie-meta">z {row.parent || row.baseBranch || "—"} → cíl {row.target || "zatím neurčeno"}</div>)}
           </div>
         ))}
       </div>

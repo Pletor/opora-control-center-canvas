@@ -26,7 +26,7 @@ export const boardFixture = {
   rows: [
     { id: "main", name: "Main", type: "main", ticketId: null, branch: "main", base: null, target: null, collapsed: false, order: 0, fixed: true },
     { id: "develop", name: "Develop", type: "develop", ticketId: null, branch: "develop", base: null, target: null, collapsed: false, order: 1, fixed: true },
-    { id: "row_t", name: "Knihovna prvků", type: "topic", ticketId: null, branch: "topic/knihovna", base: { branch: "develop", sha: "d1" }, target: "develop", collapsed: false, order: 2 },
+    { id: "row_t", name: "Knihovna prvků", type: "items", ticketId: null, branch: "topic/knihovna", parent: "develop", depth: 2, base: { branch: "develop", sha: "d1" }, target: "develop", collapsed: false, order: 2 },
     { id: "row_k", name: "Komponenty", type: "work", ticketId: null, branch: null, base: { branch: "topic/knihovna", sha: "t1" }, target: "topic/knihovna", collapsed: false, order: 3 },
     { id: "row_f", name: "Řešení", type: "fix", ticketId: null, branch: "fix/popis", base: null, target: "develop", collapsed: true, order: 4 },
   ],

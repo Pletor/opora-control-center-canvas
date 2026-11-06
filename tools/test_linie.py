@@ -82,6 +82,25 @@ def test_task_remembers_ticket_and_session_restart_finds_it(repo, monkeypatch, c
     assert [call[1] for call in server.calls] == [f"/work/{TICKET}", f"/work/{TICKET}/run"] * 2
 
 
+def test_task_prints_parent_and_target(repo, monkeypatch, capsys):
+    server = Server(repo)
+    server.routes[("GET", f"/work/{TICKET}")]["work"] |= {"baseSha": "abcdef0123", "target": "develop"}
+    out = run(monkeypatch, capsys, server, repo, "task", "--ticket", TICKET)[1]
+    assert "Rodič: develop@abcdef0; začlení se do: develop" in out and "Relace:" not in out
+
+
+def test_task_survives_missing_run_route_but_not_other_errors(repo, monkeypatch, capsys):
+    def refused(status):
+        return HTTPError("u", status, "x", {}, io.BytesIO(json.dumps({"detail": "Neznámá cesta API"}).encode()))
+
+    code, out = run(monkeypatch, capsys, Server(repo, {("POST", f"/work/{TICKET}/run"): refused(404)}), repo, "task",
+                    "--ticket", TICKET)
+    assert code == 0 and "Relace: server ji neeviduje (starší verze)" in out and "Úkol" in out
+    code, out = run(monkeypatch, capsys, Server(repo, {("POST", f"/work/{TICKET}/run"): refused(409)}), repo, "task",
+                    "--ticket", TICKET)
+    assert code == 1 and "Server odmítl (409" in out
+
+
 def test_task_without_memory_picks_ball_by_current_branch(repo, monkeypatch, capsys):
     board = {"balls": [{"ticketId": TICKET, "branch": "feat/x"}, {"ticketId": "tk_jiny", "branch": "feat/y"}]}
     server = Server(repo, {("GET", "/board"): board})

@@ -66,6 +66,8 @@ export default function DashboardLinie({ project, workspace }: { project: string
   const layout = layoutBoard(board, Math.max(SPAN, (box?.width ?? 0) - ROWS_COLUMN - 2 * PAD));
   const view = graphView(graphRaw);
   const main = view.lanes.find((lane) => lane.role === "main");
+  // Rodič se hledá i mezi větvemi, které jsou jen v gitu (bez řádku a kuličky), jinak by mezičlánek spadl na develop.
+  const heads = [...new Set([board.mapping.main, board.mapping.develop, ...board.rows.map((row) => row.branch), ...board.balls.map((ball) => ball.branch), ...view.lanes.map((lane) => lane.name)].filter(Boolean))];
   const selected = picked || (hint ? board.balls.find((ball) => ball.branch === hint)?.ticketId ?? "" : "");
   const pickBranch = (name: string) => { setPicked(""); setHint(name); };
   const close = () => { setPicked(""); setHint(""); };
@@ -91,7 +93,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
         <p className="pletor-dashboard__linie-pletor"><strong>Pletor: kde pracujeme</strong> {pletorSentence(board)}</p>
       </div>
       {form === "row" && <LinieRowForm onClose={() => setForm("")} onSubmit={(body) => write("/rows", body, "Řádek přidán (větev se nezaložila).")} />}
-      {form === "work" && <LinieWorkForm rows={board.rows} onClose={() => setForm("")} onSubmit={(body) => write("/work", body, "Kulička zadána (větev založí agent).")} />}
+      {form === "work" && <LinieWorkForm rows={board.rows} heads={heads} onClose={() => setForm("")} onSubmit={(body) => write("/work", body, "Kulička zadána (větev založí agent).")} />}
       <p className="pletor-dashboard__note">Přidání řádku větev nezakládá a přejmenování ji nepřejmenuje. Dvojklik na název = přejmenovat, šipka = sbalit.</p>
 
       <div className="pletor-dashboard__linie">

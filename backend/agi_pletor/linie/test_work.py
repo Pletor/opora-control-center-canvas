@@ -12,13 +12,13 @@ BODY = {"essence": "Proč a k čemu.", "build": "Datový uzel.", "doneCriteria":
 
 
 def cloned(path):
-    """Repozitář z `make_repo` s bare originem (main, develop, topic/1-t nahoře), bez sítě."""
+    """Repozitář z `make_repo` s bare originem (main, develop, items/1-t nahoře), bez sítě."""
     path.mkdir(parents=True, exist_ok=True)
     origin = path / "origin.git"
     run(path, "init", "-q", "--bare", "-b", "main", str(origin))
     repo = make_repo(path / "repo")
     run(repo, "remote", "add", "origin", str(origin))
-    run(repo, "push", "-q", "origin", "main", "develop", "topic/1-t")
+    run(repo, "push", "-q", "origin", "main", "develop", "items/1-t")
     run(repo, "fetch", "-q", "origin")
     return repo
 
@@ -149,3 +149,22 @@ def test_mark_collision_takes_next_chars(setup):
         store.insert(twin, "main", "issued", {"essence": "x", "build": "y", "doneCriteria": ["z"]}, {"pins": []}, NOW)
     found = work.attach(service, "draft", twin, {"rowId": row["id"], "branch": "feat/dva", "baseBranch": "develop"}, NOW, root=repo)
     assert found["work"]["mark"] == "OP-" + twin[9:15].upper()
+
+
+def test_hierarchy_derives_parent_and_refuses_wrong_one(setup):
+    service, repo, _ = setup
+    row = rows.add(service.root, "draft", "Strom", "work")["id"]
+
+    def made(branch, **extra):
+        return work.create(service, "draft", "main", BODY, {"rowId": row, "branch": branch, **extra}, NOW,
+                           root=repo)["work"]
+
+    run(repo, "branch", "feat/velin", "develop")
+    derived = made("feat/velin-linie")  # rodič z existujícího prefixu, cíl = rodič
+    assert (derived["baseBranch"], derived["target"]) == ("feat/velin", "feat/velin")
+    assert derived["baseSha"] == run(repo, "rev-parse", "feat/velin")
+    assert refused(lambda: made("feat/velin-linie", baseBranch="main")).code == "branch_hierarchy"
+    assert refused(lambda: made("feat/velinzzz", baseBranch="feat/velin")).code == "branch_hierarchy"
+    assert refused(lambda: made("feat/velin-linie", target="develop")).code == "target_not_parent"
+    assert made("items/tlacitko", target="feat/velin")["target"] == "feat/velin"  # items smí do feat
+    assert made("fix/x", baseBranch="feat/velin")["target"] == "feat/velin"

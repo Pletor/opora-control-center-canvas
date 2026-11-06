@@ -138,18 +138,26 @@ def task(cwd, args):
                                  f"{branch or '(žádná větev)'} v {top or cwd}. Nezačínej, nic nezahazuj.")
     remember(cwd, ticket_id, args)
     session = read_json(Path(cwd) / SESSION)
-    call(cwd, "POST", f"/work/{quote(ticket_id)}/run", {
-        "sessionId": session.get("sessionId") or os.environ.get("OPORA_SESSION_ID") or uuid.uuid4().hex,
-        "agent": os.environ.get("OPORA_AGENT_NAME") or "terminal", "transcriptPath": session.get("transcriptPath")})
+    try:
+        call(cwd, "POST", f"/work/{quote(ticket_id)}/run", {
+            "sessionId": session.get("sessionId") or os.environ.get("OPORA_SESSION_ID") or uuid.uuid4().hex,
+            "agent": os.environ.get("OPORA_AGENT_NAME") or "terminal", "transcriptPath": session.get("transcriptPath")})
+        run_line = None
+    except Stop as stop:
+        if stop.code != EXIT_REFUSED or "(404" not in stop.text:  # jen chybějící routa; ostatní chyby jako dosud
+            raise
+        run_line = "Relace: server ji neeviduje (starší verze)"
     ticket = found.get("ticket") or {}
     brief = ticket.get("body") or ticket
     dirty = git(cwd, "status", "--porcelain")
     lines = [f"Úkol {ticket_id}: {ticket.get('title', '')}".rstrip(),
-             (f"Větev {work.get('branch')} z {work.get('baseBranch')}@{(work.get('baseSha') or '')[:7]}, "
-              f"cíl {work.get('target') or '-'}"),
+             f"Větev {work.get('branch')}",
+             (f"Rodič: {work.get('baseBranch')}@{(work.get('baseSha') or '')[:7]}; "
+              f"začlení se do: {work.get('target') or '-'}"),
              f"Stav: {found.get('stateLabel') or found.get('state')}; další krok: {work.get('next') or '-'}"]
     lines += [f"{label}: {brief[key]}" for key, label in (("essence", "Podstata"), ("build", "Stavba"),
                                                          ("doneCriteria", "Hotovo když")) if brief.get(key)]
+    lines += [run_line] if run_line else []
     mark = work.get("mark")
     lines += [f"Vodotisk: {mark}", f'Commit: trailer "Opora-Mark: {mark}"; podstata v kódu "# {mark}.<krok>: proč"'] \
         if mark else ["Vodotisk: neevidován"]

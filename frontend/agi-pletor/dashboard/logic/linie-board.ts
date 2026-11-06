@@ -4,11 +4,11 @@ import { list, rec, str } from "./view-common";
  * Editor Linie (docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §3, §6): odpověď `GET /board` na bezpečný pohled
  * a rozložení řádků a kuliček. Čas běží zleva doprava na společné ose, řádek = svislá pozice. Čistá geometrie bez Reactu.
  */
-export type RowType = "main" | "develop" | "topic" | "work" | "experiment" | "fix";
+export type RowType = "main" | "develop" | "items" | "work" | "experiment" | "fix";
 export type BallState = "open" | "awaiting_checks" | "blocked" | "deferred" | "accepted_unmerged" | "merged" | "stale";
 export type LinkKind = "follows" | "planned" | "merged";
 /** `git` = řádek odvozený ze skutečné větve bez ticketu (jen ke čtení), `ahead` = commity před rodičem. */
-export type BoardRow = { id: string; name: string; type: RowType; branch: string; baseBranch: string; baseSha: string; target: string; collapsed: boolean; fixed: boolean; git: boolean; ahead: number };
+export type BoardRow = { id: string; name: string; type: RowType; branch: string; baseBranch: string; baseSha: string; target: string; collapsed: boolean; fixed: boolean; git: boolean; ahead: number; parent: string; depth: number };
 export type BoardBall = {
   ticketId: string; mark: string; rowId: string; title: string; state: BallState; stateLabel: string; branch: string; headSha7: string;
   createdAt: string; mergedAt: string; counts: { commits: number; prs: number; merges: number }; links: { to: string; kind: LinkKind }[];
@@ -22,8 +22,8 @@ export const STATE_LABEL: Record<BallState, string> = {
   merged: "začleněno", accepted_unmerged: "hotovo, ještě nezačleněno", open: "otevřeno", awaiting_checks: "čeká na ověření",
   blocked: "blokováno", deferred: "odloženo", stale: "zastaralé přijetí",
 };
-export const ROW_COLOR: Record<RowType, string> = { main: "#4ade80", develop: "#60a5fa", topic: "#fb923c", work: "#c084fc", fix: "#f87171", experiment: "#a39cc4" };
-export const TYPE_LABEL: Record<RowType, string> = { main: "pevný", develop: "pevný", topic: "téma", work: "práce", experiment: "experiment", fix: "oprava" };
+export const ROW_COLOR: Record<RowType, string> = { main: "#4ade80", develop: "#60a5fa", items: "#2dd4bf", work: "#c084fc", fix: "#f87171", experiment: "#a39cc4" };
+export const TYPE_LABEL: Record<RowType, string> = { main: "pevný", develop: "pevný", items: "univerzální díl", work: "práce", experiment: "experiment", fix: "oprava" };
 
 const TYPES = Object.keys(ROW_COLOR) as RowType[];
 const STATES = Object.keys(FILL) as BallState[];
@@ -36,9 +36,9 @@ export function boardView(raw: unknown): Board {
   const mapping = { main: str(rec(root.mapping).main) || "main", develop: str(rec(root.mapping).develop) || "develop" };
   const rows: BoardRow[] = list(root.rows).map((item) => {
     const r = rec(item);
-    const type = pick(r.type, TYPES, "work");
+    const type = pick(r.type === "topic" ? "items" : r.type, TYPES, "work"); // topic zanikl, čte se jako items
     return { id: str(r.id), name: str(r.name), type, branch: str(r.branch), baseBranch: str(rec(r.base).branch), baseSha: str(rec(r.base).sha),
-      target: str(r.target), collapsed: r.collapsed === true, fixed: r.fixed === true || type === "main" || type === "develop", git: r.git === true, ahead: num(r.ahead) };
+      target: str(r.target), collapsed: r.collapsed === true, fixed: r.fixed === true || type === "main" || type === "develop", git: r.git === true, ahead: num(r.ahead), parent: str(r.parent), depth: num(r.depth) };
   }).filter((row) => row.id);
   const balls: BoardBall[] = list(root.balls).map((item) => {
     const b = rec(item), c = rec(b.counts);

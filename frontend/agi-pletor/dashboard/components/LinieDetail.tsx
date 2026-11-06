@@ -65,9 +65,10 @@ export default function LinieDetail({ ticketId, query, main, onAct, onClose, onP
           <div className="pletor-dashboard__linie-detail-card">
             <h3 className="pletor-dashboard__linie-detail-h">Větev a revize</h3>
             <Row k="větev">{d.branch || "bez větve"}</Row>
-            <Row k="báze"><span className="pletor-dashboard__mono">{d.baseBranch || "—"} @ {short(d.baseSha) || "—"}</span></Row>
+            <Row k="rodič"><span className="pletor-dashboard__mono">{d.baseBranch || "—"} @ {short(d.baseSha) || "—"}</span></Row>
             <Row k="hlava"><span className="pletor-dashboard__mono">{short(d.headSha) || "zatím bez commitu"}</span></Row>
             <Row k="cíl">{d.target || "zatím neurčeno"}</Row>
+            {d.target && !d.merged && <Row k="začlenění do">začlení se do {d.target}</Row>}
             <Row k="začlenění">{d.merged ? `${short(d.merged.sha)} do ${d.merged.target} · ${d.merged.at}` : "—"}</Row>
             {d.blocked && <Row k="blokováno">{d.blocked}</Row>}
           </div>

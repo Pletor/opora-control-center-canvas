@@ -1,45 +1,18 @@
-"""Čtení gitu pro Linii (kontrakt §5): role větví, rodič, ahead/behind, rozdíl vůči cíli. Nic nemění.
+"""Čtení gitu pro Linii (kontrakt §5): role větví, rodič (strom ze jména, `tree.py`), hloubka, ahead/behind, rozdíl vůči cíli. Nic nemění.
 
 Git běží přes `integrations.gitio.git` (bez shellu, limit 15 s, bez háčků projektu); selhání je `ValueError`
 s českou zprávou. Vrací se jen lokální větve; `origin/main` a `origin/develop` jsou zvlášť jako `remote`.
 """
+from backend.agi_pletor.linie import tree
 from backend.integrations.gitio import git
 
 TIMEOUT = 15
-ROLES = ("topic", "feat", "experiment", "fix", "hotfix")
-
-
-def role(name):
-    """Role z předpony: main, develop, topic, feat, experiment, fix, hotfix, jinak other."""
-    if name in ("main", "develop"):
-        return name
-    prefix = name.split("/", 1)[0]
-    return prefix if "/" in name and prefix in ROLES else "other"
+ROLES = tree.ROLES
+role = tree.role
 
 
 def _sha(root, ref):
     return git(root, "rev-parse", "--verify", "-q", ref + "^{commit}", timeout=TIMEOUT, optional=True) or None
-
-
-def _is_ancestor(root, older, newer):
-    return git(root, "merge-base", "--is-ancestor", older, newer, timeout=TIMEOUT, optional=True) is not None
-
-
-def _parent(root, name, heads):
-    kind = role(name)
-    if kind == "main":
-        return None
-    if kind in ("develop", "hotfix"):
-        return "main"
-    base = "develop" if "develop" in heads else "main"
-    if kind in ("topic", "experiment"):
-        return base
-    # shortcut: rodič je první topic/*, jehož HEAD je předek větve (ne nejbližší podle merge-base);
-    # stačí, dokud téma nemá víc vnořených topic větví.
-    for topic in heads:
-        if role(topic) == "topic" and topic != name and _is_ancestor(root, heads[topic], heads[name]):
-            return topic
-    return base
 
 
 def _heads(root):
@@ -63,13 +36,13 @@ def _ahead_behind(root, parent):
 def summary(root):
     """`{main:{sha, remote}, develop:{sha, remote}|None, server:{branch, sha, dirty}, branches:[...]}`."""
     heads = _heads(root)
-    parents = {name: _parent(root, name, heads) for name in heads}
-    counts = {parent: _ahead_behind(root, parent) for parent in set(parents.values()) if parent}
+    parents = {name: tree.parent(name, heads) for name in heads}
+    counts = {parent: _ahead_behind(root, parent) for parent in set(parents.values()) if parent in heads}
     branches = []
     for name, sha in sorted(heads.items()):
         parent = parents[name]
         ahead, behind = counts.get(parent, {}).get(name, (0, 0))
-        branches.append({"name": name, "role": role(name), "parent": parent, "sha": sha,
+        branches.append({"name": name, "role": role(name), "parent": parent, "depth": tree.depth(name, heads), "sha": sha,
                          "ahead": ahead, "behind": behind})
     status = git(root, "status", "--porcelain", "--untracked-files=no", timeout=TIMEOUT)
     return {

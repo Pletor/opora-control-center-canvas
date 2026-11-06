@@ -12,19 +12,21 @@ Pletor drží přehled o větvích tématu a vysvětluje ho člověku. Sám nep�
 
 ## Role větví
 
-Role se odvozuje z předpony názvu. Vztahy a přijetí eviduje Velín (část Linie), ne Git sám.
+Strom větví (`docs/navrhy/2026-11-06-linie-strom-vetvi.md`). Role se odvozuje z názvu. Vztahy a přijetí eviduje Velín (část Linie), ne Git sám.
 
-| Větev | Z čeho | Do čeho | Slučování | Přijetí člověkem |
-|---|---|---|---|---|
-| `main` | | | merge commit z `develop` (PR) | vydání |
-| `develop` | `main` | `main` | merge commit z `topic/*` nebo `feat/*` (PR) | přijatý přírůstek |
-| `topic/<id>-<nazev>` | určený commit `develop` | `develop` | merge commit, opakovaně | celý rozdíl proti `develop` |
-| `feat/<id>-<nazev>` | `topic/*`, jinak `develop` | rodič | squash nebo merge podle závislostí | podoba a chování v náhledu |
-| `experiment/<id>-<varianta>` | známý bod | nikam automaticky | | člověk rozhodne, co převzít |
-| `fix/<id>-<problem>` | větev s chybou | tatáž | squash | jako `feat` |
-| `hotfix/<id>` | nasazené SHA | `main`, pak přenos do `develop` | merge | člověk |
+```
+main                          produkce
+└─ develop                    čisté věci z vývoje, poslední filtr před main
+   ├─ items/<díl>             univerzální komponenta; do develop nebo do feat větve, která ji potřebuje
+   └─ feat/velin              kořen komponenty
+      └─ feat/velin-linie        hlavní struktura
+         ├─ feat/velin-linie-vodotisk   dílčí věc
+         └─ feat/velin-linie-strom      dílčí věc
+```
 
-Větvit se z rodiče tématu, ne z `main`. Vlak PR dál platí, ale vagony jsou `feat/*` uvnitř tématu a jejich `base` je rodič.
+`fix/*`, `hotfix/*` (z nasazeného SHA do `main`, pak přenos do `develop`) a `experiment/*` (nikam automaticky) jako dosud.
+
+Větev vzniká z rodiče podle jména (`feat/a-b` z `feat/a`, `feat/a` z `develop`) a slučuje se jen do rodiče. Kořen `feat/<a>` jde do `develop` až po poslední kontrole celé komponenty; `items/*` do `develop` nebo do feat větve, kde je díl potřeba. `develop -> main` a kořen feat `-> develop` merge commitem, squash jen u krátkých `feat/*` a `fix/*`. Vlak PR dál platí, `base` vagonu je rodič.
 
 ## Přijetí
 
@@ -37,7 +39,7 @@ Větvit se z rodiče tématu, ne z `main`. Vlak PR dál platí, ale vagony jsou 
 - V tématu jsou nepřijaté změny a chystá se postup do vyšší úrovně.
 - Pro `develop` nebo `main` chybí platné přijetí.
 - Nasazení by proběhlo bez zápisu nasazeného SHA.
-- Chystá se přepsat sdílenou větev (`main`, `develop`, `topic/*`).
+- Chystá se přepsat sdílenou větev (`main`, `develop`, `items/*`, cizí `feat/*`).
 
 Hlášení říká: která větev, jaké SHA, jaký cíl, co chybí.
 
@@ -58,7 +60,7 @@ Každý commit úkolu nese trailer `Opora-Mark: OP-…` (značka je ve výpisu `
 
 ## Git operace
 
-- `topic -> develop` a `develop -> main`: merge commit. Squash jen u krátkých `feat/*` a `fix/*`.
+- `develop -> main` a kořen feat `-> develop`: merge commit. Squash jen u krátkých `feat/*` a `fix/*`.
 - Rebase (`--onto`, force-push s lease) jen na vlastní pracovní větev vlaku. Žádný force-push na sdílené větve.
 - Žádný `reset --hard` ani `clean` jako úklid cizí práce; vyčisti jen to, co jsi sám vytvořil.
 - Před změnou směru udělej kontrolní bod (commit nebo tag na větvi), ať je kam se vrátit.

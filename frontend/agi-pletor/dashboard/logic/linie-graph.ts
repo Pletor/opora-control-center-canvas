@@ -23,12 +23,13 @@ const TITLE_MAX = 20;
 export const textWidth = (text: string) => Math.ceil(text.length * 6.6);
 export const badgeWidth = (text: string) => textWidth(text) + 16;
 
-const COLORS: Record<string, string> = { main: "#4ade80", develop: "#60a5fa", experiment: "#c084fc" };
+const COLORS: Record<string, string> = { main: "#4ade80", develop: "#60a5fa", experiment: "#c084fc", items: "#2dd4bf" };
 export const laneColor = (role: string) => COLORS[role] ?? "#fb923c";
 
 export function laneSubtitle(lane: { name: string; role: string }): string {
   if (lane.role === "main") return "Stabilní přijaté vydání";
   if (lane.role === "develop") return "Společné ověření";
+  if (lane.role === "items") return `Univerzální díl: ${lane.name.slice(lane.name.indexOf("/") + 1)}`;
   return `Téma: ${lane.name.slice(lane.name.indexOf("/") + 1)}`;
 }
 

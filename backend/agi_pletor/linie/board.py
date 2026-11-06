@@ -10,7 +10,7 @@ Editor ukazuje i skutečný stav: pracovní větev z gitu mladší než main, kt
 """
 import time
 
-from backend.agi_pletor.linie import branches
+from backend.agi_pletor.linie import branches, tree
 from backend.agi_pletor.linie import rows as rows_mod
 from backend.agi_pletor.linie import work as work_mod
 from backend.agi_pletor.linie.graph import gh_prs
@@ -49,7 +49,7 @@ def real_merges(root):
     return found
 
 
-GIT_TYPE = {"feat": "work", "hotfix": "fix"}  # role větve → typ řádku editoru
+GIT_TYPE = {"feat": "work", "hotfix": "fix"}  # role větve → typ řádku editoru (items, fix, experiment beze změny)
 
 
 def git_rows(root, rows, balls):
@@ -112,6 +112,39 @@ def _follows(tickets, balls):
         last_in_row[ball["rowId"]] = ball
 
 
+def with_tree(rows, balls, heads):
+    """Řádky s `parent` (z `base.branch`, jinak ze jména větve) a `depth`, seřazené depth-first podle `tree.order`.
+
+    Větev řádku je jeho `branch`, jinak větev první kuličky na něm; řádky bez větve jdou na konec podle `order`.
+    """
+    owner = {}
+    for ball in balls:
+        owner.setdefault(ball["rowId"], ball["branch"])
+    branch_of = {row["id"]: row.get("branch") or owner.get(row["id"]) for row in rows}
+    by_branch = {}
+    for row in rows:
+        if branch_of[row["id"]]:
+            by_branch.setdefault(branch_of[row["id"]], row)
+    parents = {}
+    for row in rows:
+        branch = branch_of[row["id"]]
+        parents[row["id"]] = (row.get("base") or {}).get("branch") or (tree.parent(branch, heads) if branch else None)
+
+    def depth(row, seen=()):
+        base = parents[row["id"]]
+        if base is None:
+            return 0 if branch_of[row["id"]] == "main" else tree.depth("develop", heads) + 1
+        above = by_branch.get(base)
+        if above is None or above is row or above["id"] in seen:
+            return tree.depth(base, heads) + 1
+        return depth(above, (*seen, row["id"])) + 1
+
+    names = tree.order({*heads, *branch_of.values()} - {None})
+    place = {name: index for index, name in enumerate(names)}
+    ordered = sorted(rows, key=lambda row: place.get(branch_of[row["id"]], len(names)))
+    return [{**row, "parent": parents[row["id"]], "depth": depth(row)} for row in ordered]
+
+
 def board(service, project, workspace, root, *, pr_lookup=gh_prs):
     """`{rows, balls, mapping, realMerges}` pro editor; kuličky v pořadí vzniku."""
     found = rows_mod.read(service.root, project)
@@ -121,5 +154,6 @@ def board(service, project, workspace, root, *, pr_lookup=gh_prs):
     balls = [_ball(ticket, ticket["work"], found["rows"], prs) for ticket in tickets]
     _follows(tickets, balls)
     extra, tips = git_rows(root, found["rows"], balls)
-    return {"rows": found["rows"] + extra, "balls": balls, "mapping": found["mapping"],
+    rows = with_tree(found["rows"] + extra, balls, set(branches._heads(root)))
+    return {"rows": rows, "balls": balls, "mapping": found["mapping"],
             "realMerges": real_merges(root) + tips}

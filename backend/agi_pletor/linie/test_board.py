@@ -29,7 +29,7 @@ def test_board_links_and_real_merges(setup):
     assert first["ticketId"] == tid and first["title"] == "Uzel" and first["state"] == "accepted_unmerged"
     assert first["links"] == [{"to": second, "kind": "follows"}, {"to": "develop", "kind": "planned"}]
     assert first["counts"] == {"commits": 1, "prs": None, "merges": 0} and first["mergedAt"] is None
-    assert follow["title"] == "Proč a k čemu." and kinds(follow) == ["planned"] and lone["links"] == []
+    assert follow["title"] == "Proč a k čemu." and kinds(follow) == ["planned"] and lone["links"] == [{"to": "main", "kind": "planned"}]  # target výchozí = baseBranch
     assert all("merged" not in kinds(ball) for ball in found["balls"])  # plán nikdy jako merged (bod 12)
     assert [m for m in found["realMerges"] if m["parents"]] == []  # špičky větví z gitu nejsou merge
 
@@ -63,3 +63,26 @@ def test_board_shows_unmerged_git_branch_without_row(setup):
     assert [(m["target"], m["sha"], m["title"]) for m in found["realMerges"] if m["target"] == "feat/sirotek"] ==         [("feat/sirotek", tip, "sirotek")]
     assert not any(row.get("git") and row["branch"] in ("develop", "feat/uzel") for row in found["rows"])  # kulička už je
     assert not any(row["branch"] == "feat/stara" for row in found["rows"])  # starší než špička main = není rozpracovaná
+
+
+def test_board_rows_carry_parent_and_depth(setup):
+    service, repo, tid = setup
+    found = board.board(service, "draft", "main", repo, pr_lookup=lambda root: {})
+    by_id = {row["id"]: row for row in found["rows"]}
+    assert [(by_id[n]["parent"], by_id[n]["depth"]) for n in ("main", "develop")] == [(None, 0), ("main", 1)]
+    uzel = by_id[work.get(service, "draft", tid)["work"]["rowId"]]
+    assert (uzel["parent"], uzel["depth"]) == ("develop", 2)
+
+
+def test_with_tree_orders_depth_first_and_chains_rows():
+    def row(id, branch, base, order=0):
+        return {"id": id, "branch": branch, "base": {"branch": base} if base else None, "order": order}
+    rows = [row("main", "main", None), row("develop", "develop", None), row("velin", None, "develop"),
+            row("linie", None, "feat/velin"), row("vodotisk", None, "feat/velin-linie"), row("volny", None, None),
+            row("items", "items/btn", "develop")]
+    balls = [{"rowId": "vodotisk", "branch": "feat/velin-linie-vodotisk"}, {"rowId": "velin", "branch": "feat/velin"},
+             {"rowId": "linie", "branch": "feat/velin-linie"}]
+    found = board.with_tree(rows, balls, {"main", "develop", "items/btn"})
+    assert [(r["id"], r["depth"]) for r in found] == [
+        ("main", 0), ("develop", 1), ("items", 2), ("velin", 2), ("linie", 3), ("vodotisk", 4), ("volny", 2)]
+    assert {r["id"]: r["parent"] for r in found}["linie"] == "feat/velin"

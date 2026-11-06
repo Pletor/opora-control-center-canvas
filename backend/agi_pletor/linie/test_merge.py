@@ -103,3 +103,13 @@ def test_push_failed(setup):
     assert work.get(service, "draft", tid)["work"]["merged"] is None
     with service.reading("draft"):
         assert TicketStore(service.db_for("draft"), "draft").get(tid)["status"] == "issued"
+
+
+def test_merge_only_into_parent(setup):
+    service, repo, tid = setup
+    head = agent_commit(repo)
+    work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
+    work.accept(service, "draft", tid, head, "", NOW)
+    work.allow_merge(service, "draft", tid, "main", NOW)  # člověk povolil cíl, který není rodič
+    assert code(service, tid) == "target_not_parent"
+    assert run(repo, "rev-parse", "main") == run(repo, "rev-parse", "origin/main")

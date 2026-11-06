@@ -9,7 +9,7 @@ import shutil
 import subprocess
 from datetime import UTC, datetime
 
-from backend.agi_pletor.linie import branches, previews
+from backend.agi_pletor.linie import branches, previews, tree
 from backend.integrations.gitio import git
 
 TIMEOUT = branches.TIMEOUT
@@ -71,7 +71,7 @@ def graph(root, folder, accepted=None, *, pr_lookup=gh_prs):
     work = {name for name, row in rows.items() if row["role"] in branches.ROLES and name in unmerged
             and when.get(name, 0) > when.get("main", 0)}
     work |= {name for name in rows if name not in ("main", "develop") and (name in accepted or name in running)}
-    for name in list(work):  # rodičovské téma musí mít vlastní linii, jinak odbočení nemá kam
+    for name in list(work):  # předci až ke kořeni musí mít vlastní linii, jinak odbočení nemá kam
         parent = rows[name]["parent"]
         while parent in rows and parent not in ("main", "develop") and parent not in work:
             work.add(parent)
@@ -79,7 +79,7 @@ def graph(root, folder, accepted=None, *, pr_lookup=gh_prs):
 
     prs = pr_lookup(root)
     lanes = []
-    for name in ["main", *(["develop"] if "develop" in rows else []), *sorted(work)]:
+    for name in [n for n in tree.order(rows) if n in ("main", "develop") or n in work]:
         row = rows[name]
         if name == "main":
             base, commits = None, _commits(root, "-n", "8", "main")

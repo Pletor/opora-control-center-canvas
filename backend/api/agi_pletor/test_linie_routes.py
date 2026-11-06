@@ -36,7 +36,7 @@ def test_linie_state_graph_and_deployed(tmp_path, repo):
         assert deployed.status_code == 200 and deployed.json()["deployed"]["sha"] == head[:7]
         assert client.get(f"{BASE}/", headers=HEADERS).json()["deployed"]["sha"] == head[:7]
 
-        diff = client.get(f"{BASE}/diff", headers=HEADERS, params={"branch": "feat/a", "target": "topic/1-t"})
+        diff = client.get(f"{BASE}/diff", headers=HEADERS, params={"branch": "feat/a", "target": "develop"})
         assert diff.status_code == 200 and diff.json()["files"] == 2 and len(diff.json()["commits"]) == 2
 
 
@@ -100,6 +100,22 @@ def test_linie_work_flow(tmp_path, repo):
         assert merged.json()["work"]["merged"]["sha"] == run(repo, "rev-parse", "origin/develop")
         board = client.get(f"{BASE}/board", headers=HEADERS, params={**q, "workspace": "main"}).json()
         assert board["balls"][0]["state"] == "merged" and board["realMerges"][0]["target"] == "develop"
+
+
+def test_linie_work_derives_parent_and_refuses_wrong_one(tmp_path, repo):
+    q = {"project": "draft", "workspace": "main"}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        row = client.post(f"{BASE}/rows", headers=HEADERS, params=q, json={"name": "Uzel", "type": "work"}).json()["id"]
+        body = {"rowId": row, "title": "Uzel", "essence": "Proč.", "build": "Uzel.", "doneCriteria": ["testy"]}
+        derived = client.post(f"{BASE}/work", headers=HEADERS, params=q, json={**body, "branch": "feat/uzel"})
+        assert derived.status_code == 200
+        assert (derived.json()["work"]["baseBranch"], derived.json()["work"]["target"]) == ("develop", "develop")
+        wrong = client.post(f"{BASE}/work", headers=HEADERS, params=q,
+                            json={**body, "branch": "feat/uzel-tlacitko", "baseBranch": "main"})
+        assert wrong.status_code == 422 and wrong.json()["code"] == "branch_hierarchy"
+        stray = client.post(f"{BASE}/work", headers=HEADERS, params=q,
+                            json={**body, "branch": "feat/jiny", "target": "main"})
+        assert stray.status_code == 422 and stray.json()["code"] == "target_not_parent"
 
 
 ATTACH = {"rowId": "main", "branch": "feat/x", "baseBranch": "develop"}

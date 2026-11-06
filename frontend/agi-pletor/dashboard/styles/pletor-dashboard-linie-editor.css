@@ -73,6 +73,17 @@
   padding: 4px 10px 4px 12px;
   border-bottom: 1px solid var(--pletor-line);
 }
+/*
+ * Strom v hlavičkách: dítě větve je odsazené o šestnáct pixelů za každou úroveň a vlevo má tenkou svislou linku,
+ * jako by viselo na rodiči. Kořeny (main, develop) stojí u okraje bez linky, takže oko samo čte, kdo pod kým pracuje.
+ */
+.pletor-dashboard__linie-row--depth-1 { padding-left: 28px; }
+.pletor-dashboard__linie-row--depth-2 { padding-left: 44px; }
+.pletor-dashboard__linie-row--depth-3 { padding-left: 60px; }
+.pletor-dashboard__linie-row--depth-4 { padding-left: 76px; }
+.pletor-dashboard__linie-row--depth-2,
+.pletor-dashboard__linie-row--depth-3,
+.pletor-dashboard__linie-row--depth-4 { border-left: 2px solid var(--pletor-line); }
 .pletor-dashboard__linie-row-top {
   display: flex;
   align-items: center;

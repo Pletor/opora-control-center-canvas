@@ -121,7 +121,7 @@ class LinieRowIn(BaseModel):
     """Řádek editoru Linie (docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §3); tvar ověřuje `linie/rows.py`."""
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=120)
-    type: Literal["topic", "work", "experiment", "fix"]
+    type: Literal["items", "work", "experiment", "fix"]
     base: dict[str, Any] | None = None
     target: str | None = Field(default=None, max_length=200)
 
@@ -138,7 +138,7 @@ class LinieAttachIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     rowId: str = Field(min_length=1, max_length=80)
     branch: str = Field(min_length=1, max_length=200)
-    baseBranch: str = Field(min_length=1, max_length=200)
+    baseBranch: str | None = Field(default=None, max_length=200)  # chybí → rodič ze jména (linie/tree.py)
     target: str | None = Field(default=None, max_length=200)
     title: str | None = Field(default=None, max_length=200)
 

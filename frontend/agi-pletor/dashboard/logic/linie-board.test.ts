@@ -9,9 +9,14 @@ const ball = (id: string) => layout.balls.find((item) => item.ticketId === id)!;
 describe("boardView", () => {
   it("mapuje řádky, kuličky a spojnice; pevné Main a Develop", () => {
     expect(board.rows.map((row) => [row.id, row.type, row.fixed])).toEqual([
-      ["main", "main", true], ["develop", "develop", true], ["row_t", "topic", false], ["row_k", "work", false], ["row_f", "fix", false]]);
+      ["main", "main", true], ["develop", "develop", true], ["row_t", "items", false], ["row_k", "work", false], ["row_f", "fix", false]]);
     expect(board.rows[3].branch).toBe("");
     expect(board.balls[0].links).toEqual([{ to: "tk_2", kind: "follows" }, { to: "row_t", kind: "planned" }]);
+  });
+  it("parent a depth ze strom odpovědi, topic se čte jako items", () => {
+    expect(board.rows[2]).toMatchObject({ type: "items", parent: "develop", depth: 2 });
+    expect(board.rows[0]).toMatchObject({ parent: "", depth: 0 });
+    expect(boardView({ rows: [{ id: "a", type: "topic" }] }).rows[0].type).toBe("items");
   });
   it("chybná odpověď nespadne a neznámý stav je otevřeno", () => {
     expect(boardView(null)).toEqual({ rows: [], balls: [], mapping: { main: "main", develop: "develop" }, realMerges: [] });
@@ -28,7 +33,7 @@ describe("layoutBoard", () => {
     expect(layout.height).toBe(4 * ROW_OPEN + ROW_FOLDED);
   });
   it("barvy podle typu, popis větve a mapování", () => {
-    expect(layout.rows.map((row) => row.color)).toEqual(["#4ade80", "#60a5fa", "#fb923c", "#c084fc", "#f87171"]);
+    expect(layout.rows.map((row) => row.color)).toEqual(["#4ade80", "#60a5fa", "#2dd4bf", "#c084fc", "#f87171"]);
     expect(layout.rows[0].mappingText).toBe("mapování: Main → main");
     expect(layout.rows[3].branchText).toBe("bez větve");
     expect(layout.rows[2].branchText).toBe("větev: topic/knihovna");

@@ -10,6 +10,7 @@ import shutil
 import threading
 from pathlib import Path
 
+from backend.agi_pletor.linie import tree
 from backend.agi_pletor.linie import work as work_mod
 from backend.agi_pletor.linie import work_state
 from backend.agi_pletor.linie.work import WorkError
@@ -102,6 +103,11 @@ def merge(service, project, ticket_id, now, *, git=gitio.git):
             return ticket
         head, target = _precheck(git, work)
         root, remote = work["repository"], f"origin/{target}"
+        heads = set((git(root, "for-each-ref", "refs/heads", "--format=%(refname:short)", optional=True) or "").split())
+        if not tree.may_merge(work["branch"], target, work.get("baseBranch"), heads):
+            raise WorkError("target_not_parent", 409, f"{work['branch']} se začleňuje do rodiče "
+                            f"{tree.parent(work['branch'], heads, work.get('baseBranch'))}, ne do {target}.",
+                            "Člověk povolí začlenění do rodiče (allow-merge).")
         git(root, "fetch", "origin", target, timeout=TIMEOUT, optional=True)
         if _rev(git, root, remote) and _ancestor(git, root, head, remote):  # merge proběhl, zápis ne: dožene se
             merged = {"sha": _merge_commit(git, root, head, remote), "target": target, "at": now, "by": "opora"}
@@ -114,8 +120,8 @@ def merge(service, project, ticket_id, now, *, git=gitio.git):
         if not _ancestor(git, root, work["baseSha"], target_sha):
             raise WorkError("not_allowed", 409, f"Báze úkolu {work['baseSha'][:7]} není ve špičce {target}.",
                             "Větev musí vycházet z cíle; nejdřív začleňte rodiče.")
-        tree = Path(service.root) / "pletor" / "linie" / "merge" / ticket_id
-        sha, pushed = _operate(git, root, tree, head, work["branch"], target, target_sha)
+        workdir = Path(service.root) / "pletor" / "linie" / "merge" / ticket_id
+        sha, pushed = _operate(git, root, workdir, head, work["branch"], target, target_sha)
         if not pushed:
             git(root, "fetch", "origin", target, timeout=TIMEOUT, optional=True)
             if not (_rev(git, root, remote) and _ancestor(git, root, head, remote)):

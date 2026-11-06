@@ -32,6 +32,17 @@ describe("layoutGraph", () => {
       { from: at("d2"), to: at("m2"), kind: "merge", color: "#60a5fa" },
     ]);
   });
+  it("vidlička z parent i pro hloubku 3 a barva items", () => {
+    const mk = (name: string, role: string, parent: string | null, sha: string, base: string | null, at: string) =>
+      ({ name, role, parent, sha, base, commits: [{ sha, sha7: sha, title: name, at, parents: base ? [base] : [] }], acceptance: null, preview: null, pr: null });
+    const deep = layoutGraph([
+      mk("feat/a", "feat", "develop", "a1", null, "2026-11-01T10:00:00Z"), mk("feat/a-b", "feat", "feat/a", "b1", "a1", "2026-11-02T10:00:00Z"),
+      mk("feat/a-b-c", "feat", "feat/a-b", "c1", "b1", "2026-11-03T10:00:00Z"), mk("items/x", "items", "develop", "x1", null, "2026-11-04T10:00:00Z"),
+    ] as never);
+    const at = (sha: string) => deep.dots.find((d) => d.sha === sha)!;
+    expect(deep.links.find((l) => l.to.x === at("c1").x)!.from).toEqual({ x: at("b1").x, y: at("b1").y });
+    expect(laneColor("items")).toBe("#2dd4bf");
+  });
   it("base mimo commity rodiče → oblouk z hlavičky rodiče", () => {
     const moved = lanes.map((lane) => (lane.name === "feat/detail-karty" ? { ...lane, base: "neznámý" } : lane));
     const fork = layoutGraph(moved).links.find((link) => link.color === "#fb923c" && link.kind === "fork")!;

@@ -9,7 +9,7 @@ import re
 import uuid
 from contextlib import contextmanager
 
-from backend.agi_pletor.linie import rows, work_state
+from backend.agi_pletor.linie import rows, tree, work_state
 from backend.brain_opora.determinism import gate
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.ticket_model import body_payload
@@ -85,16 +85,25 @@ def _mark(service, project, ticket_id):
 def _new_work(service, project, root, work_in, ticket_id):
     if work_in.get("rowId") not in {row["id"] for row in rows.read(service.root, project)["rows"]}:
         raise WorkError("row_not_found", 404, "Řádek Linie neexistuje.", "Řádky vrací GET /board.")
-    branch, base = _name(work_in.get("branch"), "branch"), _name(work_in.get("baseBranch"), "baseBranch")
-    target = work_in.get("target") and _name(work_in["target"], "target")
+    branch = _name(work_in.get("branch"), "branch")
+    out = git(root, "for-each-ref", "refs/heads", "--format=%(refname:short)", timeout=TIMEOUT, optional=True) or ""
+    heads = set(out.split())
+    base = _name(work_in["baseBranch"], "baseBranch") if work_in.get("baseBranch") else tree.parent(branch, heads)
+    if not tree.is_child(branch, base, heads):
+        raise WorkError("branch_hierarchy", 422, f"{branch} vzniká z {tree.parent(branch, heads)}, ne z {base}.",
+                        "Větev vzniká z rodiče podle jména (feat/a-b z feat/a); baseBranch lze vynechat.")
+    target = _name(work_in["target"], "target") if work_in.get("target") else base
+    if not tree.may_merge(branch, target, base, heads):
+        raise WorkError("target_not_parent", 422, f"{branch} se začleňuje do {tree.parent(branch, heads, base)}, "
+                        f"ne do {target}.", "Cíl vynechte, nebo zvolte rodiče větve.")
     base_sha = rev(root, base)
     if not base_sha:
         raise WorkError("base_missing", 422, f"Výchozí větev {base} v repozitáři neexistuje.", "Zvolte main, develop "
-                        "nebo existující topic/*.")
+                        "nebo existující větev rodiče.")
     # shortcut: repozitář je vždy OPORA sama (REPO_ROOT); `sourcePath` projektu až v M3.
     return {"rowId": work_in["rowId"], "title": (work_in.get("title") or "").strip() or None, "repository": str(root),
             "worktree": None, "mark": _mark(service, project, ticket_id), "runs": [], "branch": branch, "baseBranch": base, "baseSha": base_sha, "headSha": None,
-            "target": target or None, "checks": [], "preview": None, "acceptance": None, "mergeAllowed": None,
+            "target": target, "checks": [], "preview": None, "acceptance": None, "mergeAllowed": None,
             "merged": None, "blocked": None, "deferred": False}
 
 

@@ -26,11 +26,19 @@ def test_rows_without_git(tmp_path):
     assert [row["id"] for row in rows.read(tmp_path, "p1")["rows"]] == ["main", "develop", second["id"]]
 
 
+def test_legacy_topic_row_reads_as_items(tmp_path):
+    kept = rows.add(tmp_path, "p1", "Starý", "items")
+    path = tmp_path / "projects" / "p1" / "linie" / "rows.json"
+    path.write_text(path.read_text(encoding="utf-8").replace('"items"', '"topic"'), encoding="utf-8")
+    assert [row["type"] for row in rows.read(tmp_path, "p1")["rows"] if row["id"] == kept["id"]] == ["items"]
+
+
 @pytest.mark.parametrize("act, code", [
     (lambda root: rows.patch(root, "p1", "main", {"name": "x"}), "row_fixed"),
     (lambda root: rows.remove(root, "p1", "develop", set()), "row_fixed"),
     (lambda root: rows.patch(root, "p1", "row_nic", {"name": "x"}), "row_not_found"),
     (lambda root: rows.add(root, "p1", "x", "main"), "invalid_payload"),
+    (lambda root: rows.add(root, "p1", "x", "topic"), "invalid_payload"),
     (lambda root: rows.add(root, "p1", " ", "work"), "invalid_payload"),
     (lambda root: rows.add(root, "p1", "x", "work", None, "dev elop"), "invalid_payload"),
 ])

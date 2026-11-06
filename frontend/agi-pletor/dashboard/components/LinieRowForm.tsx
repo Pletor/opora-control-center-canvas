@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 
 type Props = { onSubmit: (body: object) => Promise<boolean>; onClose: () => void };
 
-const TYPES = [["work", "práce"], ["topic", "téma"], ["experiment", "experiment"], ["fix", "oprava"]] as const;
+const TYPES = [["items", "univerzální díl"], ["work", "práce"], ["experiment", "experiment"], ["fix", "oprava"]] as const;
 
 /** Nový řádek editoru: název, typ, výchozí bod a cíl. Řádek je jen popisek, větev nezakládá; zápis hlásí rodiči. */
 export default function LinieRowForm({ onSubmit, onClose }: Props) {

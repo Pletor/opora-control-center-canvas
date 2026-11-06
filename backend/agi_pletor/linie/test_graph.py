@@ -24,10 +24,10 @@ def test_graph(tmp_path, monkeypatch):
     run(repo, "checkout", "-q", "main")
 
     found = graph.graph(repo, folder, accepted, pr_lookup=lambda root: {"feat/a": {"number": 7, "state": "OPEN", "url": "u",
-                                                                          "base": "topic/1-t"}})
+                                                                          "base": "develop"}})
     lanes = {lane["name"]: lane for lane in found["lanes"]}
     main = run(repo, "rev-parse", "main")
-    assert [lane["name"] for lane in found["lanes"]] == ["main", "develop", "feat/a", "feat/merged", "topic/1-t"]
+    assert [lane["name"] for lane in found["lanes"]] == ["main", "develop", "feat/a", "feat/merged"]
     assert found["active"] == "feat/a"
     assert lanes["main"]["base"] is None and lanes["main"]["parent"] is None
     assert [c["sha"] for c in lanes["main"]["commits"]] == [main]
@@ -35,14 +35,27 @@ def test_graph(tmp_path, monkeypatch):
     assert lanes["develop"]["base"] == main
     assert [c["sha"] for c in lanes["develop"]["commits"]] == [main, develop_tip]
     assert lanes["develop"]["commits"][1]["parents"] == [main]
-    assert lanes["topic/1-t"]["parent"] == "develop" and lanes["topic/1-t"]["base"] == main
     feat = lanes["feat/a"]
-    assert feat["parent"] == "topic/1-t" and feat["sha"] == head
+    assert feat["parent"] == "develop" and feat["sha"] == head
     assert [c["title"] for c in feat["commits"]] == ["přidán c.txt", "přidán d.txt", "přidán e.txt"]
     assert feat["commits"][-1]["sha7"] == head[:7] and feat["pr"]["number"] == 7
     assert feat["acceptance"] is None and feat["preview"] is None
     assert lanes["feat/merged"]["acceptance"]["valid"] is True and lanes["feat/merged"]["commits"] == []
     assert lanes["develop"]["pr"] is None
+
+
+def test_graph_nested_feat_adds_ancestors_in_tree_order(tmp_path, monkeypatch):
+    monkeypatch.setenv("GIT_COMMITTER_DATE", OLD)
+    repo = make_repo(tmp_path / "r")
+    for name, base in (("feat/a-b", "feat/a"), ("feat/a-b-c", "feat/a-b"), ("feat/a-b-d", "feat/a-b")):
+        run(repo, "branch", name, base)
+    monkeypatch.setenv("GIT_COMMITTER_DATE", NEWEST)
+    run(repo, "checkout", "-q", "feat/a-b-c")
+    commit(repo, "n.txt")  # jen nejhlubší větev je aktivní, předci se doplní
+    run(repo, "checkout", "-q", "main")
+    found = graph.graph(repo, tmp_path / "p", pr_lookup=lambda root: {})
+    assert [lane["name"] for lane in found["lanes"]] == ["main", "develop", "feat/a", "feat/a-b", "feat/a-b-c"]
+    assert {lane["name"]: lane["parent"] for lane in found["lanes"]}["feat/a-b-c"] == "feat/a-b"
 
 
 def test_develop_equal_to_main(tmp_path):

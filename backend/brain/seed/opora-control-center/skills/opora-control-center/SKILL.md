@@ -96,7 +96,7 @@ Detail a tvar výsledku: [hub-loop.md](references/hub-loop.md). **Doporučená c
 1. `opora_hub.py state` (ETag, `304` = beze změny) → první **`ready`** akce `claim`; blokovanou (`human_only`,
    `budget_exhausted`, …) nikdy neopakuj.
 2. `opora_hub.py start --node N` → kontext v2, claim i zadání (`executionId`, `steps`, `next`); token jen v souboru klienta.
-3. Worktree z čerstvého `origin/main`; kroky `spec.steps` podle `dependsOn`/`order`, commit s `Opora-Node: <nodeId>` a `Opora-Mark: <mark>` z ticketu Linie, je-li;
+3. Worktree z čerstvého `origin/main` (u úkolu Linie z rodiče podle `linie task`); kroky `spec.steps` podle `dependsOn`/`order`, commit s `Opora-Node: <nodeId>` a `Opora-Mark: <mark>` z ticketu Linie, je-li;
    `build` a `tests` jednou na posledním commitu.
 4. `opora_hub.py deliver --execution E --summary "…" --check "npm test=green"` → kroky, výsledky, `local-merge`,
    check-run a při plné autonomii a splněné bráně uzavření; jinak `missing` a `next`. `deliver` přijme i vypršelý

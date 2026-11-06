@@ -8,7 +8,7 @@ Platí pro OPORU i agent-office od 2026-11-03, kdy se staví nový základ (`doc
 - **Vlak má jednoho vlastníka**, hlavní vlákno, které ho naplánovalo. Drží pořadí, rebase vagonů a slučování.
 - Vagon dělá jednu věc z kontraktu. Velikost určuje kontrakt, ne limit řádků. Nejmenší úplná změna podle ponytailu.
 - Mimo vlak, u drobných oprav, platí: větev z čerstvého `origin/main`, jeden PR.
-- Uvnitř tématu jsou vagony `feat/*` a jejich `base` je rodič (`topic/*`, jinak `develop`), ne `main`. Role větví: `docs/navrhy/2026-11-06-velin-git-linie.md` §3.
+- Uvnitř komponenty jsou vagony `feat/*` zanořené podle jména a jejich `base` je rodič (jinak `develop`), ne `main`. Strom větví: `docs/navrhy/2026-11-06-linie-strom-vetvi.md`.
 
 ## 2. Záměr před kódem
 
@@ -18,7 +18,8 @@ Platí pro OPORU i agent-office od 2026-11-03, kdy se staví nový základ (`doc
 ## 3. Slučování
 
 - Slučuje **agent sám** po ověření: cílené `uv run pytest`, `npm test`, `npm run build` zelené a výstup v PR nebo odpovědi.
-- Vlak se slučuje **zdola nahoru**. Squash jen `feat/*` a `fix/*`; `topic -> develop` a `develop -> main` jde merge commitem (zachová se ancestry). Po sloučení vagonu přepne vlastník `base` dalšího PR na rodiče tématu (u drobností `main`) a udělá rebase (`git rebase --onto origin/main <stará-base>`), pak force-push s lease na vlastní větev.
+- Větev vzniká z **rodiče podle jména** (`feat/a-b` z `feat/a`, `feat/a` z `develop`) a slučuje se **jen do rodiče**. Kořen `feat/<a>` jde do `develop` až po poslední kontrole celé komponenty; `items/*` do `develop` nebo do feat větve, kde je díl potřeba. Strom: `docs/navrhy/2026-11-06-linie-strom-vetvi.md`.
+- Vlak se slučuje **zdola nahoru**. Squash jen `feat/*` a `fix/*`; `develop -> main` a kořen feat `-> develop` jde merge commitem (zachová se ancestry). Po sloučení vagonu přepne vlastník `base` dalšího PR na rodiče (u drobností `main`) a udělá rebase (`git rebase --onto origin/main <stará-base>`), pak force-push s lease na vlastní větev.
 - Do `develop` a `main` agent slučuje jen s platným **přijetím člověkem ve Velínu** pro přesně tu hlavu (SHA) a ten cíl. Bez přijetí stop a hlášení; přijetí agent nezapisuje.
 - Sdílené `main`, `develop`, `topic/*` se nikdy nepřepisují (žádný force-push). Rebase a force-push s lease jen na vlastní větev vlaku.
 - Člověk slučování uvnitř tématu nebrzdí. Může kdykoli zastavit vlak nebo vrátit směr.

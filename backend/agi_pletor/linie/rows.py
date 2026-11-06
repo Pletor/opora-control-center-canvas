@@ -11,7 +11,7 @@ from pathlib import Path
 
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 
-TYPES = ("topic", "work", "experiment", "fix")
+TYPES = ("items", "work", "experiment", "fix")
 MAPPING = {"main": "main", "develop": "develop"}
 FIXED = [{"id": name, "name": name.capitalize(), "type": name, "ticketId": None, "branch": name, "base": None,
           "target": None, "collapsed": False, "order": order, "fixed": True} for order, name in enumerate(MAPPING)]
@@ -28,7 +28,9 @@ def _stored(data_root, project):
     except (OSError, ValueError):
         return []
     found = value.get("rows") if isinstance(value, dict) else None
-    return [row for row in found if isinstance(row, dict) and row.get("id")] if isinstance(found, list) else []
+    # staré řádky typu topic se čtou jako items (role topic zanikla)
+    return [{**row, "type": "items" if row.get("type") == "topic" else row.get("type")}
+            for row in found if isinstance(row, dict) and row.get("id")] if isinstance(found, list) else []
 
 
 def _write(data_root, project, stored):
