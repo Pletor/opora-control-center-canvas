@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { linieFixture } from "./linie-fixture";
-import { HEAD, LANE_GAP, ROW, clip, layoutGraph, laneColor, laneSubtitle } from "./linie-graph";
+import { COL, HEAD, LANE_GAP, clip, layoutGraph, laneColor, laneSubtitle } from "./linie-graph";
 import { graphView } from "./linie-view";
 
 const lanes = graphView(linieFixture).lanes;
@@ -8,17 +8,19 @@ const layout = layoutGraph(lanes);
 const dot = (sha: string) => layout.dots.find((item) => item.sha === sha)!;
 
 describe("layoutGraph", () => {
-  it("řádky podle času, nejstarší nahoře, linie po 150 px", () => {
+  it("sloupce podle času, nejstarší vlevo, linie pod sebou po 110 px, popisky střídavě nad a pod", () => {
     expect(layout.dots.map((item) => item.sha)).toEqual(["m1", "d1", "f1", "f2", "d2", "m2"]);
-    expect(dot("m1").y).toBe(HEAD + ROW / 2);
-    expect(dot("d1").y - dot("m1").y).toBe(ROW);
-    expect(layout.lanes.map((lane) => lane.x)).toEqual([40, 40 + LANE_GAP, 40 + 2 * LANE_GAP]);
-    expect(layout.height).toBe(HEAD + 6 * ROW + 40);
+    expect(dot("m1").x).toBe(HEAD + COL / 2);
+    expect(dot("d1").x - dot("m1").x).toBe(COL);
+    expect(layout.dots.map((item) => item.above)).toEqual([true, false, true, false, true, false]);
+    expect(layout.lanes.map((lane) => lane.y)).toEqual([60, 60 + LANE_GAP, 60 + 2 * LANE_GAP]);
+    expect(layout.width).toBeGreaterThanOrEqual(HEAD + 6 * COL + 40);
+    expect(layout.height).toBe(60 + 2 * LANE_GAP + 60);
   });
-  it("main a develop vedou celou výškou, téma jen od prvního do posledního commitu", () => {
+  it("main a develop vedou celou šířkou, téma jen od prvního do posledního commitu", () => {
     const [main, , feat] = layout.lanes;
-    expect([main.top, main.bottom]).toEqual([HEAD, layout.height - 16]);
-    expect([feat.top, feat.bottom]).toEqual([dot("f1").y, dot("f2").y]);
+    expect([main.x1, main.x2]).toEqual([HEAD, HEAD + 6 * COL + 40 - 16]);
+    expect([feat.x1, feat.x2]).toEqual([dot("f1").x, dot("f2").x]);
     expect(feat.label).toBe("Téma: detail-karty");
   });
   it("odbočení z base a návraty merge commitem", () => {
@@ -33,7 +35,7 @@ describe("layoutGraph", () => {
   it("base mimo commity rodiče → oblouk z hlavičky rodiče", () => {
     const moved = lanes.map((lane) => (lane.name === "feat/detail-karty" ? { ...lane, base: "neznámý" } : lane));
     const fork = layoutGraph(moved).links.find((link) => link.color === "#fb923c" && link.kind === "fork")!;
-    expect(fork.from).toEqual({ x: 40 + LANE_GAP, y: HEAD });
+    expect(fork.from).toEqual({ x: HEAD, y: 60 + LANE_GAP });
   });
   it("štítky u špičky: přijetí, náhled, PR, zastaralé", () => {
     expect(layout.badges.map((badge) => [badge.lane, badge.kind, badge.text])).toEqual([
@@ -42,7 +44,8 @@ describe("layoutGraph", () => {
       ["feat/detail-karty", "pr", "PR #7 open"],
     ]);
     const [accepted, pr] = layout.badges.slice(1);
-    expect(accepted.y).toBe(dot("f2").y + ROW / 2);
+    expect(accepted.y).toBe(dot("f2").y);
+    expect(accepted.x).toBeGreaterThan(dot("f2").x);
     expect(pr.x).toBeGreaterThan(accepted.x);
     const stale = lanes.map((lane) => (lane.acceptance ? { ...lane, acceptance: { ...lane.acceptance, valid: false } } : lane));
     expect(layoutGraph(stale).badges[1]).toMatchObject({ kind: "stale", text: "přijetí zastaralé (f2bbbbb)" });
@@ -51,7 +54,7 @@ describe("layoutGraph", () => {
     expect([laneColor("main"), laneColor("develop"), laneColor("hotfix"), laneColor("experiment")]).toEqual(["#4ade80", "#60a5fa", "#fb923c", "#c084fc"]);
     expect(laneSubtitle({ name: "main", role: "main" })).toBe("Stabilní přijaté vydání");
     expect(laneSubtitle({ name: "develop", role: "develop" })).toBe("Společné ověření");
-    expect(clip("x".repeat(60))).toHaveLength(48);
-    expect(layoutGraph([])).toMatchObject({ dots: [], links: [], badges: [], height: HEAD + 40 });
+    expect(clip("x".repeat(60))).toHaveLength(20);
+    expect(layoutGraph([])).toMatchObject({ dots: [], links: [], badges: [], height: 120 });
   });
 });

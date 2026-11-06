@@ -1,7 +1,7 @@
 /* Linie: člověk vidí vývoj jako metro mapu, ne jako seznam. Vlevo na tmavém podkladu svislé linie main (zelená),
    develop (modrá) a témata (oranžová, experiment fialový); větev odbočuje a vrací se obloukem, u špičky visí štítek
    přijetí nebo bublina náhledu. Stejné barvy nese editor kuliček. Vpravo úzký sloupec 320 px s kartou MAIN se zeleným
-   levým okrajem, aby oko spojilo kartu s hlavní čarou. Dole přes celou šířku jedna fialová lišta s pravidlem, které platí pro všechno nad ní. */
+   levým okrajem, aby oko spojilo kartu s hlavní čarou. Plátno bere celou výšku pod lištou, aby bylo vidět, co se děje. */
 .pletor-dashboard__linie {
   --linie-main: #4ade80;
   --linie-develop: #60a5fa;
@@ -13,7 +13,8 @@
   gap: 14px;
 }
 .pletor-dashboard__linie-graph {
-  max-height: 72vh;
+  min-height: calc(100vh - 230px);
+  max-height: calc(100vh - 230px);
   overflow: auto;
   border: 1px solid var(--pletor-line);
   background: var(--pletor-bg);

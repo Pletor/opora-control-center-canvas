@@ -28,7 +28,7 @@ def test_board_links_and_real_merges(setup):
     assert first["counts"] == {"commits": 1, "prs": None, "merges": 0} and first["mergedAt"] is None
     assert follow["title"] == "Proč a k čemu." and kinds(follow) == ["planned"] and lone["links"] == []
     assert all("merged" not in kinds(ball) for ball in found["balls"])  # plán nikdy jako merged (bod 12)
-    assert found["realMerges"] == []
+    assert [m for m in found["realMerges"] if m["parents"]] == []  # špičky větví z gitu nejsou merge
 
     merge.merge(service, "draft", tid, NOW)
     found = board.board(service, "draft", "main", repo, pr_lookup=lambda root: {"feat/uzel": {"number": 3}})
@@ -37,5 +37,20 @@ def test_board_links_and_real_merges(setup):
     assert first["state"] == "merged" and first["mergedAt"] == NOW
     assert first["links"][1] == {"to": "develop", "kind": "merged", "sha": tip}
     assert first["counts"] == {"commits": 1, "prs": 1, "merges": 1}
-    assert [(m["target"], m["sha"]) for m in found["realMerges"]] == [("develop", tip)]
+    assert [(m["target"], m["sha"]) for m in found["realMerges"] if m["parents"]] == [("develop", tip)]
     assert kinds(found["balls"][1]) == ["planned"]  # nezačleněná kulička dál jen plán
+
+
+def test_board_shows_unmerged_git_branch_without_row(setup):
+    """Větev z gitu bez řádku je v editoru vidět jako řádek `git` se špičkou; po založení řádku zmizí duplicita."""
+    service, repo, _ = setup
+    run(repo, "checkout", "-q", "-b", "feat/sirotek", "develop")
+    (repo / "sirotek.txt").write_text("x", encoding="utf-8")
+    run(repo, "add", "."), run(repo, "commit", "-q", "-m", "sirotek")
+    run(repo, "checkout", "-q", "main")
+    found = board.board(service, "draft", "main", repo, pr_lookup=lambda root: {})
+    extra = [row for row in found["rows"] if row.get("git") and row["branch"] == "feat/sirotek"]
+    assert [(r["id"], r["type"], r["base"]["branch"], r["target"], r["ahead"]) for r in extra] ==         [("git:feat/sirotek", "work", "develop", "develop", 1)]
+    tip = run(repo, "rev-parse", "feat/sirotek")
+    assert [(m["target"], m["sha"], m["title"]) for m in found["realMerges"] if m["target"] == "feat/sirotek"] ==         [("feat/sirotek", tip, "sirotek")]
+    assert not any(row.get("git") and row["branch"] in ("develop", "feat/uzel") for row in found["rows"])  # kulička už je

@@ -1,20 +1,21 @@
 import type { KeyboardEvent } from "react";
-import { badgeWidth, clip, textWidth, type GraphBadge, type GraphLayout } from "../logic/linie-graph";
+import { HEAD, badgeWidth, clip, textWidth, type GraphBadge, type GraphLayout } from "../logic/linie-graph";
 
 type Props = { layout: GraphLayout; selected: string; links: Record<string, string>; onPick: (name: string) => void };
 
 const ICON: Record<GraphBadge["kind"], string> = { accepted: "✓ ", stale: "! ", preview: "◉ ", pr: "" };
-const HEADER_MAX = 18;
-const SUBTITLE_MAX = 22;
+const HEADER_MAX = 22;
+const SUBTITLE_MAX = 26;
 
 const curve = ({ from, to }: { from: { x: number; y: number }; to: { x: number; y: number } }) => {
-  const mid = (from.y + to.y) / 2;
-  return `M ${from.x} ${from.y} C ${from.x} ${mid}, ${to.x} ${mid}, ${to.x} ${to.y}`;
+  const mid = (from.x + to.x) / 2;
+  return `M ${from.x} ${from.y} C ${mid} ${from.y}, ${mid} ${to.y}, ${to.x} ${to.y}`;
 };
 
 /**
- * Graf Linie jako SVG: hlavičky větví nahoře (klik vybere větev), svislé linie, oblouky odbočení a návratu,
- * body commitů s popiskem vpravo a štítky u špičky. Bublina náhledu a štítek PR otevřou odkaz z `links` (klíč `kind:lane`).
+ * Graf Linie jako SVG: hlavičky větví vlevo (klik vybere větev), vodorovné linie, oblouky odbočení a návratu,
+ * body commitů s titulkem střídavě nad a pod bodem a sha pod ním, štítky za špičkou. Bublina náhledu a štítek PR
+ * otevřou odkaz z `links` (klíč `kind:lane`). Plný titulek commitu je v <title> bodu.
  */
 export default function LinieGraph({ layout, selected, links, onPick }: Props) {
   const key = (name: string) => (event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPick(name); } };
@@ -32,7 +33,7 @@ export default function LinieGraph({ layout, selected, links, onPick }: Props) {
       </defs>
 
       {layout.lanes.map((lane) => (
-        <line key={`line-${lane.name}`} x1={lane.x} y1={lane.top} x2={lane.x} y2={lane.bottom} stroke={lane.color} strokeWidth={3}
+        <line key={`line-${lane.name}`} x1={lane.x1} y1={lane.y} x2={lane.x2} y2={lane.y} stroke={lane.color} strokeWidth={3}
           markerEnd={lane.role === "main" ? "url(#linie-arrow)" : undefined} />
       ))}
       {layout.links.map((link, index) => (
@@ -46,9 +47,9 @@ export default function LinieGraph({ layout, selected, links, onPick }: Props) {
             role="button" tabIndex={0} aria-label={`Vybrat ${lane.name}`} aria-pressed={lane.name === selected}
             onClick={() => onPick(lane.name)} onKeyDown={key(lane.name)}>
             <title>{lane.name}</title>
-            <rect x={lane.x - 12} y={8} width={textWidth(name) + 20} height={26} rx={7} stroke={lane.color} />
-            <text x={lane.x - 2} y={26} fill={lane.color} className="pletor-dashboard__linie-name">{name}</text>
-            <text x={lane.x - 10} y={52} className="pletor-dashboard__linie-sub">{clip(lane.label, SUBTITLE_MAX)}</text>
+            <rect x={8} y={lane.y - 20} width={Math.min(textWidth(name) + 20, HEAD - 20)} height={26} rx={7} stroke={lane.color} />
+            <text x={18} y={lane.y - 2} fill={lane.color} className="pletor-dashboard__linie-name">{name}</text>
+            <text x={10} y={lane.y + 22} className="pletor-dashboard__linie-sub">{clip(lane.label, SUBTITLE_MAX)}</text>
           </g>
         );
       })}
@@ -57,10 +58,9 @@ export default function LinieGraph({ layout, selected, links, onPick }: Props) {
         const lane = layout.lanes.find((item) => item.name === dot.lane);
         return (
           <g key={dot.sha}>
-            <circle cx={dot.x} cy={dot.y} r={7} fill={lane?.color} className="pletor-dashboard__linie-dot" />
-            <text x={dot.x + 14} y={dot.y + 4} className="pletor-dashboard__linie-label">
-              {dot.title} <tspan className="pletor-dashboard__linie-sha">{dot.sha7}</tspan>
-            </text>
+            <circle cx={dot.x} cy={dot.y} r={7} fill={lane?.color} className="pletor-dashboard__linie-dot"><title>{`${dot.sha7} ${dot.title}`}</title></circle>
+            <text x={dot.x} y={dot.above ? dot.y - 16 : dot.y + 36} textAnchor="middle" className="pletor-dashboard__linie-label">{dot.title}</text>
+            <text x={dot.x} y={dot.above ? dot.y - 30 : dot.y + 22} textAnchor="middle" className="pletor-dashboard__linie-sha">{dot.sha7}</text>
           </g>
         );
       })}

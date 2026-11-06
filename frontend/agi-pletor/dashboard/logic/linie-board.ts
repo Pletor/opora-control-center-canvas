@@ -7,7 +7,8 @@ import { list, rec, str } from "./view-common";
 export type RowType = "main" | "develop" | "topic" | "work" | "experiment" | "fix";
 export type BallState = "open" | "awaiting_checks" | "blocked" | "deferred" | "accepted_unmerged" | "merged" | "stale";
 export type LinkKind = "follows" | "planned" | "merged";
-export type BoardRow = { id: string; name: string; type: RowType; branch: string; baseBranch: string; baseSha: string; target: string; collapsed: boolean; fixed: boolean };
+/** `git` = řádek odvozený ze skutečné větve bez ticketu (jen ke čtení), `ahead` = commity před rodičem. */
+export type BoardRow = { id: string; name: string; type: RowType; branch: string; baseBranch: string; baseSha: string; target: string; collapsed: boolean; fixed: boolean; git: boolean; ahead: number };
 export type BoardBall = {
   ticketId: string; rowId: string; title: string; state: BallState; stateLabel: string; branch: string; headSha7: string;
   createdAt: string; mergedAt: string; counts: { commits: number; prs: number; merges: number }; links: { to: string; kind: LinkKind }[];
@@ -37,7 +38,7 @@ export function boardView(raw: unknown): Board {
     const r = rec(item);
     const type = pick(r.type, TYPES, "work");
     return { id: str(r.id), name: str(r.name), type, branch: str(r.branch), baseBranch: str(rec(r.base).branch), baseSha: str(rec(r.base).sha),
-      target: str(r.target), collapsed: r.collapsed === true, fixed: r.fixed === true || type === "main" || type === "develop" };
+      target: str(r.target), collapsed: r.collapsed === true, fixed: r.fixed === true || type === "main" || type === "develop", git: r.git === true, ahead: num(r.ahead) };
   }).filter((row) => row.id);
   const balls: BoardBall[] = list(root.balls).map((item) => {
     const b = rec(item), c = rec(b.counts);
@@ -80,17 +81,18 @@ export function when(iso: string): string {
 const day = (iso: string) => { const d = new Date(iso); return `${d.getDate()}. ${d.getMonth() + 1}.`; };
 const time = (iso: string) => { const t = Date.parse(iso); return Number.isNaN(t) ? null : t; };
 
-export function layoutBoard(board: Board): BoardLayout {
+/** `span` = šířka časové osy; volající ji odvodí z šířky plátna, aby osa vyplnila obrazovku (nejméně SPAN). */
+export function layoutBoard(board: Board, span = SPAN): BoardLayout {
   const times = [...board.balls.flatMap((b) => [b.createdAt, b.mergedAt]), ...board.realMerges.map((m) => m.at)].map(time).filter((t): t is number => t !== null);
   const min = Math.min(...times), max = Math.max(...times);
-  const xOf = (iso: string) => { const t = time(iso); return t === null ? PAD : PAD + (max > min ? ((t - min) / (max - min)) * SPAN : SPAN / 2); };
+  const xOf = (iso: string) => { const t = time(iso); return t === null ? PAD : PAD + (max > min ? ((t - min) / (max - min)) * span : span / 2); };
 
   let top = 0;
   const rows: LaidRow[] = board.rows.map((row) => {
     const height = row.collapsed ? ROW_FOLDED : ROW_OPEN;
     const laid = {
       ...row, top, height, y: top + height / 2, color: ROW_COLOR[row.type],
-      branchText: row.branch ? `větev: ${row.branch}` : "bez větve",
+      branchText: row.git ? `větev: ${row.branch} · ${row.ahead} před ${row.baseBranch} · bez úkolu` : row.branch ? `větev: ${row.branch}` : "bez větve",
       mappingText: row.fixed ? `mapování: ${row.name} → ${row.branch || (row.type === "main" ? board.mapping.main : board.mapping.develop)}` : "",
     };
     top += height;
@@ -140,7 +142,7 @@ export function layoutBoard(board: Board): BoardLayout {
     seen.add(day(b.createdAt));
     return [{ x: xOf(b.createdAt), text: day(b.createdAt) }];
   });
-  const width = Math.max(PAD + SPAN, ...balls.map((b) => b.x), ...links.map((l) => l.to.x), ...merges.map((m) => m.x)) + PAD;
+  const width = Math.max(PAD + span, ...balls.map((b) => b.x), ...links.map((l) => l.to.x), ...merges.map((m) => m.x)) + PAD;
   return { width, height: top, rows, balls, links, merges, ticks };
 }
 

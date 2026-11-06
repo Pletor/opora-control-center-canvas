@@ -51,6 +51,14 @@ describe("layoutBoard", () => {
     expect(layout.ticks).toHaveLength(3);
     expect(layout.width).toBeGreaterThanOrEqual(PAD + SPAN + PAD);
   });
+  it("řádek z gitu (větev bez úkolu) je jen ke čtení a osa se roztáhne na zadanou šířku", () => {
+    const withGit = boardView({ ...boardFixture, rows: [...boardFixture.rows, { id: "git:feat/x", name: "feat/x", type: "work", branch: "feat/x", base: { branch: "develop" }, target: "develop", git: true, ahead: 4 }] });
+    const row = withGit.rows[5];
+    expect([row.git, row.ahead, row.fixed]).toEqual([true, 4, false]);
+    expect(layoutBoard(withGit).rows[5].branchText).toBe("větev: feat/x · 4 před develop · bez úkolu");
+    expect(ball("tk_3").x).toBeCloseTo(PAD + (24 / 72) * SPAN);
+    expect(layoutBoard(board, 2000).balls.find((b) => b.ticketId === "tk_3")!.x).toBeCloseTo(PAD + (24 / 72) * 2000);
+  });
 });
 
 describe("legenda a věta Pletora", () => {

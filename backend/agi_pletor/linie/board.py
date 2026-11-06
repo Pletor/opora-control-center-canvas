@@ -3,10 +3,14 @@
 Kulička = ticket s `work`. Spojnice nese kulička, ze které vede: `follows` k navazující práci (ticket, jehož
 předchůdce karty je karta této kuličky, jinak další kulička téhož řádku), `planned` k řádku cíle (jen dokud není
 začleněno) a `merged` jen podle `work.merged` (zapisuje jen služba po ověřené Git operaci). Plán se nikdy nevrací
-jako `merged`. `realMerges` jsou skutečné merge commity main a develop z gitu.
+jako `merged`. `realMerges` jsou skutečné merge commity main a develop z gitu a špičky větví z gitu.
+
+Editor ukazuje i skutečný stav: pracovní větev z gitu, která má commity před rodičem a nemá vlastní řádek, dostane
+řádek `git: True` (jen ke čtení, id `git:<větev>`) se špičkou větve jako bodem; kulička vznikne až s ticketem.
 """
 import time
 
+from backend.agi_pletor.linie import branches
 from backend.agi_pletor.linie import rows as rows_mod
 from backend.agi_pletor.linie import work as work_mod
 from backend.agi_pletor.linie.graph import gh_prs
@@ -43,6 +47,27 @@ def real_merges(root):
             sha, parents, at, title = line.split("\x1f", 3)
             found.append({"target": target, "sha": sha, "parents": parents.split(), "at": at, "title": title})
     return found
+
+
+GIT_TYPE = {"feat": "work", "hotfix": "fix"}  # role větve → typ řádku editoru
+
+
+def git_rows(root, rows, balls):
+    """Řádky z gitu pro nesloučené pracovní větve bez řádku ani kuličky + jejich špičky jako body `realMerges`."""
+    known = {row.get("branch") for row in rows} | {ball["branch"] for ball in balls}
+    found, tips = [], []
+    for order, b in enumerate(branches.summary(root)["branches"]):
+        if b["role"] not in branches.ROLES or b["name"] in known or not b["ahead"]:
+            continue
+        found.append({"id": "git:" + b["name"], "name": b["name"], "type": GIT_TYPE.get(b["role"], b["role"]),
+                      "ticketId": None, "branch": b["name"], "base": {"branch": b["parent"], "sha": None},
+                      "target": b["parent"], "collapsed": False, "order": 10_000 + order, "git": True,
+                      "ahead": b["ahead"]})
+        line = git(root, "log", "-1", "--format=%H%x1f%cI%x1f%s", b["name"], "--", timeout=TIMEOUT, optional=True)
+        if line:
+            sha, at, title = line.split("", 2)
+            tips.append({"target": b["name"], "sha": sha, "parents": [], "at": at, "title": title})
+    return found, tips
 
 
 def _row_for(rows, branch):
@@ -90,4 +115,6 @@ def board(service, project, workspace, root, *, pr_lookup=gh_prs):
     prs = _prs(root, pr_lookup)
     balls = [_ball(ticket, ticket["work"], found["rows"], prs) for ticket in tickets]
     _follows(tickets, balls)
-    return {"rows": found["rows"], "balls": balls, "mapping": found["mapping"], "realMerges": real_merges(root)}
+    extra, tips = git_rows(root, found["rows"], balls)
+    return {"rows": found["rows"] + extra, "balls": balls, "mapping": found["mapping"],
+            "realMerges": real_merges(root) + tips}

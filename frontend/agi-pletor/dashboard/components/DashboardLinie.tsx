@@ -1,9 +1,10 @@
 import "../styles/pletor-dashboard-linie.css";
 import "../styles/pletor-dashboard-linie-editor.css";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useElementBox } from "@/editor/storyboard/logic/use-element-box";
 import { api, type WriteMethod } from "@/shared/types/logic/types";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
-import { boardView, layoutBoard, pletorSentence } from "../logic/linie-board";
+import { PAD, SPAN, boardView, layoutBoard, pletorSentence } from "../logic/linie-board";
 import { layoutGraph } from "../logic/linie-graph";
 import { graphView, shortSha } from "../logic/linie-view";
 import { failureText } from "../logic/linie-work";
@@ -16,6 +17,7 @@ import LinieWorkForm from "./LinieWorkForm";
 
 const POLL_MS = 10000;
 const BASE = "/api/pletor/linie";
+const ROWS_COLUMN = 300; // šířka sloupce hlaviček řádků (styl .pletor-dashboard__linie-board)
 
 /**
  * Linie (docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §6): editor řádků a kuliček z `GET /board` (výchozí), nebo
@@ -46,8 +48,11 @@ export default function DashboardLinie({ project, workspace }: { project: string
     (failure: unknown) => { setError(failureText(failure)); return false; },
   );
 
+  const plotRef = useRef<HTMLDivElement>(null);
+  const box = useElementBox(plotRef, true);
   const board = boardView(boardRaw);
-  const layout = layoutBoard(board);
+  // Časová osa vyplní šířku plátna; užší obrazovka dostane nejméně SPAN a posouvá se.
+  const layout = layoutBoard(board, Math.max(SPAN, (box?.width ?? 0) - ROWS_COLUMN - 2 * PAD));
   const view = graphView(graphRaw);
   const main = view.lanes.find((lane) => lane.role === "main");
   const selected = picked || (hint ? board.balls.find((ball) => ball.branch === hint)?.ticketId ?? "" : "");
@@ -79,7 +84,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
       <p className="pletor-dashboard__note">Přidání řádku větev nezakládá a přejmenování ji nepřejmenuje. Dvojklik na název = přejmenovat, šipka = sbalit.</p>
 
       <div className="pletor-dashboard__linie">
-        <div className="pletor-dashboard__linie-graph">
+        <div className="pletor-dashboard__linie-graph" ref={plotRef}>
           {selected ? (
             <LinieDetail ticketId={selected} query={query} main={board.mapping.main} onAct={act} onClose={close} />
           ) : mode === "editor" ? (

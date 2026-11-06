@@ -59,18 +59,18 @@ export default function LinieBoard({ layout, selected, onPick, onRename, onFold 
         {layout.rows.map((row) => (
           <div key={row.id} className="pletor-dashboard__linie-row" style={{ minHeight: row.height, height: row.height }}>
             <div className="pletor-dashboard__linie-row-top">
-              {row.fixed
-                ? <span className="pletor-dashboard__linie-lock" title="pevný řádek">■</span>
+              {row.fixed || row.git
+                ? <span className="pletor-dashboard__linie-lock" title={row.git ? "větev z gitu bez úkolu" : "pevný řádek"}>{row.git ? "⎇" : "■"}</span>
                 : <button type="button" className="pletor-dashboard__linie-fold" aria-expanded={!row.collapsed} aria-label={`${row.collapsed ? "Rozbalit" : "Sbalit"} ${row.name}`}
                     onClick={() => onFold(row.id, !row.collapsed)}>{row.collapsed ? "▸" : "▾"}</button>}
               {editing === row.id ? (
                 <input className="pletor-dashboard__linie-rename" aria-label="Nový název řádku" value={value} autoFocus onChange={(event) => setValue(event.target.value)}
                   onBlur={() => commit(row)} onKeyDown={(event) => { if (event.key === "Enter") commit(row); if (event.key === "Escape") setEditing(""); }} />
               ) : (
-                <span className="pletor-dashboard__linie-row-name" style={{ color: row.color }} title={row.fixed ? row.name : "dvojklik = přejmenovat"}
-                  onDoubleClick={row.fixed ? undefined : () => { setEditing(row.id); setValue(row.name); }}>{row.name}</span>
+                <span className="pletor-dashboard__linie-row-name" style={{ color: row.color }} title={row.fixed || row.git ? row.name : "dvojklik = přejmenovat"}
+                  onDoubleClick={row.fixed || row.git ? undefined : () => { setEditing(row.id); setValue(row.name); }}>{row.name}</span>
               )}
-              <span className="pletor-dashboard__linie-chip">{TYPE_LABEL[row.type]}</span>
+              <span className="pletor-dashboard__linie-chip">{row.git ? "z gitu" : TYPE_LABEL[row.type]}</span>
             </div>
             <div className={`pletor-dashboard__linie-meta${row.branch ? "" : " pletor-dashboard__linie-meta--none"}`}>{row.branchText}</div>
             {!row.collapsed && (row.fixed
@@ -92,7 +92,7 @@ export default function LinieBoard({ layout, selected, onPick, onRename, onFold 
             ))}
             {layout.links.map((link, index) => <Link key={index} link={link} />)}
             {layout.merges.map((merge) => (
-              <circle key={merge.sha7} cx={merge.x} cy={merge.y} r={5} fill={merge.color}><title>{`merge ${merge.sha7}: ${merge.title}`}</title></circle>
+              <circle key={merge.sha7} cx={merge.x} cy={merge.y} r={5} fill={merge.color}><title>{`${merge.sha7}: ${merge.title}`}</title></circle>
             ))}
             {layout.balls.map((ball) => (
               <g key={ball.ticketId} role="button" tabIndex={0} aria-label={`${ball.title}, ${ball.stateLabel}`}
