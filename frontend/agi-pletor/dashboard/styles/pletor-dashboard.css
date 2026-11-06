@@ -77,6 +77,48 @@
   color: var(--pletor-accent);
 }
 
+/* Zasunutí menu: nahoře malé tlačítko „‹ Zasunout“; po kliknutí (nebo klávese [) zbyde 52px pruh jen s ikonami, popis
+   zůstává v title a aria-label. Obsah tak dostane šířku pro Linii a Dílnu. */
+.pletor-dashboard__fold {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--pletor-dim);
+  font: 11px var(--mono);
+  text-align: left;
+  cursor: pointer;
+}
+.pletor-dashboard__fold:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+  outline-offset: 2px;
+}
+.pletor-dashboard__tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pletor-dashboard__tab-icon {
+  width: 1.2em;
+  text-align: center;
+}
+.pletor-dashboard--narrow {
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+.pletor-dashboard--narrow .pletor-dashboard__nav {
+  padding: 12px 4px;
+}
+.pletor-dashboard--narrow .pletor-dashboard__tab-label {
+  display: none;
+}
+.pletor-dashboard--narrow .pletor-dashboard__tab,
+.pletor-dashboard--narrow .pletor-dashboard__fold {
+  justify-content: center;
+  padding-inline: 0;
+  text-align: center;
+}
+
 /* Obsah: jedna část na celou plochu, posouvá se sám; Dílna a LLM mají vlastní rozvržení uvnitř. */
 .pletor-dashboard__content {
   display: flex;
