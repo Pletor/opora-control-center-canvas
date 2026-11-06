@@ -1,4 +1,4 @@
-﻿"""Náhledy větví z Velínu (kontrakt §5): worktree větve + build + `tools/serve-preview.py` nad kopií dat.
+"""Náhledy větví z Velínu (kontrakt §5): worktree větve + build + `tools/serve-preview.py` nad kopií dat.
 
 Registr `<pletor>/linie/previews.json` `{slug: {slug, branch, project, worktree, data, port, pid, state, sha,
 startedAt, url, log}}`; `state` je `building | running | failed | stopped`. Soubory náhledu leží v
@@ -15,6 +15,7 @@ import stat
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 from backend.integrations.gitio import git
@@ -103,8 +104,12 @@ def _writable_rmtree(path):
 
 
 def _copy_data(data_root, project, data):
+    """Čerstvá kopie dat; vrací použitou cestu (zamčenou starou kopii obejde novou složkou)."""
     if data.exists():  # každý start má čerstvou kopii; stará by se přes read-only git objekty nepřepsala
-        _writable_rmtree(data)
+        try:
+            _writable_rmtree(data)
+        except OSError:  # starou kopii drží jiný proces (např. náhled spuštěný uvnitř náhledu)
+            data = data.with_name(f"{data.name}-{int(time.time())}")
     data.mkdir(parents=True, exist_ok=True)
     source = Path(data_root) / "registry.sqlite"
     if source.exists():
@@ -122,6 +127,7 @@ def _copy_data(data_root, project, data):
     for name in ("brain", "brain-pins"):
         if (Path(data_root) / name).is_dir():
             shutil.copytree(Path(data_root) / name, data / name, dirs_exist_ok=True)
+    return data
 
 
 def _build(tree, log):
@@ -160,7 +166,7 @@ def start(folder, root, branch, project, data_root, now, *, build=_build, spawn=
     else:
         git(root, "worktree", "add", "--detach", str(tree), branch, timeout=300)
     _link_node_modules(tree)
-    _copy_data(data_root, project, data)
+    data = _copy_data(data_root, project, data)
     taken = {r.get("port") for key, r in _read(folder).items() if key != name and r.get("state") != "stopped"}
     port = free_port(taken)
     record = _update(folder, name, slug=name, branch=branch, project=project, worktree=str(tree),
