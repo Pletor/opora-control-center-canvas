@@ -40,7 +40,8 @@
 
 /* Editor: vlevo sloupec 300 px s hlavičkami řádků, vpravo časová osa, která se posouvá vodorovně.
    Hlavička má přesně výšku svého pruhu v grafu, aby řádek a jeho čára ležely v jedné výšce. Text se nikdy
-   neořízne: dlouhé názvy a větve se zalomí a sbalený řádek je dost vysoký na své dva řádky textu. */
+   neořízne: dlouhé názvy a větve se zalomí a sbalený řádek je dost vysoký na své dva řádky textu. Řádek bez kuliček
+   je tenký a nese jen název, aby prázdné větve nezabíraly místo práci. */
 .pletor-dashboard__linie-board {
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
@@ -110,6 +111,9 @@
   overflow-wrap: anywhere;
   cursor: text;
 }
+.pletor-dashboard__linie-row-name--focusable {
+  cursor: pointer;
+}
 .pletor-dashboard__linie-rename {
   width: 190px;
   padding: 1px 4px;
@@ -148,6 +152,7 @@
 
 /* Kulička je evidovaný výsledek. Výplň mluví dřív než text: plná = začleněno, plná s prstencem = hotovo a čeká,
    prázdný střed = otevřeno, tečka = čeká na ověření, červený střed = blokováno, tečkovaný obrys = odloženo.
+   Vnitřní puntík nese barvu větve, kam se práce začlení, takže kulička sama ukazuje směr toku.
    Pod kuličkou vždy stojí název a stav slovy, aby barva nikdy nebyla jediný nosič informace. */
 .pletor-dashboard__linie-pick {
   cursor: pointer;
@@ -172,6 +177,13 @@
 }
 .pletor-dashboard__linie-ball-dot {
   fill: var(--c);
+}
+/* Puntík a tenký prstenec v barvě cíle: na první pohled je vidět, do které větve práce teče. */
+.pletor-dashboard__linie-ball-dot--to {
+  fill: var(--t);
+}
+.pletor-dashboard__linie-ball-ring--to {
+  stroke: var(--t);
 }
 .pletor-dashboard__linie-ball--blocked .pletor-dashboard__linie-ball-dot {
   fill: #ef4444;
@@ -258,6 +270,20 @@
 .pletor-dashboard__linie-legend-count {
   color: var(--pletor-ink);
 }
-.pletor-dashboard__linie-card--main {
-  align-self: start;
+
+/* Drobek zaměření nad editorem: člověk vidí, na kterou větev se dívá, a jedním klikem se vrátí na celý strom. */
+.pletor-dashboard__linie-crumb {
+  margin: 0 0 6px;
+  color: var(--pletor-dim);
+}
+.pletor-dashboard__linie-crumb strong {
+  color: var(--pletor-ink);
+}
+.pletor-dashboard__linie-crumb-back {
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--pletor-accent);
+  font: inherit;
+  cursor: pointer;
 }

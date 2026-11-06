@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { boardFixture } from "./linie-fixture";
-import { MIN_GAP, PAD, ROW_FOLDED, ROW_OPEN, SPAN, boardView, layoutBoard, legend, pletorSentence, shade } from "./linie-board";
+import { MIN_GAP, PAD, ROW_FOLDED, ROW_OPEN, ROW_THIN, SPAN, boardView, layoutBoard, legend, pletorSentence } from "./linie-board";
+import { hueOf } from "./linie-color";
 
 const board = boardView(boardFixture);
 const layout = layoutBoard(board);
@@ -26,16 +27,15 @@ describe("boardView", () => {
 });
 
 describe("layoutBoard", () => {
-  it("řádky pod sebou, sbalený řádek je nižší, ale pojme dva řádky textu", () => {
-    expect(layout.rows.map((row) => row.top)).toEqual([0, ROW_OPEN, 2 * ROW_OPEN, 3 * ROW_OPEN, 4 * ROW_OPEN]);
-    expect(layout.rows[4].height).toBe(ROW_FOLDED);
+  it("řádky pod sebou: bez kuliček tenký, s kuličkami plný, sbalený pojme dva řádky textu", () => {
+    expect(layout.rows.map((row) => row.height)).toEqual([ROW_THIN, ROW_THIN, ROW_OPEN, ROW_OPEN, ROW_FOLDED]);
+    expect(layout.rows.map((row) => row.top)).toEqual([0, ROW_THIN, 2 * ROW_THIN, 2 * ROW_THIN + ROW_OPEN, 2 * ROW_THIN + 2 * ROW_OPEN]);
     expect(ROW_FOLDED).toBeGreaterThanOrEqual(2 * 18 + 12);
-    expect(layout.height).toBe(4 * ROW_OPEN + ROW_FOLDED);
+    expect(layout.height).toBe(2 * ROW_THIN + 2 * ROW_OPEN + ROW_FOLDED);
   });
-  it("barvy podle typu, popis větve a mapování", () => {
-    // items fialová; feat (work) #c2255c plnou barvou v kořeni (hloubka 2) – row_k bez depth se bere jako kořen
-    expect(layout.rows.map((row) => row.color)).toEqual(["#4ade80", "#60a5fa", "#c084fc", "#c2255cff", "#f87171"]);
-    expect([shade("#c2255c", 3), shade("#c2255c", 4), shade("#c2255c", 9)]).toEqual(["#c2255ccc", "#c2255c99", "#c2255c66"]);
+  it("barvy podle větve, popis větve a mapování", () => {
+    // items fialová; řádek práce bez větve a rodiče je kořenem s vlastním odstínem ze jména
+    expect(layout.rows.map((row) => row.color)).toEqual(["#4ade80", "#60a5fa", "#c084fc", `hsl(${hueOf("Komponenty")} 72% 52%)`, "#f87171"]);
     expect(layoutBoard(boardView({ rows: [{ id: "items", type: "items", fixed: true }] })).rows[0]).toMatchObject({ branchText: "větve items/<díl>", mappingText: "cíl: develop nebo feat větev, kde je díl potřeba" });
     expect(layout.rows[0].mappingText).toBe("mapování: Main → main");
     expect(layout.rows[3].branchText).toBe("bez větve");
@@ -43,21 +43,28 @@ describe("layoutBoard", () => {
   });
   it("x podle času, y podle řádku, výplň podle stavu; sbalený řádek kuličky skryje", () => {
     expect(ball("tk_3").x).toBeCloseTo(PAD + (24 / 72) * SPAN);
-    expect(ball("tk_1").y).toBe(3 * ROW_OPEN + ROW_OPEN / 2);
+    expect(ball("tk_1").y).toBe(2 * ROW_THIN + ROW_OPEN + ROW_OPEN / 2);
     expect(ball("tk_2").x - ball("tk_1").x).toBe(MIN_GAP);
     expect([ball("tk_1").fill, ball("tk_2").fill, ball("tk_3").fill]).toEqual(["done", "open", "merged"]);
     expect(layout.balls.some((item) => item.ticketId === "tk_4")).toBe(false);
   });
   it("plán je čárkovaný s otevřeným cílem, merge má bod, plán nikdy není merge", () => {
     expect(layout.links.map((link) => [link.kind, link.openEnd])).toEqual([["follows", false], ["planned", true], ["planned", true], ["merged", false]]);
-    expect(layout.links[3].to).toEqual({ x: PAD + SPAN, y: ROW_OPEN + ROW_OPEN / 2 });
+    expect(layout.links[3].to).toEqual({ x: PAD + SPAN, y: ROW_THIN + ROW_THIN / 2 });
     expect(layout.links.filter((link) => link.kind === "merged")).toHaveLength(1);
+  });
+  it("spojnice vede gradientem od barvy zdroje k barvě cíle, puntík kuličky má barvu cíle", () => {
+    const komponenty = `hsl(${hueOf("Komponenty")} 72% 52%)`;
+    expect(layout.links.map((link) => [link.fromColor, link.toColor])).toEqual([
+      [komponenty, komponenty], [komponenty, "#c084fc"], [komponenty, "#c084fc"], ["#c084fc", "#60a5fa"]]);
+    expect([ball("tk_1").toColor, ball("tk_2").toColor, ball("tk_3").toColor]).toEqual(["#c084fc", "#c084fc", "#60a5fa"]);
+    expect(layoutBoard(boardView({ rows: [{ id: "r", name: "R" }], balls: [{ ticketId: "x", rowId: "r" }] })).balls[0].toColor).toBe(`hsl(${hueOf("R")} 72% 52%)`);
   });
   it("hover nese název, stav, počty a větev; skutečné merge leží na řádku cíle", () => {
     expect(ball("tk_1").hover.mark).toBe("OP-3F9A1C");
     expect(ball("tk_2").hover.mark).toBe("");
     expect(ball("tk_1").hover).toMatchObject({ title: "Panel detailu karty", state: "hotovo, ještě nezačleněno", merged: "—", counts: "3 | 1 | 0", branch: "feat/detail-karty @ 9c8050f" });
-    expect(layout.merges).toEqual([{ x: PAD, y: ROW_OPEN / 2, sha7: "abcdef0", title: "develop → main", color: "#4ade80" }]);
+    expect(layout.merges).toEqual([{ x: PAD, y: ROW_THIN / 2, sha7: "abcdef0", title: "develop → main", color: "#4ade80" }]);
     expect(layout.ticks).toHaveLength(3);
     expect(layout.width).toBeGreaterThanOrEqual(PAD + SPAN + PAD);
   });

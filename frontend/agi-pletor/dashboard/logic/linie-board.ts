@@ -1,3 +1,4 @@
+import { branchColor } from "./linie-color";
 import { list, rec, str } from "./view-common";
 
 /**
@@ -22,13 +23,9 @@ export const STATE_LABEL: Record<BallState, string> = {
   merged: "začleněno", accepted_unmerged: "hotovo, ještě nezačleněno", open: "otevřeno", awaiting_checks: "čeká na ověření",
   blocked: "blokováno", deferred: "odloženo", stale: "zastaralé přijetí",
 };
-export const ROW_COLOR: Record<RowType, string> = { main: "#4ade80", develop: "#60a5fa", items: "#c084fc", work: "#c2255c", fix: "#f87171", experiment: "#a39cc4" };
 export const TYPE_LABEL: Record<RowType, string> = { main: "pevný", develop: "pevný", items: "univerzální díl", work: "práce", experiment: "experiment", fix: "oprava" };
-/** Feat strom: kořen (hloubka 2) plnou barvou, každé zanoření o čtvrtinu průhlednější, nejméně 40 %. */
-export const shade = (hex: string, depth: number) => `${hex}${Math.round(255 * Math.max(0.4, 1 - 0.2 * Math.max(0, depth - 2))).toString(16).padStart(2, "0")}`;
-export const rowColor = (row: { type: RowType; depth: number }) => (row.type === "work" ? shade(ROW_COLOR.work, row.depth) : ROW_COLOR[row.type]);
 
-const TYPES = Object.keys(ROW_COLOR) as RowType[];
+const TYPES = Object.keys(TYPE_LABEL) as RowType[];
 const STATES = Object.keys(FILL) as BallState[];
 const KINDS: LinkKind[] = ["follows", "planned", "merged"];
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
@@ -60,15 +57,17 @@ export function boardView(raw: unknown): Board {
 export type Point = { x: number; y: number };
 export type Hover = { mark: string; title: string; state: string; created: string; merged: string; counts: string; branch: string };
 export type LaidRow = BoardRow & { top: number; height: number; y: number; color: string; branchText: string; mappingText: string };
-export type LaidBall = { ticketId: string; rowId: string; title: string; label: string; stateLabel: string; fill: Fill; x: number; y: number; color: string; hover: Hover };
-/** `openEnd` = cíl plánu bez kuličky: kreslí se přerušovaný kroužek. Bod merge má jen `merged`. */
-export type LaidLink = { kind: LinkKind; from: Point; to: Point; color: string; openEnd: boolean };
+/** `toColor` = barva řádku, kam se kulička začlení (plán nebo merge), jinak vlastní barva; kreslí se jako vnitřní puntík. */
+export type LaidBall = { ticketId: string; rowId: string; title: string; label: string; stateLabel: string; fill: Fill; x: number; y: number; color: string; toColor: string; hover: Hover };
+/** `openEnd` = cíl plánu bez kuličky: kreslí se přerušovaný kroužek. Bod merge má jen `merged`. Gradient vede od `fromColor` k `toColor`. */
+export type LaidLink = { kind: LinkKind; from: Point; to: Point; fromColor: string; toColor: string; openEnd: boolean };
 export type LaidMerge = Point & { sha7: string; title: string; color: string };
 export type BoardLayout = { width: number; height: number; rows: LaidRow[]; balls: LaidBall[]; links: LaidLink[]; merges: LaidMerge[]; ticks: { x: number; text: string }[] };
 
-/** Rozbalený řádek nese čtyři řádky textu, sbalený dva; výška je musí pojmout celé (prototyp sbalený text ořezával). */
+/** Řádek s kuličkami nese čtyři řádky textu, sbalený dva, tenký (bez kuliček) jen název; výška je musí pojmout celé. */
 export const ROW_OPEN = 96;
 export const ROW_FOLDED = 52;
+export const ROW_THIN = 36;
 export const PAD = 70;
 export const SPAN = 820;
 export const MIN_GAP = 140;
@@ -91,10 +90,11 @@ export function layoutBoard(board: Board, span = SPAN): BoardLayout {
   const xOf = (iso: string) => { const t = time(iso); return t === null ? PAD : PAD + (max > min ? ((t - min) / (max - min)) * span : span / 2); };
 
   let top = 0;
+  const withBalls = new Set(board.balls.map((ball) => ball.rowId));
   const rows: LaidRow[] = board.rows.map((row) => {
-    const height = row.collapsed ? ROW_FOLDED : ROW_OPEN;
+    const height = row.collapsed ? ROW_FOLDED : withBalls.has(row.id) ? ROW_OPEN : ROW_THIN;
     const laid = {
-      ...row, top, height, y: top + height / 2, color: rowColor(row),
+      ...row, top, height, y: top + height / 2, color: branchColor(row.branch || row.name, board.rows),
       branchText: row.git ? `větev: ${row.branch} · ${row.ahead} před ${row.baseBranch} · bez úkolu` : row.branch ? `větev: ${row.branch}` : row.fixed ? "větve items/<díl>" : "bez větve",
       mappingText: !row.fixed ? "" : row.type === "items" ? "cíl: develop nebo feat větev, kde je díl potřeba" : `mapování: ${row.name} → ${row.branch || (row.type === "main" ? board.mapping.main : board.mapping.develop)}`,
     };
@@ -102,6 +102,11 @@ export function layoutBoard(board: Board, span = SPAN): BoardLayout {
     return laid;
   });
   const rowById = new Map(rows.map((row) => [row.id, row]));
+  const ballRow = new Map(board.balls.map((ball) => [ball.ticketId, ball.rowId]));
+  const targetColor = (ball: BoardBall, own: string) => {
+    const out = ball.links.find((link) => link.kind !== "follows");
+    return (out && rowById.get(ballRow.get(out.to) ?? out.to)?.color) || own;
+  };
 
   // Čas určuje pořadí; kuličky téhož řádku se rozestoupí aspoň o MIN_GAP, aby se popisky nepřekryly.
   const lastX = new Map<string, number>();
@@ -112,7 +117,7 @@ export function layoutBoard(board: Board, span = SPAN): BoardLayout {
     const x = Math.max(xOf(ball.createdAt), (lastX.get(row.id) ?? -Infinity) + MIN_GAP);
     lastX.set(row.id, x);
     balls.push({
-      ticketId: ball.ticketId, rowId: row.id, title: ball.title, label: clip(ball.title), stateLabel: ball.stateLabel, fill: FILL[ball.state], x, y: row.y, color: row.color,
+      ticketId: ball.ticketId, rowId: row.id, title: ball.title, label: clip(ball.title), stateLabel: ball.stateLabel, fill: FILL[ball.state], x, y: row.y, color: row.color, toColor: targetColor(ball, row.color),
       hover: { mark: ball.mark, title: ball.title, state: ball.stateLabel, created: when(ball.createdAt), merged: ball.mergedAt ? when(ball.mergedAt) : "—",
         counts: `${ball.counts.commits} | ${ball.counts.prs} | ${ball.counts.merges}`, branch: ball.branch ? `${ball.branch} @ ${ball.headSha7 || "—"}` : "bez větve" },
     });
@@ -126,10 +131,10 @@ export function layoutBoard(board: Board, span = SPAN): BoardLayout {
     for (const link of ball.links) {
       const target = laidById.get(link.to);
       const row = rowById.get(link.to);
-      if (target) { links.push({ kind: link.kind, from, to: target, color: target.color, openEnd: false }); continue; }
+      if (target) { links.push({ kind: link.kind, from, to: target, fromColor: from.color, toColor: target.color, openEnd: false }); continue; }
       if (!row || row.collapsed) continue;
       const x = link.kind === "merged" ? Math.max(xOf(ball.mergedAt), from.x + 30) : from.x + PLAN_DX;
-      links.push({ kind: link.kind, from, to: { x, y: row.y }, color: row.color, openEnd: link.kind === "planned" });
+      links.push({ kind: link.kind, from, to: { x, y: row.y }, fromColor: from.color, toColor: row.color, openEnd: link.kind === "planned" });
     }
   }
 

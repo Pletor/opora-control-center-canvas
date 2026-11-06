@@ -3,7 +3,7 @@ import LinieBall from "./LinieBall";
 
 const GREY = "#6b8f7a";
 
-/** Legenda pod editorem: každá výplň s textem a počtem, pak tři druhy spojnic. */
+/** Legenda pod editorem: každá výplň s textem a počtem, puntík cíle, pak tři druhy spojnic. */
 export default function LinieLegend({ board }: { board: Board }) {
   return (
     <footer className="pletor-dashboard__linie-legend" aria-label="Legenda">
@@ -17,6 +17,9 @@ export default function LinieLegend({ board }: { board: Board }) {
           {item.text} <span className="pletor-dashboard__linie-legend-count">{item.count}</span>
         </span>
       ))}
+      <span className="pletor-dashboard__linie-legend-item">
+        <svg width={26} height={26} aria-hidden="true"><LinieBall fill="open" color="#4ade80" toColor="#60a5fa" x={13} y={13} r={6} /></svg>puntík = kam se začlení
+      </span>
       <span className="pletor-dashboard__linie-legend-item">
         <svg width={34} height={8} aria-hidden="true"><line x1={0} y1={4} x2={34} y2={4} stroke={GREY} strokeWidth={1.4} strokeDasharray="1 4" strokeLinecap="round" /></svg>návaznost práce
       </span>
