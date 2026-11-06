@@ -22,13 +22,20 @@ def code(service, tid, **kwargs):
     return refused(lambda: merge.merge(service, "draft", tid, NOW, **kwargs)).code
 
 
+def forced_accept(service, tid, sha):
+    """Přijetí zapsané mimo pravidlo L7 (accept by bez zelených kontrol odmítl): merge.py musí ověřit sám."""
+    with work.store_for(service, "draft") as store:
+        found = store.get(tid)["work"]
+        store.set_work(tid, {**found, "acceptance": {"sha": sha, "by": "human", "at": NOW}}, NOW)
+
+
 def test_merge_refusals(setup):
     service, repo, tid = setup
     agent_commit(repo)
     head = run(repo, "rev-parse", "feat/uzel")
     work.report(service, "draft", tid, head, [], None, NOW, "agent:t")
     assert code(service, tid) == "no_acceptance"  # bod 4
-    work.accept(service, "draft", tid, head, "", NOW)
+    forced_accept(service, tid, head)
     assert code(service, tid) == "not_allowed"
     work.report(service, "draft", tid, head, [{"name": "npm test", "status": "green"}], None, NOW, "agent:t")
     work.allow_merge(service, "draft", tid, "develop", NOW)
@@ -39,8 +46,8 @@ def test_merge_refusals(setup):
     assert code(service, tid) == "head_moved"
     newer = run(repo, "rev-parse", "feat/uzel")
     work.report(service, "draft", tid, newer, [], None, NOW, "agent:t")
-    assert work.get(service, "draft", tid)["state"] == "stale"
-    work.accept(service, "draft", tid, newer, "", NOW)
+    assert work.get(service, "draft", tid)["summary"]["key"] == "nocheck"  # L7 §8: bez kontrol nocheck, ne stale
+    forced_accept(service, tid, newer)
     work.allow_merge(service, "draft", tid, "develop", NOW)
     assert code(service, tid) == "checks_missing"
     assert run(repo, "rev-parse", "develop") == run(repo, "rev-parse", "origin/develop")  # nic se nesloučilo

@@ -27,6 +27,8 @@ def test_board_links_and_real_merges(setup):
     assert [row["id"] for row in found["rows"]][:2] == ["main", "develop"] and found["mapping"]["develop"] == "develop"
     first, follow, lone = found["balls"]
     assert first["ticketId"] == tid and first["title"] == "Uzel" and first["state"] == "accepted_unmerged"
+    assert first["summary"]["key"] == "accepted" and first["allowed"][0] == "merge" and first["block"] is None
+    assert found["snapshot"]["sources"]["prs"]["ok"] is True and first["incomplete"] == ["deploy"]
     assert first["links"] == [{"to": "develop", "kind": "planned"}]  # druhá větev má vlastní řádek, bez follows
     assert follow["rowId"] != first["rowId"] and follow["ticketId"] == second
     assert first["counts"] == {"commits": 1, "prs": None, "merges": 0} and first["mergedAt"] is None
@@ -43,6 +45,24 @@ def test_board_links_and_real_merges(setup):
     assert first["counts"] == {"commits": 1, "prs": 1, "merges": 1}
     assert [(m["target"], m["sha"]) for m in found["realMerges"] if m["parents"]] == [("develop", tip)]
     assert kinds(found["balls"][1]) == ["planned"]  # nezačleněná kulička dál jen plán
+    assert first["evidence"][-1] == {"kind": "pr", "ref": "#3", "url": None, "at": None, "src": "GitHub"}
+
+    def down(root):
+        raise OSError("GitHub neodpovídá")
+
+    found = board.board(service, "draft", "main", repo, pr_lookup=down)  # výpadek PR nezneplatní merge log
+    first = found["balls"][0]
+    assert found["snapshot"]["sources"]["prs"]["ok"] is False and "prs" in first["incomplete"]
+    assert first["summary"]["key"] == "merged" and first["axes"]["integration"]["sha"] == tip
+
+
+def test_pr_outage_keeps_last_known_state():
+    good = ({"feat/x": {"number": 5, "state": "OPEN"}}, "2026-11-07T10:00:00Z")
+    prs, source = board._read_prs(None, lambda root: None, good)
+    assert prs == {"feat/x": {"number": 5, "state": "OPEN", "unconfirmed": True}}
+    assert source["ok"] is False and source["lastSuccessAt"] == good[1] != source["attemptedAt"]
+    prs, source = board._read_prs(None, lambda root: {"feat/x": {"number": 5, "state": "MERGED"}}, good)
+    assert prs["feat/x"]["state"] == "MERGED" and source["ok"] and source["lastSuccessAt"] == source["attemptedAt"]
 
 
 def test_board_shows_unmerged_git_branch_without_row(setup):
@@ -93,7 +113,7 @@ def test_with_tree_skips_dead_blocked_branch_and_adds_git_parent():
     """Blokovaná kulička na smazané větvi řádek nebere; rodič jen v gitu (bez práce) dostane automatický řádek."""
     rows = [{"id": "main", "branch": "main"}, {"id": "develop", "branch": "develop"},
             {"id": "velin", "branch": None, "base": {"branch": "develop"}, "order": 1}]
-    balls = [{"rowId": "velin", "branch": "topic/stara", "blocked": {"reason": "nahrazeno"}},
+    balls = [{"rowId": "velin", "branch": "topic/stara", "block": {"reason": "nahrazeno"}},
              {"rowId": "velin", "branch": "feat/velin-linie-strom"}]
     found = board.with_tree(rows, balls, {"main", "develop", "feat/velin", "feat/velin-linie"})
     assert [(r["id"], r["branch"], r["depth"]) for r in found] == [

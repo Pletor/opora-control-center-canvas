@@ -1,5 +1,8 @@
 """Práce ticketu na Linii: jediný zapisovatel `tickets.work` (docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §2–§3).
 
+`view` skládá kuličku z jednoho `evaluate` (docs/navrhy/2026-11-06-linie-rebrand.md §2a, §4): osy, souhrn, `allowed` /
+`blocked`, `incomplete`, `evidence`; `accept` (a v routě `merge`) odmítne 409 `action_not_allowed`, když to pravidlo zakazuje.
+
 Ticket = kulička. `create` založí ticket `issued` s `work` (člověk z editoru), `attach` doplní `work` existujícímu
 ticketu (srdce vydává bránou). `report` ověří commit proti gitu a uloží `headSha` + kontroly k tomuto SHA; `accept`,
 `allow_merge`, `block`/`defer`/`resume` mění jen záznam. Začlenění provádí `merge.py`; `merged` nikdy nepíše klient.
@@ -8,9 +11,10 @@ Každé odmítnutí je `WorkError` (kód, HTTP stav, česká zpráva) – podtř
 import re
 import uuid
 from contextlib import contextmanager
+from datetime import UTC, datetime
 
-from backend.agi_pletor.linie import rows, tree, work_state
-from backend.brain_opora.determinism import gate
+from backend.agi_pletor.linie import evaluate, rows, tree, work_state
+from backend.brain_opora.determinism import gate, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.ticket_model import body_payload
 from backend.integrations.gitio import git
@@ -20,6 +24,7 @@ from database.repositories.tickets import TicketStore
 TIMEOUT = 15
 SHA = re.compile(r"[0-9a-fA-F]{7,40}")
 STATUSES = ("green", "red", "pending")
+STALE_AFTER = 600  # s; zdroj starší než 10 min je „zastaralé“ (L7 §4)
 HINT = "Stav a povolený další krok vrací GET /api/pletor/linie/work/{ticketId}."
 
 
@@ -39,10 +44,49 @@ def ancestor(root, older, newer):
     return git(root, "merge-base", "--is-ancestor", older, newer, timeout=TIMEOUT, optional=True) is not None
 
 
-def view(ticket, target_sha=None):
-    """Ticket s odvozeným stavem kuličky (`state`, `stateLabel`, `next`)."""
-    found = work_state.state(ticket.get("work"), target_sha)
-    return {**ticket, "state": found["state"], "stateLabel": found["label"], "next": found["next"]}
+def after_merge(work):
+    """Nejnovější commit větve, který začleněný merge neobsahuje (nová revize po začlenění), jinak None."""
+    sha = (work.get("merged") or {}).get("sha")
+    if not sha or not work.get("branch"):
+        return None
+    return git(work["repository"], "rev-list", "-1", f"{sha}..{work['branch']}", timeout=TIMEOUT, optional=True) or None
+
+
+def local_sources(at):
+    """Zdroje jednoho ticketu čtené v `at` (DB a git teď); PR se tu nečtou a nasazení zdroj zatím nemá."""
+    # shortcut: git = čas sestavení (headSha ověřil report, after_merge se čte teď); vlastní čas čtení gitu až s L7 §7.3.
+    read = {"verifiedAt": at, "ok": True}
+    return {"git": read, "checks": read, "sessions": read, "prs": {"verifiedAt": None, "ok": False},
+            "deploy": {"verifiedAt": None, "ok": False}}
+
+
+def incomplete(sources, now=None):
+    """Zdroje, které selhaly, nikdy nebyly čteny nebo jsou starší než `STALE_AFTER` (L7 §4)."""
+    moment = now or datetime.now(UTC)
+
+    def old(at):
+        return not at or (moment - datetime.strptime(at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)).total_seconds() \
+            > STALE_AFTER
+    return [name for name, source in sources.items() if not source.get("ok") or old(source.get("verifiedAt"))]
+
+
+def view(ticket, sources=None, pr=None):
+    """Ticket s osami, souhrnem, povolenými akcemi a důkazy z jednoho `evaluate` (L7 §4); staré `state`, `stateLabel`,
+    `next` zůstávají pro frontend do L7b."""
+    work = ticket.get("work") or {}
+    after = after_merge(work) if work else None
+    found = evaluate.evaluate(work, after)
+    return {**ticket, "state": work_state.LEGACY[found["key"]], "stateLabel": found["text"], "next": found["next"],
+            "axes": found["axes"], "summary": {key: found[key] for key in ("key", "text", "reason", "next")},
+            "allowed": found["allowed"], "blocked": found["blocked"],
+            "incomplete": incomplete(sources or local_sources(tokens.stamp())),
+            "evidence": evaluate.evidence(work, after, pr)}
+
+
+def require(shown, action):
+    """409 `action_not_allowed` s důvodem z téhož pravidla, když `evaluate` akci nepovoluje (L7 §2a)."""
+    if action not in shown["allowed"]:
+        raise WorkError("action_not_allowed", 409, shown["blocked"].get(action) or f"Akce {action} není povolena.")
 
 
 @contextmanager
@@ -203,6 +247,7 @@ def accept(service, project, ticket_id, sha, note, now):
         if not head or not isinstance(sha, str) or len(sha) < 7 or not head.startswith(sha.lower()):
             raise WorkError("head_moved", 409, f"Revize {sha} není aktuální hlava {(head or 'žádná')[:7]}.",
                             "Načtěte kuličku znovu a přijměte aktuální headSha.")
+        require(view(ticket), "accept")  # přijmout jde jen ověřenou revizi (checks.passed pro HEAD, L7 §8)
         return {**work, "acceptance": {"sha": head, "revision": ticket["machine"]["cardVersion"], "by": "human",
                                        "at": now, "note": note or ""}}
     return _change(service, project, ticket_id, now, change)

@@ -87,7 +87,8 @@ def test_linie_work_flow(tmp_path, repo):
                           json={"sha": run(repo, "rev-parse", "feat/a")})
         assert off.status_code == 409 and off.json()["code"] == "work_mismatch"
         assert client.get(work, headers={**AGENT, "X-Opora-Gate-Token": "spatny"}, params=q).status_code == 401
-        assert client.post(f"{work}/merge", headers=AGENT, params=q).json()["code"] == "no_acceptance"
+        early = client.post(f"{work}/merge", headers=AGENT, params=q)  # L7 §2a: pending merge nepovoluje
+        assert early.status_code == 409 and early.json()["code"] == "action_not_allowed"
         for path, payload in (("/accept", {"sha": head}), ("/allow-merge", {"target": "develop"})):
             assert client.post(work + path, headers=AGENT, params=q, json=payload).status_code == 403
         assert client.post(f"{work}/accept", headers=HEADERS, params=q, json={"sha": head}).json()["work"][
@@ -100,6 +101,28 @@ def test_linie_work_flow(tmp_path, repo):
         assert merged.json()["work"]["merged"]["sha"] == run(repo, "rev-parse", "origin/develop")
         board = client.get(f"{BASE}/board", headers=HEADERS, params={**q, "workspace": "main"}).json()
         assert board["balls"][0]["state"] == "merged" and board["realMerges"][0]["target"] == "develop"
+        assert client.post(f"{work}/merge", headers=AGENT, params=q).status_code == 200  # začleněné = idempotentní
+
+
+def test_linie_board_snapshot_summary_and_accept_on_nocheck(tmp_path, repo):
+    q = {"project": "draft", "workspace": "main"}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        body = {"title": "Uzel", "essence": "Proč.", "build": "Uzel.", "doneCriteria": ["testy"], "branch": "feat/uzel"}
+        tid = client.post(f"{BASE}/work", headers=HEADERS, params=q, json=body).json()["ticketId"]
+        head = agent_commit(repo)
+        client.post(f"{BASE}/work/{tid}/report", headers=AGENT, params=q, json={"sha": head})
+        refused = client.post(f"{BASE}/work/{tid}/accept", headers=HEADERS, params=q, json={"sha": head})
+        assert refused.status_code == 409 and refused.json()["code"] == "action_not_allowed"
+        assert refused.json()["error"].startswith(f"work.submitted & checks.missing({head[:7]})")
+        detail = client.get(f"{BASE}/work/{tid}", headers=AGENT, params=q).json()
+        assert detail["summary"]["key"] == "nocheck" and detail["axes"]["checks"]["state"] == "missing"
+        board = client.get(f"{BASE}/board", headers=HEADERS, params=q).json()
+        ball = board["balls"][0]
+        assert set(board["snapshot"]["sources"]) == {"git", "prs", "checks", "sessions", "deploy"}
+        assert board["snapshot"]["id"].startswith("snap_") and board["snapshot"]["builtAt"]
+        assert ball["summary"]["key"] == "nocheck" and ball["state"] == "awaiting_checks"
+        assert "accept" in ball["blocked"] and ball["allowed"] == ["block", "unblock"] and "deploy" in ball["incomplete"]
+        assert [item["kind"] for item in ball["evidence"]] == ["commit"]
 
 
 def test_linie_work_derives_parent_and_refuses_wrong_one(tmp_path, repo):
