@@ -108,3 +108,24 @@ class PletorLlmClaudeIn(BaseModel):
 class PletorLlmCodexIn(BaseModel):
     model: str
     reasoning: str | None = None
+
+
+class LiniePreviewIn(BaseModel):
+    """Náhled větve nad kopií dat projektu (docs/navrhy/2026-11-06-velin-git-linie.md §5)."""
+    model_config = ConfigDict(extra="forbid")
+    branch: str = Field(min_length=1, max_length=200)
+    project: str = Field(min_length=1, max_length=200)
+
+
+class LinieAcceptIn(BaseModel):
+    """Přijetí přesně této hlavy větve do cíle; tvar sha a cíle ověřuje `linie/acceptance.py`."""
+    model_config = ConfigDict(extra="forbid")
+    branch: str = Field(min_length=1, max_length=200)
+    sha: str = Field(min_length=7, max_length=40)
+    target: str = Field(min_length=1, max_length=200)
+    note: str = Field(default="", max_length=2000)
+
+
+class LinieDeployedIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sha: str = Field(min_length=7, max_length=40)

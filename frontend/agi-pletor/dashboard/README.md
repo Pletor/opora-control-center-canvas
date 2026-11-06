@@ -1,11 +1,13 @@
 ﻿# agi-pletor/dashboard
 
-VelĂ­n AGI Pletor: strĂˇnka `?screen=pletor` s levou navigacĂ­ po ÄŤĂˇstech (kontrakt `docs/navrhy/2026-11-05-pletor-opora-dashboard.md`).
+Velín AGI Pletor: stránka `?screen=pletor` s levou navigací po částech (kontrakt `docs/navrhy/2026-11-05-pletor-opora-dashboard.md`).
 
-- `components/PletorDashboard.tsx`: rodiÄŤ; drĹľĂ­ aktivnĂ­ ÄŤĂˇst (`part=` v adrese), Esc a titulek s focusem. SklĂˇdĂˇ dĂ­lky `DashboardOverview`, `DashboardBrain`, `DashboardVoice` a vklĂˇdĂˇ `PletorWorkshop`.
-- `logic/dashboard-route.ts`: ÄŤĂˇsti, parsovĂˇnĂ­ a zĂˇpis `part=`; `overview-cards.ts`: stav Pletora na karty PĹ™ehledu; `use-voice-list.ts`: hlasy serveru.
-- `styles/pletor-dashboard.css`: blok `pletor-dashboard`.
+- `components/PletorDashboard.tsx`: rodič; drží aktivní část (`part=` v adrese), Esc a titulek s focusem. Skládá dílky `Dashboard*` jednotlivých částí a vkládá `PletorWorkshop`.
+- `logic/dashboard-route.ts`: části, parsování a zápis `part=`; `overview-cards.ts`: stav Pletora na karty Přehledu; `use-voice-list.ts`: hlasy serveru; `*-view.ts`: odpovědi API na bezpečné pohledy částí.
+- `styles/pletor-dashboard.css`: blok `pletor-dashboard`; `pletor-dashboard-parts.css`: tabulky a prvky částí.
 
-MilnĂ­k V1: PĹ™ehled, Mozek a LLM, Hlas, DĂ­lna. Srdce a Podklady (V2), Monitoring a Rozhovor (V3), NastavenĂ­ (V4) jsou zatĂ­m jen mĂ­sto s hlĂˇĹˇkou.
+Všechny části jsou funkční: Přehled, Mozek a LLM, Hlas, Dílna (V1), Srdce a Podklady (V2), Monitoring a Rozhovor (V3), Nastavení (V4).
 
-Dluh V1: ÄŤĂˇst Hlas je jen ke ÄŤtenĂ­. VĂ˝bÄ›r hlasu a â€žVyzkouĹˇetâ€ś jsou v `usePletorVoice`, kterĂ˝ drĹľĂ­ jen `PletorWindow`; vĂ˝bÄ›r zĹŻstĂˇvĂˇ v kokpitu (ozubenĂ© kolo). VyĹ™eĹˇit vytaĹľenĂ­m hlasu do sdĂ­lenĂ©ho kontextu.
+Linie (`DashboardLinie`, `LinieBranchDetail`, `logic/linie-view.ts`, kontrakt `docs/navrhy/2026-11-06-velin-git-linie.md` §5) ukazuje main, develop, server s nasazením a větve s přijetím a náhledem; člověk odtud spouští náhledy, přijímá hlavu větve do rodiče a zapisuje nasazené sha.
+
+Dluh V1: část Hlas je jen ke čtení. Výběr hlasu a „Vyzkoušet“ jsou v `usePletorVoice`, který drží jen `PletorWindow`; výběr zůstává v kokpitu (ozubené kolo). Vyřešit vytažením hlasu do sdíleného kontextu.
