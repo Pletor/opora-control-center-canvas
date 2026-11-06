@@ -110,6 +110,10 @@ def _copy_data(data_root, project, data):
     # kopiích přejít na backup i u databáze projektu.
     shutil.copytree(Path(data_root) / "projects" / project, data / "projects" / project, dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns("maps", "worktrees"))
+    # Brain je git repozitář s aktivními verzemi skillů srdce; bez něj server náhledu nenastartuje.
+    for name in ("brain", "brain-pins"):
+        if (Path(data_root) / name).is_dir():
+            shutil.copytree(Path(data_root) / name, data / name, dirs_exist_ok=True)
 
 
 def _build(tree, log):
