@@ -1,4 +1,4 @@
-"""Náhledy větví z Velínu (kontrakt §5): worktree větve + build + `tools/serve-preview.py` nad kopií dat.
+﻿"""Náhledy větví z Velínu (kontrakt §5): worktree větve + build + `tools/serve-preview.py` nad kopií dat.
 
 Registr `<pletor>/linie/previews.json` `{slug: {slug, branch, project, worktree, data, port, pid, state, sha,
 startedAt, url, log}}`; `state` je `building | running | failed | stopped`. Soubory náhledu leží v
@@ -11,6 +11,7 @@ import shutil
 import signal
 import socket
 import sqlite3
+import stat
 import subprocess
 import sys
 import threading
@@ -96,7 +97,14 @@ def _unlink_node_modules(tree):
         pass
 
 
+def _writable_rmtree(path):
+    """Smaže strom i s read-only soubory (git objekty)."""
+    shutil.rmtree(path, onexc=lambda fn, p, exc: (os.chmod(p, stat.S_IWRITE), fn(p)))
+
+
 def _copy_data(data_root, project, data):
+    if data.exists():  # každý start má čerstvou kopii; stará by se přes read-only git objekty nepřepsala
+        _writable_rmtree(data)
     data.mkdir(parents=True, exist_ok=True)
     source = Path(data_root) / "registry.sqlite"
     if source.exists():
@@ -214,7 +222,7 @@ def remove(folder, root, name):
     tree = Path(record.get("worktree") or _root(folder) / "previews" / name / "tree")
     _unlink_node_modules(tree)
     git(root, "worktree", "remove", "--force", str(tree), optional=True, timeout=120)
-    shutil.rmtree(_root(folder) / "previews" / name, ignore_errors=True)
+    _writable_rmtree(_root(folder) / "previews" / name)
     git(root, "worktree", "prune", optional=True)
     with LOCK:
         records = _read(folder)
