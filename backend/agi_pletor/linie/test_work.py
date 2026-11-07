@@ -241,6 +241,10 @@ def test_commit_after_merge_already_in_target_does_not_reopen(setup):
     assert work.unreported(record) == (None, True)
 
 
+def store_for_test(service):
+    return work.store_for(service, "draft")
+
+
 def test_forget_deletes_only_blocked_dead_end(setup):
     """§10.4: zapomenout jde jen blokovanou kuličku bez živého kódu mimo cíl; po merge do cíle zmizí i s deníkem."""
     service, repo, tid = setup
@@ -252,5 +256,7 @@ def test_forget_deletes_only_blocked_dead_end(setup):
     run(repo, "checkout", "-q", "develop")
     run(repo, "merge", "-q", "--no-ff", "-m", "merge", head)
     run(repo, "checkout", "-q", "main")
+    with store_for_test(service) as store:  # cíl zanikl při přestavbě stromu, kód je ve develop → zapomenout jde
+        store.set_work(tid, {**work.get(service, "draft", tid)["work"], "target": "topic/zanikla"}, NOW)
     assert work.forget(service, "draft", tid, NOW)["forgotten"] == tid
     assert refused(lambda: work.get(service, "draft", tid)).status == 404

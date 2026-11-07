@@ -461,9 +461,11 @@ def forget(service, project, ticket_id, now, by="human"):
             raise WorkError("forget_not_blocked", 409, "Zapomenout jde jen blokovanou kuličku.",
                             "Živou práci dokončete, odložte nebo zablokujte s důvodem.")
         head, target = w.get("headSha"), w.get("target")
-        if head and head != w.get("baseSha") and not any(ancestor(w["repository"], head, ref)
-                                                           for ref in (target, "origin/" + target)):
-            raise WorkError("forget_code_alive", 409, f"Commit {head[:7]} není v {target}; kuličku drží živý kód.",
+        # kód je „použitý“, když došel do cíle nebo do kmene (develop) – starý cíl mohl zaniknout při přestavbě stromu
+        kept = (target, "origin/" + target, "develop", "origin/develop")
+        if head and head != w.get("baseSha") and not any(ancestor(w["repository"], head, ref) for ref in kept):
+            raise WorkError("forget_code_alive", 409, f"Commit {head[:7]} není v {target} ani v develop; kuličku drží "
+                            "živý kód.",
                             "Smažte větev s nepoužitým kódem, nebo kuličku odblokujte a dokončete.")
         store.delete(ticket_id)
         journal.write(store.db, project, "linie.forget", by, {"ticket": ticket_id, "mark": w.get("mark"),
