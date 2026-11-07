@@ -1,0 +1,97 @@
+/* Čeká na tebe: když člověk klikne na frontu Člověk, nad grafem se rozloží seznam rozhodnutí v pořadí, v jakém je má
+   udělat. Karty leží pod sebou s malou mezerou, aby se daly přečíst shora dolů jako jízdní řád vlaku; graf pod nimi
+   zůstává ke zkoumání, rozhoduje se tady. */
+.linie-human-queue {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Prázdný stav je jedna klidná věta v rámu fronty: nic nečeká, a kdo zrovna pracuje, aby člověk věděl, že se něco děje. */
+.linie-human-queue__idle {
+  padding: 10px 14px;
+  border: 1px dashed var(--pletor-line);
+  color: var(--pletor-dim);
+}
+
+/* Jeden řádek = jedna karta: vlevo pořadové číslo jako stanice, uprostřed co a proč, vpravo jediné tlačítko. Číslo
+   a tlačítko drží okraje, text se natáhne mezi ně, takže oko jede po řádcích stejnou drahou. */
+.linie-human-queue__row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid var(--pletor-line);
+  border-left: 3px solid var(--pletor-accent);
+}
+
+/* Řádek, který teď nejde rozhodnout (čeká na kontroly nebo novou revizi), ztratí zelený proužek: je vidět, ale netlačí. */
+.linie-human-queue__row--waiting {
+  border-left-color: var(--pletor-line);
+}
+
+/* Pořadí je velké a v monospace, protože právě ono je odpověď na otázku „co dřív“. */
+.linie-human-queue__order {
+  color: var(--pletor-accent);
+  font: 600 16px var(--mono);
+  text-align: center;
+}
+
+/* Tělo karty: tři krátké řádky pod sebou bez okrajů, ať se karta vejde na výšku jednoho pohledu. */
+.linie-human-queue__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.linie-human-queue__body p {
+  margin: 0;
+}
+
+/* Název běžným písmem, značka a revize v monospace: identita se čte jinak než slova. */
+.linie-human-queue__title {
+  color: var(--pletor-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linie-human-queue__mono {
+  font-family: var(--mono);
+}
+.linie-human-queue__sha {
+  margin-left: 8px;
+  color: var(--pletor-dim);
+}
+
+/* Co je ověřené a věta o dalším voze jsou vedlejší: menší a tlumené, ale s dostatečným kontrastem. */
+.linie-human-queue__meta,
+.linie-human-queue__sentence {
+  color: var(--pletor-dim);
+  font-size: 12px;
+}
+
+/* Odpověď služby po kliknutí (hotovo, nebo proč ne a jediná oprava) svítí akcentem přímo pod řádkem, kterého se týká. */
+.linie-human-queue__said {
+  color: var(--pletor-accent);
+  font-size: 12px;
+}
+
+/* Jediné zelené tlačítko řádku: plné, aby bylo jasné, že tohle je to rozhodnutí; zamčené, dokud předchozí akce běží. */
+.linie-human-queue__act {
+  padding: 8px 16px;
+  border: 1px solid var(--pletor-accent);
+  background: var(--pletor-accent);
+  color: var(--pletor-bg);
+  font: 600 12px var(--mono);
+  cursor: pointer;
+}
+.linie-human-queue__act:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+.linie-human-queue__act:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+  outline-offset: 2px;
+}

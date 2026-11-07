@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "uv run python tools/opora_session_hook.py" }
+        ]
+      }
+    ]
+  }
+}

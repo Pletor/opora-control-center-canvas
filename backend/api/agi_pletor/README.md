@@ -31,6 +31,11 @@ Tenký router pro `backend/agi_pletor/` (docs/navrhy/2026-11-04-pletor-jarvis.md
   → `{hosts, events (50), enabled}`. Sekce, jejíž zdroj selže, je `{error}`.
 - Dílna D0 (`workshop_routes.py`, logika `backend/agi_pletor/pletor_opora_settings/`): `GET /api/pletor/workshop/tools`
   → `{tools}`, `POST …/tools/{name}/measure` (tělo `{}`) → měření funkce; neznámá 404, špatný název 422.
+- Žádosti srdci (`pletor_requests_routes.py`, logika `backend/agi_pletor/linie/requests.py`, docs/navrhy/2026-11-06-linie-rebrand.md
+  §4a): `POST /api/pletor/requests?project {text, idempotencyKey}` → `{id, text, steps: [{k: accepted, at, by}]}`;
+  `POST …/{id}/steps {k, evidence}` nebo `{k, failed: true, why}` jen agent / token brány (člověk 403 `agent_only`),
+  důkaz povinný (422); `GET …?open=1` → `{requests, open}`. Operace Linie L7e (attempt, revert, rebase-note, unblock,
+  `GET /api/pletor/linie/journal?after=`) popisuje hlavička `linie_work_routes.py`.
 
 Instance `Pletor` žije v `app.state.pletor` (`backend/app/factory.py`); testy jí vyměňují `runner`, `find`
 a `transport` (Ollama).
