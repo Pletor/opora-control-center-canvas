@@ -77,7 +77,7 @@ describe("skládání uzavřených větví do rodiče", () => {
   });
 
   it("bez času uzavření leží značka na konci osy s „uzavřeno ?“", () => {
-    const blind = boardView({ ...raw, rows: raw.rows.map((r) => (r.id === "linie" ? { ...r, closed: { ...shut("", 2, "feat/velin").closed, sha: "" } } : r)) });
+    const blind = boardView({ ...raw, rows: raw.rows.map((r) => (r.id === "linie" ? { ...r, closed: { ...shut("", 2, "feat/velin").closed, at: null, sha: null } } : r)) });
     const folded = foldClosed(blind, new Set(), false);
     const layout = layoutBoard(folded.board);
     const [knot] = placeKnots(folded.knots, layout);

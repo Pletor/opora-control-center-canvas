@@ -79,3 +79,9 @@ def test_closed_row_hides_its_subtree_by_parent_unless_all():
     assert "⊕ Vlak" in text and "Dítě" not in text and "Vnuk" not in text and "OP-B" not in text and "    Soused [feat/e]" in text
     text = board_text.render(found, all=True).split("Řádky:\n")[1]
     assert "    Dítě [feat/x-y]" in text and "      Vnuk" in text and "OP-B" in text and "⊕" not in text
+
+
+def test_closed_row_without_at_and_sha_prints_question_mark():
+    found = snapshot(*two_cars())
+    found["rows"][0]["closed"] = {"at": None, "sha": None, "target": "develop", "by": "merge", "balls": 2}
+    assert "  ⊕ Vlak · uzavřeno ? → develop (2 kuličky)\n" in board_text.render(found)

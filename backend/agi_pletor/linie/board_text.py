@@ -62,7 +62,7 @@ def _journal(events, marks):
 def _clock(at):
     try:
         return datetime.fromisoformat(at).astimezone().strftime("%H:%M")  # místní čas jako obrazovka
-    except (AttributeError, ValueError):
+    except (AttributeError, TypeError, ValueError):  # at=None: merge doložen jen gitem
         return "?"
 
 
