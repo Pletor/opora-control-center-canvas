@@ -190,7 +190,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
           <aside className={`pletor-dashboard__linie-panel${panel ? "" : " pletor-dashboard__linie-panel--idle"}`}>
             {editor && (
               <LiniePletor lines={ball ? pletorVerdict(ball.mark || clip(ball.title), ball.judgement, board.snapshot, now) : queueLines(queueList, board.balls.length)}
-                next={ball?.judgement.summary.next ?? ""} builtAt={board.snapshot ? hhmm(board.snapshot.builtAt) : ""} ages={sourceAges(board.snapshot, now)}
+                next={ball ? ball.judgement.summary.next || (detail?.ticketId === picked ? detail.next : "") : ""} builtAt={board.snapshot ? hhmm(board.snapshot.builtAt) : ""} ages={sourceAges(board.snapshot, now)}
                 actions={ball ? actionsOf(ball.judgement, headSha) : []} flash={flash} onAct={runAction} />
             )}
             {panel}
