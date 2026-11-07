@@ -102,10 +102,9 @@ def test_accept_states_and_no_merge(setup):
     newer = agent_commit(repo, name="v.txt")
     stale = work.report(service, "draft", tid, newer, [{"name": "npm test", "status": "green"}], None, NOW, "agent:t")
     assert stale["state"] == "stale"  # přijetí starého SHA po novém commitu (bod 5)
-    # L7a: zrušit jde jen platné přijetí HEAD (acceptance.accepted & integration.none), zastaralé ne
-    assert refused(lambda: work.revoke_accept(service, "draft", tid, NOW)).code == "action_not_allowed"
-    work.accept(service, "draft", tid, newer, "", NOW)
+    # L7a: zrušení zastaralého přijetí projde (úklid); bez přijetí už není co rušit
     assert work.revoke_accept(service, "draft", tid, NOW)["state"] == "open"
+    assert refused(lambda: work.revoke_accept(service, "draft", tid, NOW)).code == "action_not_allowed"
 
 
 def test_block_defer_resume(setup):

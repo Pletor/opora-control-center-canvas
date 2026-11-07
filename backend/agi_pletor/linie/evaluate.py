@@ -97,11 +97,12 @@ def _rule(work, ax, live):
 
 
 def _side(key, ax):
-    """Vedlejší akce mimo tabulku §2a: náhled HEAD, zrušení platného přijetí, odložení (park) mimo merged."""
+    """Vedlejší akce mimo tabulku §2a: náhled HEAD, zrušení přijetí (platného i zastaralého) před začleněním,
+    odložení (park) mimo merged."""
     found = []
     if ax["work"]["sha"] and key not in ("merged", "blocked"):
         found.append("preview")
-    if ax["acceptance"]["state"] == "accepted" and ax["integration"]["state"] == "none":
+    if ax["acceptance"]["state"] in ("accepted", "stale") and ax["integration"]["state"] == "none":  # stale = úklid
         found.append("revoke_accept")
     if key != "merged":
         found.append("defer")
@@ -121,7 +122,7 @@ def evaluate(work, after_merge=None, live=False):
         blocked["preview"] = "bez HEAD není co spustit" if not ax["work"]["sha"] else f"{key}: náhled se nespouští"
     if "revoke_accept" in blocked:
         blocked["revoke_accept"] = f"acceptance.{ax['acceptance']['state']} & integration.{ax['integration']['state']}" \
-            " – zrušit jde jen platné přijetí před začleněním"
+            " – zrušit jde jen existující přijetí před začleněním"
     if "defer" in blocked:
         blocked["defer"] = "začleněno – není co odložit"
     return {"key": key, "text": text, "reason": reason, "next": step,

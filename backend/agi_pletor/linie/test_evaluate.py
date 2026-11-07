@@ -56,9 +56,9 @@ ALLOWED = {
     "todo": ["attempt", "defer", "block"],
     "wip": ["defer", "block"],
     "failed": ["preview", "defer", "block"],
-    "nocheck": ["preview", "defer", "block"],
+    "nocheck": ["preview", "revoke_accept", "defer", "block"],  # případ nese přijetí pro starší sha
     "checking": ["preview", "defer", "block"],
-    "stale": ["accept", "preview", "defer", "block"],
+    "stale": ["accept", "preview", "revoke_accept", "defer", "block"],
     "pending": ["accept", "preview", "defer", "block"],
     "accepted": ["merge", "preview", "revoke_accept", "defer", "block"],
     "new_revision": ["preview", "defer", "block"],
