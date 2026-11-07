@@ -52,7 +52,7 @@ def trace(service, project, workspace, root, mark, folder, *, pr_lookup=gh_prs):
         found = next((t for t in tickets if t["work"].get("mark") == mark), None)
         if found is None:
             raise missing
-        work, shown = found["work"], work_mod.view(found)
+        work, shown = found["work"], work_mod.present(service, project, found)
         commits = trace_git.commits(root, mark, work)
         runs = work.get("runs") or []
         for c in commits:

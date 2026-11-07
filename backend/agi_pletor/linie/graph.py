@@ -34,24 +34,32 @@ def stamped(stored, head):
     return {**stored, "valid": bool(stored.get("sha")) and head.startswith(stored["sha"])}
 
 
-def gh_prs(root):
-    """`{větev: {number, state, url, base}}` z posledních PR; bez gh nebo při chybě `{}`."""
+def gh_lookup(root):
+    """`{prs: {větev: {number, state, url, base}}, ok, error}` z posledních PR. Repozitář bez PR je `ok: True`
+    s prázdným `prs`; chybějící gh nebo chyba čtení je `ok: False` s důvodem (výpadek, ne „žádné PR“)."""
     gh = shutil.which("gh")
     if not gh:
-        return {}
+        return {"prs": {}, "ok": False, "error": "gh není nainstalované"}
     # shortcut: jedno volání na posledních 200 PR místo `--head` na větev; starší větve PR neukážou.
     command = [gh, "pr", "list", "--state", "all", "--limit", "200", "--json", "number,state,url,baseRefName,headRefName"]
     try:
         out = subprocess.run(command, cwd=root, capture_output=True, text=True, encoding="utf-8", timeout=10,
                              check=True, creationflags=NO_WINDOW).stdout
         rows = json.loads(out)
-    except (OSError, subprocess.SubprocessError, ValueError):
-        return {}
+    except (OSError, subprocess.SubprocessError, ValueError) as error:
+        return {"prs": {}, "ok": False, "error": type(error).__name__}
+    if not isinstance(rows, list):
+        return {"prs": {}, "ok": False, "error": "neočekávaná odpověď gh"}
     prs = {}
-    for row in rows if isinstance(rows, list) else []:  # gh vrací nejnovější první; ten vyhrává
+    for row in rows:  # gh vrací nejnovější první; ten vyhrává
         prs.setdefault(row.get("headRefName"), {"number": row.get("number"), "state": row.get("state"),
                                                 "url": row.get("url"), "base": row.get("baseRefName")})
-    return prs
+    return {"prs": prs, "ok": True, "error": None}
+
+
+def gh_prs(root):
+    """Jen `prs` z `gh_lookup` pro doplňky (graf, detail commitu, cesta), kde výpadek = PR neukázat."""
+    return gh_lookup(root)["prs"]
 
 
 def graph(root, folder, accepted=None, *, pr_lookup=gh_prs):

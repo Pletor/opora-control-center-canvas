@@ -114,8 +114,9 @@ def test_accepted_without_merge_permission_does_not_promise_merge():
 def test_axes_shape_and_evidence():
     ax = axes({**BASE, "checks": GREEN, "merged": MERGED})
     assert ax["work"]["state"] == "submitted" and ax["checks"]["state"] == "passed"
+    # bez merge logu je work.merged jen důkaz gitu a způsob neověřen (§5a)
     assert ax["integration"] == {"state": "merged", "target": "develop", "sha": M, "at": MERGED["at"], "mode": None,
-                                 "src": "merge log"}
+                                 "op": None, "src": "git"}
     assert ax["deploy"] == {"envs": {}, "src": "událost prostředí"}
     kinds = [item["kind"] for item in evidence({**BASE, "checks": GREEN, "merged": MERGED,
                                                 "runs": [{"sessionId": "s1", "startedAt": "t"}]}, None, {"number": 7})]
