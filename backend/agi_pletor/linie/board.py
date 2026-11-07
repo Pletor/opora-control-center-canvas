@@ -234,6 +234,8 @@ def with_tree(rows, balls, heads):
             claimed[branch] = row
         else:
             leftover.append(row)
+    # duplikát řádku větve (jméno = obsazená větev) se nekreslí; jeho kuličky kreslí board na řádku své větve
+    leftover = [row for row in leftover if row.get("name") not in claimed]
     known = set(heads) | set(claimed) | {ball["branch"] for ball in live}
 
     def auto(branch):
