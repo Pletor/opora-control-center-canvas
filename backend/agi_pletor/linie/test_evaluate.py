@@ -44,22 +44,43 @@ def test_next_is_consistent_with_allowed(name):
         assert "merge" in found["allowed"]
     if "povolí začlenění" in found["next"]:
         assert "allow_merge" in found["allowed"]
+    side = {"preview", "revoke_accept", "defer"}  # vedlejší akce mají vlastní důvod
     for action, why in found["blocked"].items():
-        assert why.startswith(found["reason"]) or why == "už povoleno pro HEAD"  # důvod z téhož pravidla
+        assert why and (action in side or why.startswith(found["reason"]) or why == "už povoleno pro HEAD")
 
 
-def test_allowed_per_table():
-    allowed = {name: evaluate(*CASES[name])["allowed"] for name in CASES}
-    assert allowed["blocked"] == ["unblock", "block"] and allowed["todo"] == ["attempt", "block"]
-    assert allowed["stale"] == allowed["pending"] == ["accept", "block"] and allowed["accepted"] == ["merge", "block"]
-    assert allowed["deferred"] == ["resume", "block"]
-    for name in ("merged", "wip", "failed", "nocheck", "checking"):
-        assert allowed[name] == ["block"], name
+ALLOWED = {
+    "blocked": ["unblock", "defer", "block"],
+    "merged": ["block"],
+    "deferred": ["resume", "preview", "defer", "block"],
+    "todo": ["attempt", "defer", "block"],
+    "wip": ["defer", "block"],
+    "failed": ["preview", "defer", "block"],
+    "nocheck": ["preview", "revoke_accept", "defer", "block"],  # případ nese přijetí pro starší sha
+    "checking": ["preview", "defer", "block"],
+    "stale": ["accept", "preview", "revoke_accept", "defer", "block"],
+    "pending": ["accept", "preview", "defer", "block"],
+    "accepted": ["merge", "preview", "revoke_accept", "defer", "block"],
+    "new_revision": ["preview", "defer", "block"],
+}
+
+
+@pytest.mark.parametrize("name", CASES)
+def test_allowed_per_table(name):
+    assert evaluate(*CASES[name])["allowed"] == ALLOWED[name]
+
+
+def test_side_action_reasons():
+    todo, merged = evaluate(*CASES["todo"]), evaluate(*CASES["merged"])
+    assert todo["blocked"]["preview"] == "bez HEAD není co spustit"
+    assert merged["blocked"]["defer"] == "začleněno – není co odložit"
+    assert merged["blocked"]["revoke_accept"].startswith("acceptance.accepted & integration.merged")
 
 
 def test_accepted_merge_permission_switches_allow_merge_and_merge():
     without = evaluate({**BASE, "checks": GREEN, "acceptance": {"sha": H}})
-    assert without["allowed"] == ["allow_merge", "block"] and "merge" in without["blocked"]
+    assert without["allowed"] == ["allow_merge", "preview", "revoke_accept", "defer", "block"]
+    assert "merge" in without["blocked"]
     granted = evaluate(*CASES["accepted"])
     assert granted["blocked"]["allow_merge"] == "už povoleno pro HEAD" and "resume" in granted["blocked"]
 

@@ -138,7 +138,9 @@ def create_linie_work_router(service, pletor, root=None):
     @router.post("/work/{ticket_id}/preview")
     def work_preview(request: Request, ticket_id: str, project: str = ""):
         def act():
-            branch = work.get(service, project, ticket_id)["work"]["branch"]
+            shown = work.get(service, project, ticket_id)
+            work.require(shown, "preview")
+            branch = shown["work"]["branch"]
             record = previews.start(pletor.folder, root, branch, project, service.root, tokens.stamp())
             return work.set_preview(service, project, ticket_id, record, tokens.stamp())
         return human(request, project, act)
