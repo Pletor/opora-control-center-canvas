@@ -26,7 +26,7 @@ describe("layoutGraph", () => {
   });
   it("odbočení z base a návraty merge commitem", () => {
     const at = (sha: string) => ({ x: dot(sha).x, y: dot(sha).y });
-    const feat = `hsl(${hueOf("feat/detail-karty")} 72% 52%)`;
+    const feat = `hsl(${hueOf("feat/detail-karty")} 75% 56%)`;
     expect(layout.links).toEqual([
       { from: at("m1"), to: at("d1"), kind: "fork", color: "#60a5fa" },
       { from: at("d1"), to: at("f1"), kind: "fork", color: feat },
@@ -46,7 +46,7 @@ describe("layoutGraph", () => {
     const color = (name: string) => deep.lanes.find((lane) => lane.name === name)!.color;
     expect(color("items/x")).toBe("#c084fc");
     const hue = hueOf("feat/a"); // dítě dědí odstín kořene, hlubší je bledší a světlejší
-    expect([color("feat/a"), color("feat/a-b"), color("feat/a-b-c")]).toEqual([`hsl(${hue} 72% 52%)`, `hsl(${hue} 62% 61%)`, `hsl(${hue} 52% 70%)`]);
+    expect([color("feat/a"), color("feat/a-b"), color("feat/a-b-c")]).toEqual([`hsl(${hue} 75% 56%)`, `hsl(${hue} 66% 64%)`, `hsl(${hue} 57% 72%)`]);
   });
   it("base mimo commity rodiče → oblouk z hlavičky rodiče", () => {
     const moved = lanes.map((lane) => (lane.name === "feat/detail-karty" ? { ...lane, base: "neznámý" } : lane));

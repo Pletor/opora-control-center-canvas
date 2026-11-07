@@ -1,22 +1,24 @@
 import type { LaidLink } from "../logic/linie-board";
 
-/** Plán: čárkovaná čára končí šipkou před cílem, aby nikdy nevypadala jako skutečný merge (plná čára s bodem). */
-function PlanLink({ link, stroke }: { link: LaidLink; stroke: string }) {
+/** Plán: čárkovaná přímka končí 13 px před cílem šipkou a přerušovaným kroužkem, aby nikdy nevypadala jako skutečný
+ * merge (plná křivka s bodem). Slabý plán (mimo vrstvu a bez výběru) je na .25 a bez popisku. */
+function PlanLink({ link, stroke, weak }: { link: LaidLink; stroke: string; weak: boolean }) {
   const { from, to, toColor } = link;
   const dx = to.x - from.x, dy = to.y - from.y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
   const ex = to.x - ux * 13, ey = to.y - uy * 13, bx = ex - ux * 8, by = ey - uy * 8;
   return (
-    <g>
-      <line x1={from.x} y1={from.y} x2={bx} y2={by} stroke={stroke} strokeWidth={1.6} strokeDasharray="6 4" opacity={0.6} />
+    <g opacity={weak ? 0.25 : 1}>
+      <path className="pletor-dashboard__linie-plan-line" d={`M${from.x} ${from.y} L${bx} ${by}`} stroke={stroke} />
       <polygon points={`${ex},${ey} ${bx - uy * 4},${by + ux * 4} ${bx + uy * 4},${by - ux * 4}`} fill={toColor} />
-      <text x={from.x + dx * 0.45} y={from.y + dy * 0.45 - 6} fill={link.fromColor} className="pletor-dashboard__linie-plan">plán</text>
       {link.openEnd && <circle className="pletor-dashboard__linie-plan-end" cx={to.x} cy={to.y} r={7} stroke={toColor} />}
+      {!weak && <text x={from.x + dx / 2} y={from.y + dy / 2 - 4} className={`pletor-dashboard__linie-plan${link.label.startsWith("blokováno") ? " pletor-dashboard__linie-plan--blocked" : ""}`}>{link.label}</text>}
     </g>
   );
 }
 
-/** Plán teče gradientem od barvy zdroje k barvě cíle (`userSpaceOnUse`, aby fungoval i na vodorovné čáře); skutečný merge je plná čára 2,6 px v barvě cíle. */
-export default function LinieLink({ link, id }: { link: LaidLink; id: string }) {
+/** Spojnice teče gradientem od barvy zdroje k barvě cíle (`userSpaceOnUse`, aby fungoval i na vodorovné čáře). Merge
+ * je Bezierova křivka z kuličky na osu cíle v čase merge s plným bodem r 5; nakreslí se jednou (`pathLength` 1). */
+export default function LinieLink({ link, id, weak }: { link: LaidLink; id: string; weak: boolean }) {
   const { from, to, fromColor, toColor } = link;
   if (link.kind === "follows") return <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={fromColor} strokeWidth={1.4} strokeDasharray="1 5" strokeLinecap="round" />;
   return (
@@ -26,9 +28,10 @@ export default function LinieLink({ link, id }: { link: LaidLink; id: string }) 
           <stop offset="0" stopColor={fromColor} /><stop offset="1" stopColor={toColor} />
         </linearGradient>
       </defs>
-      {link.kind === "planned" ? <PlanLink link={link} stroke={`url(#${id})`} /> : (
+      {link.kind === "planned" ? <PlanLink link={link} stroke={`url(#${id})`} weak={weak} /> : (
         <>
-          <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={toColor} strokeWidth={2.6} />
+          <path className="pletor-dashboard__linie-merge" pathLength={1} stroke={`url(#${id})`}
+            d={`M${from.x} ${from.y} C ${from.x + 40} ${from.y}, ${to.x - 40} ${to.y}, ${to.x} ${to.y}`} />
           <circle cx={to.x} cy={to.y} r={5} fill={toColor} />
         </>
       )}
