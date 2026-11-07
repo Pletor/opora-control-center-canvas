@@ -177,6 +177,15 @@ Interaktivní rebase a force-push editor neumí záměrně.
   jedna kulička může být ve dvou frontách (čeká na přijetí člověka a zároveň má otevřený PR). Každý počet má jednotku
   („3 rozhodnutí“, „2 otevřené žádosti“, „5 plánů“, „0 ticketů“, „4 úkoly“, „2 PR“), nikdy holé číslo. Klik na frontu
   ztlumí vše ostatní, nemění měřítko ani posun.
+- **„Čeká na tebe“** (L7g): klik na frontu Člověk neukazuje jen ztlumený graf, ale nad grafem **seřazený seznam
+  rozhodnutí**. Pořadí počítá služba, ne prohlížeč: vůz, který blokuje ostatní, první; jinak zdola nahoru po stromu
+  (nejhlubší dítě dřív), pak stáří. Každý řádek: název, revize, co je ověřené (kontroly, shoda náhledu), věta „začlení
+  `X` do `Y`, pak bude na řadě `Z`“ a **jedno tlačítko „Přijmout a začlenit“**, které provede `accept` → `allow_merge`
+  → `merge` v jednom kroku služby (`POST /work/{id}/accept-merge`, idempotentní podle `op`, zastaví se na prvním 409 a
+  vrátí důvod větou). Když to nejde (posunutý cíl, chybějící kontroly, cizí revize), řádek říká proč a nabídne
+  **jedinou** opravnou akci (znovu přijmout špičku, spustit kontroly), nikdy tři tlačítka ve třech stavech. Prázdný
+  stav: „Nic nečeká na tebe. Pracují: …“. Graf a detail kuličky slouží ke zkoumání, ne k rozhodování. Důvod: člověk
+  2026-11-07 nevěděl, co a v jakém pořadí slučovat, a zaseklé povolení z posunutého cíle nešlo v UI opravit.
 - **Panel Pletora** vpravo nahoře: výrok z jednoho vyhodnocení (§2a) včetně „Další krok“, pak čas sestavení snímku a
   stáří každého zdroje zvlášť (zastaralé zvýrazněno), povolené akce (zakázané šedé s důvodem z téhož pravidla), pole
   „Zadat srdci“ a pod ním řetězce žádostí (§4a) s kroky přijato · plán · ticket · relace · commit; selhání červeně,
@@ -273,6 +282,11 @@ Interaktivní rebase a force-push editor neumí záměrně.
    `allowed`/`blocked` včetně `allow_merge` (staré `workActions` pryč). Scénáře §8 se ověří živě na náhledu z Velínu a
    staré styly a stavy se mažou až po ověření, že je nic nečte. Dvě kuličky „nahrazeno stromem“ se uzavírají ručně se
    zachovaným důvodem a vazbou na nástupce, ne automaticky jako splněné.
+7. **Čeká na tebe (L7g)** – po L7f, samostatný vůz z integrované špičky: backend `accept-merge` (jedna operace nad
+   stávajícími `accept`/`allow_merge`/`merge`, žádná nová evidence) a řazení fronty člověka ve `evaluate`/`board`
+   (`queues.human[]` s pořadím a větou „pak bude na řadě“); frontend dílek `LinieHumanQueue` nad grafem podle §6.
+   Hotovo když: člověk na projektu s vlakem tří vozů vidí jeden seznam v pořadí zdola nahoru, jedno tlačítko projede
+   vůz za vozem a při posunutém cíli dostane větu s jedinou opravou; test na pořadí a na zastavení na 409.
 
 ## 8. Ověření před přijetím
 
