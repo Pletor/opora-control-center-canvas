@@ -209,7 +209,9 @@ export function layoutBoard(board: Board, opts: { k?: number; now?: number; lane
     const lanes = laneCount(row);
     // Bez pruhů se druhé patro otevře nad i pod osou (+2·L2), s pruhy jen nad ní (+L2); osa = base/2 se tak nikdy nehne kvůli pruhům.
     const base = row.collapsed ? ROW_FOLDED : withBalls.has(row.id) ? ROW_OPEN + (labels.tier2.has(row.id) ? L2 * (lanes ? 1 : 2) : 0) : ROW_THIN;
-    const laid = { ...row, top, height: base + LANE * lanes, y: top + base / 2, lanes, color: branchColor(row.branch || row.name, board.rows),
+    // S pruhy leží druhé patro jen nad osou, takže osa sjede o L2 níž (base − OPEN/2); jinak by u2 vyjel do řádku nad.
+    const axis = lanes && labels.tier2.has(row.id) ? base - ROW_OPEN / 2 : base / 2;
+    const laid = { ...row, top, height: base + LANE * lanes, y: top + axis, lanes, color: branchColor(row.branch || row.name, board.rows),
       ind: 8 + 16 * Math.min(row.depth, 5), meta: metaOf(row, board.mapping) };
     top += laid.height;
     return laid;

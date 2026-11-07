@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { boardFixture } from "./linie-fixture";
 import { L2, LANE, PAD, PR_AT, ROW_FOLDED, ROW_OPEN, ROW_THIN, SPAN, boardView, layoutBoard, prPill, timeRange } from "./linie-board";
 import { hueOf } from "./linie-color";
+import { labelOffsets } from "./linie-labels";
 
 const board = boardView(boardFixture);
 const layout = layoutBoard(board);
@@ -131,7 +132,7 @@ describe("skutečná data L7c a pohled podle plánu L7d", () => {
     // s pruhem jen popisky nad osou: tk_2 leží 8 px od tk_1, takže jde do druhého patra nad osou (+L2 jen jednou)
     const withLanes = layoutBoard(board, { lanes: new Set(["row_k"]) });
     const base = ROW_OPEN + L2;
-    expect(withLanes.rows[3]).toMatchObject({ lanes: 1, height: base + LANE, y: 2 * ROW_THIN + ROW_OPEN + base / 2 });
+    expect(withLanes.rows[3]).toMatchObject({ lanes: 1, height: base + LANE, y: 2 * ROW_THIN + ROW_OPEN + base - ROW_OPEN / 2 });
     expect(withLanes.labels.slots).toMatchObject({ tk_1: { side: -1, tier: 1 }, tk_2: { side: -1, tier: 2 } });
     expect(withLanes.lanes).toEqual([{ rowId: "row_k", ticketId: "tk_1", agent: "agent-a", state: "pracuje", x1: expect.any(Number), x2: withLanes.width - PAD, y: withLanes.rows[3].top + base + LANE / 2,
       color: ball("tk_1").color, dIn: expect.any(String), dOut: null, back: null }]);
@@ -179,6 +180,19 @@ describe("kresba větve podle prototypu (L9a)", () => {
     const laid = layoutBoard(crowded);
     expect(laid.labels.slots.r).toEqual({ side: 1, tier: 2 });
     expect([laid.rows[1].height, laid.rows[1].y - laid.rows[1].top]).toEqual([ROW_OPEN + 2 * L2, (ROW_OPEN + 2 * L2) / 2]);
+  });
+  it("popisky ve všech patrech zůstanou uvnitř svého řádku (s pruhy i bez)", () => {
+    const busy = (lanes: boolean) => layoutBoard(boardView({ rows, balls: ["p", "q", "r", "s"].map((id, i) => ({ ticketId: id, rowId: "ab", title: id, createdAt: at(8 + i) })).concat({ ticketId: "z", rowId: "ab", title: "z", createdAt: at(20) }),
+      worktrees: [wt("p", at(9), null)] }), { lanes: new Set(lanes ? ["ab"] : []) });
+    for (const laid of [busy(false), busy(true)]) {
+      const row = laid.rows[2], base = row.height - LANE * row.lanes;
+      expect(Object.values(laid.labels.slots).some((slot) => slot.tier === 2)).toBe(true);
+      for (const slot of Object.values(laid.labels.slots)) {
+        const off = labelOffsets(slot);
+        expect(row.y + off.name - 10).toBeGreaterThanOrEqual(row.top);
+        expect(row.y + off.state + 3).toBeLessThanOrEqual(row.top + base);
+      }
+    }
   });
   it("barva potomka z kořenové větve: stejný odstín, světlejší podle úrovně", () => {
     const laid = layoutBoard(twoLanes);
