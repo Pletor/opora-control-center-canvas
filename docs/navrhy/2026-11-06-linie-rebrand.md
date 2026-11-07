@@ -345,6 +345,9 @@ po svém.“ Backend a princip (§2–§5, L7g fronta) se nemění; mění se po
   - Testy: `test_board_text.py` (fixture snímku s frontou dvou vozů → pořadí a věta shodné s `queues.human`; řádek bez
     kuliček; prázdná fronta „Nic nečeká na člověka“), test routy (403 nikde, text/plain), test `linie.py board`.
   - Zápis agenta zůstává přes stávající `linie.py task/report/trace/block/defer/resume` a `/api/gate`; nic nového.
+  - **Postaveno 2026-11-07.** Odchylky: `--mine` / `?mine=1` pozná kuličky agenta podle `worktrees[].binding` (snímek
+    nenese `work.attempts`); stanice Pletor bere otevřené žádosti routa ze `requests.listing`; routa nese jen
+    project/workspace/mine (žádné `group`), bez identity 428, `mine` bez agenta 422.
 
 Hotovo když: screenshot Linie na celou obrazovku vedle prototypu bez rušivého rámu a bez výchozích kostek commitů,
 a `uv run python tools/linie.py board` vrátí text, ve kterém agent najde totéž, co člověk vidí v Čeká na tebe a na

@@ -19,15 +19,19 @@ identity). Report navíc označí publikované pokusy a u práce žádosti přid
 
 L7g (§7 bod 7): `POST /work/{id}/accept-merge {sha, op?, note?}` jen člověk – accept → allow_merge → merge v jednom
 kroku (`linie/human_queue.py`), zastaví se na prvním 409 s větou a jedinou opravou v `hint`.
+
+L8b (§9): `GET /board.txt?project=&workspace=&mine=` = týž snímek jako `/board` jako text/plain (`linie/board_text.py`),
+agent i člověk (identita jako u zápisů, bez ní 428); `mine=1` ponechá jen kuličky volajícího agenta. Nic nezapisuje.
 """
 from pathlib import Path
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from backend.agi_pletor.linie import (
     attempt,
     board,
+    board_text,
     commit,
     deploy,
     human_queue,
@@ -115,6 +119,26 @@ def create_linie_work_router(service, pletor, root=None):
         """`?group=plan&snapshot=<id>` = týž snímek seskupený podle plánu bez nového čtení (L7d)."""
         return human(request, project, lambda: board.grouped(service, project, workspace, root, group,
                                                              snapshot or None), workspace)
+
+    @router.get("/board.txt")
+    def board_text_get(request: Request, project: str = "", workspace: str = "main", mine: int = 0):
+        def act():
+            by = origin(service, request, project)
+            _check(service, project, workspace)
+            if mine and not by.startswith("agent:"):
+                raise GateError(422, "invalid_payload", "mine=1 patří agentovi.", "Pošlete X-Opora-Actor: agent; name=…")
+            found, events, after = board.grouped(service, project, workspace, root), [], 0
+            while True:  # deník po stránkách podle id; text ukáže posledních 20
+                page = journal.read(service, project, after, journal.LIMIT)
+                events += page["events"]
+                if len(page["events"]) < journal.LIMIT:
+                    break
+                after = page["lastId"]
+            asked = requests.listing(service, project, True)
+            text = board_text.render(found, mine=by.split(":", 1)[1] if mine else None, journal=events,
+                                     open_requests=len(asked))
+            return PlainTextResponse(text, media_type="text/plain; charset=utf-8")
+        return answer(act)
 
     @router.post("/rows")
     def row_add(request: Request, body: LinieRowIn, project: str = ""):

@@ -185,3 +185,19 @@ def test_trace_prints_layers_and_sentence(repo, monkeypatch, capsys):
     assert "PR: number=12, state=OPEN" in out and "Commit bez relace" in out and out.rstrip().endswith("OP-3F9A1C: E.")
     server = Server(repo, marked(repo) | {("GET", "/trace/OP-3F9A1C"): {}})
     assert run(monkeypatch, capsys, server, repo, "trace", "--ticket", TICKET)[0] == 0
+
+
+def test_board_prints_text_of_route_and_mine_flag(repo, monkeypatch, capsys):
+    shown = "Pletor: Na plátně 0 kuliček.\nČeká na člověka:\n"
+
+    class TextServer(Server):
+        def __call__(self, request, timeout):
+            self.calls.append((request.get_method(), request.full_url, request.get_header("Accept")))
+            return io.BytesIO(shown.encode())
+
+    server = TextServer(repo)
+    code, out = run(monkeypatch, capsys, server, repo, "board", "--project", "p", "--workspace", "main", "--mine")
+    assert code == 0 and out == shown
+    assert server.calls[0][1].endswith("/board.txt?project=p&workspace=main&mine=1") and server.calls[0][2] == "text/plain"
+    code, out = run(monkeypatch, capsys, server, repo, "board")
+    assert code == 2 and "projekt" in out
