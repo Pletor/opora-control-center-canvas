@@ -89,7 +89,8 @@ def test_linie_work_flow(tmp_path, repo):
         assert client.get(work, headers={**AGENT, "X-Opora-Gate-Token": "spatny"}, params=q).status_code == 401
         early = client.post(f"{work}/merge", headers=AGENT, params=q)  # L7 §2a: pending merge nepovoluje
         assert early.status_code == 409 and early.json()["code"] == "action_not_allowed"
-        for path, payload in (("/accept", {"sha": head}), ("/allow-merge", {"target": "develop"})):
+        for path, payload in (("/accept", {"sha": head}), ("/allow-merge", {"target": "develop"}),
+                              ("/accept-merge", {"sha": head})):  # L7g: přijmout a začlenit jen člověk
             assert client.post(work + path, headers=AGENT, params=q, json=payload).status_code == 403
         assert client.post(f"{work}/accept", headers=HEADERS, params=q, json={"sha": head}).json()["work"][
             "acceptance"]["sha"] == head

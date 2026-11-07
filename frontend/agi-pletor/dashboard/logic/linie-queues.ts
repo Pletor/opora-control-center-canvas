@@ -33,7 +33,7 @@ export function queues(balls: QueueBall[], counts: BoardQueues | null, openReque
   };
   const plans = counts?.plansWaiting ?? null;
   return [
-    { id: "clovek", label: "Člověk", hint: "přijetí, zastaralé přijetí, odblokování", ...of("clovek", "rozhodnutí", "rozhodnutí", "rozhodnutí") },
+    { id: "clovek", label: "Člověk", hint: "přijetí a začlenění, zastaralé přijetí, odblokování", ...of("clovek", "rozhodnutí", "rozhodnutí", "rozhodnutí") },
     { id: "pletor", label: "Pletor", hint: "žádosti srdci bez potvrzeného commitu", ids: [], count: openRequests === null ? NO_SOURCE : plural(openRequests, "otevřená žádost", "otevřené žádosti", "otevřených žádostí"), source: openRequests !== null },
     { id: "srdce", label: "Srdce", hint: "karty plánu (plátno 3) bez vydaného ticketu", ids: [], count: plans === null ? NO_SOURCE : plural(plans, "plán", "plány", "plánů"), source: plans !== null },
     { id: "tickety", label: "Tickety", hint: "čekají na pokus · značka OP-", ...of("tickety", "ticket", "tickety", "ticketů") },

@@ -1,7 +1,7 @@
 """Editor Linie a vynucení workflow (docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §3), prefix `/api/pletor/linie`.
 
 Všude `?project=`; `GET /board` a `POST /work` navíc `&workspace=`. Jen člověk: board, řádky, `POST /work`, attach,
-preview, accept (i DELETE), allow-merge. Agent i člověk: `GET /work/{id}`, report, merge (provádí služba),
+preview, accept (i DELETE), allow-merge, accept-merge. Agent i člověk: `GET /work/{id}`, report, merge (provádí služba),
 block / defer / resume, run (relace LLM); čtení bez identity: `GET /commit/{sha}` a `GET /trace/{mark}` (cesta práce
 podle vodotisku OP-XXXXXX, 404 `mark_not_found`); agent se prokáže `X-Opora-Actor: agent; name=…` nebo tokenem brány `X-Opora-Gate-Token`
 (projekt i prostor ticketu musí sedět), bez identity 428. Odmítnutí je JSON `{error, code, hint}`.
@@ -16,6 +16,9 @@ L7e (§7 bod 5): `POST /work {idempotencyKey?, requestId?}`, `POST /work/{id}/at
 `/revert {sha, expectedHead, op?}`, `/rebase-note {from, to}` (jen evidence), `/unblock`; klíč nebo `op` se stejným
 obsahem vrátí týž záznam, s jiným 409 `idempotency_conflict`. `GET /journal?after=&limit=` = deník `linie.*` (bez
 identity). Report navíc označí publikované pokusy a u práce žádosti přidá krok `commit` (`linie/requests.py`).
+
+L7g (§7 bod 7): `POST /work/{id}/accept-merge {sha, op?, note?}` jen člověk – accept → allow_merge → merge v jednom
+kroku (`linie/human_queue.py`), zastaví se na prvním 409 s větou a jedinou opravou v `hint`.
 """
 from pathlib import Path
 
@@ -27,6 +30,7 @@ from backend.agi_pletor.linie import (
     board,
     commit,
     deploy,
+    human_queue,
     idempotency,
     journal,
     merge,
@@ -40,6 +44,7 @@ from backend.agi_pletor.linie import (
 from backend.api.agi_pletor.models import (
     LinieAbandonIn,
     LinieAcceptIn,
+    LinieAcceptMergeIn,
     LinieAllowIn,
     LinieAttachIn,
     LinieAttemptIn,
@@ -226,6 +231,11 @@ def create_linie_work_router(service, pletor, root=None):
     def work_allow(request: Request, ticket_id: str, body: LinieAllowIn, project: str = ""):
         return human(request, project, lambda: work.allow_merge(service, project, ticket_id, body.target,
                                                                 tokens.stamp()))
+
+    @router.post("/work/{ticket_id}/accept-merge")
+    def work_accept_merge(request: Request, ticket_id: str, body: LinieAcceptMergeIn, project: str = ""):
+        return human(request, project, lambda: human_queue.accept_merge(service, project, ticket_id, body.sha, body.op,
+                                                                        body.note, tokens.stamp()))
 
     @router.post("/work/{ticket_id}/merge")
     def work_merge(request: Request, ticket_id: str, body: LinieMergeIn | None = None, project: str = ""):

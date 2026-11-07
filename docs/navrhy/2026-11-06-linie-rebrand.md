@@ -287,6 +287,8 @@ Interaktivní rebase a force-push editor neumí záměrně.
    (`queues.human[]` s pořadím a větou „pak bude na řadě“); frontend dílek `LinieHumanQueue` nad grafem podle §6.
    Hotovo když: člověk na projektu s vlakem tří vozů vidí jeden seznam v pořadí zdola nahoru, jedno tlačítko projede
    vůz za vozem a při posunutém cíli dostane větu s jedinou opravou; test na pořadí a na zastavení na 409.
+   **L7g postaveno** (7. 11., `linie/human_queue.py`, `LinieHumanQueue`): mezi vozy vlaku musí agent nahlásit novou
+   špičku rodiče (merge dítěte ji posune, kontroly platí pro sha); tlačítko „spustit kontroly“ chybí, služba je nespouští.
 
 ## 8. Ověření před přijetím
 
