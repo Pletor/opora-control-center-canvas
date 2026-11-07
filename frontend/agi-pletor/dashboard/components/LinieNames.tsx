@@ -16,7 +16,7 @@ const chip = (row: LaidRow) => (row.planned ? "plánováno · bez větve" : row.
 const PLAN_ROW = new Set(["dir", "plan"]);
 const RowName = ({ text }: { text: string }) => {
   const { prefix, last } = splitRowName(text);
-  return <>{prefix && <span className="pletor-dashboard__linie-row-prefix">{prefix}</span>}{last}</>;
+  return <>{prefix && <span className="pletor-dashboard__linie-row-prefix"><bdi dir="ltr">{prefix}</bdi></span>}<span className="pletor-dashboard__linie-row-last">{last}</span></>;
 };
 
 /**

@@ -45,3 +45,9 @@ export function labelOffsets(slot: Slot): { name: number; state: number | null }
   if (slot.tier === 1) return slot.side === 1 ? { name: 23, state: 36 } : { name: -27, state: -14 };
   return slot.side === 1 ? { name: 50, state: null } : { name: -44, state: null };
 }
+
+/** Popisek se kreslí od kuličky doprava u levého okraje plátna a doleva u pravého, jinak je vycentrovaný; nikdy nevyjede ven. */
+export function labelAnchor(x: number, ball: Pick<LabelBall, "label" | "stateLabel">, plotWidth: number): "start" | "middle" | "end" {
+  const half = labelWidth(ball) / 2;
+  return x - half < 0 ? "start" : x + half > plotWidth ? "end" : "middle";
+}

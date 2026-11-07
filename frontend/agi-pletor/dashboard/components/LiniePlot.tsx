@@ -1,6 +1,6 @@
 import { useId, useState, type KeyboardEvent } from "react";
 import type { BoardLayout, LaidBall } from "../logic/linie-board";
-import { labelOffsets, type Labels } from "../logic/linie-labels";
+import { labelAnchor, labelOffsets, type Labels } from "../logic/linie-labels";
 import type { LayerState } from "../logic/linie-prefs";
 import { xOf } from "../logic/linie-zoom";
 import LinieBall from "./LinieBall";
@@ -44,6 +44,7 @@ export default function LiniePlot({ layout, selected, labels, lit, layers, onPic
         {layout.balls.map((ball) => {
           const slot = labels.slots[ball.ticketId];
           const off = slot && labelOffsets(slot);
+          const anchor = { textAnchor: labelAnchor(ball.x, ball, layout.width) };
           return (
             <g key={ball.ticketId} role="button" tabIndex={0} aria-label={`${ball.title}, ${ball.stateLabel}`} aria-pressed={mine(ball.ticketId)}
               className={`pletor-dashboard__linie-pick${lit && !lit.has(ball.ticketId) ? " pletor-dashboard__linie-pick--dim" : ""}`}
@@ -51,8 +52,8 @@ export default function LiniePlot({ layout, selected, labels, lit, layers, onPic
               onMouseEnter={() => setTip(ball)} onMouseLeave={() => setTip(null)} onFocus={() => setTip(ball)} onBlur={() => setTip(null)}>
               {mine(ball.ticketId) && <circle className="pletor-dashboard__linie-ring" cx={ball.x} cy={ball.y} r={16} />}
               <LinieBall glyph={ball.glyph} color={ball.color} toColor={ball.toColor !== ball.color ? ball.toColor : undefined} x={ball.x} y={ball.y} />
-              {off && <text x={ball.x} y={ball.y + off.name} className="pletor-dashboard__linie-ball-name">{ball.label}</text>}
-              {off && off.state !== null && <text x={ball.x} y={ball.y + off.state} className="pletor-dashboard__linie-ball-state">{ball.stateLabel}</text>}
+              {off && <text x={ball.x} y={ball.y + off.name} className="pletor-dashboard__linie-ball-name" style={anchor}>{ball.label}</text>}
+              {off && off.state !== null && <text x={ball.x} y={ball.y + off.state} className="pletor-dashboard__linie-ball-state" style={anchor}>{ball.stateLabel}</text>}
             </g>
           );
         })}
