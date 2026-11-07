@@ -1,4 +1,4 @@
-import type { PletorAction } from "../logic/linie-actions";
+import { splitActions, type PletorAction } from "../logic/linie-actions";
 import { clip, type Board, type BoardBall } from "../logic/linie-board";
 import type { Queue } from "../logic/linie-queues";
 import { queueLines } from "../logic/linie-queues";
@@ -30,17 +30,18 @@ export default function LiniePanel(p: Props) {
     <LinieCommit sha={p.commit} query={p.query} onClose={() => p.onCommit("")} onPickTicket={(id) => { p.onCommit(""); p.onPick(id); }} onPickTrace={p.onTrace} />
   ) : p.picked ? (
     <LinieDetail ticketId={p.picked} query={p.query} ball={p.ball ?? null} cluster={p.cluster} revision={p.lastSuccessAt}
-      actions={p.actions} note={p.acceptNote} onNote={p.onAcceptNote} flash={p.flash} onAct={p.onAct} onClose={p.onClose} onPickTrace={p.onTrace} onPick={p.onPick} onLoad={p.onDetail} />
+      actions={splitActions(p.actions, p.ball?.judgement.summary.key ?? "").rest} note={p.acceptNote} onNote={p.onAcceptNote} flash={p.flash} onAct={p.onAct} onClose={p.onClose} onPickTrace={p.onTrace} onPick={p.onPick} onLoad={p.onDetail} />
   ) : null;
   if (!p.editor && !panel) return null;
   const ball = p.ball;
+  const { main } = splitActions(p.actions, ball?.judgement.summary.key ?? "");
   return (
     <aside className={`pletor-dashboard__linie-panel${panel ? "" : " pletor-dashboard__linie-panel--idle"}`}>
       {p.editor && (
         <LiniePletor lines={ball ? pletorVerdict(ball.mark || clip(ball.title), ball.judgement, p.board.snapshot, p.now) : queueLines(p.queueList, p.board.balls.length)}
           next={ball ? ball.judgement.summary.next || (p.detail?.ticketId === p.picked ? p.detail.next : "") : ""} builtAt={p.board.snapshot ? hhmm(p.board.snapshot.builtAt) : ""}
           ages={sourceAges(p.board.snapshot, p.now)} feed={feedText(p.lastSuccessAt, p.boardError, p.now)}
-          actions={p.actions} note={p.acceptNote} onNote={p.onAcceptNote} flash={p.flash} onAct={p.onAct} requests={p.requests} onAsk={p.onAsk} />
+          actions={main} note={p.acceptNote} onNote={p.onAcceptNote} flash={p.flash} onAct={p.onAct} requests={p.requests} onAsk={p.onAsk} />
       )}
       {panel}
     </aside>

@@ -1,6 +1,7 @@
 import { useRef, useState, type PointerEvent } from "react";
 import { LANE, ROW_THIN, TYPE_LABEL, type LaidLane, type LaidRow } from "../logic/linie-board";
 import { clampNames } from "../logic/linie-prefs";
+import { splitRowName } from "../logic/linie-row-name";
 
 type Props = {
   rows: LaidRow[]; lanes: LaidLane[]; chips: Record<string, string>; selectedRow: string; corner: string;
@@ -13,6 +14,10 @@ const label = (row: LaidRow) => (row.auto && row.parent && row.branch.startsWith
 const renamable = (row: LaidRow) => !row.fixed && !row.git && !row.auto && row.type !== "plan";
 const chip = (row: LaidRow) => (row.planned ? "plánováno · bez větve" : row.git ? "z gitu" : row.auto ? "z větve" : TYPE_LABEL[row.type]);
 const PLAN_ROW = new Set(["dir", "plan"]);
+const RowName = ({ text }: { text: string }) => {
+  const { prefix, last } = splitRowName(text);
+  return <>{prefix && <span className="pletor-dashboard__linie-row-prefix">{prefix}</span>}{last}</>;
+};
 
 /**
  * Sticky sloupec názvů vlevo a roh nad ním: jeden řádek textu s výpustkou (celé jméno v `title` a v detailu), pod ním
@@ -60,8 +65,8 @@ export default function LinieNames({ rows, lanes, chips, selectedRow, corner, on
                       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); edit(null); }
                     }} />
                 ) : (
-                  <span className="pletor-dashboard__linie-row-name" style={{ color: row.color }} title={label(row)} tabIndex={renamable(row) ? 0 : undefined}
-                    onKeyDown={renamable(row) ? (event) => { if (event.key === "F2") { event.preventDefault(); edit(row); } } : undefined}>{label(row)}</span>
+                  <span className="pletor-dashboard__linie-row-name" style={{ color: row.color }} title={row.branch || label(row)} tabIndex={renamable(row) ? 0 : undefined}
+                    onKeyDown={renamable(row) ? (event) => { if (event.key === "F2") { event.preventDefault(); edit(row); } } : undefined}><RowName text={label(row)} /></span>
                 )}
                 {row.branch && <button type="button" className="pletor-dashboard__linie-icon" title={`Zaměřit ${row.branch}`} aria-label={`Zaměřit ${label(row)}`} onClick={() => onFocus(row.branch)}>⌖</button>}
                 {renamable(row) && editing !== row.id && <button type="button" className="pletor-dashboard__linie-icon" title="Přejmenovat (F2)" aria-label={`Přejmenovat ${label(row)}`} onClick={() => edit(row)}>✎</button>}

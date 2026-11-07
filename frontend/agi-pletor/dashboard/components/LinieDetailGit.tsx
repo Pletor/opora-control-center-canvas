@@ -55,7 +55,7 @@ export default function LinieDetailGit({ detail: d, ball, actions, note, onNote,
         <div className="pletor-dashboard__linie-detail-card">
           <h3 className="pletor-dashboard__linie-detail-h">Akce člověka</h3>
           {actions.length ? <LinieActions actions={actions} note={note} onNote={onNote} onAct={onAct} />
-            : <p className="pletor-dashboard__note">Backend zatím nepovolil žádnou akci (bez `allowed`).</p>}
+            : <p className="pletor-dashboard__note">Další akce nejsou; hlavní krok je v panelu Pletora.</p>}
           <p className="pletor-dashboard__note">Agent tato tlačítka nikdy nestiskne za tebe.</p>
           {flash && <p className="pletor-dashboard__linie-flash" role="status">{flash}</p>}
         </div>

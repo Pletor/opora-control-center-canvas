@@ -181,6 +181,11 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* Ztlumený prefix větve („feat/velin-linie-“) před tučným posledním segmentem: sloupec názvů se čte podle konců, ne podle stejných začátků. */
+.pletor-dashboard__linie-row-prefix {
+  color: var(--pletor-dim);
+  font-weight: 400;
+}
 .pletor-dashboard__linie-rename {
   flex: 1;
   min-width: 0;
@@ -318,6 +323,7 @@
   flex-direction: column;
   gap: 2px;
   min-width: 240px;
+  max-width: 460px;
   padding: 8px 10px;
   border: 1px solid var(--pletor-accent);
   background: var(--pletor-bg-2);

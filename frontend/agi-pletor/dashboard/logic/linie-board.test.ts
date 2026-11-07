@@ -68,6 +68,7 @@ describe("layoutBoard", () => {
     expect(ball("tk_1").hover.mark).toBe("OP-3F9A1C");
     expect(ball("tk_2").hover.mark).toBe("");
     expect(ball("tk_1").hover).toMatchObject({ title: "Panel detailu karty", state: "hotovo, ještě nezačleněno", merged: "—", counts: "3 | 1 | 0", branch: "feat/detail-karty @ 9c8050f" });
+    expect(ball("tk_1").hover).toMatchObject({ reason: "checks.passed(HEAD) & acceptance.accepted(HEAD) & integration.none", next: "Služba začlení do topic/knihovna (znovu ověří)." });
     expect(layout.merges).toEqual([]); // merge 3. 11. je starší než první kulička, osa ho nekreslí
     const inside = layoutBoard(boardView({ ...boardFixture, realMerges: [{ ...boardFixture.realMerges[0], at: "2026-11-05T10:00:00Z" }] }));
     expect(inside.merges).toEqual([{ x: PAD + SPAN / 2, y: ROW_THIN / 2, sha7: "abcdef0", title: "develop → main", color: "#4ade80" }]);
