@@ -33,5 +33,6 @@ export function branchColor(branch: string, rows: ColorRow[]): string {
     root = up;
     level += 1;
   }
-  return `hsl(${hueOf(root)} ${Math.max(40, 72 - 10 * level)}% ${Math.min(78, 52 + 9 * level)}%)`;
+  // OP-123CD1.1: sytost a světlost podle prototypu Linie v3 (rebrand §10.1), dítě nese odstín kořene, jen světlejší.
+  return `hsl(${hueOf(root)} ${Math.max(45, 75 - 9 * level)}% ${Math.min(80, 56 + 8 * level)}%)`;
 }
