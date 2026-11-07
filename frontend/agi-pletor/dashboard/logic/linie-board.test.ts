@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { boardFixture } from "./linie-fixture";
-import { MIN_GAP, PAD, ROW_FOLDED, ROW_OPEN, ROW_THIN, SPAN, boardView, layoutBoard, legend, pletorSentence } from "./linie-board";
+import { PAD, ROW_FOLDED, ROW_OPEN, ROW_THIN, SPAN, boardView, layoutBoard, legend, timeRange } from "./linie-board";
 import { hueOf } from "./linie-color";
 
 const board = boardView(boardFixture);
@@ -20,7 +20,7 @@ describe("boardView", () => {
     expect(boardView({ rows: [{ id: "a", type: "topic" }] }).rows[0].type).toBe("items");
   });
   it("chybná odpověď nespadne a neznámý stav je otevřeno", () => {
-    expect(boardView(null)).toEqual({ rows: [], balls: [], mapping: { main: "main", develop: "develop" }, realMerges: [] });
+    expect(boardView(null)).toEqual({ rows: [], balls: [], mapping: { main: "main", develop: "develop" }, realMerges: [], snapshot: null });
     expect(boardView({ balls: [{ ticketId: "x", state: "??" }] }).balls[0]).toMatchObject({ state: "open", stateLabel: "otevřeno" });
     expect(layoutBoard(boardView(null)).balls).toEqual([]);
   });
@@ -46,7 +46,9 @@ describe("layoutBoard", () => {
     expect(ball("tk_3").x).toBe(PAD);
     expect(ball("tk_1").x).toBeCloseTo(PAD + (24 / 48) * SPAN);
     expect(ball("tk_1").y).toBe(2 * ROW_THIN + ROW_OPEN + ROW_OPEN / 2);
-    expect(ball("tk_2").x - ball("tk_1").x).toBe(MIN_GAP);
+    expect(ball("tk_2").x).toBeCloseTo(PAD + (24.5 / 48) * SPAN); // vlastní čas, žádný rozestup
+    expect(ball("tk_1").stateLabel).toBe("přijato, čeká na začlenění 9c8050f"); // popisek nese souhrn
+    expect(ball("tk_2").stateLabel).toBe("otevřeno"); // bez summary náhradou stateLabel
     expect([ball("tk_1").fill, ball("tk_2").fill, ball("tk_3").fill]).toEqual(["done", "open", "merged"]);
     expect(layout.balls.some((item) => item.ticketId === "tk_4")).toBe(false);
   });
@@ -69,16 +71,21 @@ describe("layoutBoard", () => {
     expect(layout.merges).toEqual([]); // merge 3. 11. je starší než první kulička, osa ho nekreslí
     const inside = layoutBoard(boardView({ ...boardFixture, realMerges: [{ ...boardFixture.realMerges[0], at: "2026-11-05T10:00:00Z" }] }));
     expect(inside.merges).toEqual([{ x: PAD + SPAN / 2, y: ROW_THIN / 2, sha7: "abcdef0", title: "develop → main", color: "#4ade80" }]);
-    expect(layout.ticks).toHaveLength(3);
+    expect(layout.ticks.length).toBeGreaterThan(3);
+    expect(layout.ticks[1].x - layout.ticks[0].x).toBeGreaterThanOrEqual(84);
     expect(layout.width).toBeGreaterThanOrEqual(PAD + SPAN + PAD);
   });
-  it("kuličky se stejným časem na jednom řádku se rozestoupí a nepřekryjí", () => {
+  it("kuličky se stejným časem leží na stejném x: čas se nikdy neposouvá, uhýbají jen popisky", () => {
     const at = "2026-11-01T10:00:00Z";
     const ball3 = ["a", "b", "c"].map((id) => ({ ticketId: id, rowId: "row_k", title: id, createdAt: at }));
     const xs = layoutBoard(boardView({ ...boardFixture, balls: ball3, realMerges: [] })).balls.map((b) => b.x);
-    expect(new Set(xs).size).toBe(3);
-    expect(xs[1] - xs[0]).toBeGreaterThanOrEqual(MIN_GAP);
-    expect(xs[2] - xs[1]).toBeGreaterThanOrEqual(MIN_GAP);
+    expect(new Set(xs).size).toBe(1);
+  });
+  it("commity z evidence leží na řádku své kuličky v čase commitu; now rozšíří osu", () => {
+    expect(layout.commits.map((c) => [c.ticketId, c.ref, c.y])).toEqual([["tk_1", "1f0c2aa", ball("tk_1").y], ["tk_1", "9c8050f", ball("tk_1").y]]);
+    const now = Date.parse("2026-11-07T10:00:00Z");
+    expect(timeRange(board, now).t1).toBe(now);
+    expect(layoutBoard(board, { now }).now).toBe(now);
   });
   it("auto a planned jsou bezpečně false", () => {
     expect(board.rows.every((row) => !row.auto && !row.planned)).toBe(true);
@@ -90,17 +97,13 @@ describe("layoutBoard", () => {
     expect([row.git, row.ahead, row.fixed]).toEqual([true, 4, false]);
     expect(layoutBoard(withGit).rows[5].branchText).toBe("větev: feat/x · 4 před develop · bez úkolu");
     expect(ball("tk_1").x).toBeCloseTo(PAD + (24 / 48) * SPAN);
-    expect(layoutBoard(board, 2000).balls.find((b) => b.ticketId === "tk_1")!.x).toBeCloseTo(PAD + (24 / 48) * 2000);
+    expect(layoutBoard(board, { k: 2000 / (48 * 3600e3) }).balls.find((b) => b.ticketId === "tk_1")!.x).toBeCloseTo(PAD + (24 / 48) * 2000);
   });
 });
 
-describe("legenda a věta Pletora", () => {
+describe("legenda", () => {
   it("počty stavů i plánů, stavy textem", () => {
     const counts = Object.fromEntries(legend(board).map((item) => [item.text, item.count]));
     expect(counts).toMatchObject({ "začleněno": 1, "hotovo, ještě nezačleněno": 1, "otevřeno": 1, "blokováno": 1, "plán": 2 });
-  });
-  it("kde pracujeme, co je hotové a co blokované", () => {
-    expect(pletorSentence(board)).toBe("Pracujeme na Datový uzel v řádku Komponenty; hotovo a čeká na začlenění: Panel detailu karty; blokováno: Oprava: ukládání popisu.");
-    expect(pletorSentence(boardView({}))).toBe("Nic se právě nevyvíjí.");
   });
 });
