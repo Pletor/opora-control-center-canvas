@@ -257,6 +257,15 @@ Interaktivní rebase a force-push editor neumí záměrně.
      env?}`); událost nemusí mít kuličku; „nových“ se počítá od posledního přečteného `id`, ne od času; klik otevře důkaz.
    - Testy: pád po založení větve před zápisem evidence → zotavení bez duplicity; stejný klíč s jiným textem → 409;
      blokace při nedostupném gitu projde a nese `by`; revert s konfliktem není `finished`; žádost se dvěma tickety.
+6. **Uzavření (L7f)** – integrační dokončení a důkaz společného fungování, žádné nové backendové funkce; nutné opravy
+   backendu dovoleny. Frontend převezme data z L7c (tagy u commitu, worktree s agentem jen při vazbě, nasazení s původem,
+   opuštěné kostky, PR s posledním známým stavem), UI z L7d/L7e (podle plánu, záložka Plán s rozdílem, deník z
+   `opora_events`, řetězce žádostí, pilulka PR na 65 %, „Sledovat živě“). Tři opravy nalezené v kódu L7a/L7b se dělají
+   hned na jejich větvích: stáří zdrojů roste nezávislým časovačem i při výpadku API (`lastSuccessAt`, „nyní
+   nedostupné“); board a otevřený detail sdílejí revizi (akce blokované, dokud se `headSha` liší); jedna cesta akcí z
+   `allowed`/`blocked` včetně `allow_merge` (staré `workActions` pryč). Scénáře §8 se ověří živě na náhledu z Velínu a
+   staré styly a stavy se mažou až po ověření, že je nic nečte. Dvě kuličky „nahrazeno stromem“ se uzavírají ručně se
+   zachovaným důvodem a vazbou na nástupce, ne automaticky jako splněné.
 
 ## 8. Ověření před přijetím
 
