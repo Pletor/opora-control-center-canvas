@@ -121,7 +121,7 @@ def test_linie_board_snapshot_summary_and_accept_on_nocheck(tmp_path, repo):
         assert set(board["snapshot"]["sources"]) == {"git", "prs", "checks", "sessions", "deploy"}
         assert board["snapshot"]["id"].startswith("snap_") and board["snapshot"]["builtAt"]
         assert ball["summary"]["key"] == "nocheck" and ball["state"] == "awaiting_checks"
-        assert "accept" in ball["blocked"] and ball["allowed"] == ["block", "unblock"] and "deploy" not in ball["incomplete"]
+        assert "accept" in ball["blocked"] and ball["allowed"] == ["block"] and "deploy" not in ball["incomplete"]
         assert [item["kind"] for item in ball["evidence"]] == ["commit"]
 
 

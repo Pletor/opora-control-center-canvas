@@ -335,6 +335,7 @@ def allow_merge(service, project, ticket_id, target, now):
             raise WorkError("no_acceptance", 409, "Začlenění jde povolit až po přijetí revize.")
         if work["acceptance"]["sha"] != work.get("headSha"):
             raise WorkError("head_moved", 409, "Přijetí platí pro starší hlavu; přijměte aktuální revizi znovu.")
+        require(present(service, project, ticket), "allow_merge")  # jen `accepted` bez povolení pro HEAD (L7 §2a)
         aim = _name(target or work.get("target"), "target")
         tip = rev(work["repository"], aim)
         if not tip:

@@ -7,8 +7,8 @@ on, jinak `headSha`. `live` = relace s explicitní vazbou na worktree a čerstv�
 z merge logu nebo z gitu/GitHubu (work.py, §5a); bez ní platí `work.merged` jako důkaz gitu (`src: git`, `mode: None`).
 `deploy` = `{env: {sha, at, origin}}` z událostí prostředí, které revizi úkolu obsahují.
 """
-ACTIONS = ("accept", "merge", "attempt")
-ALWAYS = ["block", "unblock"]  # §2a: block/unblock je povolen vždy
+ACTIONS = ("accept", "allow_merge", "merge", "attempt", "resume", "unblock")
+ALWAYS = ["block"]  # block vždy; unblock jen u blocked, resume jen u deferred (zadání L7a po oponentuře)
 
 
 def _short(sha):
@@ -102,18 +102,19 @@ def _rule(work, ax, live):
     reason = f"checks.passed({h7}) & acceptance.accepted({h7}) & integration.none"
     if (work.get("mergeAllowed") or {}).get("sourceSha") != head:  # služba bez povolení pro HEAD nezačlení (merge.py)
         return ("accepted", f"přijato {h7}, čeká na povolení začlenění", reason + " & mergeAllowed chybí",
-                f"Člověk povolí začlenění do {target} (allow-merge).", [])
-    return ("accepted", f"přijato {h7}, čeká na začlenění", reason,
-            f"Služba začlení (merge) do {target} a znovu ověří.", ["merge"])
+                f"Člověk povolí začlenění do {target} (allow-merge).", ["allow_merge"])
+    return ("accepted", f"přijato {h7}, čeká na začlenění", reason + " & mergeAllowed(HEAD)",
+            f"Služba začlení (merge) do {target} a znovu ověří.", ["merge"], {"allow_merge": "už povoleno pro HEAD"})
 
 
 def evaluate(work, after_merge=None, live=False, integration=None, deploy=None):
     work = work or {}
     ax = axes(work, after_merge, integration, deploy)
-    key, text, reason, step, allowed = _rule(work, ax, live)
+    key, text, reason, step, allowed, *own = _rule(work, ax, live)
     if after_merge:
         reason = f"nová revize po začlenění {_short(ax['integration']['sha'])} · " + reason
     blocked = {action: f"{reason} – {step}" for action in ACTIONS if action not in allowed}
+    blocked.update(*own)  # vlastní důvod pravidla (např. allow_merge „už povoleno pro HEAD“)
     return {"key": key, "text": text, "reason": reason, "next": step,
             "allowed": allowed + [a for a in ALWAYS if a not in allowed], "blocked": blocked, "axes": ax}
 
