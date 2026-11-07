@@ -33,7 +33,7 @@ export default function LiniePlot({ layout, selected, labels, lit, layers, onPic
       <svg className="pletor-dashboard__linie-svg" width={layout.width} height={layout.height} role="img" aria-label="Řádky a kuličky Linie">
         {layout.rows.map((row) => (
           <line key={row.id} x1={0} y1={row.y} x2={layout.width} y2={row.y} stroke={row.color}
-            strokeWidth={row.fixed ? 3 : 2} opacity={row.collapsed ? 0.25 : row.fixed ? 0.9 : 0.55} />
+            strokeWidth={2} opacity={row.collapsed ? 0.25 : row.fixed ? 0.9 : 0.55} />
         ))}
         {nowX !== null && <line className="pletor-dashboard__linie-now" x1={nowX} y1={0} x2={nowX} y2={layout.height} />}
         <PlotMarksSvg layout={layout} selected={selected} layers={layers} onPickCommit={onPick} />

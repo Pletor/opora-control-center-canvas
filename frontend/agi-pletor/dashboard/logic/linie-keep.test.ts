@@ -14,12 +14,13 @@ describe("stálá poloha výběru", () => {
 });
 
 describe("pořadí Esc", () => {
-  it("přejmenování → Cesta → commit → detail → nic", () => {
-    const all = { renaming: true, trace: true, commit: true, detail: true };
+  it("přejmenování → Cesta → commit → detail → celá obrazovka → nic", () => {
+    const all = { renaming: true, trace: true, commit: true, detail: true, full: true };
     expect(escTarget(all)).toBe("renaming");
     expect(escTarget({ ...all, renaming: false })).toBe("trace");
     expect(escTarget({ ...all, renaming: false, trace: false })).toBe("commit");
-    expect(escTarget({ renaming: false, trace: false, commit: false, detail: true })).toBe("detail");
-    expect(escTarget({ renaming: false, trace: false, commit: false, detail: false })).toBeNull();
+    expect(escTarget({ ...all, renaming: false, trace: false, commit: false })).toBe("detail");
+    expect(escTarget({ renaming: false, trace: false, commit: false, detail: false, full: true })).toBe("full");
+    expect(escTarget({ renaming: false, trace: false, commit: false, detail: false, full: false })).toBeNull();
   });
 });

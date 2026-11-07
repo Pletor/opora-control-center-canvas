@@ -3,6 +3,7 @@
     uv run python tools/linie.py task [--ticket tk_…] [--project P --workspace W]
     uv run python tools/linie.py report [--check "npm test=green"]… [--sha HEAD] [--allow-unmarked]
     uv run python tools/linie.py trace [--mark OP-…]
+    uv run python tools/linie.py board [--mine]   # text přehledu jako obrazovka Linie (GET /board.txt)
     uv run python tools/linie.py status | preview | merge | defer | resume | block --reason "…"
 
 Server je v OPORA_BASE_URL (výchozí http://127.0.0.1:8740), identita OPORA_AGENT_NAME → `X-Opora-Actor`, token brány
@@ -53,10 +54,10 @@ def read_json(path):
 SCOPE = {}  # project/workspace z voleb nebo .opora/linie.json; všechny routy Linie je chtějí
 
 
-def call(cwd, method, path, body=None, query=None):
+def call(cwd, method, path, body=None, query=None, text=False):
     query = {**{k: v for k, v in SCOPE.items() if v}, **(query or {})}
     base = os.environ.get("OPORA_BASE_URL", DEFAULT_BASE).rstrip("/")
-    headers = {"Accept": "application/json", "Origin": base}
+    headers = {"Accept": "text/plain" if text else "application/json", "Origin": base}
     gate = read_json(Path(cwd) / GATE)
     name = os.environ.get("OPORA_AGENT_NAME") or gate.get("name")
     headers |= {"X-Opora-Actor": "agent; name=" + name} if name else {}
@@ -68,7 +69,7 @@ def call(cwd, method, path, body=None, query=None):
     try:
         with _open(Request(url, data=data, headers=headers, method=method), timeout=TIMEOUT) as response:
             raw = response.read()
-            return json.loads(raw) if raw else {}
+            return raw.decode("utf-8") if text else json.loads(raw) if raw else {}
     except HTTPError as error:
         try:
             detail = json.loads(error.read() or b"{}")
@@ -173,6 +174,14 @@ def status(cwd, args):
             + (f"; blokace: {work['blocked'].get('reason')}" if work.get("blocked") else ""))
 
 
+def board(cwd, args):
+    project, workspace = scope(cwd, args)
+    if not (project and workspace):
+        raise Stop(EXIT_CONTEXT, "Neznám projekt: zadej --project a --workspace (OPORA_PROJECT/…).")
+    return call(cwd, "GET", "/board.txt", query={"project": project, "workspace": workspace,
+                                                  **({"mine": 1} if args.mine else {})}, text=True).strip()
+
+
 def post(cwd, args, action, body=None):
     return json.dumps(call(cwd, "POST", f"/work/{quote(find_ticket(cwd, args))}/{action}", body or {}),
                       ensure_ascii=False)
@@ -229,7 +238,7 @@ def trace(cwd, args):
     return "\n".join(out + ["", t.get("sentence") or ""]).rstrip()
 
 
-COMMANDS = {"task": task, "status": status, "report": report, "trace": trace,
+COMMANDS = {"task": task, "status": status, "board": board, "report": report, "trace": trace,
             "block": lambda cwd, args: post(cwd, args, "block", {"reason": args.reason})}
 COMMANDS |= {action: lambda cwd, args, action=action: post(cwd, args, action)
              for action in ("preview", "merge", "defer", "resume")}
@@ -246,6 +255,8 @@ def parser():
             command.add_argument("--check", action="append", default=[], help='"npm test=green"')
             command.add_argument("--sha", help="výchozí HEAD")
             command.add_argument("--allow-unmarked", action="store_true", help="přeskočí kontrolu Opora-Mark")
+        if name == "board":
+            command.add_argument("--mine", action="store_true", help="jen kuličky volajícího agenta")
         if name == "trace":
             command.add_argument("--mark", help="OP-…, výchozí značka úkolu")
         if name == "block":

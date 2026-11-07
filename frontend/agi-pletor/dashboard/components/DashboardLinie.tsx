@@ -10,8 +10,8 @@ import { layoutGraph } from "../logic/linie-graph";
 import { escTarget, keepScroll, type Mark } from "../logic/linie-keep";
 import { labelWidth, placeLabels } from "../logic/linie-labels";
 import { laneRows } from "../logic/linie-marks";
-import { LAYERS_KEY, NAMES_KEY, readLayers, readNames, save, type LayerId } from "../logic/linie-prefs";
-import { queues, type QueueId } from "../logic/linie-queues";
+import { FULL_KEY, LAYERS_KEY, NAMES_KEY, readFull, readLayers, readNames, save, type LayerId } from "../logic/linie-prefs";
+import { queueLines, queues, type QueueId } from "../logic/linie-queues";
 import { humanRequest, idleText, refusalText, type HumanRow } from "../logic/linie-human-queue";
 import { actionRequest, actionsOf } from "../logic/linie-actions";
 import { useLinieZoom } from "../logic/use-linie-zoom";
@@ -20,6 +20,7 @@ import { shortSha } from "../logic/linie-view";
 import { failureText, type WorkDetail } from "../logic/linie-work";
 import { FOLD_KEY, manualRow, readFolded, shownBoard } from "../logic/linie-fold";
 import LinieBoard from "./LinieBoard";
+import LinieFullHead from "./LinieFullHead";
 import LinieGraph from "./LinieGraph";
 import LinieJournal from "./LinieJournal";
 import LinieLegend from "./LinieLegend";
@@ -52,6 +53,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
   const [folded, setFolded] = useState(() => readFolded(globalThis.localStorage));
   const [names, setNames] = useState(() => readNames(globalThis.localStorage));
   const [layers, setLayers] = useState(() => readLayers(globalThis.localStorage));
+  const [full, setFull] = useState(() => readFull(globalThis.localStorage));
   const [queue, setQueue] = useState<QueueId | "">("");
   const [detail, setDetail] = useState<WorkDetail | null>(null);
   const [commit, setCommit] = useState("");
@@ -103,15 +105,16 @@ export default function DashboardLinie({ project, workspace }: { project: string
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
-      const target = escTarget({ renaming: renaming.current, trace: !!trace, commit: !!commit, detail: !!picked });
+      // OP-F1B343.1: celá obrazovka je poslední vrstva před Velínem, takže Esc nejdřív zavře detail a teprve pak vrací.
+      const target = escTarget({ renaming: renaming.current, trace: !!trace, commit: !!commit, detail: !!picked, full });
       if (!target) return; // nic otevřeného: Esc patří Velínu
       event.preventDefault();
       event.stopPropagation();
-      if (target === "trace") setTrace(""); else if (target === "commit") setCommit(""); else if (target === "detail") close();
+      if (target === "trace") setTrace(""); else if (target === "commit") setCommit(""); else if (target === "detail") close(); else if (target === "full") fullscreen(false);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [trace, commit, picked]);
+  }, [trace, commit, picked, full]);
 
   // Rodič se hledá i mezi větvemi, které jsou jen v gitu (bez řádku a kuličky), jinak by mezičlánek spadl na develop.
   const heads = [...new Set([board.mapping.main, board.mapping.develop, ...feed.branchBoard.rows.map((row) => row.branch), ...board.balls.map((b) => b.branch), ...view.lanes.map((item) => item.name)].filter(Boolean))];
@@ -134,6 +137,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
   };
   const layer = (id: LayerId, on: boolean) => { const next = { ...layers, [id]: on }; setLayers(next); save(LAYERS_KEY, next); };
   const width = (value: number) => { setNames(value); save(NAMES_KEY, String(value)); };
+  function fullscreen(on: boolean) { setFull(on); save(FULL_KEY, String(on)); }
   // Jedna cesta pro akce: seznam z allowed/blocked nad shodnou revizí boardu a detailu, provedení přes actionRequest.
   const actions = ball ? actionsOf(ball.judgement, picked, ball.headSha7, detail) : [];
   const runAction = (id: string) => {
@@ -160,13 +164,14 @@ export default function DashboardLinie({ project, workspace }: { project: string
   const activeQueue = queueList.find((item) => item.id === queue);
 
   return (
-    <div className="pletor-dashboard__linie-root">
+    <div className={`pletor-dashboard__linie-root${full ? " pletor-dashboard__linie-root--full" : ""}`}>
+      {full && <LinieFullHead say={queueLines(queueList, board.balls.length).slice(0, -1).join(" ")} />}
       {editor && <LinieQueues queues={queueList} active={queue} onPick={setQueue} />}
       {feed.error && <p className="pletor-dashboard__error" role="alert">{feed.error}</p>}
       {view.problem && <p className="pletor-dashboard__error">{view.problem}</p>}
       {note && <p className="pletor-dashboard__note" role="status">{note}</p>}
       <LinieToolbar mode={mode} onMode={setMode} group={group} onGroup={setGroup} layers={layers} onLayer={layer} form={form} onForm={setForm} sources={sources}
-        follow={follow} onFollow={setFollow} zoom={{ ...zoom, now: () => zoom.now(now) }} />
+        follow={follow} onFollow={setFollow} zoom={{ ...zoom, now: () => zoom.now(now) }} full={full} onFull={fullscreen} />
       <LinieStatus view={view} onDeployed={(sha) => void write("/deployed", { sha }, `Nasazené zapsáno: ${shortSha(sha)}.`)} />
       {form === "row" && <LinieRowForm onClose={() => setForm("")} onSubmit={(body) => write("/rows", body, "Řádek přidán (větev se nezaložila).")} />}
       {form === "work" && <LinieWorkForm rows={feed.branchBoard.rows} heads={heads} onClose={() => setForm("")} onSubmit={(body) => write("/work", body, "Kulička zadána (větev založí agent).")} />}
@@ -192,8 +197,8 @@ export default function DashboardLinie({ project, workspace }: { project: string
           boardError={feed.boardError} requests={feed.requests} actions={actions} acceptNote={acceptNote} onAcceptNote={setAcceptNote} flash={flash} onAct={runAction} onAsk={feed.ask}
           trace={trace} onTrace={setTrace} commit={commit} onCommit={setCommit} cluster={cluster} onPick={pick} onClose={close} onDetail={setDetail} />
       </div>
-      {editor && <LinieLegend board={board} />}
       {editor && <LinieJournal journal={feed.journal} marks={marks} onPick={pick} />}
+      {editor && <LinieLegend board={board} />}
     </div>
   );
 }

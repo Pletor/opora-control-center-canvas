@@ -1,36 +1,101 @@
-/* Linie jako celek: vyplní obsah velínu přesně do spodní hrany (flex 1 a min-height 0), žádné „100vh minus něco“.
-   Písmo je o půl pixelu větší než ve zbytku velínu a vedlejší text světlejší: člověk tu čte husté popisky. Texty
-   běžným písmem, monospace zůstává jen sha, značkám a větvím (.pletor-dashboard__mono). */
+/* Linie jako celek: jedna tichá vrstva, ne krabice v krabici. Pásy (stanice, lišta, stav main, plátno, deník, legenda)
+   leží těsně pod sebou a dělí je jen vlasová linka, takže oko nejde přes rámy, ale po obsahu. Vyplní obsah velínu
+   přesně do spodní hrany (flex 1 a min-height 0), žádné „100vh minus něco“. Písmo je o půl pixelu větší než ve zbytku
+   velínu a vedlejší text světlejší: člověk i Pletor ze screenshotu tu čtou husté popisky. Texty běžným písmem,
+   monospace zůstává jen sha, značkám a větvím (.pletor-dashboard__mono). */
 .pletor-dashboard__linie-root {
   --pletor-dim: #a3dcbc;
   flex: 1;
   font-family: system-ui, sans-serif;
+  line-height: 1.45;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
   font-size: 13.5px;
 }
 
-/* Lišta editoru: přepínač Editor | Git graf, měřítko, Vrstvy a dva zápisy; nápověda ovládání vpravo, kde nepřekáží. */
+/* Celá obrazovka: Linie vyplní okno a Velín (hlava, menu, karta) zmizí pod ní, zůstane jen řádek „VELÍN · LINIE“
+   s větou Pletora. Pásy dostanou vnitřní okraj 16 px jako v prototypu, aby linky běžely od kraje ke kraji. Esc nebo
+   „Zpět“ vrací do Velínu; z-index stačí malý, protože Velín sám je jedna vrstva. */
+.pletor-dashboard__linie-root--full {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  padding: 0 16px;
+  background: linear-gradient(var(--pletor-bg-2), var(--pletor-bg));
+}
+.pletor-dashboard__linie-fullhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__linie-fullhead-title {
+  flex: none;
+  margin: 0;
+  color: var(--pletor-accent);
+  font: 600 13px var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.pletor-dashboard__linie-fullhead-say {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--pletor-dim);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pletor-dashboard__linie-fullhead-say strong {
+  color: var(--pletor-accent);
+  font-weight: 600;
+}
+
+/* Lišta editoru: skupiny (pohled, seskupení, měřítko, vrstvy, zápisy, celá obrazovka) oddělené svislou linkou, aby
+   oko četlo pět rozhodnutí, ne patnáct tlačítek. Tlačítka mají jednotnou výšku 30 px a běžné písmo; zapnuté jen
+   zesílí rám a podklad. Nápověda ovládání stojí vpravo šedě, kde nepřekáží. */
 .pletor-dashboard__linie-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 12px;
+  gap: 6px 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__linie-bar .pletor-dashboard__tools {
+  gap: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__linie-bar .pletor-dashboard__tools:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.pletor-dashboard__linie-bar .pletor-dashboard__button {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  font: 12.5px system-ui, sans-serif;
+  white-space: nowrap;
 }
 .pletor-dashboard__linie-bar .pletor-dashboard__button[aria-pressed="true"] {
   border-color: var(--pletor-accent);
+  background: rgba(61, 255, 143, 0.22);
 }
 .pletor-dashboard__linie-scale {
-  min-width: 128px;
-  color: var(--pletor-ink);
+  min-width: 100px;
+  color: var(--pletor-dim);
+  font: 11.5px var(--mono);
   text-align: center;
 }
 .pletor-dashboard__linie-hint {
   margin-left: auto;
   color: var(--pletor-dim);
-  font-size: 11.5px;
+  font-size: 11px;
 }
 
 /* Formuláře řádku a kuličky: pole vedle sebe s malým popiskem nad nimi, jako jeden vodorovný pruh nad editorem. */
@@ -50,19 +115,20 @@
   font-size: 11.5px;
 }
 
-/* Editor je jeden posuvný prvek: mřížka „názvy | plátno“. Při posunu dolů zůstává časová hlavička nahoře, při posunu
-   doprava zůstávají názvy vlevo, roh drží obojí. Kolečko nad plátnem mění čas, tažení prázdného místa posouvá rukou. */
+/* Editor je jeden posuvný prvek bez vlastního rámu: mřížka „názvy | plátno“ leží přímo na podkladu. Při posunu dolů
+   zůstává časová hlavička (30 px) nahoře, při posunu doprava zůstávají názvy vlevo, roh drží obojí. Kolečko nad
+   plátnem mění čas, tažení prázdného místa posouvá rukou. */
 .pletor-dashboard__linie-board {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  border: 1px solid var(--pletor-line);
   background: var(--pletor-bg);
+  scrollbar-color: #1f4a33 transparent;
 }
 .pletor-dashboard__linie-grid {
   display: grid;
   grid-template-columns: var(--linie-names) var(--linie-plot);
-  grid-template-rows: 28px auto;
+  grid-template-rows: 30px auto;
   width: max-content;
   min-width: 100%;
 }
@@ -74,7 +140,7 @@
   border-bottom: 1px solid var(--pletor-line);
   background: var(--pletor-bg);
   color: var(--pletor-dim);
-  font-size: 11px;
+  font: 11px var(--mono);
 }
 .pletor-dashboard__linie-corner {
   grid-area: 1 / 1;
@@ -84,6 +150,7 @@
   align-items: center;
   padding: 0 12px;
   border-right: 1px solid var(--pletor-line);
+  font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -102,7 +169,7 @@
 }
 .pletor-dashboard__linie-tick {
   position: absolute;
-  top: 7px;
+  top: 8px;
   transform: translateX(-50%);
   white-space: nowrap;
 }
@@ -124,7 +191,8 @@
 }
 
 /* Hlavička řádku má přesně výšku svého pruhu, aby název a jeho čára ležely v jedné výšce. Název je jeden řádek
-   s výpustkou (celý v bublině a v detailu), pod ním větev a cíl. Vybraný řádek svítí jemně zeleně. */
+   s výpustkou (celý v bublině a v detailu), pod ním drobně větev a cíl. Vybraný řádek nese jen zelený proužek vlevo
+   a slabý podklad, nic dalšího se nerozsvítí. */
 .pletor-dashboard__linie-row {
   box-sizing: border-box;
   display: flex;
@@ -136,20 +204,17 @@
   border-bottom: 1px solid var(--pletor-line);
 }
 .pletor-dashboard__linie-row--selected {
-  background: var(--pletor-accent-soft);
+  background: rgba(61, 255, 143, 0.07);
   box-shadow: inset 3px 0 0 var(--pletor-accent);
 }
 /*
- * Strom v hlavičkách: dítě větve je odsazené o šestnáct pixelů za každou úroveň a vlevo má tenkou svislou linku,
- * jako by viselo na rodiči. Kořeny (main, develop) stojí u okraje bez linky, takže oko samo čte, kdo pod kým pracuje.
+ * Strom v hlavičkách jen odsazením: dítě větve se posune o šestnáct pixelů za každou úroveň, žádné svislé linky.
+ * Kořeny (main, develop) stojí u okraje, takže oko samo čte, kdo pod kým pracuje, a sloupec zůstane tichý.
  */
 .pletor-dashboard__linie-row--depth-1 { padding-left: 24px; }
 .pletor-dashboard__linie-row--depth-2 { padding-left: 40px; }
 .pletor-dashboard__linie-row--depth-3 { padding-left: 56px; }
 .pletor-dashboard__linie-row--depth-4 { padding-left: 72px; }
-.pletor-dashboard__linie-row--depth-2,
-.pletor-dashboard__linie-row--depth-3,
-.pletor-dashboard__linie-row--depth-4 { border-left: 2px solid var(--pletor-line); }
 .pletor-dashboard__linie-row-top {
   display: flex;
   align-items: center;
@@ -172,16 +237,28 @@
 .pletor-dashboard__linie-icon:focus-visible {
   color: var(--pletor-accent);
 }
-/* Jméno řádku je vždy čitelné podle konce: tučný poslední segment („osy“, „fronta“) má pevné místo vpravo, ztlumený
-   prefix před ním se krátí zleva výpustkou, takže dlouhá větev nikdy nesežere to, podle čeho se řádky rozeznávají. */
+/* Jméno řádku: před ním tečka v barvě větve s tmavým lemem, pak jméno 14 px tučně v téže barvě, takže řádek se
+   pozná podle barvy dřív, než se přečte. Je čitelné podle konce: tučný poslední segment („osy“, „fronta“) má pevné
+   místo vpravo, ztlumený prefix před ním se krátí zleva výpustkou. */
 .pletor-dashboard__linie-row-name {
   display: flex;
   flex: 1;
+  align-items: center;
   min-width: 0;
   overflow: hidden;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
+}
+.pletor-dashboard__linie-row-name::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: 0 8px 0 4px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 2px var(--pletor-bg), 0 0 0 3px currentColor;
 }
 .pletor-dashboard__linie-row-prefix {
   flex: 0 1 auto;
@@ -210,10 +287,11 @@
   border: 1px solid var(--pletor-line);
   color: var(--pletor-dim);
   font-size: 10.5px;
+  line-height: 17px;
 }
 .pletor-dashboard__linie-meta {
   overflow: hidden;
-  padding-left: 26px;
+  padding-left: 46px;
   color: var(--pletor-dim);
   font-size: 11.5px;
   white-space: nowrap;
@@ -316,14 +394,20 @@
   color: var(--pletor-dim);
 }
 
-/* Legenda pod editorem přes celou šířku: kuličky stejným glyfem jako v grafu, s textem a počtem, pak druhy spojnic. */
+/* Legenda je patička jedním řádkem: kuličky stejným glyfem jako v grafu, s textem a počtem, pak druhy spojnic. Co se
+   nevejde, odjede vodorovně; plátno nad ní tak nikdy neztratí výšku kvůli druhému řádku vysvětlivek. */
 .pletor-dashboard__linie-legend {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 6px 18px;
+  gap: 6px 16px;
+  padding: 6px 0;
+  overflow-x: auto;
+  border-top: 1px solid var(--pletor-line);
   color: var(--pletor-dim);
   font-size: 11.5px;
+  white-space: nowrap;
+  scrollbar-width: thin;
 }
 .pletor-dashboard__linie-legend-item {
   display: flex;
@@ -337,6 +421,7 @@
 /* Drobek zaměření nad editorem: člověk vidí, na kterou větev se dívá, a jedním klikem se vrátí na celý strom. */
 .pletor-dashboard__linie-crumb {
   margin: 0;
+  padding: 4px 0;
   color: var(--pletor-dim);
 }
 .pletor-dashboard__linie-crumb strong {
