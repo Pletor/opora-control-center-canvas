@@ -10,10 +10,10 @@ export function keepScroll(before: Mark, after: Mark, scrollTop: number): number
   return Math.max(0, scrollTop + (after.y - before.y));
 }
 
-export type Layers = { renaming: boolean; trace: boolean; commit: boolean; detail: boolean };
+export type Layers = { renaming: boolean; trace: boolean; commit: boolean; detail: boolean; full: boolean };
 export type EscTarget = keyof Layers | null;
 
-/** Esc zavře nejbližší vrstvu: přejmenování → Cesta → commit → detail → nic (pak ho dostane Velín). */
+/** Esc zavře nejbližší vrstvu: přejmenování → Cesta → commit → detail → celá obrazovka → nic (pak ho dostane Velín). */
 export function escTarget(open: Layers): EscTarget {
-  return (["renaming", "trace", "commit", "detail"] as const).find((layer) => open[layer]) ?? null;
+  return (["renaming", "trace", "commit", "detail", "full"] as const).find((layer) => open[layer]) ?? null;
 }

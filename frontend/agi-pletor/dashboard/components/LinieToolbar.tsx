@@ -8,14 +8,16 @@ type Props = {
   zoom: Zoom; layers: LayerState; sources: Record<LayerId, boolean>; onLayer: (id: LayerId, on: boolean) => void;
   follow: boolean; onFollow: (on: boolean) => void;
   form: "" | "row" | "work"; onForm: (form: "" | "row" | "work") => void;
+  full: boolean; onFull: (on: boolean) => void;
 };
 
 /**
  * Lišta nad plátnem: Editor | Git graf, seskupení podle větví | podle plánu, měřítko (− · šířka · + · Vše · Teď ·
- * ↻ Výchozí), Vrstvy, „Sledovat živě“ (automatický posun za časem teď, výchozí vypnuto) a dva zápisy. Vrstva bez
+ * ↻ Výchozí), Vrstvy, „Sledovat živě“ (automatický posun za časem teď, výchozí vypnuto), dva zápisy a přepínač celé
+ * obrazovky (Linie vyplní okno, Esc vrací). Vrstva bez
  * zdroje v boardu jde zapnout, ale stojí šedě s „bez zdroje“, aby nikdo nečekal, že se něco ukáže.
  */
-export default function LinieToolbar({ mode, onMode, group, onGroup, zoom, layers, sources, onLayer, follow, onFollow, form, onForm }: Props) {
+export default function LinieToolbar({ mode, onMode, group, onGroup, zoom, layers, sources, onLayer, follow, onFollow, form, onForm, full, onFull }: Props) {
   const editor = mode === "editor";
   return (
     <div className="pletor-dashboard__linie-bar">
@@ -61,6 +63,9 @@ export default function LinieToolbar({ mode, onMode, group, onGroup, zoom, layer
       <span className="pletor-dashboard__tools">
         <button type="button" className="pletor-dashboard__button" aria-expanded={form === "row"} onClick={() => onForm(form === "row" ? "" : "row")}>+ Přidat řádek</button>
         <button type="button" className="pletor-dashboard__button" aria-expanded={form === "work"} onClick={() => onForm(form === "work" ? "" : "work")}>+ Nová kulička</button>
+      </span>
+      <span className="pletor-dashboard__tools">
+        <button type="button" className="pletor-dashboard__button" aria-pressed={full} title={full ? "zpět do Velínu (Esc)" : "Linie vyplní okno"} onClick={() => onFull(!full)}>{full ? "Zpět" : "⛶ Celá obrazovka"}</button>
       </span>
       {editor && <span className="pletor-dashboard__linie-hint">kolečko = čas · Shift+kolečko = posun · tažení = ruka · ✎/F2 = přejmenovat · Esc zavře nejbližší</span>}
     </div>
