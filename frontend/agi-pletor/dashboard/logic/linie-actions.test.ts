@@ -3,7 +3,7 @@ import { boardFixture } from "./linie-fixture";
 import { boardView } from "./linie-board";
 import { judgementOf } from "./linie-summary";
 import { workDetail } from "./linie-work";
-import { actionRequest, actionsOf, sameRevision } from "./linie-actions";
+import { actionRequest, actionsOf, sameRevision, splitActions } from "./linie-actions";
 
 const ball = boardView(boardFixture).balls[0]; // tk_1, board HEAD 9c8050f
 const detail = (headSha: string) => workDetail({ ticketId: "tk_1", work: { headSha, target: "topic/knihovna" } });
@@ -33,6 +33,17 @@ describe("jedna cesta pro akce", () => {
     expect(actionsOf(judgementOf({ allowed: ["attempt"] }), "tk_1", "", detail(""))[0].enabled).toBe(false);
     expect(actionRequest("unblock", "tk_1", detail(""))?.path).toBe("/work/tk_1/unblock");
     expect(actionsOf(judgementOf({}), "tk_1", "", null)).toEqual([]);
+  });
+  it("panel nese nejvýš tři hlavní, ostatní jdou do Gitu; zakázané zůstávají s důvodem", () => {
+    const all = actionsOf(ball.judgement, "tk_1", ball.headSha7, detail("9c8050f1a2b3"));
+    const { main, rest } = splitActions(all, "accepted");
+    expect(main.map((a) => [a.id, a.enabled, a.why])).toEqual([["accept", false, "acceptance.accepted(HEAD) – už přijato"], ["allow_merge", true, ""], ["merge", false, "mergeAllowed chybí – nejdřív povolit začlenění"]]);
+    expect(rest.map((a) => a.id)).toEqual(["block", "preview", "revoke_accept"]);
+    const ten = judgementOf({ allowed: ["accept", "allow_merge", "merge", "block", "unblock", "defer", "resume", "preview", "revoke_accept", "attempt"] });
+    const split = splitActions(actionsOf(ten, "tk_1", "", detail("")), "pending");
+    expect(split.main.length).toBeLessThanOrEqual(3);
+    expect(split.main.length + split.rest.length).toBe(10);
+    expect(splitActions(actionsOf(ten, "tk_1", "", detail("")), "blocked").main.map((a) => a.id)).toEqual(["unblock"]);
   });
   it("trasy akcí", () => {
     const d = detail("9c8050f1a2b3");

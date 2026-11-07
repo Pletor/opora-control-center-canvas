@@ -36,6 +36,13 @@ export function actionRequest(id: string, ticketId: string, d: WorkDetail, note 
   }
 }
 
+/** Panel Pletora nese jen hlavní krok (nejvýš tři): blokovanou kuličku odblokovat, jinou přijmout → povolit → začlenit. Zbytek patří záložce Git. */
+export function splitActions(actions: PletorAction[], key: string): { main: PletorAction[]; rest: PletorAction[] } {
+  const wanted = key === "blocked" ? ["unblock"] : ["accept", "allow_merge", "merge"];
+  const main = wanted.flatMap((id) => actions.filter((a) => a.id === id));
+  return { main, rest: actions.filter((a) => !main.includes(a)) };
+}
+
 // OP-159D4C.3: akce jen z allowed/blocked a jen nad shodnou revizí boardu a detailu.
 export function actionsOf(j: Judgement, ticketId: string, boardSha7: string, detail: WorkDetail | null): PletorAction[] {
   const synced = !!detail && detail.ticketId === ticketId && sameRevision(boardSha7, detail.headSha);

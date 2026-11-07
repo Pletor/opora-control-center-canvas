@@ -72,6 +72,9 @@ export default function LiniePlot({ layout, selected, labels, lit, layers, onPic
           <strong className="pletor-dashboard__linie-tip-title">{tip.hover.title}</strong>
           {tip.hover.mark && <span><span className="pletor-dashboard__linie-tip-key">značka</span>{tip.hover.mark}</span>}
           <span><span className="pletor-dashboard__linie-tip-key">stav</span>{tip.stateLabel}</span>
+          {tip.hover.reason && <span><span className="pletor-dashboard__linie-tip-key">pravidlo</span>{tip.hover.reason}</span>}
+          {tip.hover.next && <span><span className="pletor-dashboard__linie-tip-key">další krok</span>{tip.hover.next}</span>}
+          {tip.hover.target && <span><span className="pletor-dashboard__linie-tip-key">začlení se do</span>{tip.hover.target}</span>}
           <span><span className="pletor-dashboard__linie-tip-key">vznik</span>{tip.hover.created}</span>
           <span><span className="pletor-dashboard__linie-tip-key">začlenění</span>{tip.hover.merged}</span>
           <span><span className="pletor-dashboard__linie-tip-key">commity|PR|merge</span>{tip.hover.counts}</span>

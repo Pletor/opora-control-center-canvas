@@ -107,7 +107,7 @@ export function boardView(raw: unknown): Board {
 }
 
 export type Point = { x: number; y: number };
-export type Hover = { mark: string; title: string; state: string; created: string; merged: string; counts: string; branch: string };
+export type Hover = { mark: string; title: string; state: string; created: string; merged: string; counts: string; branch: string; reason: string; next: string; target: string };
 export type LaidRow = BoardRow & { top: number; height: number; y: number; color: string; branchText: string; mappingText: string; lanes: number };
 /** `toColor` = barva řádku, kam se kulička začlení (plán nebo merge), jinak vlastní barva; kreslí se jako vnitřní puntík. */
 export type LaidBall = { ticketId: string; rowId: string; title: string; label: string; stateLabel: string; key: SummaryKey; fill: Fill; x: number; y: number; color: string; toColor: string; hover: Hover };
@@ -202,7 +202,8 @@ export function layoutBoard(board: Board, opts: { k?: number; now?: number; lane
       ticketId: ball.ticketId, rowId: row.id, title: ball.title, label: clip(ball.title), stateLabel: ball.judgement.summary.text || ball.stateLabel, key: ball.judgement.summary.key,
       fill: FILL[ball.state], x: xOf(ball.createdAt), y: row.y, color: row.color, toColor: targetColor(ball, row.color),
       hover: { mark: ball.mark, title: ball.title, state: ball.stateLabel, created: when(ball.createdAt), merged: ball.mergedAt ? when(ball.mergedAt) : "—",
-        counts: `${ball.counts.commits} | ${ball.counts.prs} | ${ball.counts.merges}`, branch: ball.branch ? `${ball.branch} @ ${ball.headSha7 || "—"}` : "bez větve" },
+        counts: `${ball.counts.commits} | ${ball.counts.prs} | ${ball.counts.merges}`, branch: ball.branch ? `${ball.branch} @ ${ball.headSha7 || "—"}` : "bez větve",
+        reason: ball.judgement.summary.reason, next: ball.judgement.summary.next, target: row.target },
     });
   }
   const laidById = new Map(balls.map((ball) => [ball.ticketId, ball]));
