@@ -46,8 +46,8 @@ def test_verified_foreign_inferred_and_run(setup, tmp_path):  # noqa: F811
     kinds = {(g["kind"], g["ref"]) for g in found["gaps"]}
     assert ("commit_without_run", first[:7]) in kinds and ("mark_on_foreign_branch", foreign[:7]) in kinds
     assert ("no_card", "") in kinds and ("commit_without_run", later[:7]) not in kinds
-    assert found["sentence"].startswith(f"{mark}: Proč a k čemu. (karta bez karty, 1 relace, 4 commity, 1 místo v kódu)")
-    assert set(found) == {"mark", "ticket", "card", "revision", "plan", "runs", "commits", "code", "pr", "checks",
+    assert found["sentence"].startswith(f"{mark}: Proč a k čemu. (bez plánu, 1 relace, 4 commity, 1 místo v kódu)")
+    assert set(found) == {"mark", "ticket", "card", "revision", "plan", "link", "runs", "commits", "code", "pr", "checks",
                           "acceptance", "merged", "preview", "gaps", "sentence"}
 
 

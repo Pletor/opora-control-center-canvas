@@ -102,9 +102,9 @@ def sentence(commit, ticket, pr):
     if ticket is None:
         tail = "Bez evidovaného plánu (žádný ticket)."
     else:
-        card = ticket["card"]["name"] if ticket.get("card") else "bez karty"
+        card = f"karta {ticket['card']['name']}" if (ticket.get("card") or {}).get("known") else ticket["link"]["text"]
         who = (ticket.get("office") or {}).get("worker") or "kancelář neevidována"
-        tail = f"Plán: {ticket['body']['essence'].splitlines()[0]} (karta {card}, dělá {who}); stav {ticket['stateLabel']}."
+        tail = f"Plán: {ticket['body']['essence'].splitlines()[0]} ({card}, dělá {who}); stav {ticket['stateLabel']}."
     return head + " " + tail + (f" PR #{pr['number']} {pr['state']}." if pr else "")
 
 
@@ -119,7 +119,7 @@ def detail(service, project, workspace, root, sha, folder, *, pr_lookup=gh_prs):
             node_id = commit["trailers"]["node"] or found["machine"].get("cardId")
             ticket = {"ticketId": found["ticketId"], "state": shown["state"], "stateLabel": shown["stateLabel"],
                       "next": shown["next"], "body": found["body"],
-                      "mark": found["work"].get("mark"),
+                      "mark": found["work"].get("mark"), "link": shown["plan"],
                       "work": {k: found["work"].get(k) for k in ("branch", "headSha", "target", "preview")},
                       "card": card(service, project, workspace, node_id),
                       "office": office(service, project, found),
