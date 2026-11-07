@@ -11,22 +11,44 @@ Accept a merge, které jedno vyhodnocení (`evaluate`, docs/navrhy/2026-11-06-li
 L7c (§5, §5a): `POST /work/{id}/merge {op?}` (stejné op = žádný další merge), `POST /work/{id}/abandon {sha, why}`
 (evidence, HEAD ani osy nemění) a `POST /deploy {env, sha, repo?}` – agent / token brány = `origin: environment`,
 člověk = `origin: human`; kdo smí kam, určuje `opora.local.toml` `[linie.deploy]`, jinak 403 `deploy_not_allowed`.
+
+L7e (§7 bod 5): `POST /work {idempotencyKey?, requestId?}`, `POST /work/{id}/attempt` (pokus, agent i člověk),
+`/revert {sha, expectedHead, op?}`, `/rebase-note {from, to}` (jen evidence), `/unblock`; klíč nebo `op` se stejným
+obsahem vrátí týž záznam, s jiným 409 `idempotency_conflict`. `GET /journal?after=&limit=` = deník `linie.*` (bez
+identity). Report navíc označí publikované pokusy a u práce žádosti přidá krok `commit` (`linie/requests.py`).
 """
 from pathlib import Path
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from backend.agi_pletor.linie import board, commit, deploy, merge, previews, rows, trace, work
+from backend.agi_pletor.linie import (
+    attempt,
+    board,
+    commit,
+    deploy,
+    idempotency,
+    journal,
+    merge,
+    previews,
+    requests,
+    revert,
+    rows,
+    trace,
+    work,
+)
 from backend.api.agi_pletor.models import (
     LinieAbandonIn,
     LinieAcceptIn,
     LinieAllowIn,
     LinieAttachIn,
+    LinieAttemptIn,
     LinieBlockIn,
     LinieDeployIn,
     LinieMergeIn,
+    LinieRebaseNoteIn,
     LinieReportIn,
+    LinieRevertIn,
     LinieRowIn,
     LinieRowPatch,
     LinieRunIn,
@@ -42,15 +64,36 @@ HUMAN = "Tento krok Linie dělá jen člověk v UI."
 BODY = ("essence", "build", "doneCriteria")
 
 
+def origin(service, request, project, ticket_id=None):
+    """Původce zápisu (`human` / `agent:<jméno>`) z tokenu brány nebo hlavičky; bez identity 428. S `ticket_id` musí
+    token pracovníka patřit do prostoru ticketu."""
+    _check(service, project, "main")
+    token = request.headers.get(tokens.HEADER)
+    if token:
+        session = gate.authenticate(service, token, project, ("worker", "heart"))
+        if (ticket_id and work.get(service, project, ticket_id)["workspaceId"] != session["workspace_id"]
+                and session.get("role") != "heart"):
+            raise GateError(403, "gate_scope", "Ticket patří jinému pracovnímu prostoru.",
+                            "Pracujte jen s tickety svého prostoru.")
+        return "agent:" + (session.get("worker_name") or session.get("role") or "?")
+    if request.state.actor == "human":
+        return "human"
+    if request.state.actor == "agent":
+        return "agent:" + (getattr(request.state, "agent", None) or "?")
+    raise GateError(428, "identity_required", "Chybí identita původce.",
+                    "Pošlete X-Opora-Actor: agent; name=<jméno> nebo X-Opora-Gate-Token.")
+
+
+def answer(act):
+    try:
+        return act()
+    except GateError as error:
+        return JSONResponse(error.body(), status_code=error.status)
+
+
 def create_linie_work_router(service, pletor, root=None):
     router = APIRouter(prefix="/api/pletor/linie", tags=["pletor"])
     root = root or REPO_ROOT  # čteno až tady, ať test může podvrhnout repozitář
-
-    def answer(act):
-        try:
-            return act()
-        except GateError as error:
-            return JSONResponse(error.body(), status_code=error.status)
 
     def human(request, project, act, workspace="main"):
         require_human(request.state.actor, HUMAN)
@@ -59,23 +102,7 @@ def create_linie_work_router(service, pletor, root=None):
     def anyone(request, project, ticket_id, act):
         """Agent i člověk; `act(by)` dostane původce do záznamu (`human` / `agent:<jméno>`). Bez `ticket_id` se
         prostor ticketu nekontroluje (nasazení)."""
-        def checked():
-            _check(service, project, "main")
-            token = request.headers.get(tokens.HEADER)
-            if token:
-                session = gate.authenticate(service, token, project, ("worker", "heart"))
-                if (ticket_id and work.get(service, project, ticket_id)["workspaceId"] != session["workspace_id"]
-                        and session.get("role") != "heart"):
-                    raise GateError(403, "gate_scope", "Ticket patří jinému pracovnímu prostoru.",
-                                    "Pracujte jen s tickety svého prostoru.")
-                return act("agent:" + (session.get("worker_name") or session.get("role") or "?"))
-            if request.state.actor == "human":
-                return act("human")
-            if request.state.actor == "agent":
-                return act("agent:" + (getattr(request.state, "agent", None) or "?"))
-            raise GateError(428, "identity_required", "Chybí identita původce.",
-                            "Pošlete X-Opora-Actor: agent; name=<jméno> nebo X-Opora-Gate-Token.")
-        return answer(checked)
+        return answer(lambda: act(origin(service, request, project, ticket_id)))
 
     @router.get("/board")
     def board_state(request: Request, project: str = "", workspace: str = "main"):
@@ -98,10 +125,11 @@ def create_linie_work_router(service, pletor, root=None):
 
     @router.post("/work")
     def work_create(request: Request, body: LinieWorkIn, project: str = "", workspace: str = "main"):
-        fields = body.model_dump()
-        return human(request, project, lambda: work.create(service, project, workspace,
-                                                           {key: fields[key] for key in BODY}, fields,
-                                                           tokens.stamp(), root=root), workspace)
+        fields = body.model_dump(exclude={"idempotencyKey"})
+        return human(request, project, lambda: idempotency.once(
+            service, project, "work", body.idempotencyKey, {**fields, "workspace": workspace},
+            lambda ident: work.create(service, project, workspace, {key: fields[key] for key in BODY}, fields,
+                                      tokens.stamp(), root=root, ticket_id=ident and "tk_" + ident)), workspace)
 
     @router.post("/work/{ticket_id}/attach")
     def work_attach(request: Request, ticket_id: str, body: LinieAttachIn, project: str = ""):
@@ -132,8 +160,46 @@ def create_linie_work_router(service, pletor, root=None):
     @router.post("/work/{ticket_id}/report")
     def work_report(request: Request, ticket_id: str, body: LinieReportIn, project: str = ""):
         checks = [check.model_dump() for check in body.checks]
-        return anyone(request, project, ticket_id, lambda by: work.report(
-            service, project, ticket_id, body.sha, checks, body.worktree, tokens.stamp(), by))
+
+        def act(by):
+            shown = work.report(service, project, ticket_id, body.sha, checks, body.worktree, tokens.stamp(), by)
+            shown = attempt.publish(service, project, ticket_id, tokens.stamp()) or shown
+            requests.follow(service, project, shown, "commit", by, tokens.stamp(), sha=shown["work"]["headSha"])
+            return shown
+        return anyone(request, project, ticket_id, act)
+
+    @router.post("/work/{ticket_id}/attempt")
+    def work_attempt(request: Request, ticket_id: str, body: LinieAttemptIn, project: str = ""):
+        payload = body.model_dump(exclude={"idempotencyKey"})
+
+        def act(by):
+            shown = idempotency.once(service, project, "attempt", body.idempotencyKey, {**payload, "ticket": ticket_id},
+                                     lambda ident: attempt.attempt(service, project, ticket_id, payload, by,
+                                                                   tokens.stamp(), ident and "at_" + ident))
+            made = next(a for a in shown["work"]["attempts"] if a["branch"] == body.branch)
+            requests.follow(service, project, shown, "attempt", by, tokens.stamp(), attemptId=made["attemptId"])
+            return shown
+        return anyone(request, project, ticket_id, act)
+
+    @router.post("/work/{ticket_id}/revert")
+    def work_revert(request: Request, ticket_id: str, body: LinieRevertIn, project: str = ""):
+        def act(by):
+            if body.op:
+                idempotency.claim(service.root, project, "revert", body.op,
+                                  {"ticket": ticket_id, "sha": body.sha, "expectedHead": body.expectedHead})
+            return revert.revert(service, project, ticket_id, body.sha, body.expectedHead, tokens.stamp(),
+                                 op=body.op, by=by)
+        return anyone(request, project, ticket_id, act)
+
+    @router.post("/work/{ticket_id}/rebase-note")
+    def work_rebase_note(request: Request, ticket_id: str, body: LinieRebaseNoteIn, project: str = ""):
+        return anyone(request, project, ticket_id, lambda by: revert.rebase_note(
+            service, project, ticket_id, body.old, body.to, by, tokens.stamp()))
+
+    @router.get("/journal")
+    def journal_get(request: Request, project: str = "", workspace: str = "main", after: int = 0, limit: int = 100):
+        """Deník Linie: události `linie.*` po `after` v pořadí `id` a `lastId` (L7 §7 bod 5)."""
+        return answer(lambda: (_check(service, project, workspace), journal.read(service, project, after, limit))[1])
 
     @router.post("/work/{ticket_id}/preview")
     def work_preview(request: Request, ticket_id: str, project: str = ""):
@@ -166,6 +232,8 @@ def create_linie_work_router(service, pletor, root=None):
             # začleněné (i podle merge logu) vrací merge.py idempotentně beze změny
             if not shown["work"].get("merged") and shown["axes"]["integration"]["state"] == "none":
                 work.require(shown, "merge")
+            if body and body.op:  # stejné op jen pro týž úkol (jinak 409 idempotency_conflict)
+                idempotency.claim(service.root, project, "merge", body.op, {"ticket": ticket_id})
             return merge.merge(service, project, ticket_id, tokens.stamp(), op=body.op if body else None, by=by)
         return anyone(request, project, ticket_id, act)
 
@@ -183,21 +251,30 @@ def create_linie_work_router(service, pletor, root=None):
             if not full:
                 raise GateError(422, "invalid_payload", f"Revize {body.sha} v repozitáři neexistuje.",
                                 "Pošlete sha nasazeného commitu.")
-            return deploy.record(service.root, project, Path(root) / "opora.local.toml", body.env, full, root, by,
+            done = deploy.record(service.root, project, Path(root) / "opora.local.toml", body.env, full, root, by,
                                  tokens.stamp())
+            journal.record(service, project, "linie.deploy", by, {"env": body.env, "sha": full})
+            return done
         return anyone(request, project, None, act)
 
     @router.post("/work/{ticket_id}/block")
     def work_block(request: Request, ticket_id: str, body: LinieBlockIn, project: str = ""):
         return anyone(request, project, ticket_id, lambda by: work.block(service, project, ticket_id, body.reason,
-                                                                         tokens.stamp()))
+                                                                         tokens.stamp(), by))
 
     @router.post("/work/{ticket_id}/defer")
     def work_defer(request: Request, ticket_id: str, project: str = ""):
-        return anyone(request, project, ticket_id, lambda by: work.defer(service, project, ticket_id, tokens.stamp()))
+        return anyone(request, project, ticket_id, lambda by: work.defer(service, project, ticket_id, tokens.stamp(),
+                                                                         by))
+
+    @router.post("/work/{ticket_id}/unblock")
+    def work_unblock(request: Request, ticket_id: str, project: str = ""):
+        return anyone(request, project, ticket_id, lambda by: work.unblock(service, project, ticket_id,
+                                                                           tokens.stamp(), by))
 
     @router.post("/work/{ticket_id}/resume")
     def work_resume(request: Request, ticket_id: str, project: str = ""):
-        return anyone(request, project, ticket_id, lambda by: work.resume(service, project, ticket_id, tokens.stamp()))
+        return anyone(request, project, ticket_id, lambda by: work.resume(service, project, ticket_id, tokens.stamp(),
+                                                                          by))
 
     return router
