@@ -92,7 +92,7 @@ def test_accept_states_and_no_merge(setup):
     assert green["state"] == "open" and green["allowed"][0] == "accept"
     accepted = work.accept(service, "draft", tid, head[:7], "ok", NOW)
     assert accepted["work"]["acceptance"]["sha"] == head and accepted["state"] == "accepted_unmerged"
-    assert accepted["allowed"] == ["allow_merge", "block"]
+    assert accepted["allowed"] == ["allow_merge", "preview", "revoke_accept", "defer", "block"]
     allowed = work.allow_merge(service, "draft", tid, None, NOW)
     again = refused(lambda: work.allow_merge(service, "draft", tid, None, NOW))
     assert again.code == "action_not_allowed" and again.body()["error"] == "už povoleno pro HEAD"
@@ -102,6 +102,9 @@ def test_accept_states_and_no_merge(setup):
     newer = agent_commit(repo, name="v.txt")
     stale = work.report(service, "draft", tid, newer, [{"name": "npm test", "status": "green"}], None, NOW, "agent:t")
     assert stale["state"] == "stale"  # přijetí starého SHA po novém commitu (bod 5)
+    # L7a: zrušit jde jen platné přijetí HEAD (acceptance.accepted & integration.none), zastaralé ne
+    assert refused(lambda: work.revoke_accept(service, "draft", tid, NOW)).code == "action_not_allowed"
+    work.accept(service, "draft", tid, newer, "", NOW)
     assert work.revoke_accept(service, "draft", tid, NOW)["state"] == "open"
 
 

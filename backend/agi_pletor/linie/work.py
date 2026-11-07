@@ -254,8 +254,10 @@ def accept(service, project, ticket_id, sha, note, now):
 
 
 def revoke_accept(service, project, ticket_id, now):
-    return _change(service, project, ticket_id, now,
-                   lambda ticket: {**ticket["work"], "acceptance": None, "mergeAllowed": None})
+    def change(ticket):
+        require(view(ticket), "revoke_accept")  # jen platné přijetí HEAD před začleněním
+        return {**ticket["work"], "acceptance": None, "mergeAllowed": None}
+    return _change(service, project, ticket_id, now, change)
 
 
 def allow_merge(service, project, ticket_id, target, now):

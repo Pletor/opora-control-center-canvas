@@ -5,7 +5,7 @@ next, allowed, blocked}` podle tabulky §2a (první platné pravidlo vyhrává);
 `after_merge` je sha nejnovějšího commitu větve, který začleněný merge neobsahuje (zjistí volající z gitu); HEAD je pak
 on, jinak `headSha`. `live` = agent má ověřeně živou relaci (zdroj zatím není, takže wip je „probíhá (neověřeno)“).
 """
-ACTIONS = ("accept", "allow_merge", "merge", "attempt", "resume", "unblock")
+ACTIONS = ("accept", "allow_merge", "merge", "attempt", "resume", "unblock", "preview", "revoke_accept", "defer")
 ALWAYS = ["block"]  # block vždy; unblock jen u blocked, resume jen u deferred (zadání L7a po oponentuře)
 
 
@@ -96,14 +96,34 @@ def _rule(work, ax, live):
             f"Služba začlení (merge) do {target} a znovu ověří.", ["merge"], {"allow_merge": "už povoleno pro HEAD"})
 
 
+def _side(key, ax):
+    """Vedlejší akce mimo tabulku §2a: náhled HEAD, zrušení platného přijetí, odložení (park) mimo merged."""
+    found = []
+    if ax["work"]["sha"] and key not in ("merged", "blocked"):
+        found.append("preview")
+    if ax["acceptance"]["state"] == "accepted" and ax["integration"]["state"] == "none":
+        found.append("revoke_accept")
+    if key != "merged":
+        found.append("defer")
+    return found
+
+
 def evaluate(work, after_merge=None, live=False):
     work = work or {}
     ax = axes(work, after_merge)
     key, text, reason, step, allowed, *own = _rule(work, ax, live)
     if after_merge:
         reason = f"nová revize po začlenění {_short(ax['integration']['sha'])} · " + reason
+    allowed = allowed + _side(key, ax)
     blocked = {action: f"{reason} – {step}" for action in ACTIONS if action not in allowed}
     blocked.update(*own)  # vlastní důvod pravidla (např. allow_merge „už povoleno pro HEAD“)
+    if "preview" in blocked:
+        blocked["preview"] = "bez HEAD není co spustit" if not ax["work"]["sha"] else f"{key}: náhled se nespouští"
+    if "revoke_accept" in blocked:
+        blocked["revoke_accept"] = f"acceptance.{ax['acceptance']['state']} & integration.{ax['integration']['state']}" \
+            " – zrušit jde jen platné přijetí před začleněním"
+    if "defer" in blocked:
+        blocked["defer"] = "začleněno – není co odložit"
     return {"key": key, "text": text, "reason": reason, "next": step,
             "allowed": allowed + [a for a in ALWAYS if a not in allowed], "blocked": blocked, "axes": ax}
 

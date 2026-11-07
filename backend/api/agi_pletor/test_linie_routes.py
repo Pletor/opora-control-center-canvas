@@ -109,6 +109,10 @@ def test_linie_board_snapshot_summary_and_accept_on_nocheck(tmp_path, repo):
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         body = {"title": "Uzel", "essence": "Proč.", "build": "Uzel.", "doneCriteria": ["testy"], "branch": "feat/uzel"}
         tid = client.post(f"{BASE}/work", headers=HEADERS, params=q, json=body).json()["ticketId"]
+        early = client.post(f"{BASE}/work/{tid}/preview", headers=JSON, params=q)  # bez HEAD není co spustit
+        assert early.status_code == 409 and early.json()["code"] == "action_not_allowed"
+        revoke = client.delete(f"{BASE}/work/{tid}/accept", headers=JSON, params=q)
+        assert revoke.status_code == 409 and revoke.json()["code"] == "action_not_allowed"
         head = agent_commit(repo)
         client.post(f"{BASE}/work/{tid}/report", headers=AGENT, params=q, json={"sha": head})
         refused = client.post(f"{BASE}/work/{tid}/accept", headers=HEADERS, params=q, json={"sha": head})
@@ -121,7 +125,7 @@ def test_linie_board_snapshot_summary_and_accept_on_nocheck(tmp_path, repo):
         assert set(board["snapshot"]["sources"]) == {"git", "prs", "checks", "sessions", "deploy"}
         assert board["snapshot"]["id"].startswith("snap_") and board["snapshot"]["builtAt"]
         assert ball["summary"]["key"] == "nocheck" and ball["state"] == "awaiting_checks"
-        assert "accept" in ball["blocked"] and ball["allowed"] == ["block"] and "deploy" in ball["incomplete"]
+        assert "accept" in ball["blocked"] and ball["allowed"] == ["preview", "defer", "block"] and "deploy" in ball["incomplete"]
         assert [item["kind"] for item in ball["evidence"]] == ["commit"]
 
 
