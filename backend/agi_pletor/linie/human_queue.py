@@ -1,7 +1,7 @@
 """„Čeká na tebe“ (docs/navrhy/2026-11-06-linie-rebrand.md §6, §7 bod 7, L7g): fronta člověka a jedna akce.
 
-`order(balls, rows)` → `queues.human[]` boardu: kuličky fronty `humanDecisions` (přijetí, povolení, začlenění,
-odblokování) a k nim kuličky, které člověk už přijal, ale teď čekají na kontroly nebo novou revizi (řádek říká proč,
+`order(balls, rows)` → `queues.human[]` boardu: kuličky fronty `humanDecisions` (přijetí, povolení, začlenění;
+blokované a odložené v ní nejsou, odblokování je v detailu kuličky) a k nim kuličky, které člověk už přijal, ale teď čekají na kontroly nebo novou revizi (řádek říká proč,
 tlačítko nemá). Pořadí počítá služba: vůz, na který čeká jiný vůz fronty (jeho cíl je větev jiného vozu), první; pak
 zdola nahoru po stromu (hlubší řádek dřív); pak stáří. Každý řádek nese větu „začlení X do Y, pak bude na řadě Z“ a
 nejvýš jednu akci, odvozenou z `allowed` téhož `evaluate`.
@@ -48,9 +48,7 @@ def _member(ball):
 
 
 def _action(ball):
-    allowed, key = ball["allowed"], ball["summary"]["key"]
-    if "unblock" in allowed:
-        return {"kind": "unblock", "label": "Odblokovat"}
+    allowed, key = ball["allowed"], ball["summary"]["key"]  # blokované a odložené kuličky ve frontě nejsou
     if {"accept", "allow_merge", "merge"} & set(allowed):
         moved = "allow_merge" in allowed and ball.get("mergeAllowed")
         return {"kind": "accept_merge", "label": "Povolit znovu a začlenit" if moved else LABEL.get(key,

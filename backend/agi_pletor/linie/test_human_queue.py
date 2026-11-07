@@ -41,13 +41,13 @@ def test_order_blocker_first_then_deepest_then_oldest():
 def test_row_says_why_with_one_action():
     moved = ball("M", "feat/m", "develop", key="accepted", allowed=["allow_merge", "block"],
                  mergeAllowed={"target": "develop", "targetSha": "b" * 40, "sourceSha": "a" * 40})
-    blocked = ball("X", "feat/b", "develop", key="blocked", allowed=["unblock", "block"])
+    blocked = ball("X", "feat/b", "develop", key="blocked", queues=[], allowed=["unblock", "block"])
     waits = ball("W", "feat/c", "develop", key="nocheck", queues=["officeTasks"], allowed=["revoke_accept", "block"],
                  acceptance={"sha": "c" * 40})
     office = ball("O", "feat/d", "develop", key="nocheck", queues=["officeTasks"], allowed=["block"])
     found = {row["ticketId"]: row for row in human_queue.order([moved, blocked, waits, office], [])}
     assert found["M"]["action"] == {"kind": "accept_merge", "label": "Povolit znovu a začlenit"}
-    assert found["X"]["action"] == {"kind": "unblock", "label": "Odblokovat"}
+    assert "X" not in found  # blokovaná kulička nečeká na rozhodnutí, odblokuje se v detailu
     assert found["W"]["action"] is None and found["W"]["next"] == "dál"  # přijal dřív, teď čeká: proč, bez tlačítka
     assert "O" not in found  # nic od člověka nečeká
 
@@ -113,3 +113,9 @@ def test_train_of_three_bottom_up(setup):
             work.report(service, "draft", t, tip, GREEN, None, NOW, "agent:t")
         assert human_queue.accept_merge(service, "draft", t, tip, None, "", NOW)["summary"]["key"] == "merged"
     assert board.board(service, "draft", "main", repo, pr_lookup=NO_PR)["queues"]["human"] == []
+
+
+def test_blocked_is_not_in_human_queue_key_and_count_equals_list():
+    from backend.agi_pletor.linie import plan_view
+    blocked = {"summary": {"key": "blocked"}, "pr": None}
+    assert "humanDecisions" not in plan_view.ball_queues(blocked)
