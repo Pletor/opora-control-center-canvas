@@ -5,6 +5,8 @@ preview, accept (i DELETE), allow-merge. Agent i člověk: `GET /work/{id}`, rep
 block / defer / resume, run (relace LLM); čtení bez identity: `GET /commit/{sha}` a `GET /trace/{mark}` (cesta práce
 podle vodotisku OP-XXXXXX, 404 `mark_not_found`); agent se prokáže `X-Opora-Actor: agent; name=…` nebo tokenem brány `X-Opora-Gate-Token`
 (projekt i prostor ticketu musí sedět), bez identity 428. Odmítnutí je JSON `{error, code, hint}`.
+Accept a merge, které jedno vyhodnocení (`evaluate`, docs/navrhy/2026-11-06-linie-rebrand.md §2a) nepovoluje, vrací 409
+`action_not_allowed` s důvodem z `blocked`; board a work nesou osy, souhrn, důkazy a `snapshot` (§4).
 """
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -126,7 +128,9 @@ def create_linie_work_router(service, pletor, root=None):
     @router.post("/work/{ticket_id}/preview")
     def work_preview(request: Request, ticket_id: str, project: str = ""):
         def act():
-            branch = work.get(service, project, ticket_id)["work"]["branch"]
+            shown = work.get(service, project, ticket_id)
+            work.require(shown, "preview")
+            branch = shown["work"]["branch"]
             record = previews.start(pletor.folder, root, branch, project, service.root, tokens.stamp())
             return work.set_preview(service, project, ticket_id, record, tokens.stamp())
         return human(request, project, act)
@@ -147,7 +151,12 @@ def create_linie_work_router(service, pletor, root=None):
 
     @router.post("/work/{ticket_id}/merge")
     def work_merge(request: Request, ticket_id: str, project: str = ""):
-        return anyone(request, project, ticket_id, lambda by: merge.merge(service, project, ticket_id, tokens.stamp()))
+        def act(by):
+            shown = work.get(service, project, ticket_id)
+            if not shown["work"].get("merged"):  # začleněné vrací merge.py idempotentně beze změny
+                work.require(shown, "merge")
+            return merge.merge(service, project, ticket_id, tokens.stamp())
+        return anyone(request, project, ticket_id, act)
 
     @router.post("/work/{ticket_id}/block")
     def work_block(request: Request, ticket_id: str, body: LinieBlockIn, project: str = ""):
