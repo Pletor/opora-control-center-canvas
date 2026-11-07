@@ -248,6 +248,14 @@ class LinieAcceptIn(BaseModel):
     note: str = Field(default="", max_length=2000)
 
 
+class LinieAcceptMergeIn(BaseModel):
+    """„Přijmout a začlenit“ (L7g): revize, kterou člověk viděl, a UUID operace (nové na každé kliknutí)."""
+    model_config = ConfigDict(extra="forbid")
+    sha: str = Field(min_length=7, max_length=40)
+    op: str | None = Field(default=None, max_length=64)
+    note: str = Field(default="", max_length=2000)
+
+
 class LinieAllowIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     target: str | None = Field(default=None, min_length=1, max_length=200)

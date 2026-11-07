@@ -12,7 +12,7 @@ from collections import OrderedDict
 
 KEEP = 8  # snímků v paměti; přepnutí seskupení přichází hned po načtení boardu
 SNAPSHOTS = OrderedDict()  # snapshot.id → (project, workspace, výsledek board, jména uzlů grafu)
-QUEUES = {"ticketsTodo": {"todo"}, "humanDecisions": {"pending", "stale", "stale_plan", "blocked"},
+QUEUES = {"ticketsTodo": {"todo"}, "humanDecisions": {"pending", "stale", "stale_plan", "accepted", "blocked"},
           "officeTasks": {"wip", "failed", "nocheck"}, "gitQueue": {"checking", "accepted"}}
 
 

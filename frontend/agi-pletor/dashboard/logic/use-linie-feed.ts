@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/shared/types/logic/types";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
 import { boardView, type Board } from "./linie-board";
+import { humanQueueView } from "./linie-human-queue";
 import { appendJournal, journalView, type Journal } from "./linie-journal";
 import { requestKey, requestsView, type HeartRequest } from "./linie-requests";
 import { graphView } from "./linie-view";
@@ -69,5 +70,5 @@ export function useLinieFeed(project: string, workspace: string, group: Group) {
 
   const branchBoard: Board = boardView(boardRaw);
   const board = group === "plan" && planRaw ? boardView(planRaw) : branchBoard;
-  return { query, board, branchBoard, view: graphView(graphRaw), journal, requests, now, lastSuccessAt, boardError, error, setError, refresh: poll.refresh, ask };
+  return { query, board, branchBoard, human: humanQueueView(boardRaw), view: graphView(graphRaw), journal, requests, now, lastSuccessAt, boardError, error, setError, refresh: poll.refresh, ask };
 }

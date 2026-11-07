@@ -146,7 +146,7 @@ def test_board_by_plan_is_same_snapshot_and_queues_match_summary(carded, monkeyp
     keys = [b["summary"]["key"] for b in found["balls"]]
     assert keys == ["todo", "todo"] and all(b["queues"] == ["ticketsTodo"] for b in found["balls"])
     assert found["queues"] == {"plansWaiting": 1, "ticketsTodo": 2, "humanDecisions": 0, "officeTasks": 0,
-                               "gitQueue": 0}  # stránka bez ticketu čeká, karta plánu má ticket
+                               "gitQueue": 0, "human": []}  # stránka bez ticketu čeká, karta plánu má ticket
     assert refused(lambda: board.grouped(service, "draft", "main", repo, "plan", "snap_nic")).code == \
         "snapshot_not_found"
 

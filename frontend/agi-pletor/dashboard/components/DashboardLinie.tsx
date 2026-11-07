@@ -12,6 +12,7 @@ import { labelWidth, placeLabels } from "../logic/linie-labels";
 import { laneRows } from "../logic/linie-marks";
 import { LAYERS_KEY, NAMES_KEY, readLayers, readNames, save, type LayerId } from "../logic/linie-prefs";
 import { queues, type QueueId } from "../logic/linie-queues";
+import { humanRequest, idleText, refusalText, type HumanRow } from "../logic/linie-human-queue";
 import { actionRequest, actionsOf } from "../logic/linie-actions";
 import { useLinieZoom } from "../logic/use-linie-zoom";
 import { BASE, useLinieFeed, type Group } from "../logic/use-linie-feed";
@@ -22,6 +23,7 @@ import LinieBoard from "./LinieBoard";
 import LinieGraph from "./LinieGraph";
 import LinieJournal from "./LinieJournal";
 import LinieLegend from "./LinieLegend";
+import LinieHumanQueue from "./LinieHumanQueue";
 import LiniePanel from "./LiniePanel";
 import LinieQueues from "./LinieQueues";
 import LinieRowForm from "./LinieRowForm";
@@ -54,6 +56,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
   const [detail, setDetail] = useState<WorkDetail | null>(null);
   const [commit, setCommit] = useState("");
   const [trace, setTrace] = useState("");
+  const [said, setSaid] = useState<Record<string, string>>({}); // odpověď služby na akci řádku „Čeká na tebe“
   const renaming = useRef(false);
   const feed = useLinieFeed(project, workspace, group);
   const { query, board, view, now, lastSuccessAt } = feed;
@@ -140,6 +143,9 @@ export default function DashboardLinie({ project, workspace }: { project: string
     if (id === "accept") setAcceptNote("");
     void act(request.path, request.body, request.done, request.method).then(setFlash);
   };
+  // „Čeká na tebe“: jedna akce řádku, nové op na každé kliknutí; odmítnutí se vrací větou s jedinou opravou.
+  const decide = (row: HumanRow) => { const r = humanRequest(row, crypto.randomUUID()); return r ? api(`${BASE}${r.path}?${query}`, r.body, r.method)
+    .then(() => r.done, refusalText).then((text) => setSaid((old) => ({ ...old, [row.ticketId]: text }))).finally(() => void feed.refresh()) : Promise.resolve(); };
 
   const editor = mode === "editor";
   const links = Object.fromEntries(view.lanes.flatMap((item) => [
@@ -170,6 +176,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
           {activeQueue && <>Fronta: <strong>{activeQueue.label}</strong> › <button type="button" className="pletor-dashboard__linie-crumb-back" onClick={() => setQueue("")}>zrušit ✕</button></>}
         </p>
       )}
+      {editor && queue === "clovek" && <LinieHumanQueue rows={feed.human} idle={idleText(board.balls, board.worktrees)} said={said} onAct={decide} />}
       <div className={`pletor-dashboard__linie${editor || trace || commit || picked ? " pletor-dashboard__linie--with-panel" : ""}`}>
         {editor ? (
           <LinieBoard scrollRef={scrollRef} names={names} layout={layout} selected={picked} labels={labels} lit={lit} layers={layers} chips={shown.chips}

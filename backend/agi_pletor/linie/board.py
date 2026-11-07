@@ -17,6 +17,8 @@ z `run`), `deploy.envs` z událostí prostředí, PR s posledním známým stave
 
 L7d (§7 bod 4): každá kulička nese `plan` (`plan_link`) a `queues`, board `queues` (`plan_view.queues`) nad týmž
 grafem prostoru; `grouped(..., "plan", snapshot)` přeskládá uložený snímek podle plánu bez nového čtení.
+
+L7g (§7 bod 7): `queues.human[]` = seřazená fronta „Čeká na tebe“ (`human_queue.order`) nad řádky podle větví.
 """
 import os
 import time
@@ -26,6 +28,7 @@ from pathlib import Path
 from backend.agi_pletor.linie import (
     branches,
     deploy,
+    human_queue,
     jsonfile,
     merge_log,
     plan_link,
@@ -305,7 +308,8 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
                 link["to"] = row_of.get(link["to"], link["to"])
     result = {"rows": rows, "balls": balls, "mapping": found["mapping"], "group": "branch",
               "realMerges": real_merges(root) + tips, "tags": tags(root), "worktrees": worktrees(root, tickets),
-              "deploy": {"envs": deploy.latest(shipped)}, "queues": plan_view.queues(balls, graph, carded),
+              "deploy": {"envs": deploy.latest(shipped)},
+              "queues": {**plan_view.queues(balls, graph, carded), "human": human_queue.order(balls, rows)},
               "snapshot": {"id": "snap_" + uuid.uuid4().hex[:12], "builtAt": tokens.stamp(), "sources": sources}}
     plan_view.remember(project, workspace, result, graph)
     return result
