@@ -25,7 +25,8 @@ def closed_rows(rows, balls, worktrees, contains):
         branch = row.get("branch")
         if not branch or row.get("planned") or row.get("fixed") or branch in rows_mod.MAPPING:
             continue
-        mine = [ball for ball in balls if ball["rowId"] == row["id"]]
+        # §10.2: nahrazená (blokovaná) kulička větev nedrží – co z ní v gitu zbylo, kryje otázka „špička je v cíli“
+        mine = [ball for ball in balls if ball["rowId"] == row["id"] and ball.get("state") != "blocked"]
         integ = [ball["axes"]["integration"] for ball in mine]
         if (not mine or any(ball.get("state") != "merged" for ball in mine)
                 or any(axis.get("state") != "merged" for axis in integ)
