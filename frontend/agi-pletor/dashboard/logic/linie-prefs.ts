@@ -1,7 +1,7 @@
 /**
  * Předvolby Linie uložené jednou pro aplikaci (`localStorage`, nikdy per projekt): šířka sloupce názvů, vrstvy a celá obrazovka.
  * Výchozí pohled = větve, kuličky, souhrn a ověřené začlenění (+ pilulky PR a tagy); commity, worktree a plány
- * ostatních kuliček jsou vypnuté a pro vybranou kuličku se ukážou vždy.
+ * ostatních kuliček jsou vypnuté a pro vybranou kuličku se ukážou vždy. „Sloučené větve“ (vypnuto) otevře všechny uzavřené řádky.
  */
 export const NAMES_KEY = "pletor.linie.names";
 export const LAYERS_KEY = "pletor.linie.layers";
@@ -10,10 +10,10 @@ export const NAMES_MIN = 160;
 export const NAMES_MAX = 420;
 export const NAMES_DEFAULT = 260;
 
-export type LayerId = "commits" | "worktree" | "plans" | "prs" | "tags";
+export type LayerId = "commits" | "worktree" | "plans" | "prs" | "tags" | "merged";
 export type LayerState = Record<LayerId, boolean>;
-export const LAYER_LABEL: Record<LayerId, string> = { commits: "Commity všech kuliček", worktree: "Worktree agentů", plans: "Plány všech kuliček", prs: "PR pilulky", tags: "Tagy a nasazení" };
-export const LAYER_DEFAULT: LayerState = { commits: false, worktree: false, plans: false, prs: true, tags: true };
+export const LAYER_LABEL: Record<LayerId, string> = { commits: "Commity všech kuliček", worktree: "Worktree agentů", plans: "Plány všech kuliček", prs: "PR pilulky", tags: "Tagy a nasazení", merged: "Sloučené větve" };
+export const LAYER_DEFAULT: LayerState = { commits: false, worktree: false, plans: false, prs: true, tags: true, merged: false };
 
 export const clampNames = (width: number) => Math.round(Math.min(NAMES_MAX, Math.max(NAMES_MIN, width)));
 

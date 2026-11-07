@@ -6,7 +6,8 @@ import { when, type LaidBall, type LaidCommit } from "./linie-board";
  * bublina přichytí. Prázdné hodnoty se vynechají.
  */
 export type TipRow = { k: string; v: string };
-export type Tip = { x: number; y: number; title: string; rows: TipRow[] };
+/** `hint` = patička místo „klik = detail“ (značka složené větve: „klik = rozbalit|složit“). */
+export type Tip = { x: number; y: number; title: string; rows: TipRow[]; hint?: string };
 
 const rows = (list: [string, string][]): TipRow[] => list.filter(([, v]) => v).map(([k, v]) => ({ k, v }));
 

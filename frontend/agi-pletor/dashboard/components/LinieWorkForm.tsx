@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type { BoardRow } from "../logic/linie-board";
+import { reopenOf } from "../logic/linie-closed";
 import { parentOf } from "../logic/linie-tree";
 
 type Props = { rows: BoardRow[]; heads: string[]; onSubmit: (body: object) => Promise<boolean>; onClose: () => void };
@@ -20,12 +21,14 @@ export default function LinieWorkForm({ rows, heads, onSubmit, onClose }: Props)
   const change = (key: Field, value: string) => {
     const next = { ...form, [key]: value };
     if (key === "branch") {
-      const parent = parentOf(value, heads) ?? "";
+      // Uzavřená větev se znovu otevře pod svým cílem (§10.3), ne jako nová větev pro touž věc.
+      const parent = reopenOf(rows, value)?.closed?.target ?? parentOf(value, heads) ?? "";
       if (!touched.includes("baseBranch")) next.baseBranch = parent;
       if (!touched.includes("target")) next.target = parent;
     } else if (key === "baseBranch" || key === "target") setTouched([...touched, key]);
     setForm(next);
   };
+  const reopen = reopenOf(rows, form.branch);
   const set = (key: Field) => (event: { target: { value: string } }) => change(key, event.target.value);
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -54,6 +57,7 @@ export default function LinieWorkForm({ rows, heads, onSubmit, onClose }: Props)
         <textarea className="pletor-dashboard__input" rows={3} value={form.doneCriteria} required onChange={set("doneCriteria")} />
       </label>
       {text("branch", "větev", "feat/…")}
+      {reopen && <span className="pletor-dashboard__note" role="status">větev už existuje, znovu se otevře pod {reopen.closed?.target}</span>}
       <span className="pletor-dashboard__note">feat/velin-linie-editor vzniká z feat/velin-linie a vrací se jen do ní.</span>
       {text("baseBranch", "výchozí větev (rodič)", "prázdné = odvodí server")}
       {text("target", "cíl", "prázdné = rodič")}
