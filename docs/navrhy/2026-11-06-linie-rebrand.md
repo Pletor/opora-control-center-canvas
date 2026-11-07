@@ -408,6 +408,9 @@ target, by: "merge", balls: N}`:
 - `at` = čas posledního merge jeho kuliček, `sha` = merge commit v cíli, `target` = rodič podle jména;
 - nový commit na větvi po uzavření (`ahead > 0` nad `sha`) nebo nová kulička s touto větví **uzavření ruší**
   (`closed: null`) – tím se větev „znovu otevře“ pro vylepšení bez ručního kroku;
+  commit po merge, který už v cíli leží (začlenila ho pozdější kulička téže větve), nová revize není a kuličku nechá
+  `merged`; **blokovaná** (nahrazená) kulička řádek nedrží – co z ní v gitu zbylo, kryje otázka „špička je v cíli“
+  (doplněno 7. 11. večer po L9c: bez toho se žádný rodič ve vlaku nikdy neuzavřel);
 - `GET /board` nese `closed` u řádku, `board.txt` tiskne uzavřené řádky jednou řádkou „⊕ název · uzavřeno HH:MM → cíl
   (N kuliček)“ bez výpisu kuliček (`--all` je vypíše).
 - Testy (`test_board.py` / nový `test_closed.py` s fixture gitu): větev se dvěma začleněnými kuličkami → closed;
