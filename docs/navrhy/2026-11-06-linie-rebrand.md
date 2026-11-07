@@ -440,6 +440,14 @@ target, by: "merge", balls: N}`:
 - `board.txt`: složené řádky jednou řádkou (10.2), rozbalené výpisem; `linie.py board --all` otevře vše.
 - Testy: řádek `closed` se nekreslí a rodič má značku v `x(closed.at)`; klik přepne `unfolded`; výběr kuličky uvnitř
   rozbalí; kaskáda dvou úrovní; vrstva „Sloučené větve“ otevře vše; nová kulička (`closed: null`) řádek vrátí.
+- **Postaveno 2026-11-07** (`dashboard/logic/linie-closed.ts`, značka v `LiniePlotMarks`). Odchylky: kuličky složené
+  větve zůstávají v datech boardu a layout je jen nekreslí, aby se časová osa při skládání nehnula; výběr nebo
+  `?branch=` uvnitř otevírá větev odvozeně za běhu (do `unfolded` se nezapisuje), takže po zrušení výběru se zase
+  složí, a klik ⊖ na větev otevřenou výběrem výběr zruší; v součtu kaskády je „K větví“ počet uzavřených potomků bez
+  sebe a „N kuliček“ součet `closed.balls` podstromu; bez `closed.at` se čas bere z merge `sha` (`realMerges`, commit
+  kuličky), jinak konec osy s „uzavřeno ?“, a značka nikdy neleží vlevo za okrajem osy; „navazuje na N začleněných
+  kuliček“ ukazuje jen detail nezačleněné kuličky (tip značky ne: uzavřený řádek žádnou nezačleněnou nemá);
+  `board.txt` skrývá pod ⊕ celý podstrom podle `parent`; tag na commitu kuličky složené větve se dál kreslí na main.
 
 Pořadí: L9a a L9b paralelně (L9a jen frontend, L9b jen backend + `board_text.py`), L9c z integrované špičky obou.
 Hotovo když: na projektu OPORY je řádek `rebrand` (a pod ním dokončené vozy L7g–L7l) složený do značky na

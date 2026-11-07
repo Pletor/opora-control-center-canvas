@@ -66,3 +66,16 @@ def test_closed_row_is_one_line_without_balls_unless_all():
     assert f"  ⊕ Vlak · uzavřeno {_clock(shut['at'])} → develop (2 kuličky)\n    Prázdný" in rows and "OP-A" not in rows
     rows = board_text.render(found, all=True).split("Řádky:\n")[1]
     assert "⊕" not in rows and "  Vlak [feat/x] → develop\n" in rows and "OP-A A" in rows
+
+
+def test_closed_row_hides_its_subtree_by_parent_unless_all():
+    shut = {"at": "2026-11-07T14:15:43Z", "sha": "0" * 40, "target": "develop", "by": "merge", "balls": 1}
+    rows = [{"id": "r", "name": "Vlak", "branch": "feat/x", "parent": "develop", "depth": 1, "closed": shut},
+            {"id": "c", "name": "Dítě", "branch": "feat/x-y", "parent": "feat/x", "depth": 2, "closed": {**shut, "target": "feat/x"}},
+            {"id": "g", "name": "Vnuk", "branch": "feat/x-y-z", "parent": "feat/x-y", "depth": 3, "closed": None},
+            {"id": "e", "name": "Soused", "branch": "feat/e", "parent": "develop", "depth": 2}]
+    found = snapshot(ball("B", "feat/x-y", "feat/x", row="c"), rows=rows)
+    text = board_text.render(found).split("Řádky:\n")[1]
+    assert "⊕ Vlak" in text and "Dítě" not in text and "Vnuk" not in text and "OP-B" not in text and "    Soused [feat/e]" in text
+    text = board_text.render(found, all=True).split("Řádky:\n")[1]
+    assert "    Dítě [feat/x-y]" in text and "      Vnuk" in text and "OP-B" in text and "⊕" not in text

@@ -55,9 +55,10 @@ export function shownBoard(board: Board, folded: Set<string>, focus: string): { 
   return { board: { ...board, rows, balls: board.balls.filter((ball) => !focused.path.includes(ball.rowId)) }, chips };
 }
 
-export function readFolded(storage: Pick<Storage, "getItem"> | undefined): Set<string> {
+/** Množina id řádků z úložiště; sdílí ji sbalení (`FOLD_KEY`) i rozbalení uzavřených větví (`UNFOLD_KEY`). */
+export function readFolded(storage: Pick<Storage, "getItem"> | undefined, key = FOLD_KEY): Set<string> {
   try {
-    const value: unknown = JSON.parse(storage?.getItem(FOLD_KEY) ?? "[]");
+    const value: unknown = JSON.parse(storage?.getItem(key) ?? "[]");
     return new Set(Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : []);
   } catch {
     return new Set();

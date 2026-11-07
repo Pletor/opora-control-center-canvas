@@ -8,7 +8,7 @@ export default function LinieTip({ tip, width }: { tip: Tip; width: number }) {
     <div className="pletor-dashboard__linie-tip" style={{ left: Math.min(tip.x + 16, width - TIP_W), top: Math.max(tip.y - 70, 4) }}>
       <strong className="pletor-dashboard__linie-tip-title">{tip.title}</strong>
       {tip.rows.map((row) => <span key={row.k}><span className="pletor-dashboard__linie-tip-key">{row.k}</span>{row.v}</span>)}
-      <span className="pletor-dashboard__linie-tip-hint">klik = detail</span>
+      <span className="pletor-dashboard__linie-tip-hint">{tip.hint ?? "klik = detail"}</span>
     </div>
   );
 }
