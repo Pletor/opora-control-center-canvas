@@ -193,6 +193,9 @@ def test_create_without_row_or_with_taken_row_makes_branch_row(setup):
     assert work.create(service, "draft", "main", BODY, {"branch": "items/dil", "rowId": own["rowId"]}, NOW,
                        root=repo)["work"]["rowId"] != own["rowId"]
     assert made(rowId=first_row, branch="feat/uzel")["rowId"] == first_row  # tatáž větev zůstává na svém řádku
+    assert made()["rowId"] == own["rowId"]  # druhá kulička téže větve bez rowId jde na řádek větve, ne na duplikát
+    named = rows.add(service.root, "draft", "feat/ctvrta", "work")["id"]
+    assert made(branch="feat/ctvrta")["rowId"] == named  # prázdný řádek se jménem větve je její řádek
     assert refused(lambda: made(rowId="row_nic")).status == 404
     assert refused(lambda: made(branch="feat/x", baseBranch="main")).code == "branch_hierarchy"  # řádek se nezaloží
     assert [r["name"] for r in rows.read(service.root, "draft")["rows"]].count("feat/x") == 0

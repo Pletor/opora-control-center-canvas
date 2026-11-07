@@ -232,7 +232,7 @@ def with_tree(rows, balls, heads):
         branch = row.get("branch") or first.get(row["id"])
         if branch and branch not in claimed:
             claimed[branch] = row
-        else:
+        elif branch or row.get("name") not in claimed:  # duplikát řádku větve (stejné jméno, bez práce) se nekreslí
             leftover.append(row)
     known = set(heads) | set(claimed) | {ball["branch"] for ball in live}
 
