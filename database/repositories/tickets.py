@@ -96,6 +96,11 @@ class TicketStore:
                                  (_json(work), at, self.project, ticket_id))
         return cursor.rowcount == 1
 
+    def delete(self, ticket_id):
+        """Smaže ticket i jeho zpětnou vazbu (slepá kulička, §10.4 Linie); vrací, zda něco bylo."""
+        self.db.execute("DELETE FROM ticket_feedback WHERE project_id=? AND ticket_id=?", (self.project, ticket_id))
+        return self.db.execute("DELETE FROM tickets WHERE project_id=? AND id=?", (self.project, ticket_id)).rowcount > 0
+
     def list_with_work(self, workspace=None):
         """Tickety s `work` od nejstaršího; `workspace=None` = celý projekt."""
         if workspace is None:

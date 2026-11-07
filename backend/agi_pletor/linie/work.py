@@ -451,6 +451,27 @@ def unblock(service, project, ticket_id, now, by="human"):
         **ticket["work"], "blocked": None, "decided": {"action": "unblock", "at": now, "by": by}}, "linie.unblock", by)
 
 
+def forget(service, project, ticket_id, now, by="human"):
+    """Smaže slepou kuličku (§10.4): jen blokovanou, jejíž commity už leží v cíli nebo žádné nemá. Kód mimo cíl
+    kuličku drží – nejdřív větev smažte, nebo kuličku odblokujte a dokončete."""
+    with store_for(service, project) as store:
+        ticket = _ticket(store, ticket_id)
+        w = ticket["work"]
+        if not w.get("blocked"):
+            raise WorkError("forget_not_blocked", 409, "Zapomenout jde jen blokovanou kuličku.",
+                            "Živou práci dokončete, odložte nebo zablokujte s důvodem.")
+        head, target = w.get("headSha"), w.get("target")
+        if head and head != w.get("baseSha") and not any(ancestor(w["repository"], head, ref)
+                                                           for ref in (target, "origin/" + target)):
+            raise WorkError("forget_code_alive", 409, f"Commit {head[:7]} není v {target}; kuličku drží živý kód.",
+                            "Smažte větev s nepoužitým kódem, nebo kuličku odblokujte a dokončete.")
+        store.delete(ticket_id)
+        journal.write(store.db, project, "linie.forget", by, {"ticket": ticket_id, "mark": w.get("mark"),
+                                                                "title": w.get("title"), "branch": w.get("branch")},
+                      ticket["workspaceId"])
+        return {"forgotten": ticket_id, "mark": w.get("mark"), "branch": w.get("branch")}
+
+
 def resume(service, project, ticket_id, now, by="human"):
     return _change(service, project, ticket_id, now, lambda ticket: {
         **ticket["work"], "blocked": None, "deferred": False, "decided": {"action": "resume", "at": now, "by": by}},

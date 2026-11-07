@@ -242,7 +242,7 @@ def trace(cwd, args):
 COMMANDS = {"task": task, "status": status, "board": board, "report": report, "trace": trace,
             "block": lambda cwd, args: post(cwd, args, "block", {"reason": args.reason})}
 COMMANDS |= {action: lambda cwd, args, action=action: post(cwd, args, action)
-             for action in ("preview", "merge", "defer", "resume")}
+             for action in ("preview", "merge", "defer", "resume", "forget")}
 
 
 def parser():
