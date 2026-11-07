@@ -47,7 +47,8 @@ export function placeTags(board: Board, g: Geometry): LaidTag[] {
   const rowOfSha = (sha: string) => {
     const owner = board.balls.find((b) => b.commits.some((c) => c.sha === sha));
     const merged = board.realMerges.find((m) => m.sha === sha);
-    return (owner && g.rowById.get(owner.rowId)) || (merged && g.byBranch.get(merged.target)) || main;
+    // Tag kuličky složené nebo sbalené větve se nekreslí jinde (zůstává jen značka ⊕), proto bez náhrady na main.
+    return owner ? g.rowById.get(owner.rowId) : (merged && g.byBranch.get(merged.target)) || main;
   };
   const tags: LaidTag[] = board.tags.flatMap((tag) => {
     const row = rowOfSha(tag.sha);

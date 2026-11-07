@@ -412,6 +412,13 @@ target, by: "merge", balls: N}`:
   (N kuliček)“ bez výpisu kuliček (`--all` je vypíše).
 - Testy (`test_board.py` / nový `test_closed.py` s fixture gitu): větev se dvěma začleněnými kuličkami → closed;
   jedna kulička `wip` → null; dítě otevřené → rodič null; commit po merge → null; squash; kaskáda tři úrovně.
+- **Postaveno 2026-11-07** (`linie/closed.py`). Odchylky: kulička musí mít `merged` osu i stav (stav `merged` už
+  vylučuje commit po začlenění, takže „ahead nad sha“ i „špička v cíli“ řeší jedna git otázka `merge-base
+  --is-ancestor` proti cíli lokálně i v origin); rodič i děti se berou podle jména (`tree.parent`), ne z `base`
+  ručního řádku; řádek bez vlastní kuličky se neuzavře ani s uzavřenými dětmi; squash se pozná podle
+  `integration.mode == "squash"` posledního merge (pak stačí začleněné kuličky, `merged.sourceSha` nevzniklo, merge.py
+  dnes jen `--no-ff`); smazaná větev po úklidu = test se ptá na merge `sha`; `HH:MM` v `board.txt` je místní čas;
+  uzavřený řádek v textu skryje jen své kuličky, děti se tisknou dál (každé svou řádkou ⊕).
 
 ### 10.3 L9c Skládání do rodiče a znovuotevření (frontend, větev `feat/velin-linie-kresba-skladani`, po L9a+L9b)
 - **Uzavřený řádek zmizí** z editoru (ne ze stromu dat). Na ose **rodiče** v čase `closed.at` leží **značka složené
@@ -433,6 +440,14 @@ target, by: "merge", balls: N}`:
 - `board.txt`: složené řádky jednou řádkou (10.2), rozbalené výpisem; `linie.py board --all` otevře vše.
 - Testy: řádek `closed` se nekreslí a rodič má značku v `x(closed.at)`; klik přepne `unfolded`; výběr kuličky uvnitř
   rozbalí; kaskáda dvou úrovní; vrstva „Sloučené větve“ otevře vše; nová kulička (`closed: null`) řádek vrátí.
+- **Postaveno 2026-11-07** (`dashboard/logic/linie-closed.ts`, značka v `LiniePlotMarks`). Odchylky: kuličky složené
+  větve zůstávají v datech boardu a layout je jen nekreslí, aby se časová osa při skládání nehnula; výběr nebo
+  `?branch=` uvnitř otevírá větev odvozeně za běhu (do `unfolded` se nezapisuje), takže po zrušení výběru se zase
+  složí, a klik ⊖ na větev otevřenou výběrem výběr zruší; v součtu kaskády je „K větví“ počet uzavřených potomků bez
+  sebe a „N kuliček“ součet `closed.balls` podstromu; bez `closed.at` se čas bere z merge `sha` (`realMerges`, commit
+  kuličky), jinak konec osy s „uzavřeno ?“, a značka nikdy neleží vlevo za okrajem osy; „navazuje na N začleněných
+  kuliček“ ukazuje jen detail nezačleněné kuličky (tip značky ne: uzavřený řádek žádnou nezačleněnou nemá);
+  `board.txt` skrývá pod ⊕ celý podstrom podle `parent`; tag na commitu kuličky složené (i sbalené) větve se nekreslí.
 
 Pořadí: L9a a L9b paralelně (L9a jen frontend, L9b jen backend + `board_text.py`), L9c z integrované špičky obou.
 Hotovo když: na projektu OPORY je řádek `rebrand` (a pod ním dokončené vozy L7g–L7l) složený do značky na

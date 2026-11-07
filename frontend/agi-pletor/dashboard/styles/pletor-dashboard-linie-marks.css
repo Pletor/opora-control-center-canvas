@@ -129,6 +129,38 @@
   transform: none;
 }
 
+/* Sloučená větev se nekreslí jako další řádek, ale složí se do rodiče: na jeho ose v čase uzavření leží malý kroužek
+   v barvě dítěte s ⊕ a vedle něj štítek „název · N kuliček“ v rámu jako pilulka PR. Rodič tak zůstane čitelný a přesto
+   je vidět, kdy a co se do něj vrátilo; klik větev rozbalí pod rodičem (⊖) a další klik ji zase složí. */
+.pletor-dashboard__linie-knot {
+  cursor: pointer;
+}
+.pletor-dashboard__linie-knot-ring {
+  fill: var(--pletor-bg);
+  stroke: var(--c);
+  stroke-width: 1.5;
+}
+.pletor-dashboard__linie-knot-glyph {
+  fill: var(--c);
+  font-size: 12px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.pletor-dashboard__linie-knot-label {
+  position: absolute;
+  z-index: 2;
+  padding: 1px 7px;
+  border: 1px solid var(--c);
+  border-radius: 9px;
+  background: var(--pletor-bg);
+  color: var(--c);
+  font: 11px var(--mono);
+  white-space: nowrap;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
 /* „teď“ visí nad svislicí času v hlavičce; přepínač „Sledovat živě“ má tečku, která svítí jen když posun běží. */
 .pletor-dashboard__linie-nowtag {
   position: absolute;
