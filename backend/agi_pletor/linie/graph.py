@@ -9,7 +9,7 @@ import shutil
 import subprocess
 from datetime import UTC, datetime
 
-from backend.agi_pletor.linie import branches, previews
+from backend.agi_pletor.linie import branches, previews, tree
 from backend.integrations.gitio import git
 
 TIMEOUT = branches.TIMEOUT
@@ -34,24 +34,32 @@ def stamped(stored, head):
     return {**stored, "valid": bool(stored.get("sha")) and head.startswith(stored["sha"])}
 
 
-def gh_prs(root):
-    """`{větev: {number, state, url, base}}` z posledních PR; bez gh nebo při chybě `{}`."""
+def gh_lookup(root):
+    """`{prs: {větev: {number, state, url, base}}, ok, error}` z posledních PR. Repozitář bez PR je `ok: True`
+    s prázdným `prs`; chybějící gh nebo chyba čtení je `ok: False` s důvodem (výpadek, ne „žádné PR“)."""
     gh = shutil.which("gh")
     if not gh:
-        return {}
+        return {"prs": {}, "ok": False, "error": "gh není nainstalované"}
     # shortcut: jedno volání na posledních 200 PR místo `--head` na větev; starší větve PR neukážou.
     command = [gh, "pr", "list", "--state", "all", "--limit", "200", "--json", "number,state,url,baseRefName,headRefName"]
     try:
         out = subprocess.run(command, cwd=root, capture_output=True, text=True, encoding="utf-8", timeout=10,
                              check=True, creationflags=NO_WINDOW).stdout
         rows = json.loads(out)
-    except (OSError, subprocess.SubprocessError, ValueError):
-        return {}
+    except (OSError, subprocess.SubprocessError, ValueError) as error:
+        return {"prs": {}, "ok": False, "error": type(error).__name__}
+    if not isinstance(rows, list):
+        return {"prs": {}, "ok": False, "error": "neočekávaná odpověď gh"}
     prs = {}
-    for row in rows if isinstance(rows, list) else []:  # gh vrací nejnovější první; ten vyhrává
+    for row in rows:  # gh vrací nejnovější první; ten vyhrává
         prs.setdefault(row.get("headRefName"), {"number": row.get("number"), "state": row.get("state"),
                                                 "url": row.get("url"), "base": row.get("baseRefName")})
-    return prs
+    return {"prs": prs, "ok": True, "error": None}
+
+
+def gh_prs(root):
+    """Jen `prs` z `gh_lookup` pro doplňky (graf, detail commitu, cesta), kde výpadek = PR neukázat."""
+    return gh_lookup(root)["prs"]
 
 
 def graph(root, folder, accepted=None, *, pr_lookup=gh_prs):
@@ -71,7 +79,7 @@ def graph(root, folder, accepted=None, *, pr_lookup=gh_prs):
     work = {name for name, row in rows.items() if row["role"] in branches.ROLES and name in unmerged
             and when.get(name, 0) > when.get("main", 0)}
     work |= {name for name in rows if name not in ("main", "develop") and (name in accepted or name in running)}
-    for name in list(work):  # rodičovské téma musí mít vlastní linii, jinak odbočení nemá kam
+    for name in list(work):  # předci až ke kořeni musí mít vlastní linii, jinak odbočení nemá kam
         parent = rows[name]["parent"]
         while parent in rows and parent not in ("main", "develop") and parent not in work:
             work.add(parent)
@@ -79,7 +87,7 @@ def graph(root, folder, accepted=None, *, pr_lookup=gh_prs):
 
     prs = pr_lookup(root)
     lanes = []
-    for name in ["main", *(["develop"] if "develop" in rows else []), *sorted(work)]:
+    for name in [n for n in tree.order(rows) if n in ("main", "develop") or n in work]:
         row = rows[name]
         if name == "main":
             base, commits = None, _commits(root, "-n", "8", "main")

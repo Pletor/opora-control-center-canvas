@@ -4,7 +4,7 @@ import { api } from "@/shared/types/logic/types";
 import { commitView, type CommitDetail } from "../logic/linie-commit";
 import { failureText } from "../logic/linie-work";
 
-type Props = { sha: string; query: string; onClose: () => void; onPickTicket: (ticketId: string) => void };
+type Props = { sha: string; query: string; onClose: () => void; onPickTicket: (ticketId: string) => void; onPickTrace: (mark: string) => void };
 
 const Row = ({ k, children }: { k: string; children: ReactNode }) => (
   <div className="pletor-dashboard__linie-kv"><span className="pletor-dashboard__linie-k">{k}</span><span>{children}</span></div>
@@ -17,7 +17,7 @@ const Layer = ({ title, children }: { title: string; children: ReactNode }) => (
  * Detail commitu z `GET /commit/{sha}` (docs/navrhy/2026-11-06-linie-detail-commitu.md): čtyři vrstvy Proč, Kdo, Co,
  * Kde v linii. Bez ticketu se tři z nich nahradí jedním textem; nic se nevymýšlí.
  */
-export default function LinieCommit({ sha, query, onClose, onPickTicket }: Props) {
+export default function LinieCommit({ sha, query, onClose, onPickTicket, onPickTrace }: Props) {
   const [d, setD] = useState<CommitDetail | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -39,10 +39,12 @@ export default function LinieCommit({ sha, query, onClose, onPickTicket }: Props
   );
 
   const { commit: c, ticket: t, pr, preview } = d;
+  const mark = t?.mark || c.mark;
   return (
     <section className="pletor-dashboard__linie-commit" aria-label="Detail commitu">
       <div className="pletor-dashboard__linie-commit-head">
-        <p className="pletor-dashboard__linie-commit-sentence">{d.sentence}</p>
+        <p className="pletor-dashboard__linie-commit-sentence">{mark && <strong>{mark} </strong>}{d.sentence}</p>
+        {mark && <button type="button" className="pletor-dashboard__button" onClick={() => onPickTrace(mark)}>Celá cesta</button>}
         {close}
       </div>
 

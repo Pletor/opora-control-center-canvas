@@ -5,7 +5,7 @@ import { list, rec, str } from "./view-common";
  * Backend vrací ticket ploše (`{ticketId, body, status, work, state, …}`); obálku `{ticket, work}` bere taky.
  */
 export type WorkDetail = {
-  ticketId: string; title: string; essence: string; build: string; doneCriteria: string; status: string;
+  ticketId: string; mark: string; title: string; essence: string; build: string; doneCriteria: string; status: string;
   state: string; stateLabel: string; next: string;
   branch: string; baseBranch: string; baseSha: string; headSha: string; target: string;
   checks: { name: string; status: string; sha: string }[];
@@ -16,6 +16,10 @@ export type WorkDetail = {
   blocked: string;
   commits: { sha7: string; title: string; at: string }[];
   pr: { number: string; url: string; state: string } | null;
+  /** Pokusy (`work.attempts[]`, L7e): větev z rodiče, agent, `published` po ověření v originu. */
+  attempts: { attemptId: string; branch: string; baseRef: string; agent: string; at: string; published: boolean }[];
+  /** Relace agentů (`work.runs[]`): vazba na worktree a heartbeat; živost říká backend v osách, tady jen výpis. */
+  runs: { runId: string; agent: string; startedAt: string; heartbeat: string; worktree: string }[];
 };
 
 const opt = (value: unknown) => (value && typeof value === "object" && !Array.isArray(value) ? rec(value) : null);
@@ -28,7 +32,7 @@ export function workDetail(raw: unknown): WorkDetail {
   const w = rec(root.work ?? ticket.work);
   const acceptance = opt(w.acceptance), allowed = opt(w.mergeAllowed), merged = opt(w.merged), preview = opt(w.preview), pr = opt(root.pr ?? ticket.pr);
   return {
-    ticketId: str(ticket.ticketId ?? ticket.id), title: str(w.title) || str(ticket.title) || str(body.essence).split("\n")[0],
+    ticketId: str(ticket.ticketId ?? ticket.id), mark: str(w.mark), title: str(w.title) || str(ticket.title) || str(body.essence).split("\n")[0],
     essence: str(body.essence), build: str(body.build), doneCriteria: list(body.doneCriteria).map(str).join("\n") || str(body.doneCriteria), status: str(ticket.status),
     state: str(root.state), stateLabel: str(root.stateLabel), next: str(root.next),
     branch: str(w.branch), baseBranch: str(w.baseBranch), baseSha: str(w.baseSha), headSha: str(w.headSha), target: str(w.target),
@@ -40,6 +44,8 @@ export function workDetail(raw: unknown): WorkDetail {
     blocked: str(opt(w.blocked)?.reason),
     commits: list(root.commits).map((item) => ({ sha7: str(rec(item).sha7), title: str(rec(item).title), at: str(rec(item).at) })),
     pr: pr && { number: str(pr.number), url: str(pr.url), state: str(pr.state) },
+    attempts: list(w.attempts).map((item) => { const a = rec(item); return { attemptId: str(a.attemptId), branch: str(a.branch), baseRef: str(a.baseRef), agent: str(a.agent), at: str(a.at), published: a.published === true }; }),
+    runs: list(w.runs).map((item) => { const r = rec(item); return { runId: str(r.runId), agent: str(r.agent), startedAt: str(r.startedAt), heartbeat: str(r.heartbeat), worktree: str(r.worktree) }; }),
   };
 }
 
@@ -55,19 +61,6 @@ export function acceptanceSentence(d: WorkDetail): string {
   if (!a) return "nepřijato";
   const head = a.sha === d.headSha ? "platí pro hlavu" : `zastaralé, hlava je ${short(d.headSha)}`;
   return `přijato ${short(a.sha)} (${head})${a.note ? ` · ${a.note}` : ""}`;
-}
-
-/** Která tlačítka člověka mají smysl; o platnosti rozhoduje stejně backend (409). */
-export function workActions(d: WorkDetail, main: string) {
-  const acceptedHead = !!d.headSha && d.acceptance?.sha === d.headSha;
-  return {
-    preview: !!d.branch && !d.merged,
-    accept: !!d.headSha && !acceptedHead && !d.merged,
-    revoke: !!d.acceptance && !d.merged,
-    allow: acceptedHead && !!d.target && !d.merged && d.mergeAllowed?.target !== d.target,
-    merge: !!d.mergeAllowed && !d.merged,
-    deploy: !!d.merged && d.merged.target === main,
-  };
 }
 
 /** Text odmítnutí: `message` z těla (409 backendu), jinak text chyby. */

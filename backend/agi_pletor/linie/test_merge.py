@@ -22,13 +22,22 @@ def code(service, tid, **kwargs):
     return refused(lambda: merge.merge(service, "draft", tid, NOW, **kwargs)).code
 
 
+def forced_accept(service, tid, sha, allow=None):
+    """Přijetí (a s `allow` i povolení) zapsané mimo pravidlo L7, které by bez zelených kontrol odmítlo:
+    merge.py musí ověřit sám."""
+    with work.store_for(service, "draft") as store:
+        found = store.get(tid)["work"]
+        extra = {"mergeAllowed": {"target": "develop", "targetSha": allow, "sourceSha": sha}} if allow else {}
+        store.set_work(tid, {**found, "acceptance": {"sha": sha, "by": "human", "at": NOW}, **extra}, NOW)
+
+
 def test_merge_refusals(setup):
     service, repo, tid = setup
     agent_commit(repo)
     head = run(repo, "rev-parse", "feat/uzel")
     work.report(service, "draft", tid, head, [], None, NOW, "agent:t")
     assert code(service, tid) == "no_acceptance"  # bod 4
-    work.accept(service, "draft", tid, head, "", NOW)
+    forced_accept(service, tid, head)
     assert code(service, tid) == "not_allowed"
     work.report(service, "draft", tid, head, [{"name": "npm test", "status": "green"}], None, NOW, "agent:t")
     work.allow_merge(service, "draft", tid, "develop", NOW)
@@ -39,9 +48,8 @@ def test_merge_refusals(setup):
     assert code(service, tid) == "head_moved"
     newer = run(repo, "rev-parse", "feat/uzel")
     work.report(service, "draft", tid, newer, [], None, NOW, "agent:t")
-    assert work.get(service, "draft", tid)["state"] == "stale"
-    work.accept(service, "draft", tid, newer, "", NOW)
-    work.allow_merge(service, "draft", tid, "develop", NOW)
+    assert work.get(service, "draft", tid)["summary"]["key"] == "nocheck"  # L7 §8: bez kontrol nocheck, ne stale
+    forced_accept(service, tid, newer, allow=run(repo, "rev-parse", "develop"))
     assert code(service, tid) == "checks_missing"
     assert run(repo, "rev-parse", "develop") == run(repo, "rev-parse", "origin/develop")  # nic se nesloučilo
 
@@ -51,8 +59,56 @@ def test_target_moved(setup):
     ready(service, repo, tid)
     run(repo, "checkout", "-q", "develop")
     commit(repo, "jiny.txt")  # cíl se posunul mezi allow-merge a merge (bod 8)
+    run(repo, "push", "-q", "origin", "develop")  # špička cíle = origin
     run(repo, "checkout", "-q", "main")
     assert code(service, tid) == "target_moved"
+
+
+def test_unreported_tip_blocks_accept_of_old_revision(setup):
+    """Regrese oponenta: report A (zelené) → commit B bez reportu → accept(A) = 409 head_moved, souhrn ≠ pending."""
+    service, repo, tid = setup
+    old = agent_commit(repo)
+    work.report(service, "draft", tid, old, GREEN, None, NOW, "agent:t")
+    assert work.get(service, "draft", tid)["summary"]["key"] == "pending"
+    tip = agent_commit(repo, name="v.txt")
+    shown = work.get(service, "draft", tid)
+    assert shown["summary"]["key"] != "pending" and "accept" not in shown["allowed"]
+    assert shown["axes"]["work"] == {"state": "in_progress", "sha": tip, "src": "git log · bez hlášení"}
+    assert shown["axes"]["checks"]["state"] == "missing" and shown["summary"]["reason"].startswith(f"HEAD {tip[:7]}")
+    assert refused(lambda: work.accept(service, "draft", tid, old, "", NOW)).code == "head_moved"
+    assert work.get(service, "draft", tid)["work"]["acceptance"] is None
+
+
+def test_allow_merge_recovers_after_target_moved(setup):
+    service, repo, tid = setup
+    ready(service, repo, tid)
+    run(repo, "checkout", "-q", "develop")
+    moved = commit(repo, "jiny.txt")  # cíl se posunul po allow-merge
+    run(repo, "push", "-q", "origin", "develop")
+    run(repo, "checkout", "-q", "main")
+    shown = work.get(service, "draft", tid)
+    assert "allow_merge" in shown["allowed"] and "merge" not in shown["allowed"]
+    assert shown["blocked"]["merge"].startswith("cíl develop se od povolení posunul (") and moved[:7] in shown["blocked"]["merge"]
+    assert shown["next"].startswith("Člověk povolí začlenění znovu")
+    again = work.allow_merge(service, "draft", tid, "develop", NOW)
+    assert again["work"]["mergeAllowed"]["targetSha"] == moved and "merge" in again["allowed"]
+    assert merge.merge(service, "draft", tid, NOW)["summary"]["key"] == "merged"
+
+
+def test_stale_local_target_uses_origin_tip(setup):
+    """Lokální develop zaostává za originem (drží ho jiný strom): povolení i merge jedou z origin, push projde."""
+    service, repo, tid = setup
+    old = run(repo, "rev-parse", "develop")
+    run(repo, "checkout", "-q", "develop")
+    ahead = commit(repo, "jiny.txt")
+    run(repo, "push", "-q", "origin", "develop")
+    run(repo, "checkout", "-q", "main")
+    run(repo, "update-ref", "refs/heads/develop", old)
+    ready(service, repo, tid)
+    assert work.get(service, "draft", tid)["work"]["mergeAllowed"]["targetSha"] == ahead
+    done = merge.merge(service, "draft", tid, NOW)
+    tip = run(repo, "rev-parse", "origin/develop")
+    assert done["state"] == "merged" and done["work"]["merged"]["sha"] == tip and run(repo, "rev-parse", f"{tip}^1") == ahead
 
 
 def test_merge_writes_from_git_and_is_idempotent(setup):
@@ -103,3 +159,13 @@ def test_push_failed(setup):
     assert work.get(service, "draft", tid)["work"]["merged"] is None
     with service.reading("draft"):
         assert TicketStore(service.db_for("draft"), "draft").get(tid)["status"] == "issued"
+
+
+def test_merge_only_into_parent(setup):
+    service, repo, tid = setup
+    head = agent_commit(repo)
+    work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
+    work.accept(service, "draft", tid, head, "", NOW)
+    work.allow_merge(service, "draft", tid, "main", NOW)  # člověk povolil cíl, který není rodič
+    assert code(service, tid) == "target_not_parent"
+    assert run(repo, "rev-parse", "main") == run(repo, "rev-parse", "origin/main")

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { linieFixture } from "./linie-fixture";
 import { COL, HEAD, LANE_GAP, clip, layoutGraph, laneColor, laneSubtitle } from "./linie-graph";
 import { graphView } from "./linie-view";
+import { hueOf } from "./linie-color";
 
 const lanes = graphView(linieFixture).lanes;
 const layout = layoutGraph(lanes);
@@ -25,16 +26,31 @@ describe("layoutGraph", () => {
   });
   it("odbočení z base a návraty merge commitem", () => {
     const at = (sha: string) => ({ x: dot(sha).x, y: dot(sha).y });
+    const feat = `hsl(${hueOf("feat/detail-karty")} 72% 52%)`;
     expect(layout.links).toEqual([
       { from: at("m1"), to: at("d1"), kind: "fork", color: "#60a5fa" },
-      { from: at("d1"), to: at("f1"), kind: "fork", color: "#fb923c" },
-      { from: at("f2"), to: at("d2"), kind: "merge", color: "#fb923c" },
+      { from: at("d1"), to: at("f1"), kind: "fork", color: feat },
+      { from: at("f2"), to: at("d2"), kind: "merge", color: feat },
       { from: at("d2"), to: at("m2"), kind: "merge", color: "#60a5fa" },
     ]);
   });
+  it("vidlička z parent i pro hloubku 3 a barva items", () => {
+    const mk = (name: string, role: string, parent: string | null, sha: string, base: string | null, at: string) =>
+      ({ name, role, parent, sha, base, commits: [{ sha, sha7: sha, title: name, at, parents: base ? [base] : [] }], acceptance: null, preview: null, pr: null });
+    const deep = layoutGraph([
+      mk("feat/a", "feat", "develop", "a1", null, "2026-11-01T10:00:00Z"), mk("feat/a-b", "feat", "feat/a", "b1", "a1", "2026-11-02T10:00:00Z"),
+      mk("feat/a-b-c", "feat", "feat/a-b", "c1", "b1", "2026-11-03T10:00:00Z"), mk("items/x", "items", "develop", "x1", null, "2026-11-04T10:00:00Z"),
+    ] as never);
+    const at = (sha: string) => deep.dots.find((d) => d.sha === sha)!;
+    expect(deep.links.find((l) => l.to.x === at("c1").x)!.from).toEqual({ x: at("b1").x, y: at("b1").y });
+    const color = (name: string) => deep.lanes.find((lane) => lane.name === name)!.color;
+    expect(color("items/x")).toBe("#c084fc");
+    const hue = hueOf("feat/a"); // dítě dědí odstín kořene, hlubší je bledší a světlejší
+    expect([color("feat/a"), color("feat/a-b"), color("feat/a-b-c")]).toEqual([`hsl(${hue} 72% 52%)`, `hsl(${hue} 62% 61%)`, `hsl(${hue} 52% 70%)`]);
+  });
   it("base mimo commity rodiče → oblouk z hlavičky rodiče", () => {
     const moved = lanes.map((lane) => (lane.name === "feat/detail-karty" ? { ...lane, base: "neznámý" } : lane));
-    const fork = layoutGraph(moved).links.find((link) => link.color === "#fb923c" && link.kind === "fork")!;
+    const fork = layoutGraph(moved).links.find((link) => link.color !== "#60a5fa" && link.kind === "fork")!;
     expect(fork.from).toEqual({ x: HEAD, y: 60 + LANE_GAP });
   });
   it("štítky u špičky: přijetí, náhled, PR, zastaralé", () => {
@@ -51,7 +67,8 @@ describe("layoutGraph", () => {
     expect(layoutGraph(stale).badges[1]).toMatchObject({ kind: "stale", text: "přijetí zastaralé (f2bbbbb)" });
   });
   it("barvy, podtitulky, zkrácení a prázdný graf", () => {
-    expect([laneColor("main"), laneColor("develop"), laneColor("hotfix"), laneColor("experiment")]).toEqual(["#4ade80", "#60a5fa", "#fb923c", "#c084fc"]);
+    const fixed = ["main", "develop", "hotfix/1", "experiment/v"].map((name) => laneColor({ name }, []));
+    expect(fixed).toEqual(["#4ade80", "#60a5fa", "#f87171", "#a39cc4"]);
     expect(laneSubtitle({ name: "main", role: "main" })).toBe("Stabilní přijaté vydání");
     expect(laneSubtitle({ name: "develop", role: "develop" })).toBe("Společné ověření");
     expect(clip("x".repeat(60))).toHaveLength(20);

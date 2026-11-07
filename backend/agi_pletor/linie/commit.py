@@ -19,7 +19,7 @@ from database.repositories.tickets import TicketStore
 
 TIMEOUT = 15
 FORMAT = "--format=%H%x1f%cI%x1f%an%x1f%s%x1f%b"
-TRAILER = re.compile(r"^Opora-(Node|Execution):\s*(\S+)", re.MULTILINE)
+TRAILER = re.compile(r"^Opora-(Node|Execution|Mark):\s*(\S+)", re.MULTILINE)
 
 
 def _commit(root, sha):
@@ -37,7 +37,8 @@ def _commit(root, sha):
                     timeout=TIMEOUT, optional=True) or "").split()
     return {"sha": full, "sha7": full[:7], "title": title, "body": body.strip(), "at": at, "author": author,
             "files": len(paths), "paths": paths[:40], "stat": stat, "branches": branches,
-            "trailers": {"node": trailers.get("node"), "execution": trailers.get("execution")}}
+            "trailers": {"node": (trailers.get("node") or "").split("@")[0] or None, "execution": trailers.get("execution"),
+                         "mark": trailers.get("mark")}}
 
 
 def _contains(root, older, newer):
@@ -53,7 +54,7 @@ def _ticket_for(root, tickets, sha, branches):
     return None
 
 
-def _card(service, project, workspace, node_id):
+def card(service, project, workspace, node_id):
     if not node_id:
         return None
     try:
@@ -66,7 +67,7 @@ def _card(service, project, workspace, node_id):
     return {"id": node_id, "name": (found or {}).get("name") or node_id, "link": link, "known": found is not None}
 
 
-def _plan(service, project, workspace, node_id):
+def plan(service, project, workspace, node_id):
     if not node_id:
         return []
     try:
@@ -77,7 +78,7 @@ def _plan(service, project, workspace, node_id):
     return [{k: step.get(k) for k in ("id", "order", "title", "acceptance", "kind")} for step in ordered(steps_of(fields))]
 
 
-def _office(service, project, ticket):
+def office(service, project, ticket):
     session = GateSessionStore(service.db_for(project)).get(ticket["sessionId"]) if ticket.get("sessionId") else None
     machine = ticket["machine"]
     if session is None and not (machine.get("department") or machine.get("executionId")):
@@ -87,7 +88,7 @@ def _office(service, project, ticket):
             "executionId": machine.get("executionId")}
 
 
-def _preview(root, folder, sha, branches):
+def preview_for(root, folder, sha, branches):
     for record in previews.status(folder):
         if record.get("state") == "running" and record.get("branch") in branches and record.get("sha") \
                 and _contains(root, sha, record["sha"]):
@@ -101,9 +102,9 @@ def sentence(commit, ticket, pr):
     if ticket is None:
         tail = "Bez evidovaného plánu (žádný ticket)."
     else:
-        card = ticket["card"]["name"] if ticket.get("card") else "bez karty"
+        card = f"karta {ticket['card']['name']}" if (ticket.get("card") or {}).get("known") else ticket["link"]["text"]
         who = (ticket.get("office") or {}).get("worker") or "kancelář neevidována"
-        tail = f"Plán: {ticket['body']['essence'].splitlines()[0]} (karta {card}, dělá {who}); stav {ticket['stateLabel']}."
+        tail = f"Plán: {ticket['body']['essence'].splitlines()[0]} ({card}, dělá {who}); stav {ticket['stateLabel']}."
     return head + " " + tail + (f" PR #{pr['number']} {pr['state']}." if pr else "")
 
 
@@ -114,15 +115,16 @@ def detail(service, project, workspace, root, sha, folder, *, pr_lookup=gh_prs):
         found = _ticket_for(root, tickets, commit["sha"], commit["branches"])
         ticket = None
         if found is not None:
-            shown = work_mod.view(found)
+            shown = work_mod.present(service, project, found)
             node_id = commit["trailers"]["node"] or found["machine"].get("cardId")
             ticket = {"ticketId": found["ticketId"], "state": shown["state"], "stateLabel": shown["stateLabel"],
                       "next": shown["next"], "body": found["body"],
+                      "mark": found["work"].get("mark"), "link": shown["plan"],
                       "work": {k: found["work"].get(k) for k in ("branch", "headSha", "target", "preview")},
-                      "card": _card(service, project, workspace, node_id),
-                      "office": _office(service, project, found),
-                      "plan": _plan(service, project, workspace, node_id)}
+                      "card": card(service, project, workspace, node_id),
+                      "office": office(service, project, found),
+                      "plan": plan(service, project, workspace, node_id)}
     prs = pr_lookup(root)
     pr = next((prs[name] for name in commit["branches"] if name in prs), None)
-    return {"commit": commit, "ticket": ticket, "pr": pr, "preview": _preview(root, folder, commit["sha"], commit["branches"]),
+    return {"commit": commit, "ticket": ticket, "pr": pr, "preview": preview_for(root, folder, commit["sha"], commit["branches"]),
             "sentence": sentence(commit, ticket, pr)}

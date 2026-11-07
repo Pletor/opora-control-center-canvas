@@ -2,6 +2,8 @@
 
 <!-- Co se mění a proč. Odkaz na kartu / běh (Opora-Execution trailer) patří sem. -->
 
+Opora-Mark: <!-- OP-… z výpisu `linie task`, je-li -->
+
 ## Testing
 
 <!-- Co jste spustili a s jakým výsledkem: `uv run pytest backend`, `npm test`, `npm run build`, ruční kroky.

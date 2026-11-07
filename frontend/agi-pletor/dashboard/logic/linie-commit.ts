@@ -2,9 +2,9 @@ import { list, rec, str } from "./view-common";
 
 /** Detail commitu z `GET /api/pletor/linie/commit/{sha}` (docs/navrhy/2026-11-06-linie-detail-commitu.md, Kontrakt). */
 export type CommitDetail = {
-  commit: { sha: string; sha7: string; title: string; body: string; at: string; author: string; files: string; paths: string[]; stat: string; branches: string[] };
+  commit: { sha: string; sha7: string; title: string; body: string; at: string; author: string; files: string; paths: string[]; stat: string; branches: string[]; mark: string };
   ticket: {
-    ticketId: string; title: string; state: string; stateLabel: string; next: string;
+    mark: string; ticketId: string; title: string; state: string; stateLabel: string; next: string;
     essence: string; build: string; doneCriteria: string[]; branch: string;
     card: { id: string; name: string; link: string } | null;
     office: { worker: string; role: string; department: string; profile: string; executionId: string } | null;
@@ -24,10 +24,10 @@ export function commitView(raw: unknown): CommitDetail {
   return {
     commit: {
       sha: str(c.sha), sha7: str(c.sha7), title: str(c.title), body: str(c.body), at: str(c.at), author: str(c.author),
-      files: str(c.files), paths: list(c.paths).map(str), stat: str(c.stat), branches: list(c.branches).map(str),
+      files: str(c.files), paths: list(c.paths).map(str), stat: str(c.stat), branches: list(c.branches).map(str), mark: str(rec(c.trailers).mark),
     },
     ticket: t && {
-      ticketId: str(t.ticketId), title: str(t.title) || str(body.essence).split("\n")[0], state: str(t.state), stateLabel: str(t.stateLabel), next: str(t.next),
+      mark: str(t.mark), ticketId: str(t.ticketId), title: str(t.title) || str(body.essence).split("\n")[0], state: str(t.state), stateLabel: str(t.stateLabel), next: str(t.next),
       essence: str(body.essence), build: str(body.build), doneCriteria: list(body.doneCriteria).map(str), branch: str(work.branch),
       card: card && { id: str(card.id), name: str(card.name), link: str(card.link) },
       office: office && { worker: str(office.worker), role: str(office.role), department: str(office.department), profile: str(office.profile), executionId: str(office.executionId) },

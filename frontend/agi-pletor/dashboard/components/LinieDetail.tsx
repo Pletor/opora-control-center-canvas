@@ -1,116 +1,96 @@
 import "../styles/pletor-dashboard-linie-detail.css";
-import { useEffect, useState, type ReactNode } from "react";
-import { api, type WriteMethod } from "@/shared/types/logic/types";
-import { acceptanceSentence, failureText, previewSentence, short, workActions, workDetail, type WorkDetail } from "../logic/linie-work";
+import { useEffect, useRef, useState } from "react";
+import { api } from "@/shared/types/logic/types";
+import type { PletorAction } from "../logic/linie-actions";
+import type { BoardBall } from "../logic/linie-board";
+import { hhmm, type Judgement } from "../logic/linie-summary";
+import { failureText, workDetail, type WorkDetail } from "../logic/linie-work";
+import LinieDetailGit from "./LinieDetailGit";
+import LinieDetailPlan from "./LinieDetailPlan";
+import LinieDetailSummary from "./LinieDetailSummary";
 
-/** Zápis přes rodiče: vrátí větu k zobrazení (hotovo, nebo `message` odmítnutí 409). */
-export type LinieAct = (path: string, body: object, done: string, method?: WriteMethod) => Promise<string>;
-type Props = { ticketId: string; query: string; main: string; onAct: LinieAct; onClose: () => void };
-
-const Row = ({ k, children }: { k: string; children: ReactNode }) => (
-  <div className="pletor-dashboard__linie-kv"><span className="pletor-dashboard__linie-k">{k}</span><span>{children}</span></div>
-);
+type Props = {
+  ticketId: string; query: string; ball: BoardBall | null; cluster: { ticketId: string; title: string }[];
+  /** Tiknutí boardu (čas posledního úspěšného čtení): detail se načte znovu se stejnou revizí dat jako board. */
+  revision: number | null;
+  actions: PletorAction[]; note: string; onNote: (note: string) => void; flash: string; onAct: (id: string) => void;
+  onClose: () => void; onPickTrace: (mark: string) => void; onPick: (ticketId: string) => void;
+  /** Načtený detail jde nahoru: rodič z něj bere plnou revizi HEAD a cíl pro akce. */
+  onLoad: (detail: WorkDetail | null) => void;
+};
+type Tab = "souhrn" | "plan" | "git" | "relace";
+const TABS: [Tab, string][] = [["souhrn", "Souhrn"], ["plan", "Plán"], ["git", "Git"], ["relace", "Relace"]];
 
 /**
- * Detail kuličky z `GET /work/{ticketId}`: zadání, větev a revize, commity, PR, kontroly, přijetí, cíl a náhled s revizí.
- * Tlačítka mačká jen člověk; po každé akci se detail načte znovu a odmítnutí backendu se ukáže textem.
+ * Detail kuličky z `GET /work/{ticketId}` se záložkami Souhrn (pět os, pravidlo, další krok) · Plán (vazba na kartu,
+ * rozdíl revize, zadání) · Git (pokusy, commity, PR, kontroly, akce) · Relace (agenti z `work.runs`). Drobek nad ním:
+ * plátno 2 › plátno 3 › značka. Souhrn čte tentýž `judgement` z boardu jako panel Pletora a obnovuje se s každým
+ * tiknutím boardu, takže oba mluví o téže revizi; akce provádí rodič jednou cestou.
  */
-export default function LinieDetail({ ticketId, query, main, onAct, onClose }: Props) {
+export default function LinieDetail({ ticketId, query, ball, cluster, revision, actions, note, onNote, flash, onAct, onClose, onPickTrace, onPick, onLoad }: Props) {
   const [detail, setDetail] = useState<WorkDetail | null>(null);
   const [error, setError] = useState("");
-  const [flash, setFlash] = useState("");
-  const [note, setNote] = useState("");
-  const [round, setRound] = useState(0);
+  const [tab, setTab] = useState<Tab>("souhrn");
+  const loaded = useRef(onLoad);
+  loaded.current = onLoad;
   const path = `/work/${encodeURIComponent(ticketId)}`;
   useEffect(() => {
     let live = true;
     api<unknown>(`/api/pletor/linie${path}?${query}`).then(
-      (raw) => { if (live) { setDetail(workDetail(raw)); setError(""); } },
+      (raw) => { if (live) { const next = workDetail(raw); setDetail(next); setError(""); loaded.current(next); } },
       (failure: unknown) => { if (live) setError(failureText(failure, "Detail se nenačetl.")); },
     );
     return () => { live = false; };
-  }, [path, query, round]);
+  }, [path, query, revision]);
+  useEffect(() => () => loaded.current(null), [path]);
 
-  if (!detail) return (
+  const judgement: Judgement | null = ball?.judgement ?? null;
+  const head = (title: string) => (
+    <div className="pletor-dashboard__linie-detail-head">
+      <h2 className="pletor-dashboard__linie-detail-title">{title}</h2>
+      <button type="button" className="pletor-dashboard__linie-icon" aria-label="Zavřít detail (Esc)" title="Zavřít (Esc)" onClick={onClose}>✕</button>
+    </div>
+  );
+  if (!detail || detail.ticketId !== ticketId) return (
     <section className="pletor-dashboard__linie-detail" aria-label="Detail kuličky">
-      <button type="button" className="pletor-dashboard__button" onClick={onClose}>← zpět na linii</button>
+      {head("Detail kuličky")}
       {error ? <p className="pletor-dashboard__error" role="alert">{error}</p> : <p className="pletor-dashboard__note" role="status">Načítám detail…</p>}
     </section>
   );
 
-  const d = detail;
-  const can = workActions(d, main);
-  const run = (sub: string, body: object, done: string, method?: WriteMethod) => {
-    setFlash("");
-    void onAct(`${path}${sub}`, body, done, method).then((text) => { setFlash(text); setRound((n) => n + 1); });
-  };
-
+  const d = detail, plan = judgement?.plan ?? null;
   return (
     <section className="pletor-dashboard__linie-detail" aria-label="Detail kuličky">
-      <div className="pletor-dashboard__linie-detail-head">
-        <button type="button" className="pletor-dashboard__button" onClick={onClose}>← zpět na linii</button>
-        <h2 className="pletor-dashboard__linie-detail-title">{d.title || d.ticketId}</h2>
-        <span className="pletor-dashboard__tag">{d.stateLabel || d.state}</span>
-        {d.next && <span className="pletor-dashboard__note">další krok: {d.next}</span>}
+      {head(d.title || d.ticketId)}
+      {error && <p className="pletor-dashboard__error" role="alert">{error}</p>}
+      <p className="pletor-dashboard__linie-detail-crumb">
+        <span title="plátno 2 · směr">{plan?.directionCardId ? `směr ${plan.directionCardId}` : "směr —"}</span> › <span title="plátno 3 · plán">{plan?.planCardId ? `plán ${plan.planCardId}` : plan?.text || "plán —"}</span> › <span className="pletor-dashboard__mono">{d.mark || d.ticketId}</span>
+      </p>
+      <div className="pletor-dashboard__linie-detail-meta">
+        <span className="pletor-dashboard__tag">{judgement?.summary.text || d.stateLabel || d.state}</span>
+        {d.mark && <button type="button" className="pletor-dashboard__button" onClick={() => onPickTrace(d.mark)}>Celá cesta</button>}
       </div>
-      <div className="pletor-dashboard__linie-detail-cols">
-        <div className="pletor-dashboard__linie-detail-col">
-          <div className="pletor-dashboard__linie-detail-card">
-            <h3 className="pletor-dashboard__linie-detail-h">Zadání</h3>
-            <Row k="podstata">{d.essence || "—"}</Row>
-            <Row k="stavba">{d.build || "—"}</Row>
-            <Row k="hotovo když">{d.doneCriteria || "—"}</Row>
-          </div>
-          <div className="pletor-dashboard__linie-detail-card">
-            <h3 className="pletor-dashboard__linie-detail-h">Větev a revize</h3>
-            <Row k="větev">{d.branch || "bez větve"}</Row>
-            <Row k="báze"><span className="pletor-dashboard__mono">{d.baseBranch || "—"} @ {short(d.baseSha) || "—"}</span></Row>
-            <Row k="hlava"><span className="pletor-dashboard__mono">{short(d.headSha) || "zatím bez commitu"}</span></Row>
-            <Row k="cíl">{d.target || "zatím neurčeno"}</Row>
-            <Row k="začlenění">{d.merged ? `${short(d.merged.sha)} do ${d.merged.target} · ${d.merged.at}` : "—"}</Row>
-            {d.blocked && <Row k="blokováno">{d.blocked}</Row>}
-          </div>
-          <div className="pletor-dashboard__linie-detail-card">
-            <h3 className="pletor-dashboard__linie-detail-h">Commity · {d.commits.length}</h3>
-            {d.commits.length ? d.commits.map((c) => <Row key={c.sha7} k={c.sha7}>{c.title} <span className="pletor-dashboard__note">{c.at}</span></Row>)
-              : <p className="pletor-dashboard__note">zatím žádné commity</p>}
-            <h3 className="pletor-dashboard__linie-detail-h">PR</h3>
-            {d.pr ? <a href={d.pr.url} target="_blank" rel="noreferrer">PR #{d.pr.number} ({d.pr.state}) ↗</a> : <p className="pletor-dashboard__note">bez PR</p>}
-          </div>
-        </div>
-        <div className="pletor-dashboard__linie-detail-col">
-          <div className="pletor-dashboard__linie-detail-card">
-            <h3 className="pletor-dashboard__linie-detail-h">Kontroly</h3>
-            {d.checks.length ? d.checks.map((c) => <Row key={`${c.name}-${c.sha}`} k={c.name}>{c.status} @ {short(c.sha)}{c.sha !== d.headSha ? " (stará revize)" : ""}</Row>)
-              : <p className="pletor-dashboard__note">kontroly neproběhly</p>}
-          </div>
-          <div className="pletor-dashboard__linie-detail-card">
-            <h3 className="pletor-dashboard__linie-detail-h">Přijetí a náhled</h3>
-            <Row k="přijetí">{acceptanceSentence(d)}</Row>
-            <Row k="povolení">{d.mergeAllowed ? `do ${d.mergeAllowed.target} při ${short(d.mergeAllowed.targetSha)}` : "—"}</Row>
-            <Row k="náhled">{previewSentence(d)}{d.preview?.url && <> · <a href={d.preview.url} target="_blank" rel="noreferrer">otevřít ↗</a></>}</Row>
-          </div>
-          <div className="pletor-dashboard__linie-detail-card">
-            <h3 className="pletor-dashboard__linie-detail-h">Akce člověka</h3>
-            <input className="pletor-dashboard__input" aria-label="Poznámka k přijetí" placeholder="poznámka k přijetí" value={note} onChange={(event) => setNote(event.target.value)} />
-            <span className="pletor-dashboard__tools pletor-dashboard__linie-acts">
-              <button type="button" className="pletor-dashboard__button" disabled={!can.preview} onClick={() => run("/preview", {}, "Náhled se spouští.")}>Spustit náhled</button>
-              <button type="button" className="pletor-dashboard__button" disabled={!can.accept}
-                onClick={() => run("/accept", { sha: d.headSha, note }, `Přijato ${short(d.headSha)}.`)}>Přijmout tuto revizi</button>
-              {can.revoke && <button type="button" className="pletor-dashboard__button" onClick={() => run("/accept", {}, "Přijetí zrušeno.", "DELETE")}>Zrušit přijetí</button>}
-              <button type="button" className="pletor-dashboard__button" disabled={!can.allow}
-                onClick={() => run("/allow-merge", { target: d.target }, `Začlenění do ${d.target} povoleno.`)}>Povolit začlenění do {d.target || "—"}</button>
-              <button type="button" className="pletor-dashboard__button" disabled={!can.merge} onClick={() => run("/merge", {}, "Začleněno službou.")}>Začlenit (služba)</button>
-              {can.deploy && d.merged && (
-                <button type="button" className="pletor-dashboard__button"
-                  onClick={() => { setFlash(""); void onAct("/deployed", { sha: d.merged!.sha }, `Nasazení zapsáno: ${short(d.merged!.sha)}.`).then(setFlash); }}>Zapsat nasazení</button>
-              )}
-            </span>
-            <p className="pletor-dashboard__note">Agent tato tlačítka nikdy nestiskne za tebe.</p>
-            {flash && <p className="pletor-dashboard__linie-flash" role="status">{flash}</p>}
-          </div>
-        </div>
+      <div className="pletor-dashboard__tools" role="tablist" aria-label="Záložky detailu">
+        {TABS.map(([id, text]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} className="pletor-dashboard__linie-tab" onClick={() => setTab(id)}>{text}</button>
+        ))}
       </div>
+      {tab === "souhrn" && <LinieDetailSummary judgement={judgement} detail={d} cluster={cluster} onPick={onPick} />}
+      {tab === "plan" && <LinieDetailPlan plan={plan} detail={d} query={query} />}
+      {tab === "git" && <LinieDetailGit detail={d} ball={ball} actions={actions} note={note} onNote={onNote} flash={flash} onAct={onAct} />}
+      {tab === "relace" && (
+        <div className="pletor-dashboard__linie-detail-card">
+          <h3 className="pletor-dashboard__linie-detail-h">Relace agentů · {d.runs.length} · zdroj run</h3>
+          {d.runs.map((run) => (
+            <div key={run.runId} className="pletor-dashboard__linie-kv"><span className="pletor-dashboard__linie-k pletor-dashboard__mono">{run.runId.slice(0, 12)}</span>
+              <span>{run.agent || "agent"} · od {hhmm(run.startedAt)} · naposledy {hhmm(run.heartbeat)}{run.worktree ? ` · ⌂ ${run.worktree}` : " · bez worktree (neověřená)"}</span></div>
+          ))}
+          {judgement?.axes?.work.state === "in_progress" && judgement.summary.text.includes("neověřeno") && (
+            <p className="pletor-dashboard__linie-plan-diff">Žádná živá relace. Stav práce je neověřený, dokud se agent nepřihlásí nebo nepřijde commit.</p>
+          )}
+          {!d.runs.length && <p className="pletor-dashboard__note">zatím žádná relace</p>}
+        </div>
+      )}
     </section>
   );
 }

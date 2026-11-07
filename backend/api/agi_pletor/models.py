@@ -121,7 +121,7 @@ class LinieRowIn(BaseModel):
     """Řádek editoru Linie (docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §3); tvar ověřuje `linie/rows.py`."""
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=120)
-    type: Literal["topic", "work", "experiment", "fix"]
+    type: Literal["items", "work", "experiment", "fix"]
     base: dict[str, Any] | None = None
     target: str | None = Field(default=None, max_length=200)
 
@@ -129,6 +129,7 @@ class LinieRowIn(BaseModel):
 class LinieRowPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, min_length=1, max_length=120)
+    branch: str | None = Field(default=None, max_length=200)
     target: str | None = Field(default=None, max_length=200)
     collapsed: bool | None = None
 
@@ -138,17 +139,20 @@ class LinieAttachIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     rowId: str = Field(min_length=1, max_length=80)
     branch: str = Field(min_length=1, max_length=200)
-    baseBranch: str = Field(min_length=1, max_length=200)
+    baseBranch: str | None = Field(default=None, max_length=200)  # chybí → rodič ze jména (linie/tree.py)
     target: str | None = Field(default=None, max_length=200)
     title: str | None = Field(default=None, max_length=200)
+    requestId: str | None = Field(default=None, min_length=1, max_length=80)  # žádost srdci (linie/requests.py)
 
 
 class LinieWorkIn(LinieAttachIn):
     """Nový ticket z editoru: tělo pro dělníka (`essence`, `build`, `doneCriteria`) ověří `ticket_model.body_payload`."""
+    rowId: str | None = Field(default=None, min_length=1, max_length=80)  # chybí → řádek větve se založí sám
     title: str = Field(min_length=1, max_length=200)
     essence: str
     build: str
     doneCriteria: list[str]
+    idempotencyKey: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class LinieCheckIn(BaseModel):
@@ -164,10 +168,91 @@ class LinieReportIn(BaseModel):
     worktree: str | None = Field(default=None, max_length=500)
 
 
+class LinieRunIn(BaseModel):
+    """Relace LLM na úkolu; stejné `sessionId` záznam jen osvěží (heartbeat). `worktree` = explicitní vazba na adresář."""
+    model_config = ConfigDict(extra="forbid")
+    sessionId: str = Field(min_length=1, max_length=200)
+    agent: str | None = Field(default=None, max_length=200)
+    transcriptPath: str | None = Field(default=None, max_length=500)
+    worktree: str | None = Field(default=None, max_length=500)
+
+
+class LinieMergeIn(BaseModel):
+    """Identifikátor operace začlenění (UUID); opakování se stejným `op` nic znovu neslučuje (L7 §5a)."""
+    model_config = ConfigDict(extra="forbid")
+    op: str | None = Field(default=None, max_length=64)
+
+
+class LinieAttemptIn(BaseModel):
+    """Pokus práce (L7 §7 bod 5): větev zakládá agent z `baseSha`; `baseRef` chybí → rodič ze jména."""
+    model_config = ConfigDict(extra="forbid")
+    branch: str = Field(min_length=1, max_length=200)
+    baseRef: str | None = Field(default=None, min_length=1, max_length=200)
+    baseSha: str | None = Field(default=None, min_length=7, max_length=40)
+    repo: str | None = Field(default=None, max_length=500)
+    agent: str | None = Field(default=None, max_length=200)
+    requestId: str | None = Field(default=None, min_length=1, max_length=80)
+    idempotencyKey: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class LinieRevertIn(BaseModel):
+    """Revert commitu na větvi úkolu; `expectedHead` = hlava, kterou volající viděl."""
+    model_config = ConfigDict(extra="forbid")
+    sha: str = Field(min_length=7, max_length=40)
+    expectedHead: str = Field(min_length=7, max_length=40)
+    op: str | None = Field(default=None, max_length=64)
+
+
+class LinieRebaseNoteIn(BaseModel):
+    """Evidence rebase `{from, to}`; v gitu se nic neprovádí."""
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    old: str = Field(alias="from", min_length=7, max_length=40)
+    to: str = Field(min_length=7, max_length=40)
+
+
+class PletorRequestIn(BaseModel):
+    """Žádost srdci (L7 §4a); opakování se stejným klíčem vrátí tutéž žádost."""
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=TEXT_LIMIT)
+    idempotencyKey: str = Field(min_length=1, max_length=200)
+
+
+class PletorRequestStepIn(BaseModel):
+    """Potvrzení kroku žádosti s důkazem, nebo jeho selhání (`failed`, `why`)."""
+    model_config = ConfigDict(extra="forbid")
+    k: Literal["plan", "ticket", "attempt", "commit"]
+    evidence: dict[str, Any] | None = None
+    failed: bool = False
+    why: str | None = Field(default=None, max_length=2000)
+
+
+class LinieAbandonIn(BaseModel):
+    """Opuštěná práce: evidence rozhodnutí, git ani HEAD nemění (L7 §5)."""
+    model_config = ConfigDict(extra="forbid")
+    sha: str = Field(min_length=7, max_length=40)
+    why: str = Field(min_length=1, max_length=2000)
+
+
+class LinieDeployIn(BaseModel):
+    """Událost nasazení `{env, sha}` (L7 §5); `repo` jen když je to repozitář služby."""
+    model_config = ConfigDict(extra="forbid")
+    env: str = Field(min_length=1, max_length=64)
+    sha: str = Field(min_length=7, max_length=40)
+    repo: str | None = Field(default=None, max_length=500)
+
+
 class LinieAcceptIn(BaseModel):
     """Přijetí přesně aktuální hlavy ticketu (`sha == headSha`)."""
     model_config = ConfigDict(extra="forbid")
     sha: str = Field(min_length=7, max_length=40)
+    note: str = Field(default="", max_length=2000)
+
+
+class LinieAcceptMergeIn(BaseModel):
+    """„Přijmout a začlenit“ (L7g): revize, kterou člověk viděl, a UUID operace (nové na každé kliknutí)."""
+    model_config = ConfigDict(extra="forbid")
+    sha: str = Field(min_length=7, max_length=40)
+    op: str | None = Field(default=None, max_length=64)
     note: str = Field(default="", max_length=2000)
 
 

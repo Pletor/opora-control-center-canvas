@@ -6,7 +6,7 @@ export type LinieAcceptance = { sha: string; target: string; at: string; note: s
 export type LinieCommit = { sha: string; sha7: string; title: string; at: string; parents: string[] };
 export type LiniePr = { number: number; state: string; url: string; base: string };
 export type LinieLane = {
-  name: string; role: string; parent: string; sha: string; remote: string; base: string;
+  name: string; role: string; parent: string; depth: number; sha: string; remote: string; base: string;
   commits: LinieCommit[]; acceptance: LinieAcceptance | null; preview: LiniePreview | null; pr: LiniePr | null;
 };
 export type LinieGraphView = {
@@ -47,7 +47,7 @@ function laneOf(item: unknown): LinieLane {
   });
   return {
     // `remote` (origin) graf zatím neposílá; když přibude, karta MAIN ho ukáže.
-    name: str(b.name), role: str(b.role), parent: str(b.parent), sha, remote: str(b.remote), base: str(b.base), commits,
+    name: str(b.name), role: str(b.role), parent: str(b.parent), depth: num(b.depth) || 2, sha, remote: str(b.remote), base: str(b.base), commits,
     acceptance: acceptanceOf(b.acceptance, sha), preview: previewOf(b.preview),
     pr: pr ? { number: num(pr.number), state: str(pr.state), url: str(pr.url), base: str(pr.base) } : null,
   };

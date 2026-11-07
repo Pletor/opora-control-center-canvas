@@ -96,14 +96,14 @@ def test_start_stop_remove(tmp_path):
 def test_failed_build_and_dead_process(tmp_path):
     repo, folder = make_repo(tmp_path / "r"), tmp_path / "pletor"
     data = data_root(tmp_path / "data")
-    previews.start(folder, repo, "topic/1-t", "p1", data, "t", build=lambda tree, log: False,
+    previews.start(folder, repo, "items/1-t", "p1", data, "t", build=lambda tree, log: False,
                    spawn=lambda *a: pytest.fail("bez buildu se server nespouští"), run=lambda work: work())
     assert previews.status(folder)[0]["state"] == "failed"
     process = Process()
     previews.start(folder, repo, "feat/a", "p1", data, "t", build=lambda tree, log: True,
                    spawn=lambda *a: process, run=lambda work: work())
     process.code = 1  # proces sám skončil
-    assert {p["branch"]: p["state"] for p in previews.status(folder)} == {"topic/1-t": "failed", "feat/a": "stopped"}
+    assert {p["branch"]: p["state"] for p in previews.status(folder)} == {"items/1-t": "failed", "feat/a": "stopped"}
 
 
 def test_start_refuses_unknown_branch(tmp_path):

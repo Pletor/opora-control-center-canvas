@@ -39,6 +39,8 @@ Nezrušeno: vlak PR podle kontraktu, ponytail, úklid vlastních větví, PR Len
 
 ## 3. Role větví (konvence, vztahy eviduje Velín)
 
+Nahrazeno stromem větví: `2026-11-06-linie-strom-vetvi.md`.
+
 | Větev | Z čeho | Do čeho | Slučování | Přijetí |
 |---|---|---|---|---|
 | `main` | — | — | merge commit z `develop` (PR) | člověk: vydání |
