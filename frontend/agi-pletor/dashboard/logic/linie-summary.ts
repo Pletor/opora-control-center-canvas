@@ -82,22 +82,13 @@ export function sourceAges(snapshot: Snapshot | null, now: number): { name: stri
   });
 }
 
-export type PletorAction = { id: string; label: string; enabled: boolean; why: string };
-const ACTION_LABEL: Record<string, string> = { accept: "Přijmout", merge: "Začlenit", block: "Blokovat", unblock: "Odblokovat", attempt: "Založit pokus" };
-const ROUTED = ["accept", "merge", "block"]; // unblock a attempt nemají v linie_work_routes trasu
-
 /**
- * Tlačítka panelu: povolené (`allowed`) i zakázané (`blocked` s důvodem z téhož pravidla). Přijetí potřebuje plnou
- * revizi HEAD z detailu (board nese jen sha7); bez `allowed` od backendu se nenabízí nic.
+ * Čerstvost čtení boardu: hodiny tikají samy (ne až po úspěchu), takže při výpadku API stáří dál roste a panel to řekne.
  */
-export function actionsOf(j: Judgement, headSha: string): PletorAction[] {
-  return [...new Set([...j.allowed, ...Object.keys(j.blocked)])].map((id) => {
-    const label = ACTION_LABEL[id] ?? id;
-    if (!j.allowed.includes(id)) return { id, label, enabled: false, why: j.blocked[id] || "pravidlo akci nepovoluje" };
-    if (!ROUTED.includes(id)) return { id, label, enabled: false, why: "operace zatím bez API (L7 PR 5)" };
-    if (id === "accept" && !headSha) return { id, label, enabled: false, why: "načítám plnou revizi HEAD z detailu" };
-    return { id, label: id === "accept" ? `Přijmout ${headSha.slice(0, 7)}` : label, enabled: true, why: "" };
-  });
+export function feedText(lastSuccessAt: number | null, lastError: string, now: number): string {
+  if (!lastError) return "";
+  const since = lastSuccessAt === null ? "zatím žádné úspěšné čtení" : `poslední úspěšné čtení ${ago(new Date(lastSuccessAt).toISOString(), now)}`;
+  return `${since} · nyní nedostupné`;
 }
 
 const sha7 = (sha: string) => sha.slice(0, 7);

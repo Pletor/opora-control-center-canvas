@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { boardFixture } from "./linie-fixture";
 import { boardView } from "./linie-board";
-import { actionsOf, ago, hhmm, judgementOf, pletorVerdict, snapshotOf, sourceAges } from "./linie-summary";
+import { ago, feedText, hhmm, judgementOf, pletorVerdict, snapshotOf, sourceAges } from "./linie-summary";
 
 const board = boardView(boardFixture);
 const j = (id: string) => board.balls.find((b) => b.ticketId === id)!.judgement;
@@ -10,8 +10,8 @@ const now = Date.parse("2026-11-06T10:06:00Z");
 describe("čtení summary a os", () => {
   it("summary z backendu platí, akce a důkazy se čtou", () => {
     expect(j("tk_1").summary).toEqual({ key: "accepted", text: "přijato, čeká na začlenění 9c8050f", reason: "checks.passed(HEAD) & acceptance.accepted(HEAD) & integration.none", next: "Služba začlení do topic/knihovna (znovu ověří).", derived: false });
-    expect(j("tk_1").allowed).toEqual(["merge", "block"]);
-    expect(j("tk_1").blocked).toEqual({ accept: "acceptance.accepted(HEAD) – už přijato" });
+    expect(j("tk_1").allowed).toEqual(["allow_merge", "block"]);
+    expect(j("tk_1").blocked).toEqual({ accept: "acceptance.accepted(HEAD) – už přijato", merge: "mergeAllowed chybí – nejdřív povolit začlenění" });
     expect(j("tk_1").incomplete).toEqual(["prs"]);
     expect(j("tk_1").axes?.checks).toEqual({ state: "passed", sha: "9c8050f1a2b3", src: "CI" });
     expect(board.balls[0].openPr).toBe(true);
@@ -47,18 +47,15 @@ describe("snímek a stáří zdrojů", () => {
   });
 });
 
-describe("akce panelu", () => {
-  it("povolené jako tlačítka, zakázané s důvodem; bez API a bez plné revize zakázané", () => {
-    expect(actionsOf(j("tk_1"), "")).toEqual([
-      { id: "merge", label: "Začlenit", enabled: true, why: "" },
-      { id: "block", label: "Blokovat", enabled: true, why: "" },
-      { id: "accept", label: "Přijmout", enabled: false, why: "acceptance.accepted(HEAD) – už přijato" },
-    ]);
-    const pending = judgementOf({ allowed: ["accept", "unblock"], blocked: { merge: "acceptance.pending – nejdřív přijetí" } });
-    expect(actionsOf(pending, "").map((a) => [a.id, a.enabled, a.why])).toEqual([
-      ["accept", false, "načítám plnou revizi HEAD z detailu"], ["unblock", false, "operace zatím bez API (L7 PR 5)"], ["merge", false, "acceptance.pending – nejdřív přijetí"]]);
-    expect(actionsOf(pending, "1aebfc1a2b3c")[0]).toEqual({ id: "accept", label: "Přijmout 1aebfc1", enabled: true, why: "" });
-    expect(actionsOf(j("tk_2"), "abc")).toEqual([]);
+describe("čerstvost při výpadku", () => {
+  it("úspěch → dvě chyby → stáří roste s hodinami, ne s úspěchem", () => {
+    const ok = Date.parse("2026-11-06T10:00:00Z");
+    expect(feedText(ok, "", ok + 5000)).toBe(""); // úspěch: nic navíc
+    expect(feedText(ok, "502", ok + 3 * 60000)).toBe("poslední úspěšné čtení před 3 min · nyní nedostupné");
+    expect(feedText(ok, "502", ok + 7 * 60000)).toBe("poslední úspěšné čtení před 7 min · nyní nedostupné");
+    expect(feedText(null, "502", ok)).toBe("zatím žádné úspěšné čtení · nyní nedostupné");
+    // stáří zdrojů jede z hodin taky: po dvou chybách je git zastaralý
+    expect(sourceAges(board.snapshot, now + 9 * 60000)[0]).toEqual({ name: "git", text: "git před 11 min · zastaralé", stale: true });
   });
 });
 

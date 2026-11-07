@@ -1,28 +1,18 @@
-import { useState, type ReactNode } from "react";
-import type { WriteMethod } from "@/shared/types/logic/types";
-import type { Judgement } from "../logic/linie-summary";
-import { acceptanceSentence, previewSentence, short, workActions, type WorkDetail } from "../logic/linie-work";
+import type { ReactNode } from "react";
+import type { PletorAction } from "../logic/linie-actions";
+import { acceptanceSentence, previewSentence, short, type WorkDetail } from "../logic/linie-work";
 
-type Props = {
-  detail: WorkDetail; judgement: Judgement | null; main: string; flash: string;
-  run: (sub: string, body: object, done: string, method?: WriteMethod) => void; onDeploy: (sha: string) => void;
-};
+type Props = { detail: WorkDetail; actions: PletorAction[]; flash: string; onAct: (id: string) => void };
 
 const Row = ({ k, children }: { k: string; children: ReactNode }) => (
   <div className="pletor-dashboard__linie-kv"><span className="pletor-dashboard__linie-k">{k}</span><span>{children}</span></div>
 );
 
 /**
- * Záložka Git: větev a revize, commity, PR, kontroly, přijetí a náhled, akce člověka. Přijetí a začlenění se řídí
- * týmž pravidlem jako panel Pletora (`allowed` / `blocked`); jen když backend `allowed` ještě neposílá, platí odhad
- * `workActions` a o platnosti rozhodne backend (409).
+ * Záložka Git: větev a revize, commity, PR, kontroly, přijetí a náhled. Akce člověka jsou tentýž seznam jako v panelu
+ * Pletora (jen `allowed` / `blocked`, jedna cesta přes rodiče); vlastní odhad tlačítek tu není.
  */
-export default function LinieDetailGit({ detail: d, judgement, main, flash, run, onDeploy }: Props) {
-  const [note, setNote] = useState("");
-  const guess = workActions(d, main);
-  const ruled = !!judgement && (judgement.allowed.length > 0 || Object.keys(judgement.blocked).length > 0);
-  const can = (id: "accept" | "merge") => (ruled ? judgement!.allowed.includes(id) : guess[id]);
-  const why = (id: string) => (ruled ? judgement!.blocked[id] : undefined);
+export default function LinieDetailGit({ detail: d, actions, flash, onAct }: Props) {
   return (
     <div className="pletor-dashboard__linie-detail-cols">
       <div className="pletor-dashboard__linie-detail-col">
@@ -54,17 +44,14 @@ export default function LinieDetailGit({ detail: d, judgement, main, flash, run,
         </div>
         <div className="pletor-dashboard__linie-detail-card">
           <h3 className="pletor-dashboard__linie-detail-h">Akce člověka</h3>
-          <input className="pletor-dashboard__input" aria-label="Poznámka k přijetí" placeholder="poznámka k přijetí" value={note} onChange={(event) => setNote(event.target.value)} />
-          <span className="pletor-dashboard__tools pletor-dashboard__linie-acts">
-            <button type="button" className="pletor-dashboard__button" disabled={!guess.preview} onClick={() => run("/preview", {}, "Náhled se spouští.")}>Spustit náhled</button>
-            <button type="button" className="pletor-dashboard__button" disabled={!can("accept") || !d.headSha} title={why("accept")}
-              onClick={() => run("/accept", { sha: d.headSha, note }, `Přijato ${short(d.headSha)}.`)}>Přijmout tuto revizi</button>
-            {guess.revoke && <button type="button" className="pletor-dashboard__button" onClick={() => run("/accept", {}, "Přijetí zrušeno.", "DELETE")}>Zrušit přijetí</button>}
-            <button type="button" className="pletor-dashboard__button" disabled={!guess.allow}
-              onClick={() => run("/allow-merge", { target: d.target }, `Začlenění do ${d.target} povoleno.`)}>Povolit začlenění do {d.target || "—"}</button>
-            <button type="button" className="pletor-dashboard__button" disabled={!can("merge")} title={why("merge")} onClick={() => run("/merge", {}, "Začleněno službou.")}>Začlenit (služba)</button>
-            {guess.deploy && d.merged && <button type="button" className="pletor-dashboard__button" onClick={() => onDeploy(d.merged!.sha)}>Zapsat nasazení</button>}
-          </span>
+          {actions.length ? (
+            <span className="pletor-dashboard__tools pletor-dashboard__linie-acts">
+              {actions.map((action) => (
+                <button key={action.id} type="button" className="pletor-dashboard__button" disabled={!action.enabled} title={action.why || undefined}
+                  onClick={() => onAct(action.id)}>{action.label}</button>
+              ))}
+            </span>
+          ) : <p className="pletor-dashboard__note">Backend zatím nepovolil žádnou akci (bez `allowed`).</p>}
           <p className="pletor-dashboard__note">Agent tato tlačítka nikdy nestiskne za tebe.</p>
           {flash && <p className="pletor-dashboard__linie-flash" role="status">{flash}</p>}
         </div>

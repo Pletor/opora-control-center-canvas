@@ -1,7 +1,9 @@
-import type { PletorAction } from "../logic/linie-summary";
+import type { PletorAction } from "../logic/linie-actions";
 
 type Props = {
   lines: string[]; next: string; builtAt: string;
+  /** Výpadek čtení boardu („poslední úspěšné čtení před N min · nyní nedostupné“), jinak prázdné. */
+  feed: string;
   ages: { name: string; text: string; stale: boolean }[];
   actions: PletorAction[]; flash: string; onAct: (id: string) => void;
 };
@@ -11,7 +13,7 @@ type Props = {
  * čas sestavení snímku a stáří každého zdroje zvlášť, pak akce – povolené jako tlačítka, zakázané šedé s důvodem.
  * Pole „Zadat srdci“ je zatím zavřené: tok žádostí přijde s /api/pletor/requests, falešný tok tu není.
  */
-export default function LiniePletor({ lines, next, builtAt, ages, actions, flash, onAct }: Props) {
+export default function LiniePletor({ lines, next, builtAt, feed, ages, actions, flash, onAct }: Props) {
   return (
     <section className="pletor-dashboard__linie-pletor" aria-label="Pletor – ověřený stav">
       <h2 className="pletor-dashboard__linie-pletor-h">Pletor · ověřený stav</h2>
@@ -20,6 +22,7 @@ export default function LiniePletor({ lines, next, builtAt, ages, actions, flash
       <p className="pletor-dashboard__linie-pletor-meta">
         {builtAt ? `snímek sestaven ${builtAt}` : "snímek bez stáří zdrojů"} · chybějící data = „nevím“, ne „není“
       </p>
+      {feed && <p className="pletor-dashboard__linie-pletor-meta"><span className="pletor-dashboard__linie-pletor-age--stale">{feed}</span></p>}
       {ages.length > 0 && (
         <p className="pletor-dashboard__linie-pletor-meta">
           {ages.map((age) => (

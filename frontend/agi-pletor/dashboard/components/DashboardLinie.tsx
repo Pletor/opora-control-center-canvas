@@ -11,13 +11,14 @@ import { escTarget, keepScroll, type Mark } from "../logic/linie-keep";
 import { labelWidth, placeLabels } from "../logic/linie-labels";
 import { LAYERS_KEY, NAMES_KEY, readLayers, readNames, save, type LayerId } from "../logic/linie-prefs";
 import { queueLines, queues, type QueueId } from "../logic/linie-queues";
-import { actionsOf, hhmm, pletorVerdict, sourceAges } from "../logic/linie-summary";
+import { actionRequest, actionsOf } from "../logic/linie-actions";
+import { feedText, hhmm, pletorVerdict, sourceAges } from "../logic/linie-summary";
 import { useLinieZoom } from "../logic/use-linie-zoom";
 import { graphView, shortSha } from "../logic/linie-view";
 import { failureText, type WorkDetail } from "../logic/linie-work";
 import { FOLD_KEY, manualRow, readFolded, shownBoard } from "../logic/linie-fold";
 import LinieBoard from "./LinieBoard";
-import LinieDetail, { type LinieAct } from "./LinieDetail";
+import LinieDetail from "./LinieDetail";
 import LinieCommit from "./LinieCommit";
 import LinieTrace from "./LinieTrace";
 import LinieGraph from "./LinieGraph";
@@ -30,6 +31,7 @@ import LinieToolbar from "./LinieToolbar";
 import LinieWorkForm from "./LinieWorkForm";
 
 const POLL_MS = 10000;
+const CLOCK_MS = 15000;
 const BASE = "/api/pletor/linie";
 
 /**
@@ -59,13 +61,23 @@ export default function DashboardLinie({ project, workspace }: { project: string
   const [trace, setTrace] = useState("");
   const renaming = useRef(false);
   const query = new URLSearchParams({ project, workspace }).toString();
+  const [lastSuccessAt, setLastSuccessAt] = useState<number | null>(null);
+  const [boardError, setBoardError] = useState("");
   const fail = (failure: unknown) => setError(failureText(failure, "Načtení selhalo."));
   const poll = usePolling(() => Promise.all([
-    api<unknown>(`${BASE}/board?${query}`).then((next) => { setBoardRaw(next); setNow(Date.now()); setError(""); }, fail),
+    api<unknown>(`${BASE}/board?${query}`).then(
+      (next) => { const at = Date.now(); setBoardRaw(next); setNow(at); setLastSuccessAt(at); setBoardError(""); setError(""); },
+      (failure: unknown) => { setBoardError(failureText(failure, "Načtení selhalo.")); fail(failure); },
+    ),
     api<unknown>(`${BASE}/graph?${query}`).then(setGraphRaw, fail),
   ]), { intervalMs: POLL_MS, refreshKeys: [query] });
+  // Hodiny tikají samy: při výpadku API stáří zdrojů i posledního čtení dál roste (jen stav `now`, sítě se nedotknou).
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), CLOCK_MS);
+    return () => clearInterval(id);
+  }, []);
 
-  const act: LinieAct = (path, body, done, method = "POST") => api(`${BASE}${path}?${query}`, body, method)
+  const act = (path: string, body: object, done: string, method: WriteMethod = "POST") => api(`${BASE}${path}?${query}`, body, method)
     .then(() => done, (failure: unknown) => failureText(failure)).finally(() => void poll.refresh());
   const write = (path: string, body: object, done: string, method: WriteMethod = "POST") => api(`${BASE}${path}?${query}`, body, method).then(
     () => { setNote(done); setError(""); void poll.refresh(); return true; },
@@ -134,14 +146,13 @@ export default function DashboardLinie({ project, workspace }: { project: string
   };
   const layer = (id: LayerId, on: boolean) => { const next = { ...layers, [id]: on }; setLayers(next); save(LAYERS_KEY, next); };
   const width = (value: number) => { setNames(value); save(NAMES_KEY, String(value)); };
-  const headSha = detail?.ticketId === picked ? detail.headSha : "";
+  // Jedna cesta pro akce: seznam z allowed/blocked nad shodnou revizí boardu a detailu, provedení přes actionRequest.
+  const actions = ball ? actionsOf(ball.judgement, picked, ball.headSha7, detail) : [];
   const runAction = (id: string) => {
-    const path = `/work/${encodeURIComponent(picked)}`;
-    const call = id === "accept" ? act(`${path}/accept`, { sha: headSha }, `Přijato ${shortSha(headSha)}.`)
-      : id === "merge" ? act(`${path}/merge`, {}, "Začleněno službou.")
-        : act(`${path}/block`, { reason: "blokováno člověkem z panelu Pletora" }, "Zablokováno.");
+    const request = detail && actions.find((a) => a.id === id)?.enabled ? actionRequest(id, picked, detail) : null;
+    if (!request) return;
     setFlash("");
-    void call.then(setFlash);
+    void act(request.path, request.body, request.done, request.method).then(setFlash);
   };
 
   const panel = trace ? (
@@ -150,8 +161,8 @@ export default function DashboardLinie({ project, workspace }: { project: string
   ) : commit ? (
     <LinieCommit sha={commit} query={query} onClose={() => setCommit("")} onPickTicket={(id) => { setCommit(""); pick(id); }} onPickTrace={setTrace} />
   ) : picked ? (
-    <LinieDetail ticketId={picked} query={query} main={board.mapping.main} judgement={ball?.judgement ?? null} cluster={cluster}
-      onAct={act} onClose={close} onPickTrace={setTrace} onPick={pick} onLoad={setDetail} />
+    <LinieDetail ticketId={picked} query={query} judgement={ball?.judgement ?? null} cluster={cluster} revision={lastSuccessAt}
+      actions={actions} flash={flash} onAct={runAction} onClose={close} onPickTrace={setTrace} onPick={pick} onLoad={setDetail} />
   ) : null;
   const editor = mode === "editor";
   const links = Object.fromEntries(view.lanes.flatMap((item) => [
@@ -191,7 +202,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
             {editor && (
               <LiniePletor lines={ball ? pletorVerdict(ball.mark || clip(ball.title), ball.judgement, board.snapshot, now) : queueLines(queueList, board.balls.length)}
                 next={ball ? ball.judgement.summary.next || (detail?.ticketId === picked ? detail.next : "") : ""} builtAt={board.snapshot ? hhmm(board.snapshot.builtAt) : ""} ages={sourceAges(board.snapshot, now)}
-                actions={ball ? actionsOf(ball.judgement, headSha) : []} flash={flash} onAct={runAction} />
+                feed={feedText(lastSuccessAt, boardError, now)} actions={actions} flash={flash} onAct={runAction} />
             )}
             {panel}
           </aside>
