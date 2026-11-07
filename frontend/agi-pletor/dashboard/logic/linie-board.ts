@@ -1,9 +1,14 @@
 import { branchColor } from "./linie-color";
+import { judgementOf, snapshotOf, type Judgement, type Snapshot, type SummaryKey } from "./linie-summary";
+import { PAD, ticks as axisTicks, xOf as scaleX } from "./linie-zoom";
 import { list, rec, str } from "./view-common";
+
+export { PAD };
 
 /**
  * Editor Linie (docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §3, §6): odpověď `GET /board` na bezpečný pohled
- * a rozložení řádků a kuliček. Čas běží zleva doprava na společné ose, řádek = svislá pozice. Čistá geometrie bez Reactu.
+ * a rozložení řádků a kuliček. Čas běží zleva doprava na společné ose (`linie-zoom.ts`), řádek = svislá pozice; kulička
+ * leží vždy přesně na svém čase, kolize řeší jen popisky (`linie-labels.ts`). Čistá geometrie bez Reactu.
  */
 export type RowType = "main" | "develop" | "items" | "work" | "experiment" | "fix";
 export type BallState = "open" | "awaiting_checks" | "blocked" | "deferred" | "accepted_unmerged" | "merged" | "stale";
@@ -13,8 +18,10 @@ export type BoardRow = { id: string; name: string; type: RowType; branch: string
 export type BoardBall = {
   ticketId: string; mark: string; rowId: string; title: string; state: BallState; stateLabel: string; branch: string; headSha7: string;
   createdAt: string; mergedAt: string; counts: { commits: number; prs: number; merges: number }; links: { to: string; kind: LinkKind }[];
+  /** Souhrn, osy a akce z jednoho vyhodnocení backendu (§2a); `openPr` jen z `prs[].state`, nikdy z počtu. */
+  judgement: Judgement; openPr: boolean;
 };
-export type Board = { rows: BoardRow[]; balls: BoardBall[]; mapping: { main: string; develop: string }; realMerges: { sha: string; target: string; at: string; title: string }[] };
+export type Board = { rows: BoardRow[]; balls: BoardBall[]; mapping: { main: string; develop: string }; realMerges: { sha: string; target: string; at: string; title: string }[]; snapshot: Snapshot | null };
 
 /** Výplň kuličky: plná = začleněno, s prstencem = hotovo nezačleněno, prázdná = otevřeno, tečka = ověření, červený střed = blok. */
 export type Fill = "merged" | "done" | "open" | "verify" | "blocked" | "parked" | "stale";
@@ -48,31 +55,35 @@ export function boardView(raw: unknown): Board {
       branch: str(b.branch), headSha7: str(b.headSha7), createdAt: str(b.createdAt), mergedAt: str(b.mergedAt),
       counts: { commits: num(c.commits), prs: num(c.prs), merges: num(c.merges) },
       links: list(b.links).map((link) => ({ to: str(rec(link).to), kind: pick(rec(link).kind, KINDS, "follows") })).filter((link) => link.to),
+      judgement: judgementOf(b), openPr: list(b.prs).some((pr) => rec(pr).state === "open"),
     };
   }).filter((ball) => ball.ticketId);
   const realMerges = list(root.realMerges).map((item) => ({ sha: str(rec(item).sha), target: str(rec(item).target), at: str(rec(item).at), title: str(rec(item).title) }));
-  return { rows, balls, mapping, realMerges };
+  return { rows, balls, mapping, realMerges, snapshot: snapshotOf(root.snapshot) };
 }
 
 export type Point = { x: number; y: number };
 export type Hover = { mark: string; title: string; state: string; created: string; merged: string; counts: string; branch: string };
 export type LaidRow = BoardRow & { top: number; height: number; y: number; color: string; branchText: string; mappingText: string };
 /** `toColor` = barva řádku, kam se kulička začlení (plán nebo merge), jinak vlastní barva; kreslí se jako vnitřní puntík. */
-export type LaidBall = { ticketId: string; rowId: string; title: string; label: string; stateLabel: string; fill: Fill; x: number; y: number; color: string; toColor: string; hover: Hover };
+export type LaidBall = { ticketId: string; rowId: string; title: string; label: string; stateLabel: string; key: SummaryKey; fill: Fill; x: number; y: number; color: string; toColor: string; hover: Hover };
 /** `openEnd` = cíl plánu bez kuličky: kreslí se přerušovaný kroužek. Bod merge má jen `merged`. Gradient vede od `fromColor` k `toColor`. */
-export type LaidLink = { kind: LinkKind; from: Point; to: Point; fromColor: string; toColor: string; openEnd: boolean };
+export type LaidLink = { kind: LinkKind; from: Point; to: Point; fromColor: string; toColor: string; openEnd: boolean; ticketId: string };
 export type LaidMerge = Point & { sha7: string; title: string; color: string };
-export type BoardLayout = { width: number; height: number; rows: LaidRow[]; balls: LaidBall[]; links: LaidLink[]; merges: LaidMerge[]; ticks: { x: number; text: string }[] };
+/** Commit z `evidence` (kind `commit`) na řádku své kuličky. */
+export type LaidCommit = Point & { ticketId: string; ref: string; at: string };
+export type BoardLayout = {
+  width: number; height: number; rows: LaidRow[]; balls: LaidBall[]; links: LaidLink[]; merges: LaidMerge[]; commits: LaidCommit[];
+  ticks: { x: number; text: string }[]; t0: number; t1: number; k: number; now: number | null;
+};
 
-/** Řádek s kuličkami nese čtyři řádky textu, sbalený dva, tenký (bez kuliček) jen název; výška je musí pojmout celé. */
-export const ROW_OPEN = 96;
+/** Řádek s kuličkami nese popisky ve dvou patrech nad i pod osou, sbalený dva řádky textu, tenký (bez kuliček) jen název. */
+export const ROW_OPEN = 112;
 export const ROW_FOLDED = 52;
 export const ROW_THIN = 36;
-export const PAD = 70;
 export const SPAN = 820;
-export const MIN_GAP = 140;
 export const PLAN_DX = 110;
-const TITLE_MAX = 22;
+const TITLE_MAX = 34;
 
 export const clip = (text: string, max = TITLE_MAX) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 export function when(iso: string): string {
@@ -80,17 +91,22 @@ export function when(iso: string): string {
   if (!iso || Number.isNaN(d.getTime())) return "—";
   return `${d.getDate()}. ${d.getMonth() + 1}. ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
-const day = (iso: string) => { const d = new Date(iso); return `${d.getDate()}. ${d.getMonth() + 1}.`; };
 const time = (iso: string) => { const t = Date.parse(iso); return Number.isNaN(t) ? null : t; };
 
-/** `span` = šířka časové osy; volající ji odvodí z šířky plátna, aby osa vyplnila obrazovku (nejméně SPAN). */
-export function layoutBoard(board: Board, span = SPAN): BoardLayout {
+/** Časový rozsah osy: od první kuličky po poslední čas (a `now`, je-li dané); starší merge leží vlevo a nekreslí se. */
+export function timeRange(board: Board, now?: number): { t0: number; t1: number } {
   const ok = (t: number | null): t is number => t !== null;
   const ballTimes = board.balls.flatMap((b) => [b.createdAt, b.mergedAt]).map(time).filter(ok);
-  const times = [...ballTimes, ...board.realMerges.map((m) => m.at).map(time).filter(ok)];
-  // Osa začíná prvním dnem s kuličkou; starší skutečné merge leží vlevo od osy a nekreslí se.
-  const min = Math.min(...(ballTimes.length ? ballTimes : times)), max = Math.max(...times);
-  const xOf = (iso: string) => { const t = time(iso); return t === null ? PAD : PAD + (max > min ? ((t - min) / (max - min)) * span : span / 2); };
+  const times = [...ballTimes, ...board.realMerges.map((m) => m.at).map(time).filter(ok), ...(now === undefined ? [] : [now])];
+  if (!times.length) return { t0: now ?? 0, t1: now ?? 0 };
+  return { t0: Math.min(...(ballTimes.length ? ballTimes : times)), t1: Math.max(...times) };
+}
+
+/** `k` = px na ms (stav měřítka z `linie-zoom.ts`); bez něj se osa vejde do SPAN. `now` přidá do rozsahu značku „teď“. */
+export function layoutBoard(board: Board, opts: { k?: number; now?: number } = {}): BoardLayout {
+  const { t0, t1 } = timeRange(board, opts.now);
+  const k = opts.k ?? (t1 > t0 ? SPAN / (t1 - t0) : 1);
+  const xOf = (iso: string) => { const t = time(iso); return t === null ? PAD : t1 > t0 ? scaleX({ t0, k }, t) : PAD + SPAN / 2; };
 
   let top = 0;
   const withBalls = new Set(board.balls.map((ball) => ball.rowId));
@@ -111,16 +127,14 @@ export function layoutBoard(board: Board, span = SPAN): BoardLayout {
     return (out && rowById.get(ballRow.get(out.to) ?? out.to)?.color) || own;
   };
 
-  // Čas určuje pořadí; kuličky téhož řádku se rozestoupí aspoň o MIN_GAP, aby se popisky nepřekryly.
-  const lastX = new Map<string, number>();
+  // Kulička leží přesně na svém čase; žádné rozestupy, které by posouvaly čas (kolize řeší jen popisky).
   const balls: LaidBall[] = [];
   for (const ball of [...board.balls].sort((a, b) => (time(a.createdAt) ?? 0) - (time(b.createdAt) ?? 0))) {
     const row = rowById.get(ball.rowId);
     if (!row || row.collapsed) continue;
-    const x = Math.max(xOf(ball.createdAt), (lastX.get(row.id) ?? -Infinity) + MIN_GAP);
-    lastX.set(row.id, x);
     balls.push({
-      ticketId: ball.ticketId, rowId: row.id, title: ball.title, label: clip(ball.title), stateLabel: ball.stateLabel, fill: FILL[ball.state], x, y: row.y, color: row.color, toColor: targetColor(ball, row.color),
+      ticketId: ball.ticketId, rowId: row.id, title: ball.title, label: clip(ball.title), stateLabel: ball.judgement.summary.text || ball.stateLabel, key: ball.judgement.summary.key,
+      fill: FILL[ball.state], x: xOf(ball.createdAt), y: row.y, color: row.color, toColor: targetColor(ball, row.color),
       hover: { mark: ball.mark, title: ball.title, state: ball.stateLabel, created: when(ball.createdAt), merged: ball.mergedAt ? when(ball.mergedAt) : "—",
         counts: `${ball.counts.commits} | ${ball.counts.prs} | ${ball.counts.merges}`, branch: ball.branch ? `${ball.branch} @ ${ball.headSha7 || "—"}` : "bez větve" },
     });
@@ -134,10 +148,10 @@ export function layoutBoard(board: Board, span = SPAN): BoardLayout {
     for (const link of ball.links) {
       const target = laidById.get(link.to);
       const row = rowById.get(link.to);
-      if (target) { links.push({ kind: link.kind, from, to: target, fromColor: from.color, toColor: target.color, openEnd: false }); continue; }
+      if (target) { links.push({ kind: link.kind, from, to: target, fromColor: from.color, toColor: target.color, openEnd: false, ticketId: ball.ticketId }); continue; }
       if (!row || row.collapsed) continue;
       const x = link.kind === "merged" ? Math.max(xOf(ball.mergedAt), from.x + 30) : from.x + PLAN_DX;
-      links.push({ kind: link.kind, from, to: { x, y: row.y }, fromColor: from.color, toColor: row.color, openEnd: link.kind === "planned" });
+      links.push({ kind: link.kind, from, to: { x, y: row.y }, fromColor: from.color, toColor: row.color, openEnd: link.kind === "planned", ticketId: ball.ticketId });
     }
   }
 
@@ -147,14 +161,12 @@ export function layoutBoard(board: Board, span = SPAN): BoardLayout {
     return row && !row.collapsed && time(m.at) !== null && xOf(m.at) >= PAD ? [{ x: xOf(m.at), y: row.y, sha7: m.sha.slice(0, 7), title: m.title, color: row.color }] : [];
   });
 
-  const seen = new Set<string>();
-  const ticks = board.balls.flatMap((b) => {
-    if (time(b.createdAt) === null || seen.has(day(b.createdAt))) return [];
-    seen.add(day(b.createdAt));
-    return [{ x: xOf(b.createdAt), text: day(b.createdAt) }];
+  const commits = board.balls.flatMap((ball) => {
+    const from = laidById.get(ball.ticketId);
+    return from ? ball.judgement.evidence.filter((e) => e.kind === "commit" && time(e.at) !== null).map((e) => ({ x: xOf(e.at), y: from.y, ticketId: ball.ticketId, ref: e.ref, at: e.at })) : [];
   });
-  const width = Math.max(PAD + span, ...balls.map((b) => b.x), ...links.map((l) => l.to.x), ...merges.map((m) => m.x)) + PAD;
-  return { width, height: top, rows, balls, links, merges, ticks };
+  const width = Math.max(t1 > t0 ? scaleX({ t0, k }, t1) : PAD + SPAN, ...balls.map((b) => b.x), ...links.map((l) => l.to.x), ...merges.map((m) => m.x)) + PAD;
+  return { width, height: top, rows, balls, links, merges, commits, ticks: t1 > t0 ? axisTicks({ t0, k }, t0, t1) : [], t0, t1, k, now: opts.now ?? null };
 }
 
 const LEGEND: { fill: Fill; state: BallState }[] = [
@@ -168,19 +180,4 @@ export function legend(board: Board): { fill: Fill | "plan"; text: string; count
     ...LEGEND.map(({ fill, state }) => ({ fill, text: STATE_LABEL[state], count: board.balls.filter((b) => b.state === state).length })),
     { fill: "plan" as const, text: "plán", count: board.balls.reduce((sum, b) => sum + b.links.filter((l) => l.kind === "planned").length, 0) },
   ];
-}
-
-/** Věta Pletora „kde pracujeme“ ze stejných dat, jaká vidí člověk. */
-export function pletorSentence(board: Board): string {
-  const rowName = new Map(board.rows.map((row) => [row.id, row.name]));
-  const having = (states: BallState[]) => board.balls.filter((b) => states.includes(b.state));
-  const working = having(["open", "awaiting_checks", "stale"]).map((b) => `${b.title} v řádku ${rowName.get(b.rowId) ?? b.rowId}${b.state === "open" ? "" : ` (${b.stateLabel})`}`);
-  const done = having(["accepted_unmerged"]).map((b) => b.title);
-  const blocked = having(["blocked"]).map((b) => b.title);
-  const parts = [
-    working.length ? `Pracujeme na ${working.join(", ")}` : "Nic se právě nevyvíjí",
-    ...(done.length ? [`hotovo a čeká na začlenění: ${done.join(", ")}`] : []),
-    ...(blocked.length ? [`blokováno: ${blocked.join(", ")}`] : []),
-  ];
-  return `${parts.join("; ")}.`;
 }
