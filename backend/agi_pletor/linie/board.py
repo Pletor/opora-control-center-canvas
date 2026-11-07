@@ -232,8 +232,10 @@ def with_tree(rows, balls, heads):
         branch = row.get("branch") or first.get(row["id"])
         if branch and branch not in claimed:
             claimed[branch] = row
-        elif branch or row.get("name") not in claimed:  # duplikát řádku větve (stejné jméno, bez práce) se nekreslí
+        else:
             leftover.append(row)
+    # duplikát řádku větve (jméno = obsazená větev) se nekreslí; jeho kuličky kreslí board na řádku své větve
+    leftover = [row for row in leftover if row.get("name") not in claimed]
     known = set(heads) | set(claimed) | {ball["branch"] for ball in live}
 
     def auto(branch):

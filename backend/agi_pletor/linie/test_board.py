@@ -228,5 +228,6 @@ def test_with_tree_drops_empty_duplicate_row_of_claimed_branch():
             {"id": "r1", "name": "feat/velin", "branch": None, "base": {"branch": "develop"}, "order": 1},
             {"id": "r2", "name": "feat/velin", "branch": None, "base": {"branch": "develop"}, "order": 2},
             {"id": "r3", "name": "Nápad", "branch": None, "base": None, "order": 3}]
-    found = board.with_tree(rows, [{"rowId": "r1", "branch": "feat/velin"}], {"main", "develop", "feat/velin"})
+    balls = [{"rowId": "r1", "branch": "feat/velin"}, {"rowId": "r2", "branch": "feat/velin"}]  # druhá kulička na duplikátu
+    found = board.with_tree(rows, balls, {"main", "develop", "feat/velin"})
     assert [(r["id"], r["planned"]) for r in found] == [("main", False), ("develop", False), ("r1", False), ("r3", True)]
