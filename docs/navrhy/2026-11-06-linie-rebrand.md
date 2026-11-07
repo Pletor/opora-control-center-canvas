@@ -452,6 +452,18 @@ target, by: "merge", balls: N}`:
   kuliček“ ukazuje jen detail nezačleněné kuličky (tip značky ne: uzavřený řádek žádnou nezačleněnou nemá);
   `board.txt` skrývá pod ⊕ celý podstrom podle `parent`; tag na commitu kuličky složené (i sbalené) větve se nekreslí.
 
+### 10.4 Úklid při sloučení: slepé kuličky a worktree (7. 11. pozdě večer, větev `feat/velin-linie-uklid`)
+Člověk: „co je blokováno a dál se nerozvíjelo, protože se šlo jiným směrem, při sloučení smaž i s kódem, když se
+nepoužil a nepoužije; worktree se s ukončením do další větve smaže, ať máme čistý vývoj.“
+- **Slepá kulička** = blokovaná, kterou nahradila jiná cesta. `POST /work/{id}/forget` (`linie.py forget`) ji smaže
+  i s deníkem zpětné vazby a zapíše událost `linie.forget` (značka, název, větev). Jde to jen u blokované kuličky,
+  jejíž commity už v cíli leží (nebo žádné nemá); commit mimo cíl ji drží (`forget_code_alive`): nepoužitý kód se
+  maže smazáním větve, pak teprve kulička. Živou práci forget nesmí (`forget_not_blocked`).
+- **Worktree** větve se maže hned po jejím sloučení do rodiče (`git worktree remove`; junction `node_modules` napřed
+  `rmdir`). Worktree bez `.git` (sirotek) se maže také. Agent, který worktree založil, ho po merge uklidí.
+- Postaveno 7. 11.: forget ve službě, routě a CLI; worktrees sloučených větví L7–L9 smazány (21 + 2 sirotci).
+  Blokované kuličky L4, M1–L3, L5, L7a+L7c a Vlak L8 mají kód v cíli → po nasazení se zapomenou.
+
 Pořadí: L9a a L9b paralelně (L9a jen frontend, L9b jen backend + `board_text.py`), L9c z integrované špičky obou.
 Hotovo když: na projektu OPORY je řádek `rebrand` (a pod ním dokončené vozy L7g–L7l) složený do značky na
 `strom-barvy`, klik ho rozbalí se vším, co se tam dělo, a `barvy` ukáže pruhy agentů s návratem jako v prototypu.

@@ -305,6 +305,11 @@ def create_linie_work_router(service, pletor, root=None):
         return anyone(request, project, ticket_id, lambda by: work.defer(service, project, ticket_id, tokens.stamp(),
                                                                          by))
 
+    @router.post("/work/{ticket_id}/forget")
+    def work_forget(request: Request, ticket_id: str, project: str = ""):
+        return anyone(request, project, ticket_id, lambda by: work.forget(service, project, ticket_id,
+                                                                          tokens.stamp(), by))
+
     @router.post("/work/{ticket_id}/unblock")
     def work_unblock(request: Request, ticket_id: str, project: str = ""):
         return anyone(request, project, ticket_id, lambda by: work.unblock(service, project, ticket_id,
