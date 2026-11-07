@@ -53,6 +53,13 @@ def rev(root, ref):
     return git(root, "rev-parse", "--verify", "-q", ref + "^{commit}", timeout=TIMEOUT, optional=True) or None
 
 
+def tip(root, branch, fetch=False):
+    """Špička cíle = origin (pravda); lokální ref jen když origin větev nezná. `fetch` jen tam, kde se zapisuje."""
+    if fetch:
+        git(root, "fetch", "origin", branch, timeout=TIMEOUT, optional=True)
+    return rev(root, "origin/" + branch) or rev(root, branch)
+
+
 def ancestor(root, older, newer):
     return git(root, "merge-base", "--is-ancestor", older, newer, timeout=TIMEOUT, optional=True) is not None
 
@@ -138,7 +145,7 @@ def facts(service, project, ticket, pr=None, log=None, events=None, graph=None):
     allowed = work.get("mergeAllowed")
     return {"integration": integ, "deploy": deployed(work, integ, events),
             "live": any(live(run) for run in work.get("runs") or []),
-            "targetSha": rev(work["repository"], allowed["target"]) if allowed else None,
+            "targetSha": tip(work["repository"], allowed["target"]) if allowed else None,
             "plan": plan_link.resolve(service, project, ticket, graph)}
 
 
@@ -384,7 +391,7 @@ def revoke_accept(service, project, ticket_id, now):
 
 
 def allow_merge(service, project, ticket_id, target, now):
-    """Povolení začlenit přijatou hlavu do `target` se špičkou cíle v tuto chvíli (`targetSha`)."""
+    """Povolení začlenit přijatou hlavu do `target` se špičkou cíle v tuto chvíli (`targetSha`); špička cíle = origin."""
     def change(ticket):
         work = ticket["work"]
         if not work.get("acceptance"):
@@ -393,10 +400,10 @@ def allow_merge(service, project, ticket_id, target, now):
             raise WorkError("head_moved", 409, "Přijetí platí pro starší hlavu; přijměte aktuální revizi znovu.")
         require(present(service, project, ticket), "allow_merge")  # jen `accepted` bez povolení pro HEAD (L7 §2a)
         aim = _name(target or work.get("target"), "target")
-        tip = rev(work["repository"], aim)
-        if not tip:
+        top = tip(work["repository"], aim, fetch=True)
+        if not top:
             raise WorkError("target_missing", 422, f"Cílová větev {aim} v repozitáři neexistuje.")
-        return {**work, "target": aim, "mergeAllowed": {"target": aim, "targetSha": tip, "sourceSha": work["headSha"],
+        return {**work, "target": aim, "mergeAllowed": {"target": aim, "targetSha": top, "sourceSha": work["headSha"],
                                                         "by": "human", "at": now}}
     return _change(service, project, ticket_id, now, change, "linie.merge.allowed", "human")
 

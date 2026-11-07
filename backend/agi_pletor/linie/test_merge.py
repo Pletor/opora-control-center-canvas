@@ -59,6 +59,7 @@ def test_target_moved(setup):
     ready(service, repo, tid)
     run(repo, "checkout", "-q", "develop")
     commit(repo, "jiny.txt")  # cíl se posunul mezi allow-merge a merge (bod 8)
+    run(repo, "push", "-q", "origin", "develop")  # špička cíle = origin
     run(repo, "checkout", "-q", "main")
     assert code(service, tid) == "target_moved"
 
@@ -83,6 +84,7 @@ def test_allow_merge_recovers_after_target_moved(setup):
     ready(service, repo, tid)
     run(repo, "checkout", "-q", "develop")
     moved = commit(repo, "jiny.txt")  # cíl se posunul po allow-merge
+    run(repo, "push", "-q", "origin", "develop")
     run(repo, "checkout", "-q", "main")
     shown = work.get(service, "draft", tid)
     assert "allow_merge" in shown["allowed"] and "merge" not in shown["allowed"]
@@ -91,6 +93,22 @@ def test_allow_merge_recovers_after_target_moved(setup):
     again = work.allow_merge(service, "draft", tid, "develop", NOW)
     assert again["work"]["mergeAllowed"]["targetSha"] == moved and "merge" in again["allowed"]
     assert merge.merge(service, "draft", tid, NOW)["summary"]["key"] == "merged"
+
+
+def test_stale_local_target_uses_origin_tip(setup):
+    """Lokální develop zaostává za originem (drží ho jiný strom): povolení i merge jedou z origin, push projde."""
+    service, repo, tid = setup
+    old = run(repo, "rev-parse", "develop")
+    run(repo, "checkout", "-q", "develop")
+    ahead = commit(repo, "jiny.txt")
+    run(repo, "push", "-q", "origin", "develop")
+    run(repo, "checkout", "-q", "main")
+    run(repo, "update-ref", "refs/heads/develop", old)
+    ready(service, repo, tid)
+    assert work.get(service, "draft", tid)["work"]["mergeAllowed"]["targetSha"] == ahead
+    done = merge.merge(service, "draft", tid, NOW)
+    tip = run(repo, "rev-parse", "origin/develop")
+    assert done["state"] == "merged" and done["work"]["merged"]["sha"] == tip and run(repo, "rev-parse", f"{tip}^1") == ahead
 
 
 def test_merge_writes_from_git_and_is_idempotent(setup):
