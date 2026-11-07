@@ -115,7 +115,7 @@ def detail(service, project, workspace, root, sha, folder, *, pr_lookup=gh_prs):
         found = _ticket_for(root, tickets, commit["sha"], commit["branches"])
         ticket = None
         if found is not None:
-            shown = work_mod.view(found)
+            shown = work_mod.present(service, project, found)
             node_id = commit["trailers"]["node"] or found["machine"].get("cardId")
             ticket = {"ticketId": found["ticketId"], "state": shown["state"], "stateLabel": shown["stateLabel"],
                       "next": shown["next"], "body": found["body"],

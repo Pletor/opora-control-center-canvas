@@ -125,7 +125,8 @@ def test_linie_board_snapshot_summary_and_accept_on_nocheck(tmp_path, repo):
         assert set(board["snapshot"]["sources"]) == {"git", "prs", "checks", "sessions", "deploy"}
         assert board["snapshot"]["id"].startswith("snap_") and board["snapshot"]["builtAt"]
         assert ball["summary"]["key"] == "nocheck" and ball["state"] == "awaiting_checks"
-        assert "accept" in ball["blocked"] and ball["allowed"] == ["preview", "defer", "block"] and "deploy" in ball["incomplete"]
+        assert "accept" in ball["blocked"] and ball["allowed"] == ["preview", "defer", "block"]
+        assert "deploy" not in ball["incomplete"]
         assert [item["kind"] for item in ball["evidence"]] == ["commit"]
 
 
@@ -180,6 +181,61 @@ def test_linie_run_and_trace(tmp_path, repo):
         found = client.get(f"{BASE}/trace/{mark}", headers=HEADERS, params=q)
         assert found.status_code == 200 and found.json()["mark"] == mark and found.json()["runs"][0]["agent"] == "dev"
         assert client.get(f"{BASE}/trace/OP-000000", headers=HEADERS, params=q).json()["code"] == "mark_not_found"
+
+
+def test_linie_deploy_origin_and_permission(tmp_path, repo):
+    q = {"project": "draft"}
+    head = run(repo, "rev-parse", "develop")
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        refused = client.post(f"{BASE}/deploy", headers=HEADERS, params=q, json={"env": "preview", "sha": head})
+        assert refused.status_code == 403 and refused.json()["code"] == "deploy_not_allowed"  # bez [linie.deploy] nikdo
+        (repo / "opora.local.toml").write_text('[linie.deploy]\npreview = ["human", "agent:deploy"]\n', encoding="utf-8")
+        human = client.post(f"{BASE}/deploy", headers=HEADERS, params=q, json={"env": "preview", "sha": head[:7]})
+        assert human.status_code == 200 and human.json()["origin"] == "human" and human.json()["sha"] == head
+        for headers, env in ((AGENT, "preview"), (HEADERS, "production")):  # agent dev ani cizí prostředí nesmí
+            assert client.post(f"{BASE}/deploy", headers=headers, params=q,
+                               json={"env": env, "sha": head}).json()["code"] == "deploy_not_allowed"
+        script = {**JSON, "X-Opora-Actor": "agent; name=deploy"}
+        machine = client.post(f"{BASE}/deploy", headers=script, params=q, json={"env": "preview", "sha": head})
+        assert machine.status_code == 200 and machine.json()["origin"] == "environment"
+        assert client.post(f"{BASE}/deploy", headers=HEADERS, params=q,
+                           json={"env": "preview", "sha": head, "repo": str(tmp_path)}).status_code == 422
+        assert client.post(f"{BASE}/deploy", headers=HEADERS, params=q,
+                           json={"env": "preview", "sha": "abc1234"}).status_code == 422
+        board = client.get(f"{BASE}/board", headers=HEADERS, params={**q, "workspace": "main"}).json()
+        assert board["deploy"]["envs"]["preview"] == {"sha": head, "at": machine.json()["at"], "origin": "environment",
+                                                      "by": "agent:deploy"}
+        # verifiedAt = přečtení záznamu při sestavení (čerstvé), stáří události je v envs[env].at
+        read = board["snapshot"]["sources"]["deploy"]
+        assert read["ok"] is True and read["verifiedAt"] >= machine.json()["at"]
+
+
+def test_linie_merge_op_abandon_and_run_worktree(tmp_path, repo):
+    q = {"project": "draft"}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        body = {"title": "Uzel", "essence": "Proč.", "build": "Uzel.", "doneCriteria": ["testy"], "branch": "feat/uzel"}
+        tid = client.post(f"{BASE}/work", headers=HEADERS, params={**q, "workspace": "main"}, json=body).json()["ticketId"]
+        work = f"{BASE}/work/{tid}"
+        ran = client.post(f"{work}/run", headers=AGENT, params=q,
+                          json={"sessionId": "s1", "agent": "dev", "worktree": str(tmp_path / "wt")})
+        assert ran.json()["work"]["runs"][0]["worktree"] == str(tmp_path / "wt")
+        assert ran.json()["summary"]["text"] == "probíhá"  # čerstvý heartbeat s vazbou
+        first = agent_commit(repo)
+        head = agent_commit(repo, name="v.txt")
+        client.post(f"{work}/report", headers=AGENT, params=q,
+                    json={"sha": head, "checks": [{"name": "npm test", "status": "green"}]})
+        gave_up = client.post(f"{work}/abandon", headers=AGENT, params=q, json={"sha": first, "why": "slepá ulička"})
+        assert gave_up.status_code == 200 and gave_up.json()["work"]["headSha"] == head
+        assert gave_up.json()["work"]["abandoned"][0]["by"] == "agent:dev"
+        client.post(f"{work}/accept", headers=HEADERS, params=q, json={"sha": head})
+        client.post(f"{work}/allow-merge", headers=HEADERS, params=q, json={})
+        op = "6f1c2a8e-1b2c-4d3e-8f90-123456789abc"
+        merged = client.post(f"{work}/merge", headers=AGENT, params=q, json={"op": op})
+        assert merged.status_code == 200 and merged.json()["axes"]["integration"]["op"] == op
+        tip = run(repo, "rev-parse", "origin/develop")
+        again = client.post(f"{work}/merge", headers=AGENT, params=q, json={"op": op})
+        assert again.status_code == 200 and again.json()["axes"]["integration"] == merged.json()["axes"]["integration"]
+        assert run(repo, "rev-parse", "origin/develop") == tip and merged.json()["work"]["merged"]["by"] == "agent:dev"
 
 
 def test_linie_work_without_row_creates_branch_row(tmp_path, repo):
