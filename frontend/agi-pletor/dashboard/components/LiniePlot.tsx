@@ -50,7 +50,7 @@ export default function LiniePlot({ layout, selected, labels, lit, layers, onPic
               onClick={() => onPick(ball.ticketId)} onKeyDown={key(ball)}
               onMouseEnter={() => setTip(ball)} onMouseLeave={() => setTip(null)} onFocus={() => setTip(ball)} onBlur={() => setTip(null)}>
               {mine(ball.ticketId) && <circle className="pletor-dashboard__linie-ring" cx={ball.x} cy={ball.y} r={16} />}
-              <LinieBall fill={ball.fill} color={ball.color} toColor={ball.toColor !== ball.color ? ball.toColor : undefined} x={ball.x} y={ball.y} />
+              <LinieBall glyph={ball.glyph} color={ball.color} toColor={ball.toColor !== ball.color ? ball.toColor : undefined} x={ball.x} y={ball.y} />
               {off && <text x={ball.x} y={ball.y + off.name} className="pletor-dashboard__linie-ball-name">{ball.label}</text>}
               {off && off.state !== null && <text x={ball.x} y={ball.y + off.state} className="pletor-dashboard__linie-ball-state">{ball.stateLabel}</text>}
             </g>

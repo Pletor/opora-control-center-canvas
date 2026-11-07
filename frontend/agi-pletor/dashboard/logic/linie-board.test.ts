@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { boardFixture } from "./linie-fixture";
-import { LANE, PAD, PR_AT, ROW_FOLDED, ROW_OPEN, ROW_THIN, SPAN, boardView, layoutBoard, legend, prPill, timeRange } from "./linie-board";
+import { LANE, PAD, PR_AT, ROW_FOLDED, ROW_OPEN, ROW_THIN, SPAN, boardView, layoutBoard, prPill, timeRange } from "./linie-board";
 import { hueOf } from "./linie-color";
 
 const board = boardView(boardFixture);
@@ -41,15 +41,15 @@ describe("layoutBoard", () => {
     expect(layout.rows[3].branchText).toBe("bez větve");
     expect(layout.rows[2].branchText).toBe("větev: topic/knihovna");
   });
-  it("x podle času, y podle řádku, výplň podle stavu; sbalený řádek kuličky skryje", () => {
+  it("x podle času, y podle řádku, glyf podle souhrnu; sbalený řádek kuličky skryje", () => {
     // osa začíná první kuličkou (4. 11. 10:00) a končí posledním časem (6. 11. 10:00)
     expect(ball("tk_3").x).toBe(PAD);
     expect(ball("tk_1").x).toBeCloseTo(PAD + (24 / 48) * SPAN);
     expect(ball("tk_1").y).toBe(2 * ROW_THIN + ROW_OPEN + ROW_OPEN / 2);
     expect(ball("tk_2").x).toBeCloseTo(PAD + (24.5 / 48) * SPAN); // vlastní čas, žádný rozestup
-    expect(ball("tk_1").stateLabel).toBe("přijato, čeká na začlenění 9c8050f"); // popisek nese souhrn
+    expect(ball("tk_1").stateLabel).toBe("přijato, čeká na začlenění 9c8050f · 2 c · 1 ✕"); // popisek nese souhrn a commity
     expect(ball("tk_2").stateLabel).toBe("otevřeno"); // bez summary náhradou stateLabel
-    expect([ball("tk_1").fill, ball("tk_2").fill, ball("tk_3").fill]).toEqual(["done", "open", "merged"]);
+    expect([ball("tk_1").glyph.core, ball("tk_2").glyph.core, ball("tk_3").glyph.core]).toEqual(["full", "open", "full"]);
     expect(layout.balls.some((item) => item.ticketId === "tk_4")).toBe(false);
   });
   it("plán je čárkovaný s otevřeným cílem, merge má bod, plán nikdy není merge", () => {
@@ -142,12 +142,5 @@ describe("skutečná data L7c a pohled podle plánu L7d", () => {
     expect(grouped.group).toBe("plan");
     expect(grouped.rows.map((r) => [r.type, r.fixed, r.parent, r.cardId])).toEqual([["dir", true, "", "d1"], ["plan", false, "dir:d1", "p1"], ["plan", false, "", ""]]);
     expect(layoutBoard(grouped).rows.map((r) => [r.branchText, r.mappingText, r.height])).toEqual([["plátno 2 · směr", "", ROW_THIN], ["plátno 3 · plán", "", ROW_OPEN], ["plátno 3 · plán", "", ROW_THIN]]);
-  });
-});
-
-describe("legenda", () => {
-  it("počty stavů i plánů, stavy textem", () => {
-    const counts = Object.fromEntries(legend(board).map((item) => [item.text, item.count]));
-    expect(counts).toMatchObject({ "začleněno": 1, "hotovo, ještě nezačleněno": 1, "otevřeno": 1, "blokováno": 1, "plán": 2 });
   });
 });

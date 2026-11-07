@@ -1,4 +1,5 @@
 import { branchColor } from "./linie-color";
+import { commitTail, glyphOf, type Glyph } from "./linie-glyph";
 import { LANE, laneRows, placeLanes, placeTags, type LaidLane, type LaidTag } from "./linie-marks";
 import { judgementOf, snapshotOf, type Judgement, type Snapshot, type SummaryKey } from "./linie-summary";
 import { PAD, ticks as axisTicks, xOf as scaleX } from "./linie-zoom";
@@ -41,9 +42,6 @@ export type Board = {
   snapshot: Snapshot | null; group: "branch" | "plan"; tags: Tag[]; worktrees: Worktree[]; deploy: DeployEnv[]; queues: BoardQueues | null;
 };
 
-/** Výplň kuličky: plná = začleněno, s prstencem = hotovo nezačleněno, prázdná = otevřeno, tečka = ověření, červený střed = blok. */
-export type Fill = "merged" | "done" | "open" | "verify" | "blocked" | "parked" | "stale";
-export const FILL: Record<BallState, Fill> = { merged: "merged", accepted_unmerged: "done", open: "open", awaiting_checks: "verify", blocked: "blocked", deferred: "parked", stale: "stale" };
 export const STATE_LABEL: Record<BallState, string> = {
   merged: "začleněno", accepted_unmerged: "hotovo, ještě nezačleněno", open: "otevřeno", awaiting_checks: "čeká na ověření",
   blocked: "blokováno", deferred: "odloženo", stale: "zastaralé přijetí",
@@ -51,7 +49,7 @@ export const STATE_LABEL: Record<BallState, string> = {
 export const TYPE_LABEL: Record<RowType, string> = { main: "pevný", develop: "pevný", items: "univerzální díl", work: "práce", experiment: "experiment", fix: "oprava", dir: "plátno 2", plan: "plátno 3" };
 
 const TYPES = Object.keys(TYPE_LABEL) as RowType[];
-const STATES = Object.keys(FILL) as BallState[];
+const STATES = Object.keys(STATE_LABEL) as BallState[];
 const KINDS: LinkKind[] = ["follows", "planned", "merged"];
 const QUEUE_KEYS = ["plansWaiting", "ticketsTodo", "humanDecisions", "officeTasks", "gitQueue"] as const;
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
@@ -109,8 +107,9 @@ export function boardView(raw: unknown): Board {
 export type Point = { x: number; y: number };
 export type Hover = { mark: string; title: string; state: string; created: string; merged: string; counts: string; branch: string };
 export type LaidRow = BoardRow & { top: number; height: number; y: number; color: string; branchText: string; mappingText: string; lanes: number };
-/** `toColor` = barva řádku, kam se kulička začlení (plán nebo merge), jinak vlastní barva; kreslí se jako vnitřní puntík. */
-export type LaidBall = { ticketId: string; rowId: string; title: string; label: string; stateLabel: string; key: SummaryKey; fill: Fill; x: number; y: number; color: string; toColor: string; hover: Hover };
+/** `toColor` = barva řádku, kam se kulička začlení (plán nebo merge), jinak vlastní barva; kreslí se jako vnitřní puntík.
+ * `stateLabel` = souhrn s příponou commitů („ · 2 c · 1 ✕“), `glyph` = tvar ze `summary.key` (`linie-glyph.ts`). */
+export type LaidBall = { ticketId: string; rowId: string; title: string; label: string; stateLabel: string; key: SummaryKey; glyph: Glyph; x: number; y: number; color: string; toColor: string; hover: Hover };
 /** Pilulka PR na spojnici: text se stavem; `unverified` = poslední známý stav bez potvrzení GitHubem (čárkovaný rám). */
 export type LaidPr = { text: string; state: string; unverified: boolean; url: string; at: Point };
 /** `openEnd` = cíl plánu bez kuličky: kreslí se přerušovaný kroužek. Bod merge má jen `merged`. Gradient vede od `fromColor` k `toColor`. */
@@ -161,6 +160,10 @@ export function prPill(ball: BoardBall): Omit<LaidPr, "at"> | null {
   return { text: `PR #${ball.pr.number} · ${unverified ? "neověřeno" : PR_STATE[ball.pr.state] ?? ball.pr.state.toLowerCase()}`, state: ball.pr.state.toLowerCase(), unverified, url: ball.pr.url };
 }
 
+/** Commity kuličky: z boardu, náhradou z důkazů `evidence` (kind = commit); sdílí je kostky i přípona popisku. */
+const commitsOf = (ball: BoardBall) => ball.commits.length ? ball.commits.map((c) => ({ ref: c.sha7, at: c.at, title: c.title, abandoned: !!c.abandoned }))
+  : ball.judgement.evidence.filter((e) => e.kind === "commit").map((e) => ({ ref: e.ref, at: e.at, title: "", abandoned: false }));
+
 /**
  * `k` = px na ms (stav měřítka z `linie-zoom.ts`); bez něj se osa vejde do SPAN. `now` přidá do rozsahu značku „teď“.
  * `lanes` = řádky, u kterých se kreslí pruhy worktree (vrstva zapnutá, nebo řádek vybrané kuličky).
@@ -199,8 +202,8 @@ export function layoutBoard(board: Board, opts: { k?: number; now?: number; lane
     const row = rowById.get(ball.rowId);
     if (!row || row.collapsed) continue;
     balls.push({
-      ticketId: ball.ticketId, rowId: row.id, title: ball.title, label: clip(ball.title), stateLabel: ball.judgement.summary.text || ball.stateLabel, key: ball.judgement.summary.key,
-      fill: FILL[ball.state], x: xOf(ball.createdAt), y: row.y, color: row.color, toColor: targetColor(ball, row.color),
+      ticketId: ball.ticketId, rowId: row.id, title: ball.title, label: clip(ball.title), key: ball.judgement.summary.key,
+      stateLabel: (ball.judgement.summary.text || ball.stateLabel) + commitTail(commitsOf(ball)), glyph: glyphOf(ball.judgement.summary.key, ball.judgement), x: xOf(ball.createdAt), y: row.y, color: row.color, toColor: targetColor(ball, row.color),
       hover: { mark: ball.mark, title: ball.title, state: ball.stateLabel, created: when(ball.createdAt), merged: ball.mergedAt ? when(ball.mergedAt) : "—",
         counts: `${ball.counts.commits} | ${ball.counts.prs} | ${ball.counts.merges}`, branch: ball.branch ? `${ball.branch} @ ${ball.headSha7 || "—"}` : "bez větve" },
     });
@@ -233,9 +236,7 @@ export function layoutBoard(board: Board, opts: { k?: number; now?: number; lane
   for (const ball of board.balls) {
     const from = laidById.get(ball.ticketId);
     if (!from) continue;
-    const own = ball.commits.length ? ball.commits.map((c) => ({ ref: c.sha7, at: c.at, title: c.title, abandoned: !!c.abandoned }))
-      : ball.judgement.evidence.filter((e) => e.kind === "commit").map((e) => ({ ref: e.ref, at: e.at, title: "", abandoned: false }));
-    const timed = own.filter((c) => time(c.at) !== null);
+    const timed = commitsOf(ball).filter((c) => time(c.at) !== null);
     commits.push(...timed.map((c) => ({ x: xOf(c.at), y: from.y, ticketId: ball.ticketId, ...c })));
     const live = timed.filter((c) => !c.abandoned);
     if (live.length) {
@@ -250,17 +251,4 @@ export function layoutBoard(board: Board, opts: { k?: number; now?: number; lane
 
   const width = Math.max(t1 > t0 ? scaleX({ t0, k }, t1) : PAD + SPAN, ...balls.map((b) => b.x), ...links.map((l) => l.to.x), ...merges.map((m) => m.x), ...tags.map((t) => t.x)) + PAD;
   return { width, height: top, rows, balls, links, merges, commits, works, lanes, tags, ticks: t1 > t0 ? axisTicks({ t0, k }, t0, t1) : [], t0, t1, k, now: opts.now ?? null };
-}
-
-const LEGEND: { fill: Fill; state: BallState }[] = [
-  { fill: "merged", state: "merged" }, { fill: "done", state: "accepted_unmerged" }, { fill: "open", state: "open" }, { fill: "verify", state: "awaiting_checks" },
-  { fill: "blocked", state: "blocked" }, { fill: "parked", state: "deferred" }, { fill: "stale", state: "stale" },
-];
-
-/** Legenda dole: každá výplň s textem a počtem kuliček; plán = počet plánovaných spojnic. */
-export function legend(board: Board): { fill: Fill | "plan"; text: string; count: number }[] {
-  return [
-    ...LEGEND.map(({ fill, state }) => ({ fill, text: STATE_LABEL[state], count: board.balls.filter((b) => b.state === state).length })),
-    { fill: "plan" as const, text: "plán", count: board.balls.reduce((sum, b) => sum + b.links.filter((l) => l.kind === "planned").length, 0) },
-  ];
 }
