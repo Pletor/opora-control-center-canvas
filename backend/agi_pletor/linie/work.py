@@ -11,6 +11,10 @@ Každé odmítnutí je `WorkError` (kód, HTTP stav, česká zpráva) – podtř
 Data mimo ticket (L7 §5a) skládá `facts`: osa `integration` z merge logu (bez záznamu git / GitHub s `mode: None`),
 nasazení z událostí prostředí, živá relace = `run` s worktree a heartbeat mladším než 10 min. `abandon` jen zapíše
 rozhodnutí do `work.abandoned[]`; HEAD, git ani osy nemění.
+
+L7e (§7 bod 5): každá změna `work` zapíše v téže transakci událost deníku `linie.*` (`journal.py`) s původcem `by`;
+`block` / `defer` / `unblock` / `resume` / `abandon` běží i bez gitu (git jen `optional`). `requestId` váže práci na
+žádost srdci (`requests.py`); `attempts[]` plní `attempt.py`.
 """
 import os
 import re
@@ -18,7 +22,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
-from backend.agi_pletor.linie import deploy, evaluate, merge_log, rows, tree, work_state
+from backend.agi_pletor.linie import deploy, evaluate, journal, merge_log, rows, tree, work_state
 from backend.brain_opora.determinism import gate, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.ticket_model import body_payload
@@ -219,19 +223,25 @@ def _new_work(service, project, root, work_in, ticket_id, auto_row=False):
     return {"rowId": row_id, "title": (work_in.get("title") or "").strip() or None, "repository": str(root),
             "worktree": None, "mark": _mark(service, project, ticket_id), "runs": [], "branch": branch, "baseBranch": base, "baseSha": base_sha, "headSha": None,
             "target": target, "checks": [], "preview": None, "acceptance": None, "mergeAllowed": None,
-            "merged": None, "blocked": None, "deferred": False}
+            "merged": None, "blocked": None, "deferred": False, "requestId": work_in.get("requestId"), "attempts": []}
 
 
-def create(service, project, workspace, body, work_in, now, *, root=None):
-    """Nový ticket `issued` s `work`; větev se nezakládá (založí ji agent z `baseBranch@baseSha`)."""
+def create(service, project, workspace, body, work_in, now, *, root=None, ticket_id=None):
+    """Nový ticket `issued` s `work`; větev se nezakládá (založí ji agent z `baseBranch@baseSha`). `ticket_id`
+    (z idempotenčního klíče): už založený ticket se jen vrátí."""
     worker_body = body_payload(body)
     if not gate.workspace_known(service, project, workspace):
         raise WorkError("workspace_not_found", 404, "Pracovní prostor v projektu neexistuje.", "Použijte main.")
-    new_id = "tk_" + uuid.uuid4().hex
+    new_id = ticket_id or "tk_" + uuid.uuid4().hex
+    with service.reading(project):
+        if TicketStore(service.db_for(project), project).get(new_id):
+            return get(service, project, new_id)
     work = _new_work(service, project, root or REPO_ROOT, work_in, new_id, auto_row=True)
     with store_for(service, project) as store:
         store.insert(new_id, workspace, "issued", worker_body, {"pins": []}, now)
         store.set_work(new_id, work, now)
+        journal.write(store.db, project, "linie.work.created", "human",
+                      {"ticket": new_id, "request": work["requestId"]}, workspace, branch=work["branch"])
         return present(service, project, store.get(new_id))
 
 
@@ -241,15 +251,20 @@ def attach(service, project, ticket_id, work_in, now, *, root=None):
         if _ticket(store, ticket_id, need_work=False).get("work"):
             raise WorkError("work_exists", 409, "Ticket už práci Linie má.")
         store.set_work(ticket_id, work, now)
+        journal.write(store.db, project, "linie.work.attached", "human",
+                      {"ticket": ticket_id, "request": work["requestId"]}, branch=work["branch"])
         return present(service, project, store.get(ticket_id))
 
 
-def _change(service, project, ticket_id, now, change):
+def _change(service, project, ticket_id, now, change, kind=None, by=None, **refs):
+    """Změna `work` v transakci; s `kind` zapíše událost deníku, jen když se `work` opravdu změnilo."""
     with store_for(service, project) as store:
         ticket = _ticket(store, ticket_id)
         work = change(ticket)
         if work != ticket["work"]:
             store.set_work(ticket_id, work, now)
+            if kind:
+                journal.write(store.db, project, kind, by, {"ticket": ticket_id, **refs}, ticket["workspaceId"])
         return present(service, project, store.get(ticket_id))
 
 
@@ -288,7 +303,8 @@ def apply_report(work, sha, checks, worktree, now, by):
 def report(service, project, ticket_id, sha, checks, worktree, now, by):
     """Commit (a kontroly k němu) na větvi úkolu. Kuličku neuzavírá."""
     return _change(service, project, ticket_id, now,
-                   lambda ticket: apply_report(ticket["work"], sha, checks, worktree, now, by))
+                   lambda ticket: apply_report(ticket["work"], sha, checks, worktree, now, by), "linie.report", by,
+                   sha=sha)
 
 
 def run(service, project, ticket_id, payload, now):
@@ -319,14 +335,14 @@ def accept(service, project, ticket_id, sha, note, now):
         require(present(service, project, ticket), "accept")  # jen ověřenou revizi (checks.passed pro HEAD, L7 §8)
         return {**work, "acceptance": {"sha": head, "revision": ticket["machine"]["cardVersion"], "by": "human",
                                        "at": now, "note": note or ""}}
-    return _change(service, project, ticket_id, now, change)
+    return _change(service, project, ticket_id, now, change, "linie.accept", "human", sha=sha)
 
 
 def revoke_accept(service, project, ticket_id, now):
     def change(ticket):
         require(present(service, project, ticket), "revoke_accept")  # jen platné přijetí HEAD před začleněním
         return {**ticket["work"], "acceptance": None, "mergeAllowed": None}
-    return _change(service, project, ticket_id, now, change)
+    return _change(service, project, ticket_id, now, change, "linie.accept.revoked", "human")
 
 
 def allow_merge(service, project, ticket_id, target, now):
@@ -344,34 +360,45 @@ def allow_merge(service, project, ticket_id, target, now):
             raise WorkError("target_missing", 422, f"Cílová větev {aim} v repozitáři neexistuje.")
         return {**work, "target": aim, "mergeAllowed": {"target": aim, "targetSha": tip, "sourceSha": work["headSha"],
                                                         "by": "human", "at": now}}
-    return _change(service, project, ticket_id, now, change)
+    return _change(service, project, ticket_id, now, change, "linie.merge.allowed", "human")
 
 
 def abandon(service, project, ticket_id, sha, why, now, by):
     """Opuštěná práce je evidence rozhodnutí (§5): přidá `{sha, why, at, by}` do `work.abandoned[]`, HEAD, git ani osy
-    nemění; opakování pro týž commit důvod přepíše."""
+    nemění; opakování pro týž commit důvod přepíše. Hlášená hlava (`headSha`, ověřená při report) se přijme i bez gitu."""
     def change(ticket):
         work = ticket["work"]
-        full = on_branch(work, sha)
+        head = work.get("headSha")
+        known = head and isinstance(sha, str) and len(sha) >= 7 and head.startswith(sha.lower())
+        full = head if known else on_branch(work, sha)
         if not isinstance(why, str) or not why.strip():
             raise WorkError("invalid_payload", 422, "why je neprázdný důvod.")
         kept = [item for item in work.get("abandoned") or [] if item["sha"] != full]
         return {**work, "abandoned": kept + [{"sha": full, "why": why.strip(), "at": now, "by": by}]}
-    return _change(service, project, ticket_id, now, change)
+    return _change(service, project, ticket_id, now, change, "linie.abandon", by, sha=sha)
 
 
-def block(service, project, ticket_id, reason, now):
+# Rozhodnutí bez gitu (§7 bod 5): jen záznam s původcem; `decided` nese poslední defer / unblock / resume.
+def block(service, project, ticket_id, reason, now, by="human"):
     return _change(service, project, ticket_id, now,
-                   lambda ticket: {**ticket["work"], "blocked": {"reason": reason, "at": now}})
+                   lambda ticket: {**ticket["work"], "blocked": {"reason": reason, "at": now, "by": by}},
+                   "linie.block", by)
 
 
-def defer(service, project, ticket_id, now):
-    return _change(service, project, ticket_id, now, lambda ticket: {**ticket["work"], "deferred": True})
+def defer(service, project, ticket_id, now, by="human"):
+    return _change(service, project, ticket_id, now, lambda ticket: {
+        **ticket["work"], "deferred": True, "decided": {"action": "defer", "at": now, "by": by}}, "linie.defer", by)
 
 
-def resume(service, project, ticket_id, now):
-    return _change(service, project, ticket_id, now,
-                   lambda ticket: {**ticket["work"], "blocked": None, "deferred": False})
+def unblock(service, project, ticket_id, now, by="human"):
+    return _change(service, project, ticket_id, now, lambda ticket: {
+        **ticket["work"], "blocked": None, "decided": {"action": "unblock", "at": now, "by": by}}, "linie.unblock", by)
+
+
+def resume(service, project, ticket_id, now, by="human"):
+    return _change(service, project, ticket_id, now, lambda ticket: {
+        **ticket["work"], "blocked": None, "deferred": False, "decided": {"action": "resume", "at": now, "by": by}},
+        "linie.resume", by)
 
 
 def set_preview(service, project, ticket_id, record, now):

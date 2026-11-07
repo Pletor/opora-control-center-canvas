@@ -9,13 +9,15 @@ z hlášení agenta. Opakované volání je idempotentní; když merge proběhl 
 Merge log (docs/navrhy/2026-11-06-linie-rebrand.md §5a, `merge_log.py`): `started` před gitem, `finished` po ověření.
 Stejné `op` (nebo dvojice `headSha → target` s hotovým `ok`) další merge neprovede, jen vrátí záznam; `started` bez
 `finished` se jen ověří v gitu a dopíše. Začlenění bez `started` (starší než log) se do logu nedopočítává.
+Zápis `started` i `finished` jde i do deníku (`linie.merge.started` / `linie.merge.finished`, `journal.py`).
 """
 import shutil
 import threading
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 
-from backend.agi_pletor.linie import merge_log, tree, work_state
+from backend.agi_pletor.linie import journal, merge_log, tree, work_state
 from backend.agi_pletor.linie import work as work_mod
 from backend.agi_pletor.linie.work import WorkError
 from backend.brain_opora.determinism import ticket_lifecycle
@@ -58,17 +60,23 @@ def _from_log(service, project, ticket_id, entry, now):
                                                  "mode": started["mode"]}, now)
 
 
+def _finish(service, project, ticket_id, op, sha, ok, now, by):
+    done = merge_log.finish(service.root, project, op, sha, ok, now)
+    journal.record(service, project, "linie.merge.finished", by, {"ticket": ticket_id, "op": op, "sha": sha}, ok=ok)
+    return done
+
+
 def _confirm(service, project, ticket_id, entry, now, git):
     """`started` bez `finished`: výsledek se jen ověří v gitu a dopíše, merge se znovu nespouští (§5a)."""
     started = entry["started"]
     root, remote = started["repo"], "origin/" + started["target"]
     git(root, "fetch", "origin", started["target"], timeout=TIMEOUT, optional=True)
     if not (_rev(git, root, remote) and _ancestor(git, root, started["source_sha"], remote)):
-        merge_log.finish(service.root, project, entry["op"], None, False, now)
+        _finish(service, project, ticket_id, entry["op"], None, False, now, "opora")
         raise WorkError("merge_not_done", 409, f"Operace {entry['op']} v gitu neproběhla; zapsáno jako neúspěch.",
                         "Zavolejte merge znovu (nové op).")
-    done = merge_log.finish(service.root, project, entry["op"], _merge_commit(git, root, started["source_sha"], remote),
-                            True, now)
+    done = _finish(service, project, ticket_id, entry["op"],
+                   _merge_commit(git, root, started["source_sha"], remote), True, now, "opora")
     return _from_log(service, project, ticket_id, {**entry, "finished": done}, now)
 
 
@@ -98,12 +106,23 @@ def _identity(git, root):
                                                                        "-c", "user.email=opora@localhost")
 
 
-def _operate(git, root, tree, head, branch, target, target_sha):
-    """Merge v odpojeném worktree a push; `(sha, pushed)`. Worktree se uklidí vždy."""
+@contextmanager
+def detached(git, root, tree, sha):
+    """Dočasný odpojený worktree na `sha` (merge, revert); uklidí se vždy."""
     git(root, "worktree", "prune", optional=True)
     shutil.rmtree(tree, ignore_errors=True)
     try:
-        git(root, "worktree", "add", "--detach", str(tree), target_sha, timeout=TIMEOUT)
+        git(root, "worktree", "add", "--detach", str(tree), sha, timeout=TIMEOUT)
+        yield tree
+    finally:
+        git(root, "worktree", "remove", "--force", str(tree), optional=True)
+        shutil.rmtree(tree, ignore_errors=True)
+        git(root, "worktree", "prune", optional=True)
+
+
+def _operate(git, root, tree, head, branch, target, target_sha):
+    """Merge v odpojeném worktree a push; `(sha, pushed)`. Worktree se uklidí vždy."""
+    with detached(git, root, tree, target_sha):
         # shortcut: i feat/* a fix/* do rodiče jdou merge commitem (--no-ff); squash podle typu řádku až po M3.
         if git(tree, *_identity(git, root), "merge", "--no-ff", "-m", f"Merge {branch} into {target}", head,
                timeout=TIMEOUT, optional=True) is None:
@@ -113,10 +132,6 @@ def _operate(git, root, tree, head, branch, target, target_sha):
         sha = git(tree, "rev-parse", "HEAD")
         pushed = git(tree, "push", "origin", f"HEAD:refs/heads/{target}", timeout=TIMEOUT, optional=True) is not None
         return sha, pushed
-    finally:
-        git(root, "worktree", "remove", "--force", str(tree), optional=True)
-        shutil.rmtree(tree, ignore_errors=True)
-        git(root, "worktree", "prune", optional=True)
 
 
 def _checked_out(git, root, target):
@@ -173,6 +188,8 @@ def merge(service, project, ticket_id, now, *, op=None, by="opora", git=gitio.gi
         merge_log.start(service.root, project, {"op": op, "ticket": ticket_id, "repo": root, "source_sha": head,
                                                 "target": target, "target_sha_before": target_sha, "mode": "merge",
                                                 "by": by, "at": now})
+        journal.record(service, project, "linie.merge.started", by, {"ticket": ticket_id, "op": op, "sha": head},
+                       target=target)
         try:
             sha, pushed = _operate(git, root, workdir, head, work["branch"], target, target_sha)
             if not pushed:
@@ -182,9 +199,9 @@ def merge(service, project, ticket_id, now, *, op=None, by="opora", git=gitio.gi
                                     "Ověřte přístup k origin a zavolejte merge znovu.")
                 sha = _merge_commit(git, root, head, remote)
         except WorkError:  # konflikt i neúspěšný push jsou v gitu ověřený neúspěch
-            merge_log.finish(service.root, project, op, None, False, now)
+            _finish(service, project, ticket_id, op, None, False, now, by)
             raise
-        merge_log.finish(service.root, project, op, sha, True, now)
+        _finish(service, project, ticket_id, op, sha, True, now, by)
         if not _checked_out(git, root, target):  # lokální ref cíle jen když ho nedrží žádný strom
             git(root, "update-ref", f"refs/heads/{target}", sha, target_sha, optional=True)
         return _record(service, project, ticket_id, {"sha": sha, "target": target, "at": now, "by": by,
