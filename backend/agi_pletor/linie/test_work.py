@@ -218,3 +218,21 @@ def test_decisions_pass_without_git_and_carry_by(setup, monkeypatch):
     left = work.abandon(service, "draft", tid, head[:9], "slepá ulička", NOW, "agent:dev")["work"]["abandoned"]
     assert left == [{"sha": head, "why": "slepá ulička", "at": NOW, "by": "agent:dev"}]
     assert strict == []
+
+
+def test_commit_after_merge_already_in_target_does_not_reopen(setup):
+    """§10.2: další commit větve po merge kuličky, který do cíle dostala pozdější kulička, není „nová revize“."""
+    _, repo, _ = setup
+    first = agent_commit(repo)
+    run(repo, "checkout", "-q", "develop")
+    run(repo, "merge", "-q", "--no-ff", "-m", "merge 1", first)
+    merge_sha = run(repo, "rev-parse", "HEAD").strip()
+    run(repo, "checkout", "-q", "main")
+    record = {"repository": str(repo), "branch": "feat/uzel", "headSha": first, "target": "develop",
+              "merged": {"sha": merge_sha, "target": "develop"}}
+    later = agent_commit(repo, name="v.txt")
+    assert work.unreported(record) == (later, True)
+    run(repo, "checkout", "-q", "develop")
+    run(repo, "merge", "-q", "--no-ff", "-m", "merge 2", later)
+    run(repo, "checkout", "-q", "main")
+    assert work.unreported(record) == (None, True)
