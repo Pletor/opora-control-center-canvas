@@ -70,7 +70,8 @@ def trace(service, project, workspace, root, mark, folder, *, pr_lookup=gh_prs):
     commits = [{k: c[k] for k in ("sha", "sha7", "title", "at", "author", "branches", "trailers", "runId", "status")}
                for c in commits]
     essence = found["body"]["essence"].splitlines()[0]
-    sentence = (f"{mark}: {essence} (karta {card['name'] if card else 'bez karty'}, "
+    where = f"karta {card['name']}" if card and card["known"] else shown["plan"]["text"]  # card_missing ≠ bez plánu
+    sentence = (f"{mark}: {essence} ({where}, "
                 f"{_count(len(runs), 'relace', 'relace', 'relací')}, {_count(len(commits), 'commit', 'commity', 'commitů')}, "
                 f"{_count(len(places), 'místo', 'místa', 'míst')} v kódu"
                 + (f", PR #{pr['number']} {pr['state']}" if pr else "") + f"); stav {shown['stateLabel']}.")
@@ -78,7 +79,7 @@ def trace(service, project, workspace, root, mark, folder, *, pr_lookup=gh_prs):
             "ticket": {"ticketId": found["ticketId"], "title": work.get("title") or essence, "state": shown["state"],
                        "stateLabel": shown["stateLabel"], "next": shown["next"], "body": found["body"],
                        "work": {k: work.get(k) for k in ("branch", "baseSha", "headSha", "target")}},
-            "card": card, "revision": found["machine"].get("cardVersion"), "plan": plan,
+            "card": card, "revision": found["machine"].get("cardVersion"), "plan": plan, "link": shown["plan"],
             "runs": _runs(root, runs, head), "commits": commits, "code": places, "pr": pr,
             "checks": work.get("checks", []), "acceptance": work.get("acceptance"), "merged": work.get("merged"),
             "preview": preview, "gaps": _gaps(commits, places, card), "sentence": sentence}

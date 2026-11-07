@@ -14,17 +14,30 @@ Skutečná data (docs/navrhy/2026-11-06-linie-rebrand.md §5, §5a, L7c): `tags`
 commitu, řádek kreslení volí frontend), `worktrees` z `git worktree list --porcelain` (agent a od–do jen s vazbou relace
 z `run`), `deploy.envs` z událostí prostředí, PR s posledním známým stavem při výpadku a `commits[]` kuličky s
 `abandoned`.
+
+L7d (§7 bod 4): každá kulička nese `plan` (`plan_link`) a `queues`, board `queues` (`plan_view.queues`) nad týmž
+grafem prostoru; `grouped(..., "plan", snapshot)` přeskládá uložený snímek podle plánu bez nového čtení.
 """
 import os
 import time
 import uuid
 from pathlib import Path
 
-from backend.agi_pletor.linie import branches, deploy, jsonfile, merge_log, trace_git, tree
+from backend.agi_pletor.linie import (
+    branches,
+    deploy,
+    jsonfile,
+    merge_log,
+    plan_link,
+    plan_view,
+    trace_git,
+    tree,
+)
 from backend.agi_pletor.linie import rows as rows_mod
 from backend.agi_pletor.linie import work as work_mod
 from backend.agi_pletor.linie.graph import gh_lookup
 from backend.brain_opora.determinism import tokens
+from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.integrations.gitio import git
 from database.repositories.tickets import TicketStore
 
@@ -153,10 +166,10 @@ def _row_for(rows, branch):
     return next((row["id"] for row in rows if row.get("branch") == branch), branch)
 
 
-VIEW = ("axes", "summary", "allowed", "blocked", "incomplete", "evidence")
+VIEW = ("axes", "summary", "allowed", "blocked", "incomplete", "evidence", "plan")
 
 
-def _ball(service, project, ticket, rows, prs, sources, log, events, by_mark):
+def _ball(service, project, ticket, rows, prs, sources, log, events, by_mark, graph):
     work = ticket["work"]
     allowed = work.get("mergeAllowed")
     commits = _commits(work)
@@ -164,7 +177,7 @@ def _ball(service, project, ticket, rows, prs, sources, log, events, by_mark):
     if pr is not None:  # PR řeší úkoly podle Opora-Mark svých commitů, jinak úkol své větve
         marked = sorted({by_mark[c["mark"]] for c in commits if c["mark"] in by_mark})
         pr = {**pr, "ticketIds": marked or [ticket["ticketId"]]}
-    shown = work_mod.view(ticket, sources, pr, work_mod.facts(service, project, ticket, pr, log, events))
+    shown = work_mod.view(ticket, sources, pr, work_mod.facts(service, project, ticket, pr, log, events, graph))
     links = []
     if work.get("merged"):
         links.append({"to": _row_for(rows, work["merged"]["target"]), "kind": "merged", "sha": work["merged"]["sha"]})
@@ -259,7 +272,11 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
     """
     found = rows_mod.read(service.root, project)
     with service.reading(project):
-        tickets = TicketStore(service.db_for(project), project).list_with_work(workspace)
+        store = TicketStore(service.db_for(project), project)
+        tickets = store.list_with_work(workspace)
+        # shortcut: všechny tickety prostoru do 100 000; fronta plánů nad větším projektem až s dotazem na card_id.
+        carded = {t["machine"]["cardId"] for t in store.list(workspace, limit=100_000) if t["machine"]["cardId"]}
+        graph = plan_link.cards(service, project, workspace)
     db_at = tokens.stamp()
     heads = set(branches._heads(root))
     git_at = tokens.stamp()
@@ -271,7 +288,12 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
                "checks": {"verifiedAt": db_at, "ok": True}, "sessions": {"verifiedAt": db_at, "ok": True},
                "deploy": {"verifiedAt": deploy_at, "ok": True}}
     by_mark = {t["work"].get("mark"): t["ticketId"] for t in tickets if t["work"].get("mark")}
-    balls = [_ball(service, project, ticket, found["rows"], prs, sources, log, events, by_mark) for ticket in tickets]
+    with service.reading(project):  # jeden snímek grafu pro revize karet všech kuliček
+        balls = [_ball(service, project, ticket, found["rows"], prs, sources, log, events, by_mark, graph)
+                 for ticket in tickets]
+    plan_link.settle([ball["plan"] for ball in balls])
+    for ball in balls:
+        ball["queues"] = plan_view.ball_queues(ball)
     _follows(tickets, balls)
     extra, tips = git_rows(root, found["rows"], balls)
     rows = with_tree(found["rows"] + extra, balls, heads)
@@ -281,7 +303,24 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
         for link in ball["links"]:
             if link["kind"] != "follows":
                 link["to"] = row_of.get(link["to"], link["to"])
-    return {"rows": rows, "balls": balls, "mapping": found["mapping"],
-            "realMerges": real_merges(root) + tips, "tags": tags(root), "worktrees": worktrees(root, tickets),
-            "deploy": {"envs": deploy.latest(shipped)},
-            "snapshot": {"id": "snap_" + uuid.uuid4().hex[:12], "builtAt": tokens.stamp(), "sources": sources}}
+    result = {"rows": rows, "balls": balls, "mapping": found["mapping"], "group": "branch",
+              "realMerges": real_merges(root) + tips, "tags": tags(root), "worktrees": worktrees(root, tickets),
+              "deploy": {"envs": deploy.latest(shipped)}, "queues": plan_view.queues(balls, graph, carded),
+              "snapshot": {"id": "snap_" + uuid.uuid4().hex[:12], "builtAt": tokens.stamp(), "sources": sources}}
+    plan_view.remember(project, workspace, result, graph)
+    return result
+
+
+def grouped(service, project, workspace, root, group="branch", snapshot=None, *, pr_lookup=gh_lookup):
+    """`GET /board?group&snapshot`: `group=plan` přeskládá týž snímek (`snapshot` z paměti, bez čtení gitu, L7d);
+    bez `snapshot` se board sestaví znovu. Neznámý snímek = 404 `snapshot_not_found`."""
+    if group not in ("branch", "plan"):
+        raise GateError(422, "invalid_payload", "group je branch nebo plan.", "Například ?group=plan.")
+    kept = plan_view.recall(project, workspace, snapshot) if snapshot else None
+    if snapshot and kept is None:
+        raise GateError(404, "snapshot_not_found", "Snímek boardu už v paměti není.", "Načtěte GET /board znovu.")
+    if kept is None:
+        built = board(service, project, workspace, root, pr_lookup=pr_lookup)
+        kept = plan_view.recall(project, workspace, built["snapshot"]["id"])
+    found, names = kept
+    return plan_view.group(found, names) if group == "plan" else found

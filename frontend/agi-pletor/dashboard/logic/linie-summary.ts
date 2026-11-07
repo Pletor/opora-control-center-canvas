@@ -15,7 +15,9 @@ export type Axes = {
   deploy: { envs: Record<string, string>; src: string };
 };
 export type Evidence = { kind: string; ref: string; at: string; src: string };
-export type Judgement = { summary: Summary; axes: Axes | null; allowed: string[]; blocked: Record<string, string>; incomplete: string[]; evidence: Evidence[] };
+/** Vazba na plán (L7d): `issued` = zmrazená revize zadání při vydání práce; `diff` = karta se od vydání změnila. */
+export type Plan = { state: string; text: string; diff: boolean; planCardId: string; directionCardId: string; cardRevision: string; issued: { cardId: string; cardRevision: string; at: string } | null };
+export type Judgement = { summary: Summary; axes: Axes | null; allowed: string[]; blocked: Record<string, string>; incomplete: string[]; evidence: Evidence[]; plan: Plan | null };
 export type Source = { name: string; verifiedAt: string; ok: boolean };
 export type Snapshot = { id: string; builtAt: string; sources: Source[] };
 
@@ -39,6 +41,14 @@ function axesOf(raw: unknown): Axes | null {
   };
 }
 
+export function planOf(raw: unknown): Plan | null {
+  const p = rec(raw);
+  if (!str(p.state)) return null;
+  const issued = rec(p.issued);
+  return { state: str(p.state), text: str(p.text), diff: p.diff === true, planCardId: str(p.planCardId), directionCardId: str(p.directionCardId), cardRevision: str(p.cardRevision),
+    issued: Object.keys(issued).length ? { cardId: str(issued.cardId), cardRevision: str(issued.cardRevision), at: str(issued.at) } : null };
+}
+
 /** Kulička z boardu → souhrn, osy a akce. Bez `summary` se text vezme ze `stateLabel` a klíč z `LEGACY_KEY`. */
 export function judgementOf(ball: Raw): Judgement {
   const s = rec(ball.summary);
@@ -51,6 +61,7 @@ export function judgementOf(ball: Raw): Judgement {
     blocked: stringMap(ball.blocked),
     incomplete: list(ball.incomplete).map(str).filter(Boolean),
     evidence: list(ball.evidence).map((item) => { const e = rec(item); return { kind: str(e.kind), ref: str(e.ref), at: str(e.at), src: str(e.src) }; }).filter((e) => e.kind),
+    plan: planOf(ball.plan),
   };
 }
 

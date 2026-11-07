@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { boardFixture } from "./linie-fixture";
-import { PAD, ROW_FOLDED, ROW_OPEN, ROW_THIN, SPAN, boardView, layoutBoard, legend, timeRange } from "./linie-board";
+import { LANE, PAD, PR_AT, ROW_FOLDED, ROW_OPEN, ROW_THIN, SPAN, boardView, layoutBoard, legend, prPill, timeRange } from "./linie-board";
 import { hueOf } from "./linie-color";
 
 const board = boardView(boardFixture);
@@ -20,7 +20,7 @@ describe("boardView", () => {
     expect(boardView({ rows: [{ id: "a", type: "topic" }] }).rows[0].type).toBe("items");
   });
   it("chybná odpověď nespadne a neznámý stav je otevřeno", () => {
-    expect(boardView(null)).toEqual({ rows: [], balls: [], mapping: { main: "main", develop: "develop" }, realMerges: [], snapshot: null });
+    expect(boardView(null)).toEqual({ rows: [], balls: [], mapping: { main: "main", develop: "develop" }, realMerges: [], snapshot: null, group: "branch", tags: [], worktrees: [], deploy: [], queues: null });
     expect(boardView({ balls: [{ ticketId: "x", state: "??" }] }).balls[0]).toMatchObject({ state: "open", stateLabel: "otevřeno" });
     expect(layoutBoard(boardView(null)).balls).toEqual([]);
   });
@@ -81,8 +81,12 @@ describe("layoutBoard", () => {
     const xs = layoutBoard(boardView({ ...boardFixture, balls: ball3, realMerges: [] })).balls.map((b) => b.x);
     expect(new Set(xs).size).toBe(1);
   });
-  it("commity z evidence leží na řádku své kuličky v čase commitu; now rozšíří osu", () => {
-    expect(layout.commits.map((c) => [c.ticketId, c.ref, c.y])).toEqual([["tk_1", "1f0c2aa", ball("tk_1").y], ["tk_1", "9c8050f", ball("tk_1").y]]);
+  it("commity z boardu (náhradou z evidence) leží na řádku své kuličky v čase commitu, opuštěný nese ✕; now rozšíří osu", () => {
+    expect(layout.commits.map((c) => [c.ticketId, c.ref, c.y, c.abandoned])).toEqual([["tk_1", "1f0c2aa", ball("tk_1").y, false], ["tk_1", "deadbee", ball("tk_1").y, true], ["tk_1", "9c8050f", ball("tk_1").y, false]]);
+    const fromEvidence = layoutBoard(boardView({ ...boardFixture, balls: [{ ...boardFixture.balls[0], commits: undefined }] }));
+    expect(fromEvidence.commits.map((c) => c.ref)).toEqual(["1f0c2aa", "9c8050f"]);
+    // čára práce: od kuličky k poslednímu živému commitu; odevzdaná práce plně
+    expect(layout.works).toEqual([{ ticketId: "tk_1", x1: ball("tk_1").x, x2: layout.commits[2].x, y: ball("tk_1").y, color: ball("tk_1").color, wip: false }]);
     const now = Date.parse("2026-11-07T10:00:00Z");
     expect(timeRange(board, now).t1).toBe(now);
     expect(layoutBoard(board, { now }).now).toBe(now);
@@ -98,6 +102,46 @@ describe("layoutBoard", () => {
     expect(layoutBoard(withGit).rows[5].branchText).toBe("větev: feat/x · 4 před develop · bez úkolu");
     expect(ball("tk_1").x).toBeCloseTo(PAD + (24 / 48) * SPAN);
     expect(layoutBoard(board, { k: 2000 / (48 * 3600e3) }).balls.find((b) => b.ticketId === "tk_1")!.x).toBeCloseTo(PAD + (24 / 48) * 2000);
+  });
+});
+
+describe("skutečná data L7c a pohled podle plánu L7d", () => {
+  it("PR z `pr` velkými písmeny; openPr jen z OPEN; po výpadku pilulka „neověřeno“ na 65 % merge oblouku", () => {
+    expect(board.balls[0].pr).toEqual({ number: "7", state: "OPEN", url: "https://x/pr/7", unconfirmed: true });
+    expect([board.balls[0].openPr, board.balls[2].openPr, board.balls[1].pr]).toEqual([true, false, null]);
+    expect(prPill(board.balls[0])).toEqual({ text: "PR #7 · neověřeno", state: "open", unverified: true, url: "https://x/pr/7" });
+    expect(prPill(boardView({ balls: [{ ticketId: "x", pr: { number: 9, state: "merged" } }] }).balls[0])).toMatchObject({ text: "PR #9 · sloučen", unverified: false });
+    const planned = layout.links.find((l) => l.ticketId === "tk_1" && l.kind === "planned")!;
+    expect(planned.pr!.at).toEqual({ x: (planned.from.x + planned.to.x) / 2, y: (planned.from.y + planned.to.y) / 2 });
+    const merged = layout.links.find((l) => l.kind === "merged")!;
+    expect(merged.pr!.at.x).toBeCloseTo(merged.from.x + (merged.to.x - merged.from.x) * PR_AT);
+    expect(layout.links.find((l) => l.kind === "follows")!.pr).toBeNull();
+  });
+  it("tag leží na řádku kuličky s commitem, nasazení s původem na řádku cíle; worktree pruh jen s vazbou a jen pro zvolené řádky", () => {
+    expect(layout.tags).toEqual([
+      { x: layout.commits[0].x + (layout.commits[1].x - layout.commits[0].x) / 4, y: ball("tk_1").y, text: "v0.9.3", kind: "tag", title: "tag v0.9.3 na 1f0c2aa · git" },
+      { x: expect.any(Number), y: ROW_THIN / 2, text: "staging@abcdef0", kind: "deploy", title: "nasazení potvrzené prostředím" },
+    ]);
+    expect(layout.lanes).toEqual([]);
+    expect(layout.rows[3].height).toBe(ROW_OPEN);
+    const withLanes = layoutBoard(board, { lanes: new Set(["row_k"]) });
+    expect(withLanes.rows[3]).toMatchObject({ lanes: 1, height: ROW_OPEN + LANE, y: 2 * ROW_THIN + ROW_OPEN + ROW_OPEN / 2 });
+    expect(withLanes.lanes).toEqual([{ rowId: "row_k", ticketId: "tk_1", agent: "agent-a", state: "pracuje", x1: expect.any(Number), x2: withLanes.width - PAD, y: withLanes.rows[3].top + ROW_OPEN + LANE / 2, color: ball("tk_1").color }]);
+    expect(withLanes.height).toBe(layout.height + LANE);
+  });
+  it("fronty boardu a fronty kuličky; vazba na plán s rozdílem revize", () => {
+    expect(board.queues).toEqual({ plansWaiting: 2, ticketsTodo: 0, humanDecisions: 1, officeTasks: 1, gitQueue: 1 });
+    expect(boardView({ queues: { plansWaiting: null, gitQueue: 1 } }).queues).toEqual({ plansWaiting: null, ticketsTodo: null, humanDecisions: null, officeTasks: null, gitQueue: 1 });
+    expect(board.balls[0].queues).toEqual(["gitQueue"]);
+    expect(board.balls[0].judgement.plan).toEqual({ state: "linked", text: "plán card_p1 R3", diff: true, planCardId: "card_p1", directionCardId: "card_d1", cardRevision: "3", issued: { cardId: "card_p1", cardRevision: "2", at: "2026-11-05T10:00:00Z" } });
+    expect(board.balls[1].judgement.plan).toBeNull();
+  });
+  it("řádky podle plánu: směr pevný, plán pod ním podle id rodiče, bez větve", () => {
+    const grouped = boardView({ group: "plan", rows: [{ id: "dir:d1", type: "dir", name: "Velín", cardId: "d1", parent: null, depth: 0 }, { id: "plan:p1", type: "plan", name: "Linie", cardId: "p1", parent: "dir:d1", depth: 1 }, { id: "plan:none", type: "plan", name: "bez plánu", parent: null, depth: 0 }],
+      balls: [{ ticketId: "a", rowId: "plan:p1", title: "A" }] });
+    expect(grouped.group).toBe("plan");
+    expect(grouped.rows.map((r) => [r.type, r.fixed, r.parent, r.cardId])).toEqual([["dir", true, "", "d1"], ["plan", false, "dir:d1", "p1"], ["plan", false, "", ""]]);
+    expect(layoutBoard(grouped).rows.map((r) => [r.branchText, r.mappingText, r.height])).toEqual([["plátno 2 · směr", "", ROW_THIN], ["plátno 3 · plán", "", ROW_OPEN], ["plátno 3 · plán", "", ROW_THIN]]);
   });
 });
 

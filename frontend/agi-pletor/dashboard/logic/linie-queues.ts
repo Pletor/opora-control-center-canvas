@@ -1,24 +1,19 @@
-import type { SummaryKey } from "./linie-summary";
+import type { BoardBall, BoardQueues } from "./linie-board";
 
 /**
- * Fronty odpovědnosti nad lištou (docs/navrhy/2026-11-06-linie-rebrand.md §6): kdo má míč. Kulička se řadí podle
- * `summary.key` a smí být ve více frontách. Fronty, pro které zatím není zdroj (žádosti Pletora, plány srdce), počet
- * nevymýšlejí a hlásí „— (zatím bez zdroje)“.
+ * Fronty odpovědnosti nad lištou (docs/navrhy/2026-11-06-linie-rebrand.md §6): kdo má míč. Počty dává board
+ * (`queues`, L7d) a otevřené žádosti (`GET /api/pletor/requests?open=1`); kuličky ve frontě říká `ball.queues`, kulička
+ * smí být ve více frontách. Zdroj, který board nenese (`null`), počet nevymýšlí a hlásí „— (nedostupné)“.
  */
 export type QueueId = "clovek" | "pletor" | "srdce" | "tickety" | "kancelar" | "git";
 export type Queue = { id: QueueId; label: string; count: string; hint: string; ids: string[]; source: boolean };
-export type QueueBall = { ticketId: string; key: SummaryKey; openPr: boolean };
+export type QueueBall = Pick<BoardBall, "ticketId" | "queues">;
 
 /** Česky: 1 úkol, 2–4 úkoly, 0 a 5+ úkolů. */
 export const plural = (n: number, one: string, few: string, many: string) => `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
 
-const BY_KEY: Record<"clovek" | "tickety" | "kancelar" | "git", SummaryKey[]> = {
-  clovek: ["pending", "stale", "blocked"],
-  tickety: ["todo"],
-  kancelar: ["wip", "failed", "nocheck"],
-  git: ["checking", "accepted"],
-};
-const NO_SOURCE = "— (zatím bez zdroje)";
+const NAME: Record<Exclude<QueueId, "pletor" | "srdce">, keyof Omit<BoardQueues, "plansWaiting">> = { clovek: "humanDecisions", tickety: "ticketsTodo", kancelar: "officeTasks", git: "gitQueue" };
+export const NO_SOURCE = "— (nedostupné)";
 
 /** Výrok Pletora bez výběru: jen počty front, které mají zdroj, a co člověk může udělat dál. */
 export function queueLines(list: Queue[], balls: number): string[] {
@@ -29,15 +24,20 @@ export function queueLines(list: Queue[], balls: number): string[] {
   ];
 }
 
-export function queues(balls: QueueBall[]): Queue[] {
-  const of = (id: keyof typeof BY_KEY) => balls.filter((b) => BY_KEY[id].includes(b.key) || (id === "git" && b.openPr)).map((b) => b.ticketId);
-  const clovek = of("clovek"), tickety = of("tickety"), kancelar = of("kancelar"), git = of("git");
+/** `counts` z boardu (null = board bez front), `openRequests` z /api/pletor/requests (null = nenačteno). */
+export function queues(balls: QueueBall[], counts: BoardQueues | null, openRequests: number | null): Queue[] {
+  const ids = (id: keyof typeof NAME) => balls.filter((b) => b.queues.includes(NAME[id])).map((b) => b.ticketId);
+  const of = (id: keyof typeof NAME, one: string, few: string, many: string) => {
+    const n = counts?.[NAME[id]] ?? null;
+    return { ids: ids(id), count: n === null ? NO_SOURCE : plural(n, one, few, many), source: n !== null };
+  };
+  const plans = counts?.plansWaiting ?? null;
   return [
-    { id: "clovek", label: "Člověk", count: `${clovek.length} rozhodnutí`, hint: "přijetí, zastaralé přijetí, blokováno", ids: clovek, source: true },
-    { id: "pletor", label: "Pletor", count: NO_SOURCE, hint: "žádosti čekají na /api/pletor/requests", ids: [], source: false },
-    { id: "srdce", label: "Srdce", count: NO_SOURCE, hint: "plány plátna 3 board zatím nenese", ids: [], source: false },
-    { id: "tickety", label: "Tickety", count: plural(tickety.length, "ticket", "tickety", "ticketů"), hint: "čekají na pokus", ids: tickety, source: true },
-    { id: "kancelar", label: "Kancelář", count: plural(kancelar.length, "úkol", "úkoly", "úkolů"), hint: "probíhá, selhalo, bez kontrol", ids: kancelar, source: true },
-    { id: "git", label: "Git", count: `${git.length} PR`, hint: "kontroly běží, přijato k začlenění, otevřený PR", ids: git, source: true },
+    { id: "clovek", label: "Člověk", hint: "přijetí, zastaralé přijetí, odblokování", ...of("clovek", "rozhodnutí", "rozhodnutí", "rozhodnutí") },
+    { id: "pletor", label: "Pletor", hint: "žádosti srdci bez potvrzeného commitu", ids: [], count: openRequests === null ? NO_SOURCE : plural(openRequests, "otevřená žádost", "otevřené žádosti", "otevřených žádostí"), source: openRequests !== null },
+    { id: "srdce", label: "Srdce", hint: "karty plánu (plátno 3) bez vydaného ticketu", ids: [], count: plans === null ? NO_SOURCE : plural(plans, "plán", "plány", "plánů"), source: plans !== null },
+    { id: "tickety", label: "Tickety", hint: "čekají na pokus · značka OP-", ...of("tickety", "ticket", "tickety", "ticketů") },
+    { id: "kancelar", label: "Kancelář", hint: "probíhá, selhalo, bez kontrol", ...of("kancelar", "úkol", "úkoly", "úkolů") },
+    { id: "git", label: "Git", hint: "kontroly běží, přijato k začlenění, otevřený PR", ...of("git", "PR", "PR", "PR") },
   ];
 }
