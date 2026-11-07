@@ -2,7 +2,7 @@
 
 Předpoklady se ověří těsně před operací, jinak 409 bez zápisu: přijetí platí pro `headSha == git rev-parse branch`
 (`no_acceptance` / `head_moved`), povolení je pro tuto hlavu (`not_allowed`), kontroly pro headSha jsou všechny zelené
-(`checks_missing` / `checks_failed`), špička cíle je ta z povolení (`target_moved`). Merge běží v odpojeném worktree
+(`checks_missing` / `checks_failed`), špička cíle (= origin, ne lokální ref) je ta z povolení (`target_moved`). Merge běží v odpojeném worktree
 `<data>/pletor/linie/merge/<ticket>`, push `HEAD:target` do origin; `merged.sha` je z `rev-parse HEAD`, nikdy
 z hlášení agenta. Opakované volání je idempotentní; když merge proběhl a zápis ne, dožene se z gitu (`origin/target`).
 
@@ -175,7 +175,7 @@ def merge(service, project, ticket_id, now, *, op=None, by="opora", git=gitio.gi
             merged = {"sha": _merge_commit(git, root, head, remote), "target": target, "at": now, "by": "opora"}
             return _record(service, project, ticket_id, merged, now)
         target_sha = work["mergeAllowed"]["targetSha"]
-        if _rev(git, root, target) != target_sha:
+        if (_rev(git, root, remote) or _rev(git, root, target)) != target_sha:
             raise WorkError("target_moved", 409, f"Cíl {target} se od povolení posunul.",
                             "Člověk povolí začlenění znovu (allow-merge).")
         # shortcut: místo oddělení nepřijatých změn jiných úkolů jen kontrola, že báze úkolu je ve špičce cíle (M3).
