@@ -1,6 +1,7 @@
 import { branchColor } from "./linie-color";
 import { commitTail, glyphOf, type Glyph } from "./linie-glyph";
 import { LANE, laneRows, placeLanes, placeTags, type LaidLane, type LaidTag } from "./linie-marks";
+import { placeLabels, type Labels } from "./linie-labels";
 import { judgementOf, snapshotOf, type Judgement, type Snapshot, type SummaryKey } from "./linie-summary";
 import { PAD, ticks as axisTicks, xOf as scaleX } from "./linie-zoom";
 import { list, rec, str } from "./view-common";
@@ -19,7 +20,10 @@ export type RowType = "main" | "develop" | "items" | "work" | "experiment" | "fi
 export type BallState = "open" | "awaiting_checks" | "blocked" | "deferred" | "accepted_unmerged" | "merged" | "stale";
 export type LinkKind = "follows" | "planned" | "merged";
 /** `auto` = řádek odvozený z větve bez ručního záznamu, `planned` = ruční řádek bez větve. `git` = řádek odvozený ze skutečné větve bez ticketu (jen ke čtení), `ahead` = commity před rodičem. `dir`/`plan` = řádky pohledu „podle plánu“ (`parent` je id řádku směru). */
-export type BoardRow = { id: string; name: string; type: RowType; branch: string; baseBranch: string; baseSha: string; target: string; collapsed: boolean; fixed: boolean; git: boolean; ahead: number; parent: string; depth: number; auto: boolean; planned: boolean; cardId: string };
+export type BoardRow = { id: string; name: string; type: RowType; branch: string; baseBranch: string; baseSha: string; target: string; collapsed: boolean; fixed: boolean; git: boolean; ahead: number; parent: string; depth: number; auto: boolean; planned: boolean; cardId: string;
+  /** Uzavřený řádek po začlenění (§10.2, služba): kdy, merge `sha` v cíli, cíl a počet vlastních kuliček; `null` = otevřený. */
+  closed: Closed | null };
+export type Closed = { at: string; sha: string; target: string; by: string; balls: number };
 export type BallCommit = { sha: string; sha7: string; title: string; at: string; abandoned: { why: string; at: string; by: string } | null };
 /** Poslední známý PR; `unconfirmed` = z paměti po výpadku GitHubu (stav je poslední známý, ne ověřený). */
 export type BallPr = { number: string; state: string; url: string; unconfirmed: boolean };
@@ -63,6 +67,11 @@ function prOf(b: Record<string, unknown>): BallPr | null {
   return { number: str(raw.number), state: str(raw.state).toUpperCase(), url: str(raw.url), unconfirmed: raw.unconfirmed === true };
 }
 
+function closedOf(raw: unknown): Closed | null {
+  const c = rec(raw);
+  return str(c.target) ? { at: str(c.at), sha: str(c.sha), target: str(c.target), by: str(c.by), balls: num(c.balls) } : null;
+}
+
 export function boardView(raw: unknown): Board {
   const root = rec(raw);
   const mapping = { main: str(rec(root.mapping).main) || "main", develop: str(rec(root.mapping).develop) || "develop" };
@@ -71,7 +80,7 @@ export function boardView(raw: unknown): Board {
     const type = pick(r.type === "topic" ? "items" : r.type, TYPES, "work"); // topic zanikl, čte se jako items
     return { id: str(r.id), name: str(r.name), type, branch: str(r.branch), baseBranch: str(rec(r.base).branch), baseSha: str(rec(r.base).sha),
       target: str(r.target), collapsed: r.collapsed === true, fixed: r.fixed === true || type === "main" || type === "develop" || type === "dir", git: r.git === true, ahead: num(r.ahead),
-      parent: str(r.parent), depth: num(r.depth), auto: r.auto === true, planned: r.planned === true, cardId: str(r.cardId) };
+      parent: str(r.parent), depth: num(r.depth), auto: r.auto === true, planned: r.planned === true, cardId: str(r.cardId), closed: closedOf(r.closed) };
   }).filter((row) => row.id);
   const balls: BoardBall[] = list(root.balls).map((item) => {
     const b = rec(item), c = rec(b.counts);
@@ -106,29 +115,34 @@ export function boardView(raw: unknown): Board {
 
 export type Point = { x: number; y: number };
 export type Hover = { mark: string; title: string; state: string; created: string; merged: string; counts: string; branch: string; reason: string; next: string; target: string };
-export type LaidRow = BoardRow & { top: number; height: number; y: number; color: string; branchText: string; mappingText: string; lanes: number };
+/** `y` = osa řádku (`top + base/2`), pruhy worktree leží pod ní; `ind` = odsazení názvu podle hloubky stromu; `meta` =
+ * druhý řádek ve sloupci názvů (jen u řádku s kuličkou). */
+export type LaidRow = BoardRow & { top: number; height: number; y: number; color: string; meta: string; ind: number; lanes: number };
 /** `toColor` = barva řádku, kam se kulička začlení (plán nebo merge), jinak vlastní barva; kreslí se jako vnitřní puntík.
  * `stateLabel` = souhrn s příponou commitů („ · 2 c · 1 ✕“), `glyph` = tvar ze `summary.key` (`linie-glyph.ts`). */
 export type LaidBall = { ticketId: string; rowId: string; title: string; label: string; stateLabel: string; key: SummaryKey; glyph: Glyph; x: number; y: number; color: string; toColor: string; hover: Hover };
 /** Pilulka PR na spojnici: text se stavem; `unverified` = poslední známý stav bez potvrzení GitHubem (čárkovaný rám). */
 export type LaidPr = { text: string; state: string; unverified: boolean; url: string; at: Point };
-/** `openEnd` = cíl plánu bez kuličky: kreslí se přerušovaný kroužek. Bod merge má jen `merged`. Gradient vede od `fromColor` k `toColor`. */
-export type LaidLink = { kind: LinkKind; from: Point; to: Point; fromColor: string; toColor: string; openEnd: boolean; ticketId: string; pr: LaidPr | null };
+/** `openEnd` = cíl plánu bez kuličky: kreslí se přerušovaný kroužek. Bod merge má jen `merged`. Gradient vede od `fromColor` k `toColor`.
+ * `toId` = id cíle (stálý klíč, aby se merge při přiblížení nekreslil znovu), `label` = popisek plánu („plán → cíl“, s „blokováno ·“). */
+export type LaidLink = { kind: LinkKind; toId: string; from: Point; to: Point; fromColor: string; toColor: string; openEnd: boolean; ticketId: string; pr: LaidPr | null; label: string };
 export type LaidMerge = Point & { sha7: string; title: string; color: string };
-/** Commit (kostka) na řádku své kuličky; `abandoned` = opuštěný (✕ s odbočkou), do cíle nejde. */
-export type LaidCommit = Point & { ticketId: string; ref: string; at: string; title: string; abandoned: boolean };
+/** Commit (kostka) na řádku své kuličky; `abandoned` = opuštěný (✕ s odbočkou), do cíle nejde. `sha` = plná revize pro
+ * detail commitu, `color` = barva cíle u začleněné kuličky, jinak řádku; `mark`/`ball`/`agent` nese tip. */
+export type LaidCommit = Point & { ticketId: string; sha: string; ref: string; at: string; title: string; abandoned: boolean; color: string; mark: string; ball: string; agent: string };
 /** Čára práce od vzniku kuličky k poslednímu commitu; `wip` čárkovaně, odevzdaná nebo začleněná plně. */
 export type LaidWork = { ticketId: string; x1: number; x2: number; y: number; color: string; wip: boolean };
 export type BoardLayout = {
   width: number; height: number; rows: LaidRow[]; balls: LaidBall[]; links: LaidLink[]; merges: LaidMerge[]; commits: LaidCommit[];
-  works: LaidWork[]; lanes: LaidLane[]; tags: LaidTag[];
+  works: LaidWork[]; lanes: LaidLane[]; tags: LaidTag[]; labels: Labels;
   ticks: { x: number; text: string }[]; t0: number; t1: number; k: number; now: number | null;
 };
 
-/** Řádek s kuličkami nese popisky ve dvou patrech nad i pod osou, sbalený dva řádky textu, tenký (bez kuliček) jen název. */
-export const ROW_OPEN = 112;
-export const ROW_FOLDED = 52;
+/** Výšky řádku z prototypu Linie v3: s kuličkou 78 (+28 za každé obsazené druhé patro), sbalený 46, tenký 36. */
+export const ROW_OPEN = 78;
+export const ROW_FOLDED = 46;
 export const ROW_THIN = 36;
+export const L2 = 28;
 export const SPAN = 820;
 export const PLAN_DX = 110;
 /** Pilulka PR leží u cíle merge oblouku (65 %), ne ve středu, aby nepřekrývala popisek zdrojové kuličky. */
@@ -160,31 +174,53 @@ export function prPill(ball: BoardBall): Omit<LaidPr, "at"> | null {
   return { text: `PR #${ball.pr.number} · ${unverified ? "neověřeno" : PR_STATE[ball.pr.state] ?? ball.pr.state.toLowerCase()}`, state: ball.pr.state.toLowerCase(), unverified, url: ball.pr.url };
 }
 
+/** Druhý řádek názvu (prototyp Linie v3): větev a odkud → kam; experiment se vrací nebo zahodí, items míří tam, kde je díl potřeba. */
+function metaOf(row: BoardRow, mapping: Board["mapping"]): string {
+  if (row.type === "dir") return "plátno 2 · směr";
+  if (row.type === "plan") return "plátno 3 · plán";
+  if (row.git) return `větev ${row.branch} · ${row.ahead} před ${row.baseBranch} · bez úkolu`;
+  const branch = `větev ${row.branch || (row.type === "items" ? "items/<díl>" : "—")}`;
+  const from = row.parent || row.baseBranch || "—";
+  if (row.type === "items") return `${branch} · cíl: develop nebo feat, kde je díl potřeba`;
+  if (row.fixed) return `${branch} · mapování: ${row.name} → ${row.branch || (row.type === "main" ? mapping.main : mapping.develop)}`;
+  if (row.type === "experiment") return `${branch} · fork z ${from} · zpět nebo zahodit`;
+  return `${branch} · z ${from} → cíl ${row.target || "zatím neurčeno"}`;
+}
+
 /** Commity kuličky: z boardu, náhradou z důkazů `evidence` (kind = commit); sdílí je kostky i přípona popisku. */
-const commitsOf = (ball: BoardBall) => ball.commits.length ? ball.commits.map((c) => ({ ref: c.sha7, at: c.at, title: c.title, abandoned: !!c.abandoned }))
-  : ball.judgement.evidence.filter((e) => e.kind === "commit").map((e) => ({ ref: e.ref, at: e.at, title: "", abandoned: false }));
+const commitsOf = (ball: BoardBall) => ball.commits.length ? ball.commits.map((c) => ({ sha: c.sha, ref: c.sha7, at: c.at, title: c.title, abandoned: !!c.abandoned }))
+  : ball.judgement.evidence.filter((e) => e.kind === "commit").map((e) => ({ sha: e.ref, ref: e.ref, at: e.at, title: "", abandoned: false }));
 
 /**
  * `k` = px na ms (stav měřítka z `linie-zoom.ts`); bez něj se osa vejde do SPAN. `now` přidá do rozsahu značku „teď“.
- * `lanes` = řádky, u kterých se kreslí pruhy worktree (vrstva zapnutá, nebo řádek vybrané kuličky).
+ * `lanes` = řádky, u kterých se kreslí pruhy worktree (vrstva zapnutá, nebo řádek vybrané kuličky); `selected` má
+ * přednost při rozdělení popisků.
  */
-export function layoutBoard(board: Board, opts: { k?: number; now?: number; lanes?: Set<string> } = {}): BoardLayout {
+export function layoutBoard(board: Board, opts: { k?: number; now?: number; lanes?: Set<string>; selected?: string } = {}): BoardLayout {
   const { t0, t1 } = timeRange(board, opts.now);
   const k = opts.k ?? (t1 > t0 ? SPAN / (t1 - t0) : 1);
   const xOf = (iso: string) => { const t = time(iso); return t === null ? PAD : t1 > t0 ? scaleX({ t0, k }, t) : PAD + SPAN / 2; };
   const xAt = (t: number) => (t1 > t0 ? scaleX({ t0, k }, t) : PAD + SPAN / 2);
 
   const lanesOf = laneRows(board);
+  const laneCount = (row: BoardRow) => (!row.collapsed && opts.lanes?.has(row.id) ? (lanesOf.get(row.id)?.length ?? 0) : 0);
+  const shownRow = new Map(board.rows.filter((row) => !row.collapsed).map((row) => [row.id, row]));
+  const shownBalls = [...board.balls].filter((ball) => shownRow.has(ball.rowId)).sort((a, b) => (time(a.createdAt) ?? 0) - (time(b.createdAt) ?? 0));
+  const tailOf = (ball: BoardBall) => (ball.judgement.summary.text || ball.stateLabel) + commitTail(commitsOf(ball));
+  // OP-123CD1.3: popisky se rozdělí dřív než řádky, protože obsazené druhé patro zvedá výšku řádku (x závisí jen na čase).
+  const labels = placeLabels(shownBalls.map((ball) => ({ ticketId: ball.ticketId, rowId: ball.rowId, x: xOf(ball.createdAt), label: clip(ball.title), stateLabel: tailOf(ball) })),
+    opts.selected ?? "", new Set(board.rows.filter((row) => laneCount(row) > 0).map((row) => row.id)));
+
   let top = 0;
-  const withBalls = new Set(board.balls.map((ball) => ball.rowId));
+  const withBalls = new Set(shownBalls.map((ball) => ball.rowId));
   const rows: LaidRow[] = board.rows.map((row) => {
-    const base = row.collapsed ? ROW_FOLDED : withBalls.has(row.id) ? ROW_OPEN : ROW_THIN;
-    const lanes = !row.collapsed && opts.lanes?.has(row.id) ? (lanesOf.get(row.id)?.length ?? 0) : 0;
-    const laid = {
-      ...row, top, height: base + LANE * lanes, y: top + base / 2, lanes, color: branchColor(row.branch || row.name, board.rows),
-      branchText: row.type === "dir" ? "plátno 2 · směr" : row.type === "plan" ? "plátno 3 · plán" : row.git ? `větev: ${row.branch} · ${row.ahead} před ${row.baseBranch} · bez úkolu` : row.branch ? `větev: ${row.branch}` : row.fixed ? "větve items/<díl>" : "bez větve",
-      mappingText: !row.fixed || row.type === "dir" ? "" : row.type === "items" ? "cíl: develop nebo feat větev, kde je díl potřeba" : `mapování: ${row.name} → ${row.branch || (row.type === "main" ? board.mapping.main : board.mapping.develop)}`,
-    };
+    const lanes = laneCount(row);
+    // Bez pruhů se druhé patro otevře nad i pod osou (+2·L2), s pruhy jen nad ní (+L2); osa = base/2 se tak nikdy nehne kvůli pruhům.
+    const base = row.collapsed ? ROW_FOLDED : withBalls.has(row.id) ? ROW_OPEN + (labels.tier2.has(row.id) ? L2 * (lanes ? 1 : 2) : 0) : ROW_THIN;
+    // S pruhy leží druhé patro jen nad osou, takže osa sjede o L2 níž (base − OPEN/2); jinak by u2 vyjel do řádku nad.
+    const axis = lanes && labels.tier2.has(row.id) ? base - ROW_OPEN / 2 : base / 2;
+    const laid = { ...row, top, height: base + LANE * lanes, y: top + axis, lanes, color: branchColor(row.branch || row.name, board.rows),
+      ind: 8 + 16 * Math.min(row.depth, 5), meta: metaOf(row, board.mapping) };
     top += laid.height;
     return laid;
   });
@@ -197,34 +233,40 @@ export function layoutBoard(board: Board, opts: { k?: number; now?: number; lane
   };
 
   // Kulička leží přesně na svém čase; žádné rozestupy, které by posouvaly čas (kolize řeší jen popisky).
-  const balls: LaidBall[] = [];
-  for (const ball of [...board.balls].sort((a, b) => (time(a.createdAt) ?? 0) - (time(b.createdAt) ?? 0))) {
-    const row = rowById.get(ball.rowId);
-    if (!row || row.collapsed) continue;
-    balls.push({
+  const balls: LaidBall[] = shownBalls.map((ball) => {
+    const row = rowById.get(ball.rowId)!;
+    return {
       ticketId: ball.ticketId, rowId: row.id, title: ball.title, label: clip(ball.title), key: ball.judgement.summary.key,
-      stateLabel: (ball.judgement.summary.text || ball.stateLabel) + commitTail(commitsOf(ball)), glyph: glyphOf(ball.judgement.summary.key, ball.judgement), x: xOf(ball.createdAt), y: row.y, color: row.color, toColor: targetColor(ball, row.color),
+      stateLabel: tailOf(ball), glyph: glyphOf(ball.judgement.summary.key, ball.judgement), x: xOf(ball.createdAt), y: row.y, color: row.color, toColor: targetColor(ball, row.color),
       hover: { mark: ball.mark, title: ball.title, state: ball.stateLabel, created: when(ball.createdAt), merged: ball.mergedAt ? when(ball.mergedAt) : "—",
         counts: `${ball.counts.commits} | ${ball.counts.prs} | ${ball.counts.merges}`, branch: ball.branch ? `${ball.branch} @ ${ball.headSha7 || "—"}` : "bez větve",
         reason: ball.judgement.summary.reason, next: ball.judgement.summary.next, target: row.target },
-    });
-  }
+    };
+  });
   const laidById = new Map(balls.map((ball) => [ball.ticketId, ball]));
   const along = (from: Point, to: Point, f: number): Point => ({ x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f });
+  const liveCommits = (ball: BoardBall) => commitsOf(ball).filter((c) => !c.abandoned && time(c.at) !== null);
 
   const links: LaidLink[] = [];
   for (const ball of board.balls) {
-    const from = laidById.get(ball.ticketId);
-    if (!from) continue;
+    const ballPoint = laidById.get(ball.ticketId);
+    if (!ballPoint) continue;
+    const live = liveCommits(ball);
     for (const link of ball.links) {
       const target = laidById.get(link.to);
-      const row = rowById.get(link.to);
+      const row = rowById.get(link.to) ?? (target && rowById.get(target.rowId));
+      if (!row || row.collapsed) continue;
+      // Plán vychází z posledního živého commitu (jinak z kuličky); merge z kuličky na osu cíle v čase merge.
+      const from = link.kind === "planned" && live.length ? { x: Math.max(...live.map((c) => xOf(c.at))), y: ballPoint.y } : { x: ballPoint.x, y: ballPoint.y };
+      const mergedAt = ball.mergedAt || ball.judgement.axes?.integration.at || "";
+      const to = link.kind === "merged" ? { x: time(mergedAt) !== null ? xOf(mergedAt) : from.x + 30, y: row.y }
+        : target ?? { x: from.x + PLAN_DX, y: row.y };
       const pill = link.kind === "follows" ? null : prPill(ball);
-      const to = target ?? (row && !row.collapsed ? { x: link.kind === "merged" ? Math.max(xOf(ball.mergedAt), from.x + 30) : from.x + PLAN_DX, y: row.y } : null);
-      if (!to) continue;
-      const toColor = target ? target.color : row!.color;
-      links.push({ kind: link.kind, from, to, fromColor: from.color, toColor, openEnd: !target && link.kind === "planned", ticketId: ball.ticketId,
-        pr: pill && { ...pill, at: along(from, to, link.kind === "merged" ? PR_AT : 0.5) } });
+      const squash = link.kind === "merged" && ball.judgement.axes?.integration.mode === "squash" ? " · squash" : "";
+      const name = (row.branch || row.name).replace(/^feat\//, "");
+      links.push({ kind: link.kind, toId: link.to, from, to, fromColor: ballPoint.color, toColor: target ? target.color : row.color, openEnd: !target && link.kind === "planned", ticketId: ball.ticketId,
+        pr: pill && { ...pill, text: pill.text + squash, at: along(from, to, link.kind === "merged" ? PR_AT : 0.5) },
+        label: link.kind === "planned" ? `${ball.judgement.summary.key === "blocked" ? "blokováno · " : ""}plán → ${name}` : "" });
     }
   }
 
@@ -233,16 +275,20 @@ export function layoutBoard(board: Board, opts: { k?: number; now?: number; lane
     return row && !row.collapsed && time(m.at) !== null && xOf(m.at) >= PAD ? [{ x: xOf(m.at), y: row.y, sha7: m.sha.slice(0, 7), title: m.title, color: row.color }] : [];
   });
 
+  // Autor commitu = agent posledního pokusu; board ho zná jen z vazby worktree na ticket.
+  const agentOf = new Map(board.worktrees.flatMap((w) => (w.binding?.agent ? [[w.binding.ticketId, w.binding.agent] as const] : [])));
   const commits: LaidCommit[] = [], works: LaidWork[] = [];
   for (const ball of board.balls) {
     const from = laidById.get(ball.ticketId);
     if (!from) continue;
+    const merged = ball.judgement.summary.key === "merged";
+    const color = merged ? from.toColor : from.color;
     const timed = commitsOf(ball).filter((c) => time(c.at) !== null);
-    commits.push(...timed.map((c) => ({ x: xOf(c.at), y: from.y, ticketId: ball.ticketId, ...c })));
-    const live = timed.filter((c) => !c.abandoned);
+    commits.push(...timed.map((c) => ({ x: xOf(c.at), y: from.y, ticketId: ball.ticketId, ...c, color, mark: ball.mark, ball: ball.title, agent: agentOf.get(ball.ticketId) ?? "" })));
+    const live = liveCommits(ball);
     if (live.length) {
-      const submitted = ball.judgement.axes?.work.state === "submitted" || ball.judgement.summary.key === "merged";
-      works.push({ ticketId: ball.ticketId, x1: from.x, x2: Math.max(...live.map((c) => xOf(c.at))), y: from.y, color: from.color, wip: !submitted });
+      const submitted = ball.judgement.axes?.work.state === "submitted" || merged;
+      works.push({ ticketId: ball.ticketId, x1: from.x, x2: Math.max(...live.map((c) => xOf(c.at))), y: from.y, color, wip: !submitted });
     }
   }
 
@@ -251,5 +297,5 @@ export function layoutBoard(board: Board, opts: { k?: number; now?: number; lane
   const tags = placeTags(board, geometry);
 
   const width = Math.max(t1 > t0 ? scaleX({ t0, k }, t1) : PAD + SPAN, ...balls.map((b) => b.x), ...links.map((l) => l.to.x), ...merges.map((m) => m.x), ...tags.map((t) => t.x)) + PAD;
-  return { width, height: top, rows, balls, links, merges, commits, works, lanes, tags, ticks: t1 > t0 ? axisTicks({ t0, k }, t0, t1) : [], t0, t1, k, now: opts.now ?? null };
+  return { width, height: top, rows, balls, links, merges, commits, works, lanes, tags, labels, ticks: t1 > t0 ? axisTicks({ t0, k }, t0, t1) : [], t0, t1, k, now: opts.now ?? null };
 }

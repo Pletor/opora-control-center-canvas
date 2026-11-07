@@ -43,6 +43,7 @@ def test_board_links_and_real_merges(setup):
     assert follow["title"] == "Proč a k čemu." and kinds(follow) == ["planned"] and lone["links"] == [{"to": "main", "kind": "planned"}]  # target výchozí = baseBranch
     assert all("merged" not in kinds(ball) for ball in found["balls"])  # plán nikdy jako merged (bod 12)
     assert [m for m in found["realMerges"] if m["parents"]] == []  # špičky větví z gitu nejsou merge
+    assert all("closed" in row and row["closed"] is None for row in found["rows"])  # nic začleněno, pevné nikdy (§10.2)
 
     merge.merge(service, "draft", tid, NOW)
     found = board.board(service, "draft", "main", repo, pr_lookup=prs({"feat/uzel": {"number": 3}}))
@@ -51,6 +52,8 @@ def test_board_links_and_real_merges(setup):
     assert first["state"] == "merged" and first["mergedAt"] == NOW
     assert first["links"] == [{"to": "develop", "kind": "merged", "sha": tip}]
     assert first["counts"] == {"commits": 1, "prs": 1, "merges": 1}
+    shut = {row["branch"]: row["closed"] for row in found["rows"] if row["closed"]}
+    assert shut == {"feat/uzel": {"at": NOW, "sha": tip, "target": "develop", "by": "merge", "balls": 1}}  # §10.2
     assert [(m["target"], m["sha"]) for m in found["realMerges"] if m["parents"]] == [("develop", tip)]
     assert kinds(found["balls"][1]) == ["planned"]  # nezačleněná kulička dál jen plán
     assert first["evidence"][-1] == {"kind": "pr", "ref": "#3", "url": None, "at": None, "src": "GitHub"}

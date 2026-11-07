@@ -74,8 +74,13 @@ def unreported(work, integ=None):
         return None, True
     if merged:
         sha = integ["sha"] if integ else work["merged"].get("sha")
-        return (git(work["repository"], "rev-list", "-1", f"{sha}..{work['branch']}", timeout=TIMEOUT,
-                    optional=True) or None) if sha else None, True
+        new = (git(work["repository"], "rev-list", "-1", f"{sha}..{work['branch']}", timeout=TIMEOUT,
+                   optional=True) or None) if sha else None
+        # §10.2: commit po merge, který už v cíli leží (začlenila ho další kulička téže větve), větev znovu neotvírá
+        target = (integ or {}).get("target") or (work.get("merged") or {}).get("target") or work.get("target")
+        if new and target and any(ancestor(work["repository"], new, ref) for ref in (target, "origin/" + target)):
+            new = None
+        return new, True
     if not work.get("headSha"):
         return None, True
     # OP-020DBE.2: přijetí i kontroly se hodnotí proti špičce větve, ne proti poslednímu hlášení
