@@ -1,0 +1,272 @@
+/* Značky skutečných dat na plátně (L7c–L7f podle prototypu Linie v3): čára práce, pruhy worktree, tagy a nasazení,
+   kostky commitů, pilulky PR, „teď“, deník a žádosti srdci. Vše kreslí jen to, co board poslal; nic se nesimuluje. */
+
+/* Čára práce vede od kuličky k poslednímu commitu: plná, když je práce odevzdaná, tečkovaná, dokud se ještě pracuje. */
+.pletor-dashboard__linie-work {
+  stroke-width: 2;
+  opacity: 0.8;
+}
+.pletor-dashboard__linie-work--wip {
+  stroke-dasharray: 2 3;
+}
+
+/* Worktree agenta je pruh pod osou větve: tečkovaná odbočka dolů, čára po dobu práce, při vrácení odbočka zpět s bodem.
+   Dokud agent pracuje, čára je přerušovaná; vrácený worktree je plný. Jméno pruhu stojí vlevo ve sloupci názvů. */
+.pletor-dashboard__linie-lane {
+  stroke-width: 1.6;
+  opacity: 0.9;
+}
+.pletor-dashboard__linie-lane--wip {
+  stroke-dasharray: 5 3;
+}
+.pletor-dashboard__linie-lane-turn {
+  fill: none;
+  stroke-width: 1.2;
+  stroke-dasharray: 2 2;
+}
+.pletor-dashboard__linie-lane-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 28px;
+  overflow: hidden;
+  color: var(--pletor-dim);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Tag je svislá rýha přes osu se štítkem pod ní; nasazení má zelený štítek, aby bylo na první pohled vidět, co kde běží. */
+.pletor-dashboard__linie-tagmark {
+  stroke: var(--pletor-dim);
+  stroke-width: 1;
+}
+.pletor-dashboard__linie-taglabel {
+  position: absolute;
+  z-index: 2;
+  padding: 1px 5px;
+  border: 1px solid var(--pletor-line);
+  background: var(--pletor-bg-2);
+  color: var(--pletor-dim);
+  font: 10px var(--mono);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.pletor-dashboard__linie-taglabel--deploy {
+  border-color: var(--pletor-accent);
+  color: var(--pletor-accent);
+}
+
+/* Commit je kostka 6×10 v barvě větve; opuštěná kostka je červená s odbočkou do prázdna a ✕, zůstává v historii,
+   do cíle nejde. Sha se ukáže až při přiblížení, kdy se kostky nepřekrývají. */
+.pletor-dashboard__linie-cubeset {
+  cursor: pointer;
+}
+.pletor-dashboard__linie-cubeset .pletor-dashboard__linie-cube {
+  stroke: var(--c, var(--pletor-ink));
+}
+.pletor-dashboard__linie-cubeset--dead .pletor-dashboard__linie-cube {
+  fill: rgba(214, 96, 96, 0.25);
+  stroke: #e07070;
+}
+.pletor-dashboard__linie-cube-stub {
+  fill: none;
+  stroke: #e07070;
+  stroke-width: 1.2;
+  stroke-dasharray: 3 3;
+}
+.pletor-dashboard__linie-cube-x {
+  position: absolute;
+  color: #e07070;
+  font-size: 11px;
+  transform: translateX(-50%);
+}
+.pletor-dashboard__linie-cube-sha {
+  position: absolute;
+  color: var(--pletor-dim);
+  font: 10px var(--mono);
+  transform: translateX(-50%);
+}
+
+/* Pilulka PR sedí v 65 % oblouku začlenění: zelená potvrzená GitHubem, šedá sloučená, čárkovaný rám = poslední známý
+   stav, který zdroj teď nepotvrdil („neověřeno“). */
+.pletor-dashboard__linie-pr {
+  position: absolute;
+  z-index: 2;
+  padding: 1px 7px;
+  border: 1px solid var(--pletor-accent);
+  border-radius: 999px;
+  background: var(--pletor-bg-2);
+  color: var(--pletor-accent);
+  font: 10px var(--mono);
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+}
+.pletor-dashboard__linie-pr--merged,
+.pletor-dashboard__linie-pr--closed {
+  border-color: var(--pletor-dim);
+  color: var(--pletor-dim);
+}
+.pletor-dashboard__linie-pr--unverified {
+  border-style: dashed;
+  border-color: #f0a64a;
+  color: #f0a64a;
+}
+.pletor-dashboard__linie-pr--static {
+  position: static;
+  transform: none;
+}
+
+/* „teď“ visí nad svislicí času v hlavičce; přepínač „Sledovat živě“ má tečku, která svítí jen když posun běží. */
+.pletor-dashboard__linie-nowtag {
+  position: absolute;
+  top: 2px;
+  z-index: 3;
+  color: var(--pletor-accent);
+  font: 10px var(--mono);
+  transform: translateX(-50%);
+}
+.pletor-dashboard__linie-follow-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--pletor-dim);
+}
+.pletor-dashboard__linie-follow[aria-pressed="true"] .pletor-dashboard__linie-follow-dot {
+  background: var(--pletor-accent);
+  box-shadow: 0 0 6px var(--pletor-accent);
+}
+
+/* Řádek plátna 2 v pohledu podle plánu je nadpis skupiny, bez kuliček na vlastní ose. */
+.pletor-dashboard__linie-row--header .pletor-dashboard__linie-row-name {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Drobek detailu: směr › plán › značka, aby člověk viděl, kde v pyramidě kulička stojí. Rozdíl revizí svítí oranžově. */
+.pletor-dashboard__linie-detail-crumb {
+  margin: 0;
+  color: var(--pletor-dim);
+  font-size: 11.5px;
+}
+.pletor-dashboard__linie-plan-diff {
+  margin: 0;
+  color: #f0a64a;
+}
+.pletor-dashboard__linie-kv--dead {
+  color: var(--pletor-dim);
+  text-decoration: line-through;
+}
+.pletor-dashboard__linie-criteria {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* Žádost srdci: text a id na jednom řádku, pod ním řetězec kroků přijata · plán · ticket · pokus · commit;
+   splněný krok zelený, selhání červené, zbytek šedý čeká, dokud služba nepotvrdí. */
+.pletor-dashboard__linie-request {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--pletor-line);
+}
+.pletor-dashboard__linie-request-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+.pletor-dashboard__linie-request-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pletor-dashboard__linie-chain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pletor-dashboard__linie-step {
+  padding: 0 6px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 999px;
+  color: var(--pletor-dim);
+  font-size: 10.5px;
+}
+.pletor-dashboard__linie-step--ok {
+  border-color: var(--pletor-accent);
+  color: var(--pletor-accent);
+}
+.pletor-dashboard__linie-step--fail {
+  border-color: #e07070;
+  color: #e07070;
+}
+
+/* Deník dole: sbalený pruh s počtem záznamů a odznakem nových; rozbalený ukazuje řádky čas · druh · kdo · text,
+   nové od posledního rozbalení zvýrazněné, selhání červeně. Klik na řádek označí kuličku. */
+.pletor-dashboard__linie-journal {
+  border: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__linie-journal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--pletor-dim);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.pletor-dashboard__linie-journal-head > :first-child {
+  color: var(--pletor-ink);
+}
+.pletor-dashboard__linie-journal-badge {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--pletor-accent);
+  color: var(--pletor-bg);
+  font-size: 10.5px;
+}
+.pletor-dashboard__linie-journal-toggle {
+  margin-left: auto;
+  color: var(--pletor-accent);
+}
+.pletor-dashboard__linie-journal-body {
+  max-height: 240px;
+  overflow: auto;
+  border-top: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__linie-journal-row {
+  display: grid;
+  grid-template-columns: 44px 120px 110px 1fr;
+  gap: 10px;
+  padding: 3px 12px;
+  font-size: 12px;
+}
+.pletor-dashboard__linie-journal-row[role="button"] {
+  cursor: pointer;
+}
+.pletor-dashboard__linie-journal-row[role="button"]:hover {
+  background: var(--pletor-accent-soft);
+}
+.pletor-dashboard__linie-journal-row--new {
+  background: rgba(61, 255, 143, 0.06);
+}
+.pletor-dashboard__linie-journal-time,
+.pletor-dashboard__linie-journal-who {
+  color: var(--pletor-dim);
+  font-family: var(--mono);
+}
+.pletor-dashboard__linie-journal-kind {
+  color: var(--pletor-accent);
+}
+.pletor-dashboard__linie-journal-kind--failed {
+  color: #e07070;
+}

@@ -18,7 +18,7 @@ def test_commit_with_ticket_and_without(setup, tmp_path):  # noqa: F811
     ticket = found["ticket"]
     assert ticket["ticketId"] == tid and ticket["state"] == "open" and ticket["body"]["essence"] == "Proč a k čemu."
     assert ticket["card"] is None and ticket["office"] is None and ticket["plan"] == []
-    assert found["sentence"].startswith(f"Commit {sha[:7]} na feat/uzel: přidán u.txt. Plán: Proč a k čemu. (karta bez karty")
+    assert found["sentence"].startswith(f"Commit {sha[:7]} na feat/uzel: přidán u.txt. Plán: Proč a k čemu. (bez plánu")
 
     base = run(repo, "rev-parse", "develop")  # výchozí commit větve není prací ticketu
     found = commit_mod.detail(service, "draft", "main", repo, base, tmp_path, pr_lookup=lambda root: {"feat/uzel": {"number": 3, "state": "OPEN", "url": "u"}})

@@ -1,4 +1,4 @@
-import { shade } from "./linie-board";
+import { branchColor } from "./linie-color";
 import { shortSha, type LinieLane } from "./linie-view";
 
 /**
@@ -24,9 +24,8 @@ const TITLE_MAX = 20;
 export const textWidth = (text: string) => Math.ceil(text.length * 6.6);
 export const badgeWidth = (text: string) => textWidth(text) + 16;
 
-const COLORS: Record<string, string> = { main: "#4ade80", develop: "#60a5fa", experiment: "#a39cc4", items: "#c084fc" };
-/** Feat kořen plnou `#c2255c`, zanořené děti průhlednější (stejné pravidlo jako editor, `shade` v linie-board). */
-export const laneColor = (role: string, depth = 2) => (role === "feat" ? shade("#c2255c", depth) : COLORS[role] ?? "#fb923c");
+/** Barva linie stejným pravidlem jako editor (`branchColor`): kořen feat vlastní odstín, děti ho dědí. */
+export const laneColor = (lane: { name: string }, lanes: { name: string; role: string; parent: string }[]) => branchColor(lane.name, lanes);
 
 export function laneSubtitle(lane: { name: string; role: string }): string {
   if (lane.role === "main") return "Stabilní přijaté vydání";
@@ -55,7 +54,7 @@ export function layoutGraph(lanes: LinieLane[]): GraphLayout {
     const own = dots.filter((dot) => dot.lane === lane.name);
     const full = lane.role === "main" || lane.role === "develop" || !own.length;
     return {
-      name: lane.name, role: lane.role, y: yOf(lane.name), color: laneColor(lane.role, lane.depth), label: laneSubtitle(lane),
+      name: lane.name, role: lane.role, y: yOf(lane.name), color: laneColor(lane, lanes), label: laneSubtitle(lane),
       x1: full ? HEAD : own[0].x, x2: full ? right - 16 : own[own.length - 1].x,
     };
   });
@@ -66,14 +65,13 @@ export function layoutGraph(lanes: LinieLane[]): GraphLayout {
     if (!lane.parent || !order.has(lane.parent) || !first) continue;
     const base = bySha.get(lane.base);
     const from = base && base.lane === lane.parent ? { x: base.x, y: base.y } : { x: HEAD, y: yOf(lane.parent) };
-    links.push({ from, to: { x: first.x, y: first.y }, kind: "fork", color: laneColor(lane.role, lane.depth) });
+    links.push({ from, to: { x: first.x, y: first.y }, kind: "fork", color: laneColor(lane, lanes) });
   }
   for (const { commit, lane } of columns) {
     const source = bySha.get(commit.parents[1] ?? "");
     const target = bySha.get(commit.sha)!;
     if (!source || source.lane === lane.name) continue;
-    const sourceLane = lanes[order.get(source.lane)!];
-    links.push({ from: { x: source.x, y: source.y }, to: { x: target.x, y: target.y }, kind: "merge", color: laneColor(sourceLane.role, sourceLane.depth) });
+    links.push({ from: { x: source.x, y: source.y }, to: { x: target.x, y: target.y }, kind: "merge", color: laneColor({ name: source.lane }, lanes) });
   }
 
   // Štítky sedí na linii za špičkou větve, vedle sebe; za špičkou už žádný commit té větve není.

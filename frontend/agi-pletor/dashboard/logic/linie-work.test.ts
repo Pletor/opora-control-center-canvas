@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptanceSentence, failureText, previewSentence, workActions, workDetail } from "./linie-work";
+import { acceptanceSentence, failureText, previewSentence, workDetail } from "./linie-work";
 
 const raw = {
   ticketId: "tk_1", status: "issued", state: "accepted_unmerged", stateLabel: "hotovo, ještě nezačleněno", next: "allow-merge",
@@ -21,11 +21,6 @@ describe("workDetail", () => {
     expect(previewSentence(d)).toBe("náhled zobrazuje ooooooo, hlava je hhhhhhh – náhled není z hlavy");
     expect(previewSentence({ ...d, preview: null })).toBe("náhled této revize není dostupný");
     expect(acceptanceSentence(d)).toBe("přijato hhhhhhh (platí pro hlavu) · ok");
-  });
-  it("tlačítka podle stavu: přijato → povolit, ne znovu přijmout; nasazení jen po merge do main", () => {
-    const d = workDetail(raw);
-    expect(workActions(d, "main")).toEqual({ preview: true, accept: false, revoke: true, allow: true, merge: false, deploy: false });
-    expect(workActions({ ...d, merged: { sha: "m", target: "main", at: "" } }, "main")).toMatchObject({ deploy: true, merge: false, accept: false });
   });
   it("409 ukáže message z těla", () => {
     expect(failureText(Object.assign(new Error("head_moved"), { body: { message: "Hlava se posunula." } }))).toBe("Hlava se posunula.");
