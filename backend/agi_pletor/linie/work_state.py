@@ -7,6 +7,7 @@ from backend.agi_pletor.linie.evaluate import evaluate
 
 LEGACY = {"blocked": "blocked", "merged": "merged", "deferred": "deferred", "todo": "open", "wip": "open",
           "failed": "awaiting_checks", "nocheck": "awaiting_checks", "checking": "awaiting_checks", "stale": "stale",
+          "stale_plan": "stale",
           "pending": "open", "accepted": "accepted_unmerged"}
 
 

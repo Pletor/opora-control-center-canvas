@@ -11,6 +11,10 @@ Každé odmítnutí je `WorkError` (kód, HTTP stav, česká zpráva) – podtř
 Data mimo ticket (L7 §5a) skládá `facts`: osa `integration` z merge logu (bez záznamu git / GitHub s `mode: None`),
 nasazení z událostí prostředí, živá relace = `run` s worktree a heartbeat mladším než 10 min. `abandon` jen zapíše
 rozhodnutí do `work.abandoned[]`; HEAD, git ani osy nemění.
+
+L7d (§7 bod 4, `plan_link.py`): `create` / `attach` zmrazí `work.issued = {cardId, cardRevision, at}` (revizi čte
+server), `accept` uloží dvojici `(sha, cardRevision)`, smaže povolení začlenění a staré přijetí přesune do
+`work.acceptanceHistory[]`; `view` nese `plan = {state, planCardId, directionCardId, cardRevision, issued, text, diff}`.
 """
 import os
 import re
@@ -18,7 +22,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
-from backend.agi_pletor.linie import deploy, evaluate, merge_log, rows, tree, work_state
+from backend.agi_pletor.linie import deploy, evaluate, merge_log, plan_link, rows, tree, work_state
 from backend.brain_opora.determinism import gate, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.ticket_model import body_payload
@@ -107,8 +111,9 @@ def deployed(work, integ, events):
             if sha and (e["sha"] == sha or ancestor(root, sha, e["sha"]))}
 
 
-def facts(service, project, ticket, pr=None, log=None, events=None):
-    """Data kuličky mimo ticket (merge log, nasazení, živost relace); board předá log a události přečtené jednou."""
+def facts(service, project, ticket, pr=None, log=None, events=None, graph=None):
+    """Data kuličky mimo ticket (merge log, nasazení, živost relace, vazba na plán); board předá log, události a graf
+    prostoru přečtené jednou."""
     work = ticket.get("work")
     if not work:
         return {}
@@ -116,7 +121,8 @@ def facts(service, project, ticket, pr=None, log=None, events=None):
     events = deploy.read(service.root, project) if events is None else events
     integ = integration(work, log, ticket["ticketId"], pr)
     return {"integration": integ, "deploy": deployed(work, integ, events),
-            "live": any(live(run) for run in work.get("runs") or [])}
+            "live": any(live(run) for run in work.get("runs") or []),
+            "plan": plan_link.resolve(service, project, ticket, graph)}
 
 
 def view(ticket, sources=None, pr=None, facts=None):
@@ -125,7 +131,9 @@ def view(ticket, sources=None, pr=None, facts=None):
     work, facts = ticket.get("work") or {}, facts or {}
     integ = facts.get("integration")
     after = after_merge(work, integ) if work else None
-    found = evaluate.evaluate(work, after, facts.get("live", False), integ, facts.get("deploy"))
+    plan = facts.get("plan")
+    found = evaluate.evaluate(work, after, facts.get("live", False), integ, facts.get("deploy"),
+                              (plan or {}).get("cardRevision"))
     shipped = [{"kind": "deploy", "ref": f"{env}@{e['sha'][:7]}", "at": e["at"],
                 "src": "událost prostředí" if e["origin"] == "environment" else "hlášeno člověkem"}
                for env, e in (facts.get("deploy") or {}).items()]
@@ -133,7 +141,8 @@ def view(ticket, sources=None, pr=None, facts=None):
             "axes": found["axes"], "summary": {key: found[key] for key in ("key", "text", "reason", "next")},
             "allowed": found["allowed"], "blocked": found["blocked"],
             "incomplete": incomplete(sources or local_sources(tokens.stamp())),
-            "evidence": evaluate.evidence(work, after, pr, integ) + shipped}
+            "evidence": evaluate.evidence(work, after, pr, integ) + shipped,
+            "plan": {**plan, "diff": plan_link.diff(plan)} if plan else None}
 
 
 def present(service, project, ticket, pr=None):
@@ -229,6 +238,7 @@ def create(service, project, workspace, body, work_in, now, *, root=None):
         raise WorkError("workspace_not_found", 404, "Pracovní prostor v projektu neexistuje.", "Použijte main.")
     new_id = "tk_" + uuid.uuid4().hex
     work = _new_work(service, project, root or REPO_ROOT, work_in, new_id, auto_row=True)
+    work["issued"] = {"cardId": None, "cardRevision": None, "at": now}  # editor vydává bez karty plánu
     with store_for(service, project) as store:
         store.insert(new_id, workspace, "issued", worker_body, {"pins": []}, now)
         store.set_work(new_id, work, now)
@@ -236,11 +246,13 @@ def create(service, project, workspace, body, work_in, now, *, root=None):
 
 
 def attach(service, project, ticket_id, work_in, now, *, root=None):
+    """`work` existujícímu ticketu se zmrazenou referencí `issued` na kartu (revizi čte server, L7d)."""
     work = _new_work(service, project, root or REPO_ROOT, work_in, ticket_id)
     with store_for(service, project) as store:
-        if _ticket(store, ticket_id, need_work=False).get("work"):
+        ticket = _ticket(store, ticket_id, need_work=False)
+        if ticket.get("work"):
             raise WorkError("work_exists", 409, "Ticket už práci Linie má.")
-        store.set_work(ticket_id, work, now)
+        store.set_work(ticket_id, {**work, "issued": plan_link.issue(service, project, ticket, now)}, now)
         return present(service, project, store.get(ticket_id))
 
 
@@ -316,16 +328,26 @@ def accept(service, project, ticket_id, sha, note, now):
         if not head or not isinstance(sha, str) or len(sha) < 7 or not head.startswith(sha.lower()):
             raise WorkError("head_moved", 409, f"Revize {sha} není aktuální hlava {(head or 'žádná')[:7]}.",
                             "Načtěte kuličku znovu a přijměte aktuální headSha.")
-        require(present(service, project, ticket), "accept")  # jen ověřenou revizi (checks.passed pro HEAD, L7 §8)
-        return {**work, "acceptance": {"sha": head, "revision": ticket["machine"]["cardVersion"], "by": "human",
-                                       "at": now, "note": note or ""}}
+        shown = present(service, project, ticket)
+        require(shown, "accept")  # jen ověřenou revizi (checks.passed pro HEAD, L7 §8)
+        # OP-8A69A3.accept: přijetí platí pro dvojici (sha, cardRevision); revize je táž, kterou ověřil require
+        card = (shown["plan"] or {}).get("cardRevision")
+        return {**_archived(work), "mergeAllowed": None,
+                "acceptance": {"sha": head, "cardRevision": card, "revision": ticket["machine"]["cardVersion"],
+                               "by": "human", "at": now, "note": note or ""}}
     return _change(service, project, ticket_id, now, change)
+
+
+def _archived(work):
+    """Dosavadní přijetí zůstává historickým záznamem v `work.acceptanceHistory[]`."""
+    old = work.get("acceptance")
+    return {**work, "acceptanceHistory": (work.get("acceptanceHistory") or []) + ([old] if old else [])}
 
 
 def revoke_accept(service, project, ticket_id, now):
     def change(ticket):
         require(present(service, project, ticket), "revoke_accept")  # jen platné přijetí HEAD před začleněním
-        return {**ticket["work"], "acceptance": None, "mergeAllowed": None}
+        return {**_archived(ticket["work"]), "acceptance": None, "mergeAllowed": None}
     return _change(service, project, ticket_id, now, change)
 
 

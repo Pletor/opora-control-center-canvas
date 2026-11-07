@@ -128,6 +128,16 @@ def test_linie_board_snapshot_summary_and_accept_on_nocheck(tmp_path, repo):
         assert "accept" in ball["blocked"] and ball["allowed"] == ["preview", "defer", "block"]
         assert "deploy" not in ball["incomplete"]
         assert [item["kind"] for item in ball["evidence"]] == ["commit"]
+        assert ball["queues"] == ["officeTasks"] and board["queues"]["officeTasks"] == 1
+        assert board["queues"]["plansWaiting"] is None  # graf draft/main nejde přečíst = nevím, ne 0
+        assert detail["plan"]["state"] == "none" and detail["plan"]["diff"] is False
+        snap = board["snapshot"]["id"]
+        by_plan = client.get(f"{BASE}/board", headers=HEADERS, params={**q, "group": "plan", "snapshot": snap}).json()
+        assert by_plan["snapshot"]["id"] == snap and [b["ticketId"] for b in by_plan["balls"]] == [tid]
+        assert by_plan["balls"][0]["rowId"] == "plan:none" and by_plan["rows"][0]["name"] == "bez plánu"
+        gone = client.get(f"{BASE}/board", headers=HEADERS, params={**q, "group": "plan", "snapshot": "snap_nic"})
+        assert gone.status_code == 404 and gone.json()["code"] == "snapshot_not_found"
+        assert client.get(f"{BASE}/board", headers=HEADERS, params={**q, "group": "x"}).status_code == 422
 
 
 def test_linie_work_derives_parent_and_refuses_wrong_one(tmp_path, repo):
