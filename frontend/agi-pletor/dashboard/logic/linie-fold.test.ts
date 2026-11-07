@@ -59,6 +59,14 @@ describe("focusRows a shownBoard", () => {
   });
 });
 
+describe("pohled podle plánu", () => {
+  it("sbalení směru schová plány pod ním (rodič je id řádku, ne větev)", () => {
+    const plan = boardView({ rows: [{ id: "dir:d1", type: "dir", name: "Velín" }, { id: "plan:p1", type: "plan", name: "Linie", parent: "dir:d1" }, { id: "plan:none", type: "plan", name: "bez plánu" }] });
+    expect(ids(descendants(plan.rows[0], plan.rows))).toEqual(["plan:p1"]);
+    expect(ids(visibleRows(plan.rows, new Set(["dir:d1"])))).toEqual(["dir:d1", "plan:none"]);
+  });
+});
+
 describe("readFolded", () => {
   it("čte pole id, chybná hodnota je prázdná množina", () => {
     expect([...readFolded({ getItem: () => '["velin", 3]' })]).toEqual(["velin"]);
