@@ -7,13 +7,13 @@ import { list, rec, str } from "./view-common";
  * Pořadí, větu „začlení X do Y, pak bude na řadě Z“ i jedinou akci řádku počítá služba (`queues.human[]` boardu);
  * prohlížeč nic nepřeskládává, jen čte, skládá text ověření a trasu akce. Každé kliknutí nese nové `op`.
  */
-export type HumanAction = { kind: "accept_merge" | "unblock"; label: string };
+export type HumanAction = { kind: "accept_merge"; label: string };
 export type HumanRow = {
   ticketId: string; mark: string; title: string; branch: string; target: string; sha: string; order: number;
   state: string; next: string; sentence: string; checks: { state: string; sha: string }; preview: boolean | null; action: HumanAction | null;
 };
 
-const KINDS = ["accept_merge", "unblock"];
+const KINDS = ["accept_merge"];
 const short = (sha: string) => sha.slice(0, 7);
 
 /** `queues.human[]` ze syrového boardu; řádek bez `ticketId` nebo s neznámou akcí se zahodí / zůstane bez tlačítka. */
@@ -41,7 +41,6 @@ export function verified(row: HumanRow): string {
 export function humanRequest(row: HumanRow, op: string): ActionRequest | null {
   const path = `/work/${encodeURIComponent(row.ticketId)}`;
   if (row.action?.kind === "accept_merge") return { path: `${path}/accept-merge`, body: { sha: row.sha, op }, method: "POST", done: `Začleněno ${row.branch} do ${row.target}.` };
-  if (row.action?.kind === "unblock") return { path: `${path}/unblock`, body: {}, method: "POST", done: "Odblokováno." };
   return null;
 }
 

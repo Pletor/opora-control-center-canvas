@@ -306,10 +306,11 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
         for link in ball["links"]:
             if link["kind"] != "follows":
                 link["to"] = row_of.get(link["to"], link["to"])
+    human = human_queue.order(balls, rows)
     result = {"rows": rows, "balls": balls, "mapping": found["mapping"], "group": "branch",
               "realMerges": real_merges(root) + tips, "tags": tags(root), "worktrees": worktrees(root, tickets),
               "deploy": {"envs": deploy.latest(shipped)},
-              "queues": {**plan_view.queues(balls, graph, carded), "human": human_queue.order(balls, rows)},
+              "queues": {**plan_view.queues(balls, graph, carded), "humanDecisions": len(human), "human": human},  # jeden zdroj pravdy
               "snapshot": {"id": "snap_" + uuid.uuid4().hex[:12], "builtAt": tokens.stamp(), "sources": sources}}
     plan_view.remember(project, workspace, result, graph)
     return result
