@@ -172,19 +172,28 @@
 .pletor-dashboard__linie-icon:focus-visible {
   color: var(--pletor-accent);
 }
+/* Jméno řádku je vždy čitelné podle konce: tučný poslední segment („osy“, „fronta“) má pevné místo vpravo, ztlumený
+   prefix před ním se krátí zleva výpustkou, takže dlouhá větev nikdy nesežere to, podle čeho se řádky rozeznávají. */
 .pletor-dashboard__linie-row-name {
+  display: flex;
   flex: 1;
   min-width: 0;
   overflow: hidden;
   font-size: 13.5px;
   font-weight: 600;
   white-space: nowrap;
-  text-overflow: ellipsis;
 }
-/* Ztlumený prefix větve („feat/velin-linie-“) před tučným posledním segmentem: sloupec názvů se čte podle konců, ne podle stejných začátků. */
 .pletor-dashboard__linie-row-prefix {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl; /* výpustka vlevo; vnitřní bdi drží pořadí znaků i s koncovým „-“ */
   color: var(--pletor-dim);
   font-weight: 400;
+}
+.pletor-dashboard__linie-row-last {
+  flex: none;
 }
 .pletor-dashboard__linie-rename {
   flex: 1;

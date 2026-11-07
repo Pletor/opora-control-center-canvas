@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { labelOffsets, labelWidth, placeLabels, type LabelBall } from "./linie-labels";
+import { labelAnchor, labelOffsets, labelWidth, placeLabels, type LabelBall } from "./linie-labels";
 
 const b = (ticketId: string, x: number, rowId = "r"): LabelBall => ({ ticketId, rowId, x, label: "Linie L6: barvy", stateLabel: "čeká na přijetí" });
 const w = labelWidth(b("a", 0));
@@ -30,5 +30,16 @@ describe("kolize popisků", () => {
   it("druhé patro nese jen název, první název i stav", () => {
     expect(labelOffsets({ side: 1, tier: 1 })).toEqual({ name: 23, state: 36 });
     expect(labelOffsets({ side: -1, tier: 2 }).state).toBeNull();
+  });
+});
+
+describe("popisek u okraje plátna", () => {
+  const ball = b("a", 0), width = 1000, half = w / 2;
+  const left = (x: number) => ({ start: x, middle: x - half, end: x - w }[labelAnchor(x, ball, width)]);
+  const right = (x: number) => ({ start: x + w, middle: x + half, end: x }[labelAnchor(x, ball, width)]);
+  it("u x=0 má levý okraj ≥ 0, u pravého okraje pravý ≤ šířka, uprostřed je střed", () => {
+    expect(left(0)).toBeGreaterThanOrEqual(0);
+    expect(right(width)).toBeLessThanOrEqual(width);
+    expect(labelAnchor(500, ball, width)).toBe("middle");
   });
 });
