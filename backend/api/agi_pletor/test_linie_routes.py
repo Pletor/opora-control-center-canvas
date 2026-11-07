@@ -121,7 +121,7 @@ def test_linie_board_snapshot_summary_and_accept_on_nocheck(tmp_path, repo):
         assert set(board["snapshot"]["sources"]) == {"git", "prs", "checks", "sessions", "deploy"}
         assert board["snapshot"]["id"].startswith("snap_") and board["snapshot"]["builtAt"]
         assert ball["summary"]["key"] == "nocheck" and ball["state"] == "awaiting_checks"
-        assert "accept" in ball["blocked"] and ball["allowed"] == ["block", "unblock"] and "deploy" in ball["incomplete"]
+        assert "accept" in ball["blocked"] and ball["allowed"] == ["block", "unblock"] and "deploy" not in ball["incomplete"]
         assert [item["kind"] for item in ball["evidence"]] == ["commit"]
 
 
@@ -200,7 +200,9 @@ def test_linie_deploy_origin_and_permission(tmp_path, repo):
         board = client.get(f"{BASE}/board", headers=HEADERS, params={**q, "workspace": "main"}).json()
         assert board["deploy"]["envs"]["preview"] == {"sha": head, "at": machine.json()["at"], "origin": "environment",
                                                       "by": "agent:deploy"}
-        assert board["snapshot"]["sources"]["deploy"] == {"verifiedAt": machine.json()["at"], "ok": True}
+        # verifiedAt = přečtení záznamu při sestavení (čerstvé), stáří události je v envs[env].at
+        read = board["snapshot"]["sources"]["deploy"]
+        assert read["ok"] is True and read["verifiedAt"] >= machine.json()["at"]
 
 
 def test_linie_merge_op_abandon_and_run_worktree(tmp_path, repo):

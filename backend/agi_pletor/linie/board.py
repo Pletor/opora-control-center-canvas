@@ -254,8 +254,8 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
     """`{rows, balls, mapping, realMerges, tags, worktrees, deploy, snapshot}` pro editor; kuličky v pořadí vzniku.
 
     `snapshot.sources.<zdroj>.verifiedAt` je čas skutečného čtení zdroje v tomto sestavení (PR z cache = čas
-    posledního úspěšného čtení, `deploy` = čas poslední události prostředí), ne čas požadavku; `builtAt` je čas
-    sestavení (L7 §4).
+    posledního úspěšného čtení, `deploy` = přečtení záznamu událostí; stáří události je v `envs[env].at`), ne čas
+    požadavku; `builtAt` je čas sestavení (L7 §4).
     """
     found = rows_mod.read(service.root, project)
     with service.reading(project):
@@ -265,10 +265,11 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
     git_at = tokens.stamp()
     prs, pr_source = _prs(service.root, root, pr_lookup)
     log, events = merge_log.read(service.root, project), deploy.read(service.root, project)
+    deploy_at = tokens.stamp()  # čas přečtení záznamu událostí; stáří události nese axes.deploy.envs[env].at
     shipped = [e for e in events if _norm(e.get("repo") or "") == _norm(str(root))]
     sources = {"git": {"verifiedAt": git_at, "ok": bool(heads)}, "prs": pr_source,
                "checks": {"verifiedAt": db_at, "ok": True}, "sessions": {"verifiedAt": db_at, "ok": True},
-               "deploy": {"verifiedAt": shipped[-1]["at"] if shipped else None, "ok": bool(shipped)}}
+               "deploy": {"verifiedAt": deploy_at, "ok": True}}
     by_mark = {t["work"].get("mark"): t["ticketId"] for t in tickets if t["work"].get("mark")}
     balls = [_ball(service, project, ticket, found["rows"], prs, sources, log, events, by_mark) for ticket in tickets]
     _follows(tickets, balls)

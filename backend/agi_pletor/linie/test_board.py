@@ -36,7 +36,7 @@ def test_board_links_and_real_merges(setup):
     first, follow, lone = found["balls"]
     assert first["ticketId"] == tid and first["title"] == "Uzel" and first["state"] == "accepted_unmerged"
     assert first["summary"]["key"] == "accepted" and first["allowed"][0] == "merge" and first["block"] is None
-    assert found["snapshot"]["sources"]["prs"]["ok"] is True and first["incomplete"] == ["deploy"]
+    assert found["snapshot"]["sources"]["prs"]["ok"] is True and first["incomplete"] == []
     assert first["links"] == [{"to": "develop", "kind": "planned"}]  # druhá větev má vlastní řádek, bez follows
     assert follow["rowId"] != first["rowId"] and follow["ticketId"] == second
     assert first["counts"] == {"commits": 1, "prs": 0, "merges": 0} and first["mergedAt"] is None  # bez PR = 0, ne neznámo
@@ -98,7 +98,8 @@ def test_board_tags_worktrees_and_deploy_are_separate(setup, tmp_path):
     assert (by_name["v1"]["sha"], by_name["v1"]["annotated"]) == (head, True) and by_name["v1"]["at"]
     assert "row" not in by_name["v1"]
     assert found["deploy"] == {"envs": {}} and found["balls"][0]["axes"]["deploy"]["envs"] == {}
-    assert found["snapshot"]["sources"]["deploy"] == {"verifiedAt": None, "ok": False}
+    read = found["snapshot"]["sources"]["deploy"]  # záznam přečten teď, i když v něm nic není
+    assert read["ok"] is True and read["verifiedAt"] and "deploy" not in found["balls"][0]["incomplete"]
     spare = next(w for w in found["worktrees"] if w["path"].endswith("volny"))
     assert spare["binding"] is None and spare["sha"] == run(repo, "rev-parse", "develop") and spare["branch"] is None
     main = next(w for w in found["worktrees"] if w["branch"] == "main")

@@ -53,7 +53,7 @@ def test_create_does_not_make_branch(setup):
     service, repo, tid = setup
     found = work.get(service, "draft", tid)
     assert found["status"] == "issued" and found["state"] == "open" and found["stateLabel"] == "nezačato"
-    assert found["summary"]["key"] == "todo" and found["incomplete"] == ["prs", "deploy"]
+    assert found["summary"]["key"] == "todo" and found["incomplete"] == ["prs"]
     assert found["work"]["baseSha"] == run(repo, "rev-parse", "develop") and found["work"]["headSha"] is None
     assert run(repo, "branch", "--list", "feat/uzel") == ""
     assert refused(lambda: work.create(service, "draft", "main", BODY, {"rowId": "row_nic", "branch": "feat/x",

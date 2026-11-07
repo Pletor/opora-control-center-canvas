@@ -57,12 +57,11 @@ def after_merge(work, integ=None):
     return git(work["repository"], "rev-list", "-1", f"{sha}..{work['branch']}", timeout=TIMEOUT, optional=True) or None
 
 
-def local_sources(at, deploy_at=None):
-    """Zdroje jednoho ticketu čtené v `at` (DB a git teď); PR se tu nečtou, nasazení = čas poslední události."""
+def local_sources(at):
+    """Zdroje jednoho ticketu čtené v `at` (DB, git a záznam nasazení teď); PR se tu nečtou."""
     # shortcut: git = čas sestavení (headSha ověřil report, after_merge se čte teď); vlastní čas čtení gitu až s L7 §7.3.
     read = {"verifiedAt": at, "ok": True}
-    return {"git": read, "checks": read, "sessions": read, "prs": {"verifiedAt": None, "ok": False},
-            "deploy": {"verifiedAt": deploy_at, "ok": bool(deploy_at)}}
+    return {"git": read, "checks": read, "sessions": read, "prs": {"verifiedAt": None, "ok": False}, "deploy": read}
 
 
 def _age(at, moment):
@@ -117,7 +116,7 @@ def facts(service, project, ticket, pr=None, log=None, events=None):
     events = deploy.read(service.root, project) if events is None else events
     integ = integration(work, log, ticket["ticketId"], pr)
     return {"integration": integ, "deploy": deployed(work, integ, events),
-            "live": any(live(run) for run in work.get("runs") or []), "deployAt": events[-1]["at"] if events else None}
+            "live": any(live(run) for run in work.get("runs") or [])}
 
 
 def view(ticket, sources=None, pr=None, facts=None):
@@ -133,7 +132,7 @@ def view(ticket, sources=None, pr=None, facts=None):
     return {**ticket, "state": work_state.LEGACY[found["key"]], "stateLabel": found["text"], "next": found["next"],
             "axes": found["axes"], "summary": {key: found[key] for key in ("key", "text", "reason", "next")},
             "allowed": found["allowed"], "blocked": found["blocked"],
-            "incomplete": incomplete(sources or local_sources(tokens.stamp(), facts.get("deployAt"))),
+            "incomplete": incomplete(sources or local_sources(tokens.stamp())),
             "evidence": evaluate.evidence(work, after, pr, integ) + shipped}
 
 
