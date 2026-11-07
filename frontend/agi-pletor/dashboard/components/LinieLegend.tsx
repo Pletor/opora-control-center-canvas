@@ -2,8 +2,9 @@ import { legend, type Board } from "../logic/linie-board";
 import LinieBall from "./LinieBall";
 
 const GREY = "#6b8f7a";
+const ERR = "#e07070";
 
-/** Legenda pod editorem: každá výplň s textem a počtem, puntík cíle, pak tři druhy spojnic. */
+/** Legenda pod editorem: každá výplň s textem a počtem, puntík cíle, druhy spojnic, pilulky PR, nasazení, opuštěná práce a worktree. */
 export default function LinieLegend({ board }: { board: Board }) {
   return (
     <footer className="pletor-dashboard__linie-legend" aria-label="Legenda">
@@ -29,6 +30,13 @@ export default function LinieLegend({ board }: { board: Board }) {
       <span className="pletor-dashboard__linie-legend-item">
         <svg width={34} height={10} aria-hidden="true"><line x1={0} y1={5} x2={28} y2={5} stroke="#cfe3d6" strokeWidth={2.6} /><circle cx={29} cy={5} r={4} fill="#cfe3d6" /></svg>skutečný merge
       </span>
+      <span className="pletor-dashboard__linie-legend-item"><span className="pletor-dashboard__linie-pr pletor-dashboard__linie-pr--open pletor-dashboard__linie-pr--static">PR #350 · otevřen</span>potvrzeno GitHubem</span>
+      <span className="pletor-dashboard__linie-legend-item"><span className="pletor-dashboard__linie-pr pletor-dashboard__linie-pr--unverified pletor-dashboard__linie-pr--static">PR · neověřeno</span>zdroj nedostupný</span>
+      <span className="pletor-dashboard__linie-legend-item"><span className="pletor-dashboard__linie-taglabel pletor-dashboard__linie-taglabel--deploy pletor-dashboard__linie-pr--static">prod@d8da63b</span>nasazení potvrzené prostředím</span>
+      <span className="pletor-dashboard__linie-legend-item">
+        <svg width={30} height={16} aria-hidden="true"><rect x={4} y={3} width={6} height={10} rx={1} fill="rgba(214,96,96,.25)" stroke={ERR} strokeWidth={1.5} /><path d="M10 8 L22 2" stroke={ERR} strokeDasharray="3 3" fill="none" /></svg>opuštěná práce
+      </span>
+      <span className="pletor-dashboard__linie-legend-item">⌂ worktree · agent od–do</span>
     </footer>
   );
 }

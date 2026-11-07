@@ -11,6 +11,7 @@ export const manualRow = (row: BoardRow) => !row.fixed && !row.git && !row.auto;
 
 /** Je `row` pod `above`? Hlavička Items (bez větve) vlastní větve items/* a sama visí pod develop. */
 function under(row: BoardRow, above: BoardRow, byBranch: Map<string, BoardRow>): boolean {
+  if (row.parent && row.parent === above.id) return true; // pohled podle plánu: `parent` je id řádku směru
   if (!above.branch) return above.type === "items" && row.branch.startsWith("items/");
   const start = row.parent || (row.type === "items" && !row.branch ? "develop" : "");
   for (let up = start, steps = 0; up && steps < 20; up = byBranch.get(up)?.parent ?? "", steps += 1) if (up === above.branch) return true;
