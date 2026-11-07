@@ -58,3 +58,10 @@ def test_cascade_three_levels_bottom_up():
     assert [found[b]["target"] for b in ("feat/a", "feat/a-b", "feat/a-b-c")] == ["develop", "feat/a", "feat/a-b"]
     balls.append(ball("N", "feat/a-b-c", state="todo"))  # nová kulička na nejnižší větvi otevře celou kaskádu
     assert all(closed_rows(ROWS, balls, [], every)[b] is None for b in ("feat/a", "feat/a-b", "feat/a-b-c"))
+
+
+def test_blocked_ball_does_not_keep_row_open():
+    balls = [ball("X", "feat/a-b-c"), ball("B", "feat/a-b-c", state="blocked")]
+    found = closed_rows(ROWS, balls, [], in_target("feat/a-b-c"))
+    assert found["feat/a-b-c"]["balls"] == 1
+    assert closed_rows(ROWS, balls[1:], [], in_target("feat/a-b-c"))["feat/a-b-c"] is None  # jen blokovaná = nic
