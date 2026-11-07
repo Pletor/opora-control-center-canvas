@@ -20,7 +20,10 @@ export type RowType = "main" | "develop" | "items" | "work" | "experiment" | "fi
 export type BallState = "open" | "awaiting_checks" | "blocked" | "deferred" | "accepted_unmerged" | "merged" | "stale";
 export type LinkKind = "follows" | "planned" | "merged";
 /** `auto` = řádek odvozený z větve bez ručního záznamu, `planned` = ruční řádek bez větve. `git` = řádek odvozený ze skutečné větve bez ticketu (jen ke čtení), `ahead` = commity před rodičem. `dir`/`plan` = řádky pohledu „podle plánu“ (`parent` je id řádku směru). */
-export type BoardRow = { id: string; name: string; type: RowType; branch: string; baseBranch: string; baseSha: string; target: string; collapsed: boolean; fixed: boolean; git: boolean; ahead: number; parent: string; depth: number; auto: boolean; planned: boolean; cardId: string };
+export type BoardRow = { id: string; name: string; type: RowType; branch: string; baseBranch: string; baseSha: string; target: string; collapsed: boolean; fixed: boolean; git: boolean; ahead: number; parent: string; depth: number; auto: boolean; planned: boolean; cardId: string;
+  /** Uzavřený řádek po začlenění (§10.2, služba): kdy, merge `sha` v cíli, cíl a počet vlastních kuliček; `null` = otevřený. */
+  closed: Closed | null };
+export type Closed = { at: string; sha: string; target: string; by: string; balls: number };
 export type BallCommit = { sha: string; sha7: string; title: string; at: string; abandoned: { why: string; at: string; by: string } | null };
 /** Poslední známý PR; `unconfirmed` = z paměti po výpadku GitHubu (stav je poslední známý, ne ověřený). */
 export type BallPr = { number: string; state: string; url: string; unconfirmed: boolean };
@@ -64,6 +67,11 @@ function prOf(b: Record<string, unknown>): BallPr | null {
   return { number: str(raw.number), state: str(raw.state).toUpperCase(), url: str(raw.url), unconfirmed: raw.unconfirmed === true };
 }
 
+function closedOf(raw: unknown): Closed | null {
+  const c = rec(raw);
+  return str(c.target) ? { at: str(c.at), sha: str(c.sha), target: str(c.target), by: str(c.by), balls: num(c.balls) } : null;
+}
+
 export function boardView(raw: unknown): Board {
   const root = rec(raw);
   const mapping = { main: str(rec(root.mapping).main) || "main", develop: str(rec(root.mapping).develop) || "develop" };
@@ -72,7 +80,7 @@ export function boardView(raw: unknown): Board {
     const type = pick(r.type === "topic" ? "items" : r.type, TYPES, "work"); // topic zanikl, čte se jako items
     return { id: str(r.id), name: str(r.name), type, branch: str(r.branch), baseBranch: str(rec(r.base).branch), baseSha: str(rec(r.base).sha),
       target: str(r.target), collapsed: r.collapsed === true, fixed: r.fixed === true || type === "main" || type === "develop" || type === "dir", git: r.git === true, ahead: num(r.ahead),
-      parent: str(r.parent), depth: num(r.depth), auto: r.auto === true, planned: r.planned === true, cardId: str(r.cardId) };
+      parent: str(r.parent), depth: num(r.depth), auto: r.auto === true, planned: r.planned === true, cardId: str(r.cardId), closed: closedOf(r.closed) };
   }).filter((row) => row.id);
   const balls: BoardBall[] = list(root.balls).map((item) => {
     const b = rec(item), c = rec(b.counts);

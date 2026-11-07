@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "@/shared/types/logic/types";
 import type { PletorAction } from "../logic/linie-actions";
 import type { BoardBall } from "../logic/linie-board";
+import { plural } from "../logic/linie-queues";
 import { hhmm, type Judgement } from "../logic/linie-summary";
 import { failureText, workDetail, type WorkDetail } from "../logic/linie-work";
 import LinieDetailGit from "./LinieDetailGit";
@@ -10,7 +11,9 @@ import LinieDetailPlan from "./LinieDetailPlan";
 import LinieDetailSummary from "./LinieDetailSummary";
 
 type Props = {
-  ticketId: string; query: string; ball: BoardBall | null; cluster: { ticketId: string; title: string }[];
+  ticketId: string; query: string; ball: BoardBall | null;
+  /** Počet začleněných kuliček téže větve, na které kulička navazuje (znovuotevřená větev, §10.3). */
+  follows: number; cluster: { ticketId: string; title: string }[];
   /** Tiknutí boardu (čas posledního úspěšného čtení): detail se načte znovu se stejnou revizí dat jako board. */
   revision: number | null;
   actions: PletorAction[]; note: string; onNote: (note: string) => void; flash: string; onAct: (id: string) => void;
@@ -27,7 +30,7 @@ const TABS: [Tab, string][] = [["souhrn", "Souhrn"], ["plan", "Plán"], ["git", 
  * plátno 2 › plátno 3 › značka. Souhrn čte tentýž `judgement` z boardu jako panel Pletora a obnovuje se s každým
  * tiknutím boardu, takže oba mluví o téže revizi; akce provádí rodič jednou cestou.
  */
-export default function LinieDetail({ ticketId, query, ball, cluster, revision, actions, note, onNote, flash, onAct, onClose, onPickTrace, onPick, onLoad }: Props) {
+export default function LinieDetail({ ticketId, query, ball, follows, cluster, revision, actions, note, onNote, flash, onAct, onClose, onPickTrace, onPick, onLoad }: Props) {
   const [detail, setDetail] = useState<WorkDetail | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("souhrn");
@@ -70,6 +73,7 @@ export default function LinieDetail({ ticketId, query, ball, cluster, revision, 
         <span className="pletor-dashboard__tag">{judgement?.summary.text || d.stateLabel || d.state}</span>
         {d.mark && <button type="button" className="pletor-dashboard__button" onClick={() => onPickTrace(d.mark)}>Celá cesta</button>}
       </div>
+      {follows > 0 && <p className="pletor-dashboard__note">navazuje na {plural(follows, "začleněnou kuličku", "začleněné kuličky", "začleněných kuliček")} této větve</p>}
       <div className="pletor-dashboard__tools" role="tablist" aria-label="Záložky detailu">
         {TABS.map(([id, text]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className="pletor-dashboard__linie-tab" onClick={() => setTab(id)}>{text}</button>

@@ -5,6 +5,7 @@ import { queueLines } from "../logic/linie-queues";
 import type { HeartRequest } from "../logic/linie-requests";
 import { feedText, hhmm, pletorVerdict, sourceAges } from "../logic/linie-summary";
 import type { WorkDetail } from "../logic/linie-work";
+import { followsOf } from "../logic/linie-closed";
 import LinieCommit from "./LinieCommit";
 import LinieDetail from "./LinieDetail";
 import LiniePletor from "./LiniePletor";
@@ -29,7 +30,7 @@ export default function LiniePanel(p: Props) {
   ) : p.commit ? (
     <LinieCommit sha={p.commit} query={p.query} onClose={() => p.onCommit("")} onPickTicket={(id) => { p.onCommit(""); p.onPick(id); }} onPickTrace={p.onTrace} />
   ) : p.picked ? (
-    <LinieDetail ticketId={p.picked} query={p.query} ball={p.ball ?? null} cluster={p.cluster} revision={p.lastSuccessAt}
+    <LinieDetail ticketId={p.picked} query={p.query} ball={p.ball ?? null} follows={followsOf(p.board.balls, p.ball)} cluster={p.cluster} revision={p.lastSuccessAt}
       actions={splitActions(p.actions, p.ball?.judgement.summary.key ?? "").rest} note={p.acceptNote} onNote={p.onAcceptNote} flash={p.flash} onAct={p.onAct} onClose={p.onClose} onPickTrace={p.onTrace} onPick={p.onPick} onLoad={p.onDetail} />
   ) : null;
   if (!p.editor && !panel) return null;

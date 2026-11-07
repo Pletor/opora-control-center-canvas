@@ -7,8 +7,8 @@ s kuličkami a deník. Čisté UTF-8 bez barev; jedna kulička = jeden řádek, 
 `mine=<agent>`: snímek nenese práci kuličky, jen vazby pracovních stromů, proto kulička patří agentovi, když ji
 `worktrees[].binding` (`ticketId`, `agent`) váže na něj; ostatní kuličky a řádky bez nich v sekci Řádky zmizí.
 
-Uzavřený řádek (`row.closed`, §10.2) je jedna řádka „⊕ název · uzavřeno HH:MM → cíl (N kuliček)“ bez kuliček;
-`all=True` ho vypíše celý.
+Uzavřený řádek (`row.closed`, §10.2) je jedna řádka „⊕ název · uzavřeno HH:MM → cíl (N kuliček)“ bez kuliček
+a bez svého podstromu (děti podle `parent`, §10.3); `all=True` vypíše vše.
 """
 from datetime import datetime
 
@@ -62,7 +62,7 @@ def _journal(events, marks):
 def _clock(at):
     try:
         return datetime.fromisoformat(at).astimezone().strftime("%H:%M")  # místní čas jako obrazovka
-    except (AttributeError, ValueError):
+    except (AttributeError, TypeError, ValueError):  # at=None: merge doložen jen gitem
         return "?"
 
 
@@ -102,7 +102,12 @@ def render(board, *, mine=None, journal=None, open_requests=None, all=False):  #
 
     out += ["", "Řádky:" if mine is None else f"Řádky (jen {mine}):"]
     known = {row["id"] for row in board.get("rows") or []}
+    # OP-E59AFA.2: podstrom podle `parent` (jako frontend a closed.py), ne podle hloubky; rodič je vždy před dětmi
+    folded = set()
     for row in board.get("rows") or []:
+        if row.get("parent") in folded:
+            folded.add(row.get("branch"))
+            continue
         if owned is not None and row["id"] not in by_row:
             continue
         pad = "  " * (row.get("depth") or 0)
@@ -110,6 +115,7 @@ def render(board, *, mine=None, journal=None, open_requests=None, all=False):  #
         if shut:
             out.append(f"{pad}⊕ {row['name']} · uzavřeno {_clock(shut.get('at'))} → {shut['target']} "
                        f"({_plural(shut['balls'], 'kulička', 'kuličky', 'kuliček')})")
+            folded.add(row.get("branch"))
             continue
         out.append(f"{pad}{row['name']}" + (f" [{row['branch']}]" if row.get("branch") else "")
                    + (f" → {row['target']}" if row.get("target") else ""))

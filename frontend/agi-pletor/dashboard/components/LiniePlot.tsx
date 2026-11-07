@@ -1,6 +1,7 @@
 import "../styles/pletor-dashboard-linie-plot.css";
 import { useId, useState, type KeyboardEvent } from "react";
 import type { BoardLayout, LaidBall } from "../logic/linie-board";
+import type { Knot, LaidKnot } from "../logic/linie-closed";
 import { labelAnchor, labelOffsets } from "../logic/linie-labels";
 import type { LayerState } from "../logic/linie-prefs";
 import { ballTip, type Tip } from "../logic/linie-tip";
@@ -11,7 +12,7 @@ import { PlotMarksHtml, PlotMarksSvg } from "./LiniePlotMarks";
 import LinieTip from "./LinieTip";
 
 type Props = {
-  layout: BoardLayout; selected: string; lit: Set<string> | null; layers: LayerState;
+  layout: BoardLayout; knots: LaidKnot[]; onKnot: (knot: Knot) => void; selected: string; lit: Set<string> | null; layers: LayerState;
   onPick: (ticketId: string) => void; onPickCommit: (ticketId: string, sha: string) => void;
 };
 
@@ -19,9 +20,9 @@ type Props = {
  * Plátno Linie: osy řádků (pevné 3 px, ostatní 2 px), spojnice, skutečné merge, kuličky na svém čase a jejich popisky
  * v patrech z `layout.labels`; značky (commity, worktree, tagy, nasazení, pilulky PR) kreslí `LiniePlotMarks`. Vybraná
  * kulička má stálý prstenec; ztlumené (mimo zvolenou frontu) jen zprůhlední. Plány ostatních kuliček mimo vrstvu jsou
- * slabé (.25) bez popisku. Kulička i kostka commitu sdílejí jednu bublinu `LinieTip`. Prázdné místo nese `data-pan`.
+ * slabé (.25) bez popisku. Kulička, kostka commitu i značka složené větve sdílejí jednu bublinu `LinieTip`. Prázdné místo nese `data-pan`.
  */
-export default function LiniePlot({ layout, selected, lit, layers, onPick, onPickCommit }: Props) {
+export default function LiniePlot({ layout, knots, onKnot, selected, lit, layers, onPick, onPickCommit }: Props) {
   const gradientId = `linie-g${useId().replace(/[^\w-]/g, "")}`; // dvojtečky z useId by v url(#…) neprošly
   const [tip, setTip] = useState<Tip | null>(null);
   const mine = (ticketId: string) => ticketId === selected;
@@ -37,7 +38,7 @@ export default function LiniePlot({ layout, selected, lit, layers, onPick, onPic
             strokeWidth={row.fixed ? 3 : 2} opacity={row.collapsed ? 0.25 : row.fixed ? 0.9 : 0.55} />
         ))}
         {nowX !== null && <line className="pletor-dashboard__linie-now" x1={nowX} y1={0} x2={nowX} y2={layout.height} />}
-        <PlotMarksSvg layout={layout} selected={selected} layers={layers} onPickCommit={onPickCommit} onTip={setTip} />
+        <PlotMarksSvg layout={layout} knots={knots} onKnot={onKnot} selected={selected} layers={layers} onPickCommit={onPickCommit} onTip={setTip} />
         {layout.links.map((link) => {
           const id = `${link.ticketId}-${link.kind}-${link.toId}`;
           return <LinieLink key={id} link={link} id={`${gradientId}-${id.replace(/[^\w-]/g, "")}`} weak={link.kind === "planned" && !layers.plans && !mine(link.ticketId)} />;
@@ -72,7 +73,7 @@ export default function LiniePlot({ layout, selected, lit, layers, onPick, onPic
           );
         })}
       </svg>
-      <PlotMarksHtml layout={layout} selected={selected} layers={layers} />
+      <PlotMarksHtml layout={layout} knots={knots} onKnot={onKnot} selected={selected} layers={layers} />
       {tip && <LinieTip tip={tip} width={layout.width} />}
     </div>
   );
