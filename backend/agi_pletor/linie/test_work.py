@@ -239,3 +239,18 @@ def test_commit_after_merge_already_in_target_does_not_reopen(setup):
     run(repo, "merge", "-q", "--no-ff", "-m", "merge 2", later)
     run(repo, "checkout", "-q", "main")
     assert work.unreported(record) == (None, True)
+
+
+def test_forget_deletes_only_blocked_dead_end(setup):
+    """§10.4: zapomenout jde jen blokovanou kuličku bez živého kódu mimo cíl; po merge do cíle zmizí i s deníkem."""
+    service, repo, tid = setup
+    assert refused(lambda: work.forget(service, "draft", tid, NOW)).code == "forget_not_blocked"
+    head = agent_commit(repo)
+    work.report(service, "draft", tid, head, [], None, NOW, "agent:t")
+    work.block(service, "draft", tid, "šlo se jinudy", NOW)
+    assert refused(lambda: work.forget(service, "draft", tid, NOW)).code == "forget_code_alive"
+    run(repo, "checkout", "-q", "develop")
+    run(repo, "merge", "-q", "--no-ff", "-m", "merge", head)
+    run(repo, "checkout", "-q", "main")
+    assert work.forget(service, "draft", tid, NOW)["forgotten"] == tid
+    assert refused(lambda: work.get(service, "draft", tid)).status == 404
