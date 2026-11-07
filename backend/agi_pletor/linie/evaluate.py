@@ -2,8 +2,9 @@
 
 `axes(work, after_merge)` → pět os z dnešního záznamu `work`; `evaluate(work, after_merge, live)` → `{key, text, reason,
 next, allowed, blocked}` podle tabulky §2a (první platné pravidlo vyhrává); `evidence(work, after_merge, pr)` → důkazy.
-`after_merge` je sha nejnovějšího commitu větve, který začleněný merge neobsahuje (zjistí volající z gitu); HEAD je pak
-on, jinak `headSha`. `live` = relace s explicitní vazbou na worktree a čerstvým heartbeat (work.py). `integration` je osa
+`after_merge` je skutečná špička větve, kterou hlášení nepokrývá (zjistí volající z gitu, `work.unreported`): po
+začlenění nejnovější commit mimo merge, jinak špička ≠ `headSha`; HEAD je pak on, jinak `headSha`. `target_sha` je
+dnešní špička cíle povolení; povolení platí jen pro tutéž dvojici HEAD → špička cíle. `live` = relace s explicitní vazbou na worktree a čerstvým heartbeat (work.py). `integration` je osa
 z merge logu nebo z gitu/GitHubu (work.py, §5a); bez ní platí `work.merged` jako důkaz gitu (`src: git`, `mode: None`).
 `deploy` = `{env: {sha, at, origin}}` z událostí prostředí, které revizi úkolu obsahují.
 L7d (§7 bod 4): přijetí platí pro dvojici `(sha, cardRevision)`; jiná revize zadání karty při stejném sha = klíč
@@ -48,8 +49,9 @@ def _acceptance(accepted, head, card_revision):
 def axes(work, after_merge=None, integration=None, deploy=None, card_revision=None):
     work = work or {}
     head = after_merge or work.get("headSha")
-    if after_merge:
-        state, src = "in_progress", "git log"  # commit po začlenění, zatím bez hlášení
+    integ = integration or _merged(work)
+    if after_merge:  # commit na větvi bez hlášení (po začlenění, nebo nová špička nad nahlášenou revizí)
+        state, src = "in_progress", "git log" if integ["state"] == "merged" else "git log · bez hlášení"
     elif head:
         state, src = "submitted", "linie report"
     elif work.get("runs"):
@@ -62,12 +64,12 @@ def axes(work, after_merge=None, integration=None, deploy=None, card_revision=No
         "checks": _checks(work, head),
         "acceptance": {"state": _acceptance(accepted, head, card_revision), "sha": (accepted or {}).get("sha"),
                        "cardRevision": (accepted or {}).get("cardRevision"), "src": "záznam přijetí"},
-        "integration": integration or _merged(work),
+        "integration": integ,
         "deploy": {"envs": deploy or {}, "src": "událost prostředí"},
     }
 
 
-def _rule(work, ax, live, card_revision=None):
+def _rule(work, ax, live, target_sha=None, card_revision=None):
     """`(key, text, reason, next, allowed)` – pořadí přesně podle tabulky §2a (+ `deferred` před `todo`)."""
     head, h7 = ax["work"]["sha"], _short(ax["work"]["sha"])
     checks, acc, integ = ax["checks"], ax["acceptance"], ax["integration"]
@@ -116,9 +118,15 @@ def _rule(work, ax, live, card_revision=None):
                 f"checks.passed({h7}) & acceptance.accepted({h7}) & integration.unconfirmed",
                 f"Služba ověří výsledek v gitu (merge znovu s op {integ['op']}).", ["merge"])
     reason = f"checks.passed({h7}) & acceptance.accepted({h7}) & integration.none"
-    if (work.get("mergeAllowed") or {}).get("sourceSha") != head:  # služba bez povolení pro HEAD nezačlení (merge.py)
+    allowed = work.get("mergeAllowed") or {}
+    if allowed.get("sourceSha") != head:  # služba bez povolení pro HEAD nezačlení (merge.py)
         return ("accepted", f"přijato {h7}, čeká na povolení začlenění", reason + " & mergeAllowed chybí",
                 f"Člověk povolí začlenění do {target} (allow-merge).", ["allow_merge"])
+    if target_sha and allowed.get("targetSha") != target_sha:  # povolení platí jen pro špičku cíle v době povolení
+        aim, moved = allowed.get("target") or target, f"{_short(allowed.get('targetSha'))} → {_short(target_sha)}"
+        return ("accepted", f"přijato {h7}, cíl {aim} se posunul", reason + f" & mergeAllowed.targetSha ({moved})",
+                f"Člověk povolí začlenění znovu (allow-merge do {aim}).", ["allow_merge"],
+                {"merge": f"cíl {aim} se od povolení posunul ({moved})"})
     return ("accepted", f"přijato {h7}, čeká na začlenění", reason + " & mergeAllowed(HEAD)",
             f"Služba začlení (merge) do {target} a znovu ověří.", ["merge"], {"allow_merge": "už povoleno pro HEAD"})
 
@@ -136,13 +144,15 @@ def _side(key, ax):
     return found
 
 
-def evaluate(work, after_merge=None, live=False, integration=None, deploy=None, card_revision=None):
+def evaluate(work, after_merge=None, live=False, integration=None, deploy=None, target_sha=None, card_revision=None):
     """`card_revision` = aktuální revize zadání karty plánu (plan_link), None = neznámá / bez karty."""
     work = work or {}
     ax = axes(work, after_merge, integration, deploy, card_revision)
-    key, text, reason, step, allowed, *own = _rule(work, ax, live, card_revision)
-    if after_merge:
+    key, text, reason, step, allowed, *own = _rule(work, ax, live, target_sha, card_revision)
+    if after_merge and ax["integration"]["state"] == "merged":
         reason = f"nová revize po začlenění {_short(ax['integration']['sha'])} · " + reason
+    elif after_merge:
+        reason = f"HEAD {_short(after_merge)} bez hlášení (hlášeno {_short(work.get('headSha'))}) · " + reason
     allowed = allowed + _side(key, ax)
     blocked = {action: f"{reason} – {step}" for action in ACTIONS if action not in allowed}
     blocked.update(*own)  # vlastní důvod pravidla (např. allow_merge „už povoleno pro HEAD“)
