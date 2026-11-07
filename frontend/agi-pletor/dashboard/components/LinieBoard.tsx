@@ -1,5 +1,6 @@
 import type { CSSProperties, RefObject } from "react";
 import type { BoardLayout } from "../logic/linie-board";
+import type { Knot, LaidKnot } from "../logic/linie-closed";
 import type { LayerState } from "../logic/linie-prefs";
 import { xOf } from "../logic/linie-zoom";
 import LinieNames from "./LinieNames";
@@ -7,7 +8,7 @@ import LiniePlot from "./LiniePlot";
 
 type Props = {
   scrollRef: RefObject<HTMLDivElement | null>; names: number;
-  layout: BoardLayout; selected: string; lit: Set<string> | null; layers: LayerState;
+  layout: BoardLayout; knots: LaidKnot[]; onKnot: (knot: Knot) => void; selected: string; lit: Set<string> | null; layers: LayerState;
   chips: Record<string, string>; corner: string;
   onPick: (ticketId: string) => void;
   onPickCommit: (ticketId: string, sha: string) => void;
@@ -23,7 +24,7 @@ type Props = {
  * vlevo sticky sloupec názvů. Kolečko, Shift+kolečko a tažení obsluhuje `useLinieZoom` nad `scrollRef`; tady se jen
  * skládají dílky.
  */
-export default function LinieBoard({ scrollRef, names, layout, selected, lit, layers, chips, corner, onPick, onPickCommit, onRename, onFold, onFocus, onNames, onRenaming }: Props) {
+export default function LinieBoard({ scrollRef, names, layout, knots, onKnot, selected, lit, layers, chips, corner, onPick, onPickCommit, onRename, onFold, onFocus, onNames, onRenaming }: Props) {
   const selectedRow = layout.balls.find((ball) => ball.ticketId === selected)?.rowId ?? "";
   const nowX = layout.now === null ? null : xOf({ t0: layout.t0, k: layout.k }, layout.now);
   return (
@@ -34,7 +35,7 @@ export default function LinieBoard({ scrollRef, names, layout, selected, lit, la
           {layout.ticks.map((tick) => <span key={tick.x} className="pletor-dashboard__linie-tick" style={{ left: tick.x }}>{tick.text}</span>)}
           {nowX !== null && <span className="pletor-dashboard__linie-nowtag" style={{ left: nowX }}>teď</span>}
         </div>
-        <LiniePlot layout={layout} selected={selected} lit={lit} layers={layers} onPick={onPick} onPickCommit={onPickCommit} />
+        <LiniePlot layout={layout} knots={knots} onKnot={onKnot} selected={selected} lit={lit} layers={layers} onPick={onPick} onPickCommit={onPickCommit} />
       </div>
     </div>
   );

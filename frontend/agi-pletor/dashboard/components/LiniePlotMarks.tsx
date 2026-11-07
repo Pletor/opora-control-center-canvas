@@ -1,10 +1,11 @@
 import type { CSSProperties } from "react";
 import type { BoardLayout, LaidCommit } from "../logic/linie-board";
+import { knotTip, type Knot, type LaidKnot } from "../logic/linie-closed";
 import type { LayerState } from "../logic/linie-prefs";
 import { commitTip, type Tip } from "../logic/linie-tip";
 
 type Props = {
-  layout: BoardLayout; selected: string; layers: LayerState;
+  layout: BoardLayout; knots: LaidKnot[]; onKnot: (knot: Knot) => void; selected: string; layers: LayerState;
   onPickCommit: (ticketId: string, sha: string) => void; onTip: (tip: Tip | null) => void;
 };
 
@@ -14,9 +15,9 @@ const visible = (layout: BoardLayout, layers: LayerState, selected: string) => l
  * Značky nad čárami řádků (SVG část): čára práce od kuličky k poslednímu commitu, pruhy worktree pod osou s tečkovanou
  * odbočkou, návratem a tečkou „vrácen“, svislé značky tagů a nasazení, kostky commitů (opuštěná kostka červeně s ✕
  * a odbočkou, do cíle nejde). Najetí na kostku ukáže tip, klik otevře detail commitu. Commity a worktree jsou vrstvy;
- * pro vybranou kuličku se ukážou vždy.
+ * pro vybranou kuličku se ukážou vždy. Značka složené větve (⊕ složená, ⊖ rozbalená) leží na ose rodiče v čase uzavření.
  */
-export function PlotMarksSvg({ layout, selected, layers, onPickCommit, onTip }: Props) {
+export function PlotMarksSvg({ layout, knots, onKnot, selected, layers, onPickCommit, onTip }: Props) {
   const stub = (c: LaidCommit) => `M${c.x} ${c.y - 5} L${c.x + 22} ${c.y - 24}`;
   return (
     <>
@@ -41,13 +42,22 @@ export function PlotMarksSvg({ layout, selected, layers, onPickCommit, onTip }: 
           <rect className="pletor-dashboard__linie-cube" x={commit.x - 3} y={commit.y - 5} width={6} height={10} rx={1} />
         </g>
       ))}
+      {knots.map((knot) => (
+        <g key={knot.rowId} className="pletor-dashboard__linie-knot" style={{ "--c": knot.color } as CSSProperties} role="button" tabIndex={0}
+          aria-label={`${knot.label}, ${knot.open ? "složit" : "rozbalit"}`} aria-expanded={knot.open}
+          onClick={() => onKnot(knot)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onKnot(knot); } }}
+          onMouseEnter={() => onTip(knotTip(knot))} onMouseLeave={() => onTip(null)} onFocus={() => onTip(knotTip(knot))} onBlur={() => onTip(null)}>
+          <circle className="pletor-dashboard__linie-knot-ring" cx={knot.x} cy={knot.y} r={7} />
+          <text className="pletor-dashboard__linie-knot-glyph" x={knot.x} y={knot.y}>{knot.open ? "⊖" : "⊕"}</text>
+        </g>
+      ))}
     </>
   );
 }
 
 /** HTML část značek: jména pruhů u jejich začátku, štítky tagů a nasazení pod značkou, ✕ u opuštěného commitu, sha pod
  * kostkou při mřížce ≤ 15 min, pilulky PR na spojnici. */
-export function PlotMarksHtml({ layout, selected, layers }: Pick<Props, "layout" | "selected" | "layers">) {
+export function PlotMarksHtml({ layout, knots, onKnot, selected, layers }: Omit<Props, "onPickCommit" | "onTip">) {
   const mine = (ticketId: string) => ticketId === selected;
   const commits = visible(layout, layers, selected);
   const showSha = layout.k * 15 * 60000 >= 84; // stejný práh jako značky osy: mřížka po 5–15 min
@@ -64,6 +74,10 @@ export function PlotMarksHtml({ layout, selected, layers }: Pick<Props, "layout"
       {layers.prs && layout.links.filter((link) => link.pr && (link.kind === "merged" || layers.plans || mine(link.ticketId))).map((link) => (
         <span key={`pr-${link.ticketId}-${link.kind}-${link.toId}`} className={`pletor-dashboard__linie-pr pletor-dashboard__linie-pr--${link.pr!.unverified ? "unverified" : link.pr!.state}`}
           style={{ left: link.pr!.at.x, top: link.pr!.at.y + (link.kind === "merged" ? 16 : 12) }} title={link.pr!.unverified ? "poslední známý stav, GitHub nepotvrdil" : "potvrzeno GitHubem"}>{link.pr!.text}</span>
+      ))}
+      {knots.map((knot) => (
+        <button key={`knot-${knot.rowId}`} type="button" tabIndex={-1} className="pletor-dashboard__linie-knot-label" style={{ left: knot.x + 11, top: knot.y, "--c": knot.color } as CSSProperties}
+          onClick={() => onKnot(knot)}>{knot.label}</button>
       ))}
     </>
   );
