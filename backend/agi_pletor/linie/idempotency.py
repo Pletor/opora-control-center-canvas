@@ -58,5 +58,6 @@ def once(service, project, scope, key, payload, act, at=None):
     with service.lock_for(project):
         claim(service.root, project, scope, key, payload, at, write=False)
         result = act(ident(scope, key))
+        # OP-A20FB1.1: klíč až po úspěchu; pád mezi operací a zápisem dožene deterministické ID, ne druhý záznam
         claim(service.root, project, scope, key, payload, at)
         return result

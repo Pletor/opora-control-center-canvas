@@ -48,6 +48,7 @@ def attempt(service, project, ticket_id, payload, by, now, attempt_id=None):
         raise WorkError("base_mismatch", 409, f"baseSha {payload.get('baseSha')} neleží na {base_ref}.",
                         "baseSha vynechte (doplní se špička baseRef), nebo pošlete commit z baseRef.")
     current = rev(root, branch)
+    # OP-A20FB1.2: služba větev nezakládá ani nepřepisuje; existující přijme jen jako potomka baseSha
     if current and not ancestor(root, base_sha, current):
         raise WorkError("branch_foreign", 409, f"Větev {branch} existuje a nevychází z {base_sha[:7]}; nepřevezme se.",
                         "Zvolte nové jméno větve, nebo baseSha, ze kterého větev vznikla.")

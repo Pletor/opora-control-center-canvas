@@ -184,9 +184,8 @@ def create_linie_work_router(service, pletor, root=None):
     @router.post("/work/{ticket_id}/revert")
     def work_revert(request: Request, ticket_id: str, body: LinieRevertIn, project: str = ""):
         def act(by):
-            if body.op:
-                idempotency.claim(service.root, project, "revert", body.op,
-                                  {"ticket": ticket_id, "sha": body.sha, "expectedHead": body.expectedHead})
+            if body.op:  # expectedHead mimo digest: opakování po 409 head_moved s opravenou hlavou je týž revert
+                idempotency.claim(service.root, project, "revert", body.op, {"ticket": ticket_id, "sha": body.sha})
             return revert.revert(service, project, ticket_id, body.sha, body.expectedHead, tokens.stamp(),
                                  op=body.op, by=by)
         return anyone(request, project, ticket_id, act)

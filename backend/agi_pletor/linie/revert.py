@@ -70,7 +70,7 @@ def revert(service, project, ticket_id, sha, expected_head, now, *, op=None, by=
         workdir = Path(service.root) / "pletor" / "linie" / "revert" / ticket_id
         pushable = work_mod.rev(root, "refs/remotes/origin/" + branch) is not None
         done = _apply(git, root, workdir, branch, head, full, pushable)
-        if done is None:
+        if done is None:  # OP-A20FB1.3: konflikt je nedokončený (`conflict`), nikdy `finished`
             _put(service.root, project, {**entry, "state": "conflict", "finishedAt": now})
             journal.record(service, project, "linie.revert.conflict", by, refs)
             raise WorkError("revert_conflict", 409, f"Revert {full[:7]} na {branch} narazil na konflikt; nic se "
