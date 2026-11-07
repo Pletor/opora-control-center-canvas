@@ -9,52 +9,106 @@ jako `merged`. `realMerges` jsou skutečné merge commity main a develop z gitu 
 
 Editor ukazuje i skutečný stav: pracovní větev z gitu mladší než main, která má commity před rodičem a nemá řádek, dostane
 řádek `git: True` (jen ke čtení, id `git:<větev>`) se špičkou větve jako bodem; kulička vznikne až s ticketem.
+
+Skutečná data (docs/navrhy/2026-11-06-linie-rebrand.md §5, §5a, L7c): `tags` z `git for-each-ref refs/tags` (tag patří
+commitu, řádek kreslení volí frontend), `worktrees` z `git worktree list --porcelain` (agent a od–do jen s vazbou relace
+z `run`), `deploy.envs` z událostí prostředí, PR s posledním známým stavem při výpadku a `commits[]` kuličky s
+`abandoned`.
 """
+import os
 import time
 import uuid
+from pathlib import Path
 
-from backend.agi_pletor.linie import branches, tree
+from backend.agi_pletor.linie import branches, deploy, jsonfile, merge_log, trace_git, tree
 from backend.agi_pletor.linie import rows as rows_mod
 from backend.agi_pletor.linie import work as work_mod
-from backend.agi_pletor.linie.graph import gh_prs
+from backend.agi_pletor.linie.graph import gh_lookup
 from backend.brain_opora.determinism import tokens
 from backend.integrations.gitio import git
 from database.repositories.tickets import TicketStore
 
 TIMEOUT = 15
-PR_CACHE = {"at": 0.0, "value": {}, "good": {}, "source": {"verifiedAt": None, "lastSuccessAt": None, "ok": False}}
+PR_SEEN = {}  # repozitář → (monotonic, prs, source); jen skutečné gh
 PR_TTL = 60  # gh se ptá nejvýš jednou za minutu; editor se překresluje častěji
 
 
-def _read_prs(root, lookup, good):
-    """`(prs, source)`; při selhání zůstanou poslední známé PR (stav beze změny, `unconfirmed: True`) a zdroj nese
-    `lastSuccessAt` (poslední úspěšné čtení, = `verifiedAt`) odděleně od `attemptedAt` (poslední pokus)."""
-    attempted = tokens.stamp()
+def read_prs(data_root, root, lookup):
+    """`(prs, source)`. Úspěšné čtení (i prázdné) se uloží do `<data>/pletor/linie/prs.json`; při výpadku zůstanou
+    poslední známé PR (`unconfirmed: True`) a zdroj nese `lastSuccessAt` odděleně od `attemptedAt`."""
+    attempted, path, key = tokens.stamp(), Path(data_root) / "pletor" / "linie" / "prs.json", str(root)
     try:
         found = lookup(root)
-    except Exception:  # noqa: BLE001 – jakékoli selhání poskytovatele PR = „nevím“, ne pád boardu
-        found = None
-    # shortcut: gh_prs maskuje selhání jako {} (graph.py mimo scope L7a); pro gh je prázdný výsledek selhání.
-    if found is None or (lookup is gh_prs and not found):
-        return ({branch: {**pr, "unconfirmed": True} for branch, pr in good[0].items()},
-                {"verifiedAt": good[1], "lastSuccessAt": good[1], "attemptedAt": attempted, "ok": False})
-    return found, {"verifiedAt": attempted, "lastSuccessAt": attempted, "attemptedAt": attempted, "ok": True}
+    except Exception as error:  # noqa: BLE001 – jakékoli selhání poskytovatele PR = „nevím“, ne pád boardu
+        found = {"prs": {}, "ok": False, "error": type(error).__name__}
+    if found.get("ok"):
+        jsonfile.update(path, {}, lambda cache: {**(cache if isinstance(cache, dict) else {}),
+                                                 key: {"prs": found["prs"], "lastSuccessAt": attempted}})
+        return found["prs"], {"verifiedAt": attempted, "lastSuccessAt": attempted, "attemptedAt": attempted,
+                              "ok": True, "error": None}
+    cache = jsonfile.read(path, {})
+    last = (cache.get(key) if isinstance(cache, dict) else None) or {}
+    return ({branch: {**pr, "unconfirmed": True} for branch, pr in (last.get("prs") or {}).items()},
+            {"verifiedAt": last.get("lastSuccessAt"), "lastSuccessAt": last.get("lastSuccessAt"),
+             "attemptedAt": attempted, "ok": False, "error": found.get("error")})
 
 
-def _prs(root, lookup):
-    if lookup is not gh_prs:
-        return _read_prs(root, lookup, ({}, None))
-    if time.monotonic() - PR_CACHE["at"] > PR_TTL:
-        value, source = _read_prs(root, lookup, (PR_CACHE["good"], PR_CACHE["source"]["lastSuccessAt"]))
-        PR_CACHE.update(at=time.monotonic(), value=value, source=source, **({"good": value} if source["ok"] else {}))
-    return PR_CACHE["value"], PR_CACHE["source"]
+def _prs(data_root, root, lookup):
+    if lookup is not gh_lookup:
+        return read_prs(data_root, root, lookup)
+    seen = PR_SEEN.get(str(root))
+    if not seen or time.monotonic() - seen[0] > PR_TTL:
+        seen = PR_SEEN[str(root)] = (time.monotonic(), *read_prs(data_root, root, lookup))
+    return seen[1], seen[2]
 
 
-def _commits(root, work):
-    if not work.get("headSha"):
-        return 0
-    found = git(root, "rev-list", "--count", f"{work['baseSha']}..{work['headSha']}", timeout=TIMEOUT, optional=True)
-    return int(found) if found and found.isdigit() else 0
+def _commits(work):
+    """Commity větve nad bází (nejstarší první) s rozhodnutím `abandoned` (git ani HEAD nemění)."""
+    gave_up = {item["sha"]: {k: item[k] for k in ("why", "at", "by")} for item in work.get("abandoned") or []}
+    found = trace_git._log(work["repository"], f"{work['baseSha']}..{work['branch']}") if work.get("headSha") else []
+    return [{"sha": c["sha"], "sha7": c["sha7"], "title": c["title"], "at": c["at"], "mark": c["trailers"]["mark"],
+             "abandoned": gave_up.get(c["sha"])} for c in reversed(list(found))]
+
+
+def tags(root):
+    """`[{name, sha, at, annotated}]`: lehké i anotované tagy na commit; `sha` je commit (u anotovaných cíl tagu)."""
+    out = git(root, "for-each-ref", "refs/tags", "--format=%(refname:short)%1f%(objecttype)%1f%(objectname)%1f"
+              "%(*objecttype)%1f%(*objectname)%1f%(creatordate:iso-strict)", timeout=TIMEOUT, optional=True) or ""
+    found = []
+    for line in out.splitlines():
+        name, kind, sha, target_kind, target, at = line.split("\x1f")
+        if kind == "commit" or (kind == "tag" and target_kind == "commit"):
+            found.append({"name": name, "sha": target if kind == "tag" else sha, "at": at, "annotated": kind == "tag"})
+    return found
+
+
+def _norm(path):
+    return os.path.normcase(os.path.normpath(path))
+
+
+def worktrees(root, tickets):
+    """`[{path, branch, sha, binding}]`; `binding` (agent, od–do) jen když relace `run` výslovně uvedla tento worktree."""
+    bound = {}
+    for ticket in tickets:
+        for run in ticket["work"].get("runs") or []:
+            key = _norm(run["worktree"]) if run.get("worktree") else None
+            if key and (key not in bound or (run.get("heartbeat") or "") > (bound[key][1].get("heartbeat") or "")):
+                bound[key] = (ticket["ticketId"], run)
+    found = []
+    out = git(root, "worktree", "list", "--porcelain", timeout=TIMEOUT, optional=True) or ""
+    for block in out.split("\n\n"):
+        fields = dict(line.partition(" ")[::2] for line in block.splitlines() if line)
+        if "worktree" not in fields:
+            continue
+        ref = fields.get("branch", "")
+        ticket_id, run = bound.get(_norm(fields["worktree"]), (None, None))
+        alive = bool(run) and work_mod.live(run)
+        binding = None if run is None else {
+            "ticketId": ticket_id, "attempt": run["runId"], "agent": run.get("agent"), "from": run["startedAt"],
+            "to": None if alive else run.get("heartbeat"), "heartbeat": run.get("heartbeat"), "live": alive}
+        found.append({"path": fields["worktree"], "branch": ref.removeprefix("refs/heads/") if ref else None,
+                      "sha": fields.get("HEAD"), "binding": binding})
+    return found
 
 
 def real_merges(root):
@@ -102,10 +156,15 @@ def _row_for(rows, branch):
 VIEW = ("axes", "summary", "allowed", "blocked", "incomplete", "evidence")
 
 
-def _ball(ticket, work, rows, prs, sources):
+def _ball(service, project, ticket, rows, prs, sources, log, events, by_mark):
+    work = ticket["work"]
     allowed = work.get("mergeAllowed")
+    commits = _commits(work)
     pr = prs.get(work["branch"]) if prs else None
-    shown = work_mod.view(ticket, sources, pr)
+    if pr is not None:  # PR řeší úkoly podle Opora-Mark svých commitů, jinak úkol své větve
+        marked = sorted({by_mark[c["mark"]] for c in commits if c["mark"] in by_mark})
+        pr = {**pr, "ticketIds": marked or [ticket["ticketId"]]}
+    shown = work_mod.view(ticket, sources, pr, work_mod.facts(service, project, ticket, pr, log, events))
     links = []
     if work.get("merged"):
         links.append({"to": _row_for(rows, work["merged"]["target"]), "kind": "merged", "sha": work["merged"]["sha"]})
@@ -116,9 +175,9 @@ def _ball(ticket, work, rows, prs, sources):
             "state": shown["state"], "stateLabel": shown["stateLabel"], "next": shown["next"],
             "branch": work["branch"], "headSha7": (work.get("headSha") or "")[:7] or None,
             "createdAt": ticket["createdAt"], "mergedAt": (work.get("merged") or {}).get("at"),
-            "counts": {"commits": _commits(work["repository"], work),
-                       "prs": None if not prs else int(pr is not None), "merges": int(bool(work.get("merged")))},
-            "links": links, "pr": pr, "preview": work.get("preview"), "acceptance": work.get("acceptance"),
+            "counts": {"commits": len(commits), "prs": int(pr is not None) if sources["prs"]["ok"] or prs else None,
+                       "merges": int(bool(work.get("merged")))},
+            "links": links, "pr": pr, "commits": commits, "preview": work.get("preview"), "acceptance": work.get("acceptance"),
             # `blocked` = {akce: důvod} z evaluate (L7 §4); ruční blokace kuličky je `block`.
             "mergeAllowed": allowed, "block": work.get("blocked"), **{key: shown[key] for key in VIEW}}
 
@@ -191,11 +250,12 @@ def with_tree(rows, balls, heads):
     return found + [shaped(row, None, True) for row in sorted(leftover, key=lambda r: r.get("order", 0))]
 
 
-def board(service, project, workspace, root, *, pr_lookup=gh_prs):
-    """`{rows, balls, mapping, realMerges, snapshot}` pro editor; kuličky v pořadí vzniku.
+def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
+    """`{rows, balls, mapping, realMerges, tags, worktrees, deploy, snapshot}` pro editor; kuličky v pořadí vzniku.
 
     `snapshot.sources.<zdroj>.verifiedAt` je čas skutečného čtení zdroje v tomto sestavení (PR z cache = čas
-    posledního úspěšného čtení), ne čas požadavku; `builtAt` je čas sestavení (L7 §4).
+    posledního úspěšného čtení, `deploy` = přečtení záznamu událostí; stáří události je v `envs[env].at`), ne čas
+    požadavku; `builtAt` je čas sestavení (L7 §4).
     """
     found = rows_mod.read(service.root, project)
     with service.reading(project):
@@ -203,11 +263,15 @@ def board(service, project, workspace, root, *, pr_lookup=gh_prs):
     db_at = tokens.stamp()
     heads = set(branches._heads(root))
     git_at = tokens.stamp()
-    prs, pr_source = _prs(root, pr_lookup)
+    prs, pr_source = _prs(service.root, root, pr_lookup)
+    log, events = merge_log.read(service.root, project), deploy.read(service.root, project)
+    deploy_at = tokens.stamp()  # čas přečtení záznamu událostí; stáří události nese axes.deploy.envs[env].at
+    shipped = [e for e in events if _norm(e.get("repo") or "") == _norm(str(root))]
     sources = {"git": {"verifiedAt": git_at, "ok": bool(heads)}, "prs": pr_source,
                "checks": {"verifiedAt": db_at, "ok": True}, "sessions": {"verifiedAt": db_at, "ok": True},
-               "deploy": {"verifiedAt": None, "ok": False}}  # nasazení zatím nemá zdroj (L7 §7.3)
-    balls = [_ball(ticket, ticket["work"], found["rows"], prs, sources) for ticket in tickets]
+               "deploy": {"verifiedAt": deploy_at, "ok": True}}
+    by_mark = {t["work"].get("mark"): t["ticketId"] for t in tickets if t["work"].get("mark")}
+    balls = [_ball(service, project, ticket, found["rows"], prs, sources, log, events, by_mark) for ticket in tickets]
     _follows(tickets, balls)
     extra, tips = git_rows(root, found["rows"], balls)
     rows = with_tree(found["rows"] + extra, balls, heads)
@@ -218,5 +282,6 @@ def board(service, project, workspace, root, *, pr_lookup=gh_prs):
             if link["kind"] != "follows":
                 link["to"] = row_of.get(link["to"], link["to"])
     return {"rows": rows, "balls": balls, "mapping": found["mapping"],
-            "realMerges": real_merges(root) + tips,
+            "realMerges": real_merges(root) + tips, "tags": tags(root), "worktrees": worktrees(root, tickets),
+            "deploy": {"envs": deploy.latest(shipped)},
             "snapshot": {"id": "snap_" + uuid.uuid4().hex[:12], "builtAt": tokens.stamp(), "sources": sources}}
