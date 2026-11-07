@@ -352,3 +352,88 @@ po svém.“ Backend a princip (§2–§5, L7g fronta) se nemění; mění se po
 Hotovo když: screenshot Linie na celou obrazovku vedle prototypu bez rušivého rámu a bez výchozích kostek commitů,
 a `uv run python tools/linie.py board` vrátí text, ve kterém agent najde totéž, co člověk vidí v Čeká na tebe a na
 plátně.
+
+## 10. Větev jako příběh: kresba podle prototypu, uzavření a skládání do rodiče (L9, 7. 11. večer)
+
+Zadání člověka nad exportem prototypu „OPORA Linie v3“ (řádek `barvy` s commity a pruhy „⌂ agent A · CSS · vrácen“):
+„podívej se na tuto větev, jak je vykreslená i s commity a podvětvemi … to implementuj k nám“; „když se commity
+slučují po schválení, je vidět, že se uzavřou a kam ten commit jde, na najetí detail“; „pokud se celá větev
+mergne do rodiče, větev zmizí a je speciálně označená na větvi nad ní; po rozkliknutí se znovu otevře pod rodičem se
+vším, co se tam dělo; zavírání postupuje do rodičů až do develop; jde zobrazit všechny větve; vylepšení prvku se
+dělá na větvi, kde vznikl, novým commitem, který přebije původní řešení – čistá historie, žádné slepé uličky,
+sirotci a duplikace.“ Zdroj pravdy o prototypu: export `OPORA Linie v3.html`, šablona `renderVals` (rozbor v relaci
+7. 11., kopie v scratchpadu `linie-v3-body.html` ř. 181–429 a `linie-v3-css.css`). Co prototyp **nemá**, je bod 3
+(skládání sloučených větví): tam je kontrakt nový.
+
+### 10.1 L9a Kresba větve podle prototypu (frontend, větev `feat/velin-linie-kresba`)
+Hodnoty převzít 1:1 z prototypu, třídy zůstávají BEM `pletor-dashboard__linie-*`:
+- **Řádek**: `THIN 36` (bez kuliček), `OPEN 78` (+28, když některý popisek kuličky potřebuje druhé patro), `FOLD 46`,
+  `LANE 20` za každý pruh; osa `axis = base/2`, pruhy **pod osou** (řádek roste dolů, osa se nehne). Odsazení
+  `ind = 8 + 16·min(depth,5)`. Barva řádku: pevné pro main/develop/items/experiment, jinak odstín z kořenové větve
+  stromu (nejvyšší předek, který není pevný) se sytostí `max(45, 75−9·lvl)` a světlostí `min(80, 56+8·lvl)`; děti
+  tak nesou barvu rodiče, jen světlejší. Osa: pevné 3 px/.9, ostatní 2 px/.55, sbalené .25.
+- **Sloupec názvů**: `▾/▸` sbalit podstrom (už je), tečka barvy (`swatch`, kosočtverec u experimentu), jméno 14 px
+  tučně v barvě řádku, chip (`pevný` · `z větve` · `práce` · `experiment` · u sbaleného „N větví · M kuliček“), při
+  najetí místo chipu akce `⌖` a `✎`. Druhý řádek `meta` jen u řádků s kuličkou (`h ≥ 78`): „větev X · z rodiče → cíl
+  rodič“ (experiment: „fork z rodiče · zpět nebo zahodit“; items: „cíl: develop nebo feat, kde je díl potřeba“).
+  Pod ním za každý pruh řádek `⌂ **agent** · stav` ve výšce pruhu.
+- **Pruhy worktree** (dnešní data `worktrees[]` s `binding`): `x1 = x(from)+14`, `x2 = x(to ∨ teď)`,
+  `y = osa + 20·i + 10`; odbočka z osy tečkovanou úsečkou (`M x(from) osa L x1 y`), pruh 2 px (`wip` čárkovaně
+  5 4, když běží), návrat `M x2 y L x2+14 osa` a **tečka „vrácen“** r 3,5 na ose, popisek `⌂ agent · vrácen|pracuje`
+  u začátku pruhu. Řádek s pruhy dává popiskům kuliček jen sloty nad osou.
+- **Commity**: kostka 6×10 (rx 1) na ose řádku kuličky, barva = barva cíle, je-li kulička začleněná, jinak řádku;
+  opuštěný: červená, pahýl vzhůru a ✕ (už je). **Čára práce** od kuličky k poslednímu commitu (4 px, čárkovaná 7 6
+  dokud není `submitted`/`merged`), nikdy se neprodlužuje do „teď“. Hover tip commitu (nový, stejný dílek tipu jako
+  u kuličky): `sha · zpráva`, čas, kulička (`OP-… název`), autor (agent posledního pokusu), zdroj „git log“, u
+  opuštěného „opuštěno: zůstává v historii, do cíle nejde“, patička „klik = detail“. **Klik na kostku otevře detail
+  commitu** (`LinieCommit`), ne jen výběr kuličky. SHA štítek pod kostkou jen při mřížce ≤ 15 min.
+- **Spojnice**: plán = přímá čárkovaná úsečka z posledního živého commitu (jinak z kuličky) do `(x+110, osa cíle)`,
+  končí 13 px před cílem šipkou a přerušovaným kroužkem; popisek „plán → cíl“ (s „blokováno ·“); slabá (.25) mimo
+  vrstvu plánů a bez výběru. Merge = Bezier `C (x1+40,y1) (x2−40,y2)` z kuličky na osu cíle **v čase merge**, plná
+  2,6 px s gradientem zdroj→cíl, plný bod r 5 v barvě cíle, nakreslí se jednou (`draw .9 s`, `prefers-reduced-motion`
+  vypne), pilulka PR na 65 % délky „PR #n · stav [· squash]“. Fork experimentu tečkovaně s popiskem „fork · experiment“.
+- **Popisky kuliček**: sloty pod osou / `up` / `d2` / `u2` (s pruhy jen `up` / `u2`), mezera 200 px, 2. patro zvedá
+  řádek o 28, nevejde-li se: „+1“ s titulem v `title`. Text `název (34 zn.)` + `stav · N c [· N ✕] [· N připom.]`.
+- Testy: výška/osa řádku (bez pruhů, s 2 pruhy, sbalený, s 2. patrem), barva potomka z kořene, geometrie pruhu
+  s návratem a bez, slot popisků s pruhy, tip commitu (opuštěný), merge x2 = čas merge. Živě na náhledu z Velínu:
+  řádek s dvěma pruhy a návratem, kostky vybrané kuličky, hover kostky, klik kostky → detail.
+
+### 10.2 L9b Uzavření po začlenění (backend `closed` na řádku, větev `feat/velin-linie-uzavreni`)
+Co „uzavřeno“ znamená, říká služba, ne prohlížeč. `board.py` dá každému řádku větve `closed: null | {at, sha,
+target, by: "merge", balls: N}`:
+- řádek je **uzavřený**, když má aspoň jednu kuličku, **všechny** jeho kuličky mají `axes.integration.state ==
+  merged` (žádná `todo/wip/pending/stale/blocked/deferred`), špička větve z gitu je předkem špičky cíle
+  (`merge-base --is-ancestor`, squash: špička odpovídá `work.merged.sha` zdroje), nemá živý pruh worktree
+  (`binding.live`) a všechny jeho **řádky-děti jsou uzavřené** (kaskáda zdola);
+- `at` = čas posledního merge jeho kuliček, `sha` = merge commit v cíli, `target` = rodič podle jména;
+- nový commit na větvi po uzavření (`ahead > 0` nad `sha`) nebo nová kulička s touto větví **uzavření ruší**
+  (`closed: null`) – tím se větev „znovu otevře“ pro vylepšení bez ručního kroku;
+- `GET /board` nese `closed` u řádku, `board.txt` tiskne uzavřené řádky jednou řádkou „⊕ název · uzavřeno HH:MM → cíl
+  (N kuliček)“ bez výpisu kuliček (`--all` je vypíše).
+- Testy (`test_board.py` / nový `test_closed.py` s fixture gitu): větev se dvěma začleněnými kuličkami → closed;
+  jedna kulička `wip` → null; dítě otevřené → rodič null; commit po merge → null; squash; kaskáda tři úrovně.
+
+### 10.3 L9c Skládání do rodiče a znovuotevření (frontend, větev `feat/velin-linie-kresba-skladani`, po L9a+L9b)
+- **Uzavřený řádek zmizí** z editoru (ne ze stromu dat). Na ose **rodiče** v čase `closed.at` leží **značka složené
+  větve**: kroužek 7 px s „⊕“ v barvě dítěte a štítek `název · N kuliček` (monospace 11 px, tenký rám jako pilulka
+  PR). Hover: „barvy · 3 kuličky · uzavřeno 15:15 do feat/velin-linie-strom · merge 0000ac5 · klik = rozbalit“.
+  Merge oblouky kuliček složené větve se nekreslí (zůstává jen značka), aby rodič zůstal čitelný.
+- **Klik na značku rozbalí** větev pod rodičem s celou historií (stejná kresba jako L9a: kuličky, commity, pruhy,
+  merge oblouky, tagy) a značka se změní na `⊖`; další klik složí. Stav v `localStorage pletor.linie.unfolded`
+  (pro aplikaci, ne per projekt), `↻ Výchozí` ho vynuluje. Výběr kuličky uvnitř složené větve (z fronty, deníku,
+  `?ticket=`) větev rozbalí sám a drží polohu výběru (§6 „Poloha výběru je stálá“).
+- **Kaskáda**: když se uzavře i rodič, jeho značka nese součet (`strom · 3 větve · 9 kuliček`), rozbalení ukáže
+  rodiče se složenými značkami jeho dětí; každá úroveň se rozbaluje zvlášť. Ve vrstvách přibude „Sloučené větve“
+  (výchozí vypnuto): zapnuto = všechny větve otevřené, značky zůstávají jako ukazatele času uzavření.
+- **Znovuotevření pro vylepšení**: nová kulička s větví uzavřeného řádku (formulář předvyplní rodiče = cíl řádku)
+  → služba vrátí `closed: null` (10.2) a řádek se sám objeví pod rodičem; agent před prací sloučí rodiče do větve
+  („Agent sloučí cíl do větve“, už je ve větách fronty) a nový commit přebije původní řešení. Detail kuličky i tip
+  značky ukážou „navazuje na N začleněných kuliček této větve“ (z boardu, bez nové evidence). Žádná nová větev pro
+  touž věc: formulář při jménu větve, která existuje uzavřená, řekne „větev už existuje, znovu se otevře“.
+- `board.txt`: složené řádky jednou řádkou (10.2), rozbalené výpisem; `linie.py board --all` otevře vše.
+- Testy: řádek `closed` se nekreslí a rodič má značku v `x(closed.at)`; klik přepne `unfolded`; výběr kuličky uvnitř
+  rozbalí; kaskáda dvou úrovní; vrstva „Sloučené větve“ otevře vše; nová kulička (`closed: null`) řádek vrátí.
+
+Pořadí: L9a a L9b paralelně (L9a jen frontend, L9b jen backend + `board_text.py`), L9c z integrované špičky obou.
+Hotovo když: na projektu OPORY je řádek `rebrand` (a pod ním dokončené vozy L7g–L7l) složený do značky na
+`strom-barvy`, klik ho rozbalí se vším, co se tam dělo, a `barvy` ukáže pruhy agentů s návratem jako v prototypu.
