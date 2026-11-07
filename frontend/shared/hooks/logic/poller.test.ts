@@ -136,6 +136,8 @@ describe("sdílený poller", () => {
 // (stav `now` / `clock`), sítě se nedotkne; řetěz `setTimeout(refresh, …)` mimo poller nesmí existovat.
 const FRONTEND = fileURLToPath(new URL("../../..", import.meta.url));
 const CLOCK = /setInterval\(\s*\(\)\s*=>\s*set(Now|Clock)\(/;
+// Výjimka: barge-in vzorkuje hlasitost mikrofonu po 50 ms (zvuk, ne síť), poller s refresh/visibility sem nepatří.
+const AUDIO_TICK = "agi-pletor/hud/logic/barge-in.ts";
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -149,7 +151,7 @@ describe("žádný poller mimo vzor", () => {
   const files = sources(FRONTEND).map((path) => ({ path: relative(FRONTEND, path).replaceAll("\\", "/"), text: readFileSync(path, "utf-8") }));
 
   it("setInterval jen pro hodiny", () => {
-    const offenders = files.flatMap(({ path, text }) => text.split("\n")
+    const offenders = files.filter(({ path }) => path !== AUDIO_TICK).flatMap(({ path, text }) => text.split("\n")
       .filter((line) => line.includes("setInterval(") && !CLOCK.test(line))
       .map((line) => `${path}: ${line.trim()}`));
     expect(offenders).toEqual([]);
