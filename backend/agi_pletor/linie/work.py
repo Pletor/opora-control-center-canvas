@@ -74,8 +74,13 @@ def unreported(work, integ=None):
         return None, True
     if merged:
         sha = integ["sha"] if integ else work["merged"].get("sha")
-        return (git(work["repository"], "rev-list", "-1", f"{sha}..{work['branch']}", timeout=TIMEOUT,
-                    optional=True) or None) if sha else None, True
+        new = (git(work["repository"], "rev-list", "-1", f"{sha}..{work['branch']}", timeout=TIMEOUT,
+                   optional=True) or None) if sha else None
+        # §10.2: commit po merge, který už v cíli leží (začlenila ho další kulička téže větve), větev znovu neotvírá
+        target = (integ or {}).get("target") or (work.get("merged") or {}).get("target") or work.get("target")
+        if new and target and any(ancestor(work["repository"], new, ref) for ref in (target, "origin/" + target)):
+            new = None
+        return new, True
     if not work.get("headSha"):
         return None, True
     # OP-020DBE.2: přijetí i kontroly se hodnotí proti špičce větve, ne proti poslednímu hlášení
@@ -222,11 +227,17 @@ def _mark(service, project, ticket_id):
 
 def _row_id(service, project, work_in, branch, base, target):
     """Řádek pro kuličku: zadaný, pokud drží tuto větev nebo žádnou; jinak se založí řádek větve (název = větev)."""
-    row = next((r for r in rows.read(service.root, project)["rows"] if r["id"] == work_in.get("rowId")), None)
-    held = {t["work"]["branch"] for t in _all(service, project) if row and t["work"]["rowId"] == row["id"]}
+    stored, tickets = rows.read(service.root, project)["rows"], _all(service, project)
+    row = next((r for r in stored if r["id"] == work_in.get("rowId")), None)
+    held = {t["work"]["branch"] for t in tickets if row and t["work"]["rowId"] == row["id"]}
     held |= {row["branch"]} if row and row.get("branch") else set()
     if row and (not held or branch in held):
         return row["id"]
+    # řádek = větev: další kulička téže větve jde na její řádek (podle větve, kuliček nebo jména), ne na nový duplikát
+    for other in stored:
+        mine = {t["work"]["branch"] for t in tickets if t["work"]["rowId"] == other["id"]} | ({other["branch"]} if other.get("branch") else set())
+        if branch in mine or (not mine and other.get("name") == branch):
+            return other["id"]
     kind = "items" if tree.role(branch) == "items" else "work"
     return rows.add(service.root, project, branch, kind, base={"branch": base}, target=target)["id"]
 

@@ -19,6 +19,8 @@ L7d (§7 bod 4): každá kulička nese `plan` (`plan_link`) a `queues`, board `q
 grafem prostoru; `grouped(..., "plan", snapshot)` přeskládá uložený snímek podle plánu bez nového čtení.
 
 L7g (§7 bod 7): `queues.human[]` = seřazená fronta „Čeká na tebe“ (`human_queue.order`) nad řádky podle větví.
+
+L9b (§10.2): každý řádek nese `closed` (`closed.closed_rows`): `null` nebo `{at, sha, target, by, balls}`.
 """
 import os
 import time
@@ -27,6 +29,7 @@ from pathlib import Path
 
 from backend.agi_pletor.linie import (
     branches,
+    closed,
     deploy,
     human_queue,
     jsonfile,
@@ -231,6 +234,8 @@ def with_tree(rows, balls, heads):
             claimed[branch] = row
         else:
             leftover.append(row)
+    # duplikát řádku větve (jméno = obsazená větev) se nekreslí; jeho kuličky kreslí board na řádku své větve
+    leftover = [row for row in leftover if row.get("name") not in claimed]
     known = set(heads) | set(claimed) | {ball["branch"] for ball in live}
 
     def auto(branch):
@@ -264,6 +269,12 @@ def with_tree(rows, balls, heads):
         at = next((i for i, row in enumerate(found) if row["branch"] not in rows_mod.MAPPING), len(found))
         found.insert(at, shaped(header, None, False))
     return found + [shaped(row, None, True) for row in sorted(leftover, key=lambda r: r.get("order", 0))]
+
+
+def _contains(root, branch, sha, target):
+    """Špička větve (lokální, jinak origin; po úklidu větve merge `sha`) je předkem cíle lokálně nebo v origin (§10.2)."""
+    src = branches._sha(root, branch) or branches._sha(root, "origin/" + branch) or sha
+    return bool(src) and any(work_mod.ancestor(root, src, ref) for ref in (target, "origin/" + target))
 
 
 def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
@@ -307,8 +318,12 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
             if link["kind"] != "follows":
                 link["to"] = row_of.get(link["to"], link["to"])
     human = human_queue.order(balls, rows)
+    trees = worktrees(root, tickets)
+    shut = closed.closed_rows(rows, balls, trees, lambda branch, sha, target: _contains(root, branch, sha, target))
+    for row in rows:
+        row["closed"] = shut.get(row["id"])
     result = {"rows": rows, "balls": balls, "mapping": found["mapping"], "group": "branch",
-              "realMerges": real_merges(root) + tips, "tags": tags(root), "worktrees": worktrees(root, tickets),
+              "realMerges": real_merges(root) + tips, "tags": tags(root), "worktrees": trees,
               "deploy": {"envs": deploy.latest(shipped)},
               "queues": {**plan_view.queues(balls, graph, carded), "humanDecisions": len(human), "human": human},  # jeden zdroj pravdy
               "snapshot": {"id": "snap_" + uuid.uuid4().hex[:12], "builtAt": tokens.stamp(), "sources": sources}}

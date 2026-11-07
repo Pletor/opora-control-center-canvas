@@ -3,7 +3,7 @@
     uv run python tools/linie.py task [--ticket tk_…] [--project P --workspace W]
     uv run python tools/linie.py report [--check "npm test=green"]… [--sha HEAD] [--allow-unmarked]
     uv run python tools/linie.py trace [--mark OP-…]
-    uv run python tools/linie.py board [--mine]   # text přehledu jako obrazovka Linie (GET /board.txt)
+    uv run python tools/linie.py board [--mine] [--all]   # text přehledu jako obrazovka Linie (GET /board.txt)
     uv run python tools/linie.py status | preview | merge | defer | resume | block --reason "…"
 
 Server je v OPORA_BASE_URL (výchozí http://127.0.0.1:8740), identita OPORA_AGENT_NAME → `X-Opora-Actor`, token brány
@@ -179,7 +179,8 @@ def board(cwd, args):
     if not (project and workspace):
         raise Stop(EXIT_CONTEXT, "Neznám projekt: zadej --project a --workspace (OPORA_PROJECT/…).")
     return call(cwd, "GET", "/board.txt", query={"project": project, "workspace": workspace,
-                                                  **({"mine": 1} if args.mine else {})}, text=True).strip()
+                                                  **({"mine": 1} if args.mine else {}),
+                                                  **({"all": 1} if args.all else {})}, text=True).strip()
 
 
 def post(cwd, args, action, body=None):
@@ -257,6 +258,7 @@ def parser():
             command.add_argument("--allow-unmarked", action="store_true", help="přeskočí kontrolu Opora-Mark")
         if name == "board":
             command.add_argument("--mine", action="store_true", help="jen kuličky volajícího agenta")
+            command.add_argument("--all", action="store_true", help="i uzavřené řádky s kuličkami")
         if name == "trace":
             command.add_argument("--mark", help="OP-…, výchozí značka úkolu")
         if name == "block":

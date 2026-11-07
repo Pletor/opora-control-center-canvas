@@ -193,6 +193,9 @@ def test_create_without_row_or_with_taken_row_makes_branch_row(setup):
     assert work.create(service, "draft", "main", BODY, {"branch": "items/dil", "rowId": own["rowId"]}, NOW,
                        root=repo)["work"]["rowId"] != own["rowId"]
     assert made(rowId=first_row, branch="feat/uzel")["rowId"] == first_row  # tatáž větev zůstává na svém řádku
+    assert made()["rowId"] == own["rowId"]  # druhá kulička téže větve bez rowId jde na řádek větve, ne na duplikát
+    named = rows.add(service.root, "draft", "feat/ctvrta", "work")["id"]
+    assert made(branch="feat/ctvrta")["rowId"] == named  # prázdný řádek se jménem větve je její řádek
     assert refused(lambda: made(rowId="row_nic")).status == 404
     assert refused(lambda: made(branch="feat/x", baseBranch="main")).code == "branch_hierarchy"  # řádek se nezaloží
     assert [r["name"] for r in rows.read(service.root, "draft")["rows"]].count("feat/x") == 0
@@ -218,3 +221,21 @@ def test_decisions_pass_without_git_and_carry_by(setup, monkeypatch):
     left = work.abandon(service, "draft", tid, head[:9], "slepá ulička", NOW, "agent:dev")["work"]["abandoned"]
     assert left == [{"sha": head, "why": "slepá ulička", "at": NOW, "by": "agent:dev"}]
     assert strict == []
+
+
+def test_commit_after_merge_already_in_target_does_not_reopen(setup):
+    """§10.2: další commit větve po merge kuličky, který do cíle dostala pozdější kulička, není „nová revize“."""
+    _, repo, _ = setup
+    first = agent_commit(repo)
+    run(repo, "checkout", "-q", "develop")
+    run(repo, "merge", "-q", "--no-ff", "-m", "merge 1", first)
+    merge_sha = run(repo, "rev-parse", "HEAD").strip()
+    run(repo, "checkout", "-q", "main")
+    record = {"repository": str(repo), "branch": "feat/uzel", "headSha": first, "target": "develop",
+              "merged": {"sha": merge_sha, "target": "develop"}}
+    later = agent_commit(repo, name="v.txt")
+    assert work.unreported(record) == (later, True)
+    run(repo, "checkout", "-q", "develop")
+    run(repo, "merge", "-q", "--no-ff", "-m", "merge 2", later)
+    run(repo, "checkout", "-q", "main")
+    assert work.unreported(record) == (None, True)

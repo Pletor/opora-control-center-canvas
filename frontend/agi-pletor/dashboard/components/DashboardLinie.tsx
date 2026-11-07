@@ -8,7 +8,7 @@ import { api, type WriteMethod } from "@/shared/types/logic/types";
 import { layoutBoard, timeRange } from "../logic/linie-board";
 import { layoutGraph } from "../logic/linie-graph";
 import { escTarget, keepScroll, type Mark } from "../logic/linie-keep";
-import { labelWidth, placeLabels } from "../logic/linie-labels";
+import { GAP } from "../logic/linie-labels";
 import { laneRows } from "../logic/linie-marks";
 import { FULL_KEY, LAYERS_KEY, NAMES_KEY, readFull, readLayers, readNames, save, type LayerId } from "../logic/linie-prefs";
 import { queueLines, queues, type QueueId } from "../logic/linie-queues";
@@ -19,6 +19,7 @@ import { BASE, useLinieFeed, type Group } from "../logic/use-linie-feed";
 import { shortSha } from "../logic/linie-view";
 import { failureText, type WorkDetail } from "../logic/linie-work";
 import { FOLD_KEY, manualRow, readFolded, shownBoard } from "../logic/linie-fold";
+import { foldClosed, forcedOpen, placeKnots, toggleKnot, UNFOLD_KEY, type Knot } from "../logic/linie-closed";
 import LinieBoard from "./LinieBoard";
 import LinieFullHead from "./LinieFullHead";
 import LinieGraph from "./LinieGraph";
@@ -51,6 +52,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
   const [focus, setFocus] = useState(() => new URLSearchParams(location.search).get("branch") ?? "");
   const [lane, setLane] = useState("");
   const [folded, setFolded] = useState(() => readFolded(globalThis.localStorage));
+  const [unfolded, setUnfolded] = useState(() => readFolded(globalThis.localStorage, UNFOLD_KEY));
   const [names, setNames] = useState(() => readNames(globalThis.localStorage));
   const [layers, setLayers] = useState(() => readLayers(globalThis.localStorage));
   const [full, setFull] = useState(() => readFull(globalThis.localStorage));
@@ -72,20 +74,22 @@ export default function DashboardLinie({ project, workspace }: { project: string
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const box = useElementBox(scrollRef, mode === "editor");
-  const shown = shownBoard(board, folded, focus);
+  // Uzavřené větve se složí do značky na rodiči; výběr nebo zaměření uvnitř je otevře (§10.3), pak sbalení a zaměření.
+  const shut = foldClosed(board, new Set([...unfolded, ...forcedOpen(board, picked, focus)]), layers.merged);
+  const shown = shownBoard(shut.board, folded, focus);
   const range = timeRange(shown.board, now);
   const plotWidth = Math.max(200, (box?.width ?? 1000) - names);
   const zoom = useLinieZoom(scrollRef, names, plotWidth, range.t0, range.t1, mode === "editor");
   const ball = board.balls.find((item) => item.ticketId === picked);
   // Pruhy worktree: vrstva zapnutá = všechny řádky s vazbou, jinak jen řádek vybrané kuličky.
   const laneSet = layers.worktree ? new Set(laneRows(shown.board).keys()) : new Set(ball ? [ball.rowId] : []);
-  const layout = layoutBoard(shown.board, { k: zoom.k, now, lanes: laneSet });
-  const labels = placeLabels(layout.balls, picked, laneSet);
+  const layout = layoutBoard(shown.board, { k: zoom.k, now, lanes: laneSet, selected: picked });
   const laid = layout.balls.find((item) => item.ticketId === picked);
+  const knots = placeKnots(shut.knots, layout);
   const queueList = queues(board.balls, board.queues, feed.requests ? feed.requests.filter((r) => r.open).length : null);
   const lit = queue ? new Set(queueList.find((item) => item.id === queue)?.ids) : null;
-  // Kuličky, které výběr vytlačil do shluku „+N“ u sebe, vypíše detail.
-  const cluster = laid ? labels.clusters.filter((c) => c.rowId === laid.rowId && Math.abs(c.x - laid.x) <= labelWidth(laid)).flatMap((c) => c.ids)
+  // Kuličky, které výběr vytlačil do „+1“ u sebe (blíž než mezera popisků), vypíše detail.
+  const cluster = laid ? layout.labels.clusters.filter((c) => c.rowId === laid.rowId && Math.abs(c.x - laid.x) < GAP).flatMap((c) => c.ids)
     .map((id) => ({ ticketId: id, title: board.balls.find((b) => b.ticketId === id)?.title ?? id })) : [];
 
   // OP-159D4C.2: stálá poloha výběru – přepnutí vrstvy, sbalení i nová data dorovná posunem o Δy vybrané kuličky.
@@ -119,6 +123,8 @@ export default function DashboardLinie({ project, workspace }: { project: string
   // Rodič se hledá i mezi větvemi, které jsou jen v gitu (bez řádku a kuličky), jinak by mezičlánek spadl na develop.
   const heads = [...new Set([board.mapping.main, board.mapping.develop, ...feed.branchBoard.rows.map((row) => row.branch), ...board.balls.map((b) => b.branch), ...view.lanes.map((item) => item.name)].filter(Boolean))];
   const pick = (id: string) => { if (id !== picked) setAcceptNote(""); setPicked(id); setFlash(""); };
+  // Klik na kostku: kulička zůstane vybraná (kostky vidět), panel ukáže detail commitu; Esc vrací commit → detail.
+  const pickCommit = (ticketId: string, sha: string) => { pick(ticketId); setTrace(""); setCommit(sha); };
   const pickBranch = (name: string) => { setLane(name); pick(board.balls.find((b) => b.branch === name)?.ticketId ?? ""); };
   const focusOn = (branch: string) => {
     setFocus(branch);
@@ -135,6 +141,9 @@ export default function DashboardLinie({ project, workspace }: { project: string
     setFolded(next);
     save(FOLD_KEY, [...next]);
   };
+  const keepUnfolded = (next: Set<string>) => { setUnfolded(next); save(UNFOLD_KEY, [...next]); };
+  // Složit větev otevřenou kvůli výběru jde jen se zrušením výběru, jinak by klik nic neudělal.
+  const knot = (k: Knot) => { if (k.open && forcedOpen(board, picked, "").includes(k.rowId)) close(); keepUnfolded(toggleKnot(unfolded, k)); };
   const layer = (id: LayerId, on: boolean) => { const next = { ...layers, [id]: on }; setLayers(next); save(LAYERS_KEY, next); };
   const width = (value: number) => { setNames(value); save(NAMES_KEY, String(value)); };
   function fullscreen(on: boolean) { setFull(on); save(FULL_KEY, String(on)); }
@@ -158,7 +167,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
   ]));
   const sources = {
     commits: board.balls.some((b) => b.commits.length || b.judgement.evidence.some((e) => e.kind === "commit")),
-    worktree: board.worktrees.some((w) => w.binding), plans: board.balls.some((b) => b.judgement.plan), prs: board.balls.some((b) => b.pr), tags: board.tags.length > 0 || board.deploy.length > 0,
+    worktree: board.worktrees.some((w) => w.binding), plans: board.balls.some((b) => b.judgement.plan), prs: board.balls.some((b) => b.pr), tags: board.tags.length > 0 || board.deploy.length > 0, merged: board.rows.some((r) => r.closed),
   };
   const marks = Object.fromEntries(board.balls.map((b) => [b.ticketId, b.mark]));
   const activeQueue = queueList.find((item) => item.id === queue);
@@ -171,7 +180,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
       {view.problem && <p className="pletor-dashboard__error">{view.problem}</p>}
       {note && <p className="pletor-dashboard__note" role="status">{note}</p>}
       <LinieToolbar mode={mode} onMode={setMode} group={group} onGroup={setGroup} layers={layers} onLayer={layer} form={form} onForm={setForm} sources={sources}
-        follow={follow} onFollow={setFollow} zoom={{ ...zoom, now: () => zoom.now(now) }} full={full} onFull={fullscreen} />
+        follow={follow} onFollow={setFollow} zoom={{ ...zoom, now: () => zoom.now(now), reset: () => { zoom.reset(); keepUnfolded(new Set()); } }} full={full} onFull={fullscreen} />
       <LinieStatus view={view} onDeployed={(sha) => void write("/deployed", { sha }, `Nasazené zapsáno: ${shortSha(sha)}.`)} />
       {form === "row" && <LinieRowForm onClose={() => setForm("")} onSubmit={(body) => write("/rows", body, "Řádek přidán (větev se nezaložila).")} />}
       {form === "work" && <LinieWorkForm rows={feed.branchBoard.rows} heads={heads} onClose={() => setForm("")} onSubmit={(body) => write("/work", body, "Kulička zadána (větev založí agent).")} />}
@@ -184,9 +193,9 @@ export default function DashboardLinie({ project, workspace }: { project: string
       {editor && queue === "clovek" && <LinieHumanQueue rows={feed.human} idle={idleText(board.balls, board.worktrees)} said={said} onAct={decide} />}
       <div className={`pletor-dashboard__linie${editor || trace || commit || picked ? " pletor-dashboard__linie--with-panel" : ""}`}>
         {editor ? (
-          <LinieBoard scrollRef={scrollRef} names={names} layout={layout} selected={picked} labels={labels} lit={lit} layers={layers} chips={shown.chips}
+          <LinieBoard scrollRef={scrollRef} names={names} layout={layout} knots={knots} onKnot={knot} selected={picked} lit={lit} layers={layers} chips={shown.chips}
             corner={group === "plan" ? "plátno 2 › plátno 3" : "řádek · větev · cíl"}
-            onPick={pick} onFold={fold} onFocus={focusOn} onNames={width} onRenaming={(on) => { renaming.current = on; }}
+            onPick={pick} onPickCommit={pickCommit} onFold={fold} onFocus={focusOn} onNames={width} onRenaming={(on) => { renaming.current = on; }}
             onRename={(id, name) => void write(`/rows/${encodeURIComponent(id)}`, { name }, `Řádek přejmenován na ${name}.`, "PATCH")} />
         ) : (
           <div className="pletor-dashboard__linie-graph">

@@ -1,39 +1,38 @@
 /* Značky skutečných dat na plátně (L7c–L7f podle prototypu Linie v3): čára práce, pruhy worktree, tagy a nasazení,
    kostky commitů, pilulky PR, „teď“, deník a žádosti srdci. Vše kreslí jen to, co board poslal; nic se nesimuluje. */
 
-/* Čára práce vede od kuličky k poslednímu commitu: plná, když je práce odevzdaná, tečkovaná, dokud se ještě pracuje. */
+/* Čára práce vede od kuličky k poslednímu commitu, 4 px, aby se četla jako „tady se pracovalo“; čárkovaná 7 6, dokud
+   práce není odevzdaná, pak plná. Nikdy nejde do „teď“: končí tam, kde je poslední doklad. */
 .pletor-dashboard__linie-work {
-  stroke-width: 2;
-  opacity: 0.8;
+  stroke-width: 4;
+  stroke-linecap: round;
 }
 .pletor-dashboard__linie-work--wip {
-  stroke-dasharray: 2 3;
+  stroke-dasharray: 7 6;
 }
 
-/* Worktree agenta je pruh pod osou větve: tečkovaná odbočka dolů, čára po dobu práce, při vrácení odbočka zpět s bodem.
-   Dokud agent pracuje, čára je přerušovaná; vrácený worktree je plný. Jméno pruhu stojí vlevo ve sloupci názvů. */
+/* Worktree agenta je pruh pod osou větve: tečkovaná odbočka dolů, 2px čára po dobu práce (čárkovaná, dokud agent
+   pracuje), při vrácení odbočka zpět na osu s tečkou „vrácen“. Popisek „⌂ agent · stav“ stojí nad začátkem pruhu
+   a totéž jméno vlevo ve sloupci názvů ve výšce pruhu. */
 .pletor-dashboard__linie-lane {
-  stroke-width: 1.6;
-  opacity: 0.9;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 .pletor-dashboard__linie-lane--wip {
-  stroke-dasharray: 5 3;
+  stroke-dasharray: 5 4;
 }
 .pletor-dashboard__linie-lane-turn {
   fill: none;
   stroke-width: 1.2;
-  stroke-dasharray: 2 2;
+  stroke-dasharray: 2 3;
 }
-.pletor-dashboard__linie-lane-name {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding-left: 28px;
-  overflow: hidden;
+.pletor-dashboard__linie-lane-label {
+  position: absolute;
   color: var(--pletor-dim);
   font-size: 11px;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  pointer-events: none;
+  transform: translate(6px, -100%);
 }
 
 /* Tag je svislá rýha přes osu se štítkem pod ní; nasazení má zelený štítek, aby bylo na první pohled vidět, co kde běží. */
@@ -57,13 +56,22 @@
   color: var(--pletor-accent);
 }
 
-/* Commit je kostka 6×10 v barvě větve; opuštěná kostka je červená s odbočkou do prázdna a ✕, zůstává v historii,
-   do cíle nejde. Sha se ukáže až při přiblížení, kdy se kostky nepřekrývají. */
+/* Commit je kostka 6×10 v barvě řádku, u začleněné kuličky v barvě cíle (commit už patří tam). Při najetí se vyplní
+   a ukáže tip, klik otevře detail commitu. Opuštěná kostka je červená s odbočkou do prázdna a ✕, zůstává v historii,
+   do cíle nejde. Sha pod kostkou se ukáže až při mřížce po 15 min a jemnější, kdy se kostky nepřekrývají. */
 .pletor-dashboard__linie-cubeset {
   cursor: pointer;
 }
-.pletor-dashboard__linie-cubeset .pletor-dashboard__linie-cube {
+.pletor-dashboard__linie-cubeset:focus-visible {
+  outline: 2px solid var(--pletor-ink);
+}
+.pletor-dashboard__linie-cube {
+  fill: var(--pletor-bg);
   stroke: var(--c, var(--pletor-ink));
+  stroke-width: 1.5;
+}
+.pletor-dashboard__linie-cubeset:hover .pletor-dashboard__linie-cube {
+  fill: var(--c, var(--pletor-ink));
 }
 .pletor-dashboard__linie-cubeset--dead .pletor-dashboard__linie-cube {
   fill: rgba(214, 96, 96, 0.25);
@@ -72,19 +80,23 @@
 .pletor-dashboard__linie-cube-stub {
   fill: none;
   stroke: #e07070;
-  stroke-width: 1.2;
+  stroke-width: 1.4;
   stroke-dasharray: 3 3;
 }
 .pletor-dashboard__linie-cube-x {
   position: absolute;
   color: #e07070;
-  font-size: 11px;
-  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
 }
 .pletor-dashboard__linie-cube-sha {
   position: absolute;
   color: var(--pletor-dim);
-  font: 10px var(--mono);
+  font: 10.5px var(--mono);
+  white-space: nowrap;
+  pointer-events: none;
   transform: translateX(-50%);
 }
 
@@ -115,6 +127,38 @@
 .pletor-dashboard__linie-pr--static {
   position: static;
   transform: none;
+}
+
+/* Sloučená větev se nekreslí jako další řádek, ale složí se do rodiče: na jeho ose v čase uzavření leží malý kroužek
+   v barvě dítěte s ⊕ a vedle něj štítek „název · N kuliček“ v rámu jako pilulka PR. Rodič tak zůstane čitelný a přesto
+   je vidět, kdy a co se do něj vrátilo; klik větev rozbalí pod rodičem (⊖) a další klik ji zase složí. */
+.pletor-dashboard__linie-knot {
+  cursor: pointer;
+}
+.pletor-dashboard__linie-knot-ring {
+  fill: var(--pletor-bg);
+  stroke: var(--c);
+  stroke-width: 1.5;
+}
+.pletor-dashboard__linie-knot-glyph {
+  fill: var(--c);
+  font-size: 12px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.pletor-dashboard__linie-knot-label {
+  position: absolute;
+  z-index: 2;
+  padding: 1px 7px;
+  border: 1px solid var(--c);
+  border-radius: 9px;
+  background: var(--pletor-bg);
+  color: var(--c);
+  font: 11px var(--mono);
+  white-space: nowrap;
+  cursor: pointer;
+  transform: translateY(-50%);
 }
 
 /* „teď“ visí nad svislicí času v hlavičce; přepínač „Sledovat živě“ má tečku, která svítí jen když posun běží. */
