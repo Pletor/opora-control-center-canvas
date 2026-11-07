@@ -196,3 +196,25 @@ def test_create_without_row_or_with_taken_row_makes_branch_row(setup):
     assert refused(lambda: made(rowId="row_nic")).status == 404
     assert refused(lambda: made(branch="feat/x", baseBranch="main")).code == "branch_hierarchy"  # řádek se nezaloží
     assert [r["name"] for r in rows.read(service.root, "draft")["rows"]].count("feat/x") == 0
+
+
+def test_decisions_pass_without_git_and_carry_by(setup, monkeypatch):
+    service, repo, tid = setup
+    head = agent_commit(repo)
+    work.report(service, "draft", tid, head, [], None, NOW, "agent:t")
+    strict = []
+
+    def down(root, *args, optional=False, **kwargs):  # git nedostupný: optional = None, jinak pád
+        if not optional:
+            strict.append(args)
+            raise ValueError("git nedostupný")
+        return None
+    monkeypatch.setattr(work, "git", down)
+    assert work.block(service, "draft", tid, "čeká na API", NOW, "agent:dev")["work"]["blocked"]["by"] == "agent:dev"
+    assert work.unblock(service, "draft", tid, NOW, "human")["work"]["decided"] == {
+        "action": "unblock", "at": NOW, "by": "human"}
+    assert work.defer(service, "draft", tid, NOW, "agent:dev")["work"]["decided"]["by"] == "agent:dev"
+    assert work.resume(service, "draft", tid, NOW, "human")["work"]["deferred"] is False
+    left = work.abandon(service, "draft", tid, head[:9], "slepá ulička", NOW, "agent:dev")["work"]["abandoned"]
+    assert left == [{"sha": head, "why": "slepá ulička", "at": NOW, "by": "agent:dev"}]
+    assert strict == []

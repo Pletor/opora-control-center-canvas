@@ -1,0 +1,166 @@
+/* Monospace jen tam, kde nese identitu: sha, značka OP a větev. Zbytek Linie mluví běžným písmem aplikace. */
+.pletor-dashboard__linie-root .pletor-dashboard__mono {
+  font-family: var(--mono);
+}
+
+/* Fronty odpovědnosti: šest stejně širokých dlaždic v jedné řadě, kdo má míč. Nahoře jméno vlevo a počet s jednotkou
+   vpravo, pod tím drobně, co do fronty patří. Zvolená fronta svítí rámem; fronta bez zdroje je šedá a nedá se zvolit. */
+.pletor-dashboard__linie-queues {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.pletor-dashboard__linie-queue {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--pletor-line);
+  background: transparent;
+  color: var(--pletor-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pletor-dashboard__linie-queue[aria-pressed="true"] {
+  border-color: var(--pletor-accent);
+  background: var(--pletor-accent-soft);
+}
+.pletor-dashboard__linie-queue:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+}
+.pletor-dashboard__linie-queue--nosource {
+  cursor: default;
+  opacity: 0.75;
+}
+.pletor-dashboard__linie-queue-label {
+  font-weight: 600;
+}
+.pletor-dashboard__linie-queue-count {
+  justify-self: end;
+  color: var(--pletor-accent);
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+.pletor-dashboard__linie-queue--nosource .pletor-dashboard__linie-queue-count {
+  color: var(--pletor-dim);
+}
+.pletor-dashboard__linie-queue-hint {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--pletor-dim);
+  font-size: 11.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+@media (max-width: 1100px) {
+  .pletor-dashboard__linie-queues {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Vrstvy: rozbalovací nabídka pod tlačítkem; co board nenese, stojí šedě „bez zdroje“, aby nikdo nečekal kresbu. */
+.pletor-dashboard__linie-layers {
+  position: relative;
+}
+.pletor-dashboard__linie-layers > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.pletor-dashboard__linie-layers-menu {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 300px;
+  padding: 10px 12px;
+  border: 1px solid var(--pletor-accent);
+  background: var(--pletor-bg-2);
+}
+.pletor-dashboard__linie-layer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pletor-dashboard__linie-layer--nosource {
+  color: var(--pletor-dim);
+}
+
+/* Panel Pletora vpravo nahoře: výrok jako odstavec, pod ním další krok tučně uvedený, pak drobně snímek a stáří
+   zdrojů (zastaralý zdroj oranžově), akce a pole „Zadat srdci“ s řetězci žádostí. Detail kuličky navazuje pod ním. */
+.pletor-dashboard__linie-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pletor-dashboard__linie-pletor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__linie-pletor-h {
+  margin: 0;
+  color: var(--pletor-accent);
+  font: 600 11px var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.pletor-dashboard__linie-pletor-say,
+.pletor-dashboard__linie-pletor-next {
+  margin: 0;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.pletor-dashboard__linie-pletor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  color: var(--pletor-dim);
+  font-size: 11.5px;
+}
+.pletor-dashboard__linie-pletor-age--stale {
+  color: #f0a64a;
+}
+.pletor-dashboard__linie-pletor-ask {
+  min-height: 56px;
+  resize: vertical;
+}
+
+/* Detail pod panelem: titulek s křížkem vpravo, drobek směr › plán › značka, záložky Souhrn | Plán | Git | Relace. Pět os jako tabulka: osa,
+   hodnota tučně, revize monospace a zdroj šedě, aby u každého tvrzení bylo vidět, odkud je. */
+.pletor-dashboard__linie-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pletor-dashboard__linie-tab {
+  padding: 4px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--pletor-dim);
+  font: inherit;
+  cursor: pointer;
+}
+.pletor-dashboard__linie-tab[aria-selected="true"] {
+  border-bottom-color: var(--pletor-accent);
+  color: var(--pletor-accent);
+}
+.pletor-dashboard__linie-axis-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto auto;
+  gap: 8px;
+  align-items: baseline;
+  padding-top: 4px;
+  border-top: 1px dashed var(--pletor-line);
+}
+.pletor-dashboard__linie-axis-row .pletor-dashboard__linie-k {
+  min-width: 0;
+}
