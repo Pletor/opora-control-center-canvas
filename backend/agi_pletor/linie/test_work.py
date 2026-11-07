@@ -92,7 +92,10 @@ def test_accept_states_and_no_merge(setup):
     assert green["state"] == "open" and green["allowed"][0] == "accept"
     accepted = work.accept(service, "draft", tid, head[:7], "ok", NOW)
     assert accepted["work"]["acceptance"]["sha"] == head and accepted["state"] == "accepted_unmerged"
+    assert accepted["allowed"] == ["allow_merge", "block"]
     allowed = work.allow_merge(service, "draft", tid, None, NOW)
+    again = refused(lambda: work.allow_merge(service, "draft", tid, None, NOW))
+    assert again.code == "action_not_allowed" and again.body()["error"] == "už povoleno pro HEAD"
     assert allowed["work"]["mergeAllowed"]["targetSha"] == develop and "merge" in allowed["next"]
     # přijetí ani povolení nic neslučuje (bod 3)
     assert (run(repo, "rev-parse", "develop"), run(repo, "rev-parse", "origin/develop")) == (develop, origin)
