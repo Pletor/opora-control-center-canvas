@@ -259,3 +259,19 @@ def test_linie_work_without_row_creates_branch_row(tmp_path, repo):
         row = next(r for r in board["rows"] if r["branch"] == "feat/uzel")
         assert (row["name"], row["type"], row["depth"]) == ("feat/uzel", "work", 2)
         assert board["balls"][0]["rowId"] == row["id"] == created.json()["work"]["rowId"]
+
+
+def test_linie_board_txt_plain_text_for_agent_and_human(tmp_path, repo):
+    q = {"project": "draft", "workspace": "main"}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        body = {"title": "Uzel", "essence": "Proč.", "build": "Uzel.", "doneCriteria": ["testy"], "branch": "feat/uzel"}
+        tid = client.post(f"{BASE}/work", headers=HEADERS, params=q, json=body).json()["ticketId"]
+        head = agent_commit(repo)
+        client.post(f"{BASE}/work/{tid}/report", headers=AGENT, params=q, json={"sha": head})
+        for headers in (AGENT, HEADERS):
+            text = client.get(f"{BASE}/board.txt", headers=headers, params=q)
+            assert text.status_code == 200 and text.headers["content-type"] == "text/plain; charset=utf-8"
+            assert text.text.startswith("Pletor: Na plátně 1 kulička") and "Čeká na člověka:" in text.text
+            assert "Uzel · " in text.text and "Deník (posledních 20):" in text.text
+        assert "Uzel" not in client.get(f"{BASE}/board.txt", headers=AGENT, params={**q, "mine": 1}).text.split("Řádky")[1]
+        assert client.get(f"{BASE}/board.txt", headers=HEADERS, params={**q, "mine": 1}).status_code == 422

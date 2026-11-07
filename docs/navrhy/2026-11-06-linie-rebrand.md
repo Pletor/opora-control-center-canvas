@@ -304,3 +304,51 @@ klíč souhrnu `next` ⇔ `allowed` (tabulka §2a).
 
 Před hlášením hotovo každého PR: `uv run pytest backend/agi_pletor backend/api/agi_pletor -q`, `npm test`, `npm run build`,
 živě na náhledu z Velína, `linie.py report`.
+
+## 9. Čistý pohled a stejný přehled pro agenta (L8, 7. 11. odpoledne)
+
+Zadání člověka po náhledu vlaku: „zapracuj na designu, ať je to více čisté… editor na celou obrazovku… agenti si
+jednoduše mohli sahat pro výsledky a zapisovat… výstup pro agenta, který bude mít stejný přehled jako člověk, každý
+po svém.“ Backend a princip (§2–§5, L7g fronta) se nemění; mění se podání.
+
+- **L8a Čistý design (jen CSS + drobný stav UI, větev `feat/velin-linie-design`).** Měřítkem je export prototypu
+  „Linie v3“ (`.opora/design-v3-export-1.png`) vedle dnešního stavu (`.opora/nahled-vlak-4-ceka-na-tebe.png`):
+  - Jedna tichá vrstva, ne tři: rám Velína (hlava, menu, karta) kolem Linie zmizí. **Celá obrazovka** = přepínač v
+    liště Linie (`⛶ Celá obrazovka`, Esc vrací, uloženo pro aplikaci v `linie-prefs`, ne per projekt): Linie vyplní
+    okno, menu Velína je zasunuté, hlava je jeden řádek „VELÍN · LINIE“ + věta Pletora. Mimo celou obrazovku zůstává
+    dnešní zasazení, ale bez druhého rámu kolem editoru.
+  - Stanice: jeden řádek výšky ~44 px, název tučně + počet s jednotkou vpravo zeleně monospace, podtitul 11,5 px;
+    zvolená stanice má jen rámeček a slabé pozadí. Lišta: skupiny oddělené svislou linkou, tlačítka 30 px, nápověda
+    ovládání vpravo šedě. Řádek „main … server … nasazeno“ se zkrátí na jeden tichý řádek pod lištou (11,5 px, `--dim`),
+    tlačítko „Zapsat nasazené“ jen jako ghost.
+  - Plátno: linie 2 px, kostky commitů **výchozí vrstva vypnutá** (jen pro vybranou kuličku), merge oblouky 2,6 px
+    plné v barvě cíle, plány čárkované 1,6 px slabší, popisky kuliček nejvýš dvě patra (už je) a jméno + jeden řádek
+    stavu; pilulky PR a `prod@sha` v monospace s tenkým rámem. Řádky názvů: tečka barvy větve, jméno 14 px tučně v
+    barvě větve, chip typu vpravo, druhý řádek „větev …“ 11,5 px, strom odsazením bez svislých linek, vybraný řádek
+    `inset 3px` zeleně. Rozestup řádků z plátna, ne z počtu pruhů.
+  - Pravý sloupec užší (`--drawer` 400 px), panel Pletora: titulek monospace malými kapitálkami, výrok 13,5 px, zdroje
+    jedním řádkem, textarea a jedno tlačítko. Deník dole sbalený na jeden řádek s počtem nových; legenda v patičce
+    jedním řádkem.
+  - Pravidla: BEM třídy zůstávají, mění se hodnoty v `styles/pletor-dashboard-linie*.css`; žádné nové JS kromě
+    přepínače celé obrazovky (`DashboardLinie` → třída `pletor-dashboard__linie-root--full`, `LinieToolbar` tlačítko,
+    `linie-prefs` klíč `pletor.linie.full`) a vypnutí vrstvy commitů ve výchozích vrstvách. Barvy z proměnných Velína
+    (`--pletor-*`), kontrast vedlejšího textu ≥ 4,5:1. Výsledek se ověří screenshotem na 8740 vedle prototypu.
+- **L8b Stejný přehled pro agenta (větev `feat/velin-linie-prehled`).** Agent (Pletor, srdce, dělník) dnes vidí jen
+  `linie.py status` jedné kuličky; člověk vidí stanice, frontu, strom a deník. Nově:
+  - `backend/agi_pletor/linie/board_text.py`: `render(board) -> str` sestaví z **téhož** snímku `GET /board` textový
+    přehled v pořadí obrazovky: řádek Pletora (věta z `pletor.say` + stáří zdrojů), stanice s počty a jednotkami,
+    „Čeká na člověka“ (řádky `queues.human[]` s pořadím, značkou, větví → cílem, stavem, větou), strom řádků
+    s odsazením podle `depth` a pod každým jeho kuličky (`OP-… název · stav · sha · další krok`), nakonec posledních
+    20 záznamů deníku. Žádné barvy, žádné ANSI, jen text a odsazení; každá kulička na jednom řádku, aby šla grepovat.
+  - Routa `GET /api/pletor/linie/board.txt` (`text/plain; charset=utf-8`, stejné parametry a oprávnění jako `/board`,
+    agent i člověk), `tools/linie.py board` ji tiskne; `--mine` vypíše jen řádky s kuličkami volajícího agenta.
+  - Testy: `test_board_text.py` (fixture snímku s frontou dvou vozů → pořadí a věta shodné s `queues.human`; řádek bez
+    kuliček; prázdná fronta „Nic nečeká na člověka“), test routy (403 nikde, text/plain), test `linie.py board`.
+  - Zápis agenta zůstává přes stávající `linie.py task/report/trace/block/defer/resume` a `/api/gate`; nic nového.
+  - **Postaveno 2026-11-07.** Odchylky: `--mine` / `?mine=1` pozná kuličky agenta podle `worktrees[].binding` (snímek
+    nenese `work.attempts`); stanice Pletor bere otevřené žádosti routa ze `requests.listing`; routa nese jen
+    project/workspace/mine (žádné `group`), bez identity 428, `mine` bez agenta 422.
+
+Hotovo když: screenshot Linie na celou obrazovku vedle prototypu bez rušivého rámu a bez výchozích kostek commitů,
+a `uv run python tools/linie.py board` vrátí text, ve kterém agent najde totéž, co člověk vidí v Čeká na tebe a na
+plátně.

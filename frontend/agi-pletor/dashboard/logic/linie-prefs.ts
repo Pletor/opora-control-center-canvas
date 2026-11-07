@@ -1,10 +1,11 @@
 /**
- * Předvolby Linie uložené jednou pro aplikaci (`localStorage`, nikdy per projekt): šířka sloupce názvů a vrstvy.
+ * Předvolby Linie uložené jednou pro aplikaci (`localStorage`, nikdy per projekt): šířka sloupce názvů, vrstvy a celá obrazovka.
  * Výchozí pohled = větve, kuličky, souhrn a ověřené začlenění (+ pilulky PR a tagy); commity, worktree a plány
  * ostatních kuliček jsou vypnuté a pro vybranou kuličku se ukážou vždy.
  */
 export const NAMES_KEY = "pletor.linie.names";
 export const LAYERS_KEY = "pletor.linie.layers";
+export const FULL_KEY = "pletor.linie.full";
 export const NAMES_MIN = 160;
 export const NAMES_MAX = 420;
 export const NAMES_DEFAULT = 260;
@@ -22,6 +23,9 @@ export function readNames(storage: Read): number {
   const value = Number(storage?.getItem(NAMES_KEY));
   return Number.isFinite(value) && value > 0 ? clampNames(value) : NAMES_DEFAULT;
 }
+
+/** Celá obrazovka jen při uloženém "true"; cokoli jiného (i chybějící úložiště) = zasazená ve Velínu. */
+export const readFull = (storage: Read) => storage?.getItem(FULL_KEY) === "true";
 
 /** Uložená hodnota platí jen jako boolean; chybějící klíč má výchozí, rozbitý zápis = výchozí vše. */
 export function readLayers(storage: Read): LayerState {

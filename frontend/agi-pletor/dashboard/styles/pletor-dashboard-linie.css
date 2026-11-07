@@ -1,8 +1,9 @@
 /* Linie: člověk vidí vývoj jako metro mapu, ne jako seznam. Na tmavém podkladu linie main (zelená), develop (modrá)
    a témata, každý kořen feat ve vlastním odstínu; větev odbočuje a vrací se obloukem, u špičky visí štítek přijetí
    nebo bublina náhledu. Stejné barvy nese editor kuliček. Plátno zabere všechen zbývající prostor pod lištou (jedna
-   buňka minmax(0, 1fr), žádné „100vh minus“); vpravo stojí panel 440 px s Pletorem a detailem. Pod 1100 px se panel
-   s detailem položí přes plátno jako překryv a bez výběru zmizí, aby plátno mělo celou šířku. */
+   buňka minmax(0, 1fr), žádné „100vh minus“); vpravo hned u něj stojí sloupec 400 px s Pletorem a detailem, oddělený
+   jen linkou a o odstín tmavším podkladem, bez mezery a bez druhého rámu. Pod 1100 px se panel s detailem položí přes
+   plátno jako překryv a bez výběru zmizí, aby plátno mělo celou šířku. */
 .pletor-dashboard__linie {
   --linie-main: #4ade80;
   --linie-develop: #60a5fa;
@@ -15,10 +16,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
-  gap: 14px;
+  gap: 0;
 }
 .pletor-dashboard__linie--with-panel {
-  grid-template-columns: minmax(0, 1fr) 440px;
+  grid-template-columns: minmax(0, 1fr) 400px;
 }
 .pletor-dashboard__linie-graph,
 .pletor-dashboard__linie-panel {
@@ -26,7 +27,6 @@
   overflow: auto;
 }
 .pletor-dashboard__linie-graph {
-  border: 1px solid var(--pletor-line);
   background: var(--pletor-bg);
 }
 @media (max-width: 1100px) {
@@ -37,7 +37,7 @@
     position: absolute;
     inset: 0 0 0 auto;
     z-index: 6;
-    width: min(440px, 92%);
+    width: min(400px, 92%);
     border-left: 1px solid var(--pletor-accent);
     background: var(--pletor-bg-2);
     box-shadow: -8px 0 24px rgba(0, 0, 0, 0.5);
@@ -47,16 +47,25 @@
   }
 }
 
-/* Stav main v jedné řádce pod lištou: lokál a origin, server, nasazení, ochrana a tlačítko zápisu nasazení.
-   Dřív to byla celá karta vpravo; jako řádka zabere jednu výšku písma a editor dostane celou šířku. */
+/* Stav main je jeden tichý řádek pod lištou: lokál a origin, server, nasazení a ochrana drobně šedě, protože se na
+   ně člověk dívá jen občas. Zápis nasazení je tlačítko bez podkladu, aby nesoupeřilo s akcemi v liště. */
 .pletor-dashboard__linie-status {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 16px;
+  gap: 4px 16px;
   margin: 0;
-  padding: 4px 0 4px 10px;
-  border-left: 3px solid #4ade80; /* zelená main; leží mimo blok .pletor-dashboard__linie s proměnnými */
+  padding: 4px 0;
+  border-bottom: 1px solid var(--pletor-line);
+  color: var(--pletor-dim);
+  font-size: 11.5px;
+}
+.pletor-dashboard__linie-status .pletor-dashboard__button {
+  height: 24px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--pletor-dim);
+  font: 11.5px system-ui, sans-serif;
 }
 .pletor-dashboard__linie-svg {
   display: block;

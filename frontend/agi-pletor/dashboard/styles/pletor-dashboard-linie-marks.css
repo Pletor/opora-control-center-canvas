@@ -46,9 +46,9 @@
   z-index: 2;
   padding: 1px 5px;
   border: 1px solid var(--pletor-line);
-  background: var(--pletor-bg-2);
-  color: var(--pletor-dim);
-  font: 10px var(--mono);
+  background: var(--pletor-bg);
+  color: var(--pletor-ink);
+  font: 11px var(--mono);
   white-space: nowrap;
   transform: translateX(-50%);
 }
@@ -95,10 +95,10 @@
   z-index: 2;
   padding: 1px 7px;
   border: 1px solid var(--pletor-accent);
-  border-radius: 999px;
-  background: var(--pletor-bg-2);
+  border-radius: 9px;
+  background: var(--pletor-bg);
   color: var(--pletor-accent);
-  font: 10px var(--mono);
+  font: 11px var(--mono);
   white-space: nowrap;
   transform: translate(-50%, -50%);
 }
@@ -205,38 +205,41 @@
   color: #e07070;
 }
 
-/* Deník dole: sbalený pruh s počtem záznamů a odznakem nových; rozbalený ukazuje řádky čas · druh · kdo · text,
-   nové od posledního rozbalení zvýrazněné, selhání červeně. Klik na řádek označí kuličku. */
+/* Deník dole: sbalený je jediný tichý řádek malými kapitálkami s počtem záznamů a zeleným odznakem nových, takže
+   neubírá plátnu výšku a přesto řekne, že se něco stalo. Rozbalený ukazuje řádky čas · druh · kdo · text, nové od
+   posledního rozbalení zvýrazněné, selhání červeně. Klik na řádek označí kuličku. */
 .pletor-dashboard__linie-journal {
-  border: 1px solid var(--pletor-line);
+  border-top: 1px solid var(--pletor-line);
 }
 .pletor-dashboard__linie-journal-head {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 6px 12px;
+  padding: 4px 0;
   border: 0;
   background: transparent;
   color: var(--pletor-dim);
-  font: inherit;
-  font-size: 12px;
+  font: 10.5px var(--mono);
+  letter-spacing: 0.1em;
   text-align: left;
+  text-transform: uppercase;
   cursor: pointer;
 }
-.pletor-dashboard__linie-journal-head > :first-child {
-  color: var(--pletor-ink);
-}
 .pletor-dashboard__linie-journal-badge {
-  padding: 0 7px;
-  border-radius: 999px;
+  padding: 0 6px;
+  border-radius: 8px;
   background: var(--pletor-accent);
   color: var(--pletor-bg);
-  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0;
 }
 .pletor-dashboard__linie-journal-toggle {
   margin-left: auto;
   color: var(--pletor-accent);
+  font: 12px system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .pletor-dashboard__linie-journal-body {
   max-height: 240px;
