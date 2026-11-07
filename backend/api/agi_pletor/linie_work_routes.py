@@ -7,16 +7,25 @@ podle vodotisku OP-XXXXXX, 404 `mark_not_found`); agent se prokáže `X-Opora-Ac
 (projekt i prostor ticketu musí sedět), bez identity 428. Odmítnutí je JSON `{error, code, hint}`.
 Accept a merge, které jedno vyhodnocení (`evaluate`, docs/navrhy/2026-11-06-linie-rebrand.md §2a) nepovoluje, vrací 409
 `action_not_allowed` s důvodem z `blocked`; board a work nesou osy, souhrn, důkazy a `snapshot` (§4).
+
+L7c (§5, §5a): `POST /work/{id}/merge {op?}` (stejné op = žádný další merge), `POST /work/{id}/abandon {sha, why}`
+(evidence, HEAD ani osy nemění) a `POST /deploy {env, sha, repo?}` – agent / token brány = `origin: environment`,
+člověk = `origin: human`; kdo smí kam, určuje `opora.local.toml` `[linie.deploy]`, jinak 403 `deploy_not_allowed`.
 """
+from pathlib import Path
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from backend.agi_pletor.linie import board, commit, merge, previews, rows, trace, work
+from backend.agi_pletor.linie import board, commit, deploy, merge, previews, rows, trace, work
 from backend.api.agi_pletor.models import (
+    LinieAbandonIn,
     LinieAcceptIn,
     LinieAllowIn,
     LinieAttachIn,
     LinieBlockIn,
+    LinieDeployIn,
+    LinieMergeIn,
     LinieReportIn,
     LinieRowIn,
     LinieRowPatch,
@@ -48,13 +57,14 @@ def create_linie_work_router(service, pletor, root=None):
         return answer(lambda: (_check(service, project, workspace), act())[1])
 
     def anyone(request, project, ticket_id, act):
-        """Agent i člověk; `act(by)` dostane původce do záznamu (`human` / `agent:<jméno>`)."""
+        """Agent i člověk; `act(by)` dostane původce do záznamu (`human` / `agent:<jméno>`). Bez `ticket_id` se
+        prostor ticketu nekontroluje (nasazení)."""
         def checked():
             _check(service, project, "main")
             token = request.headers.get(tokens.HEADER)
             if token:
                 session = gate.authenticate(service, token, project, ("worker", "heart"))
-                if (work.get(service, project, ticket_id)["workspaceId"] != session["workspace_id"]
+                if (ticket_id and work.get(service, project, ticket_id)["workspaceId"] != session["workspace_id"]
                         and session.get("role") != "heart"):
                     raise GateError(403, "gate_scope", "Ticket patří jinému pracovnímu prostoru.",
                                     "Pracujte jen s tickety svého prostoru.")
@@ -148,13 +158,32 @@ def create_linie_work_router(service, pletor, root=None):
                                                                 tokens.stamp()))
 
     @router.post("/work/{ticket_id}/merge")
-    def work_merge(request: Request, ticket_id: str, project: str = ""):
+    def work_merge(request: Request, ticket_id: str, body: LinieMergeIn | None = None, project: str = ""):
         def act(by):
             shown = work.get(service, project, ticket_id)
-            if not shown["work"].get("merged"):  # začleněné vrací merge.py idempotentně beze změny
+            # začleněné (i podle merge logu) vrací merge.py idempotentně beze změny
+            if not shown["work"].get("merged") and shown["axes"]["integration"]["state"] == "none":
                 work.require(shown, "merge")
-            return merge.merge(service, project, ticket_id, tokens.stamp())
+            return merge.merge(service, project, ticket_id, tokens.stamp(), op=body.op if body else None, by=by)
         return anyone(request, project, ticket_id, act)
+
+    @router.post("/work/{ticket_id}/abandon")
+    def work_abandon(request: Request, ticket_id: str, body: LinieAbandonIn, project: str = ""):
+        return anyone(request, project, ticket_id, lambda by: work.abandon(service, project, ticket_id, body.sha,
+                                                                           body.why, tokens.stamp(), by))
+
+    @router.post("/deploy")
+    def deploy_record(request: Request, body: LinieDeployIn, project: str = ""):
+        def act(by):
+            if body.repo is not None and Path(body.repo).resolve() != Path(root).resolve():
+                raise GateError(422, "invalid_payload", "repo je repozitář služby (nebo chybí).", "repo vynechte.")
+            full = work.rev(root, body.sha) if work.SHA.fullmatch(body.sha) else None
+            if not full:
+                raise GateError(422, "invalid_payload", f"Revize {body.sha} v repozitáři neexistuje.",
+                                "Pošlete sha nasazeného commitu.")
+            return deploy.record(service.root, project, Path(root) / "opora.local.toml", body.env, full, root, by,
+                                 tokens.stamp())
+        return anyone(request, project, None, act)
 
     @router.post("/work/{ticket_id}/block")
     def work_block(request: Request, ticket_id: str, body: LinieBlockIn, project: str = ""):

@@ -7,13 +7,18 @@ Ticket = kulička. `create` založí ticket `issued` s `work` (člověk z editor
 ticketu (srdce vydává bránou). `report` ověří commit proti gitu a uloží `headSha` + kontroly k tomuto SHA; `accept`,
 `allow_merge`, `block`/`defer`/`resume` mění jen záznam. Začlenění provádí `merge.py`; `merged` nikdy nepíše klient.
 Každé odmítnutí je `WorkError` (kód, HTTP stav, česká zpráva) – podtřída `GateError`, takže ji brána vrací stejně.
+
+Data mimo ticket (L7 §5a) skládá `facts`: osa `integration` z merge logu (bez záznamu git / GitHub s `mode: None`),
+nasazení z událostí prostředí, živá relace = `run` s worktree a heartbeat mladším než 10 min. `abandon` jen zapíše
+rozhodnutí do `work.abandoned[]`; HEAD, git ani osy nemění.
 """
+import os
 import re
 import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
-from backend.agi_pletor.linie import evaluate, rows, tree, work_state
+from backend.agi_pletor.linie import deploy, evaluate, merge_log, rows, tree, work_state
 from backend.brain_opora.determinism import gate, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.ticket_model import body_payload
@@ -44,43 +49,97 @@ def ancestor(root, older, newer):
     return git(root, "merge-base", "--is-ancestor", older, newer, timeout=TIMEOUT, optional=True) is not None
 
 
-def after_merge(work):
+def after_merge(work, integ=None):
     """Nejnovější commit větve, který začleněný merge neobsahuje (nová revize po začlenění), jinak None."""
-    sha = (work.get("merged") or {}).get("sha")
+    sha = integ["sha"] if integ and integ["state"] == "merged" else (work.get("merged") or {}).get("sha")
     if not sha or not work.get("branch"):
         return None
     return git(work["repository"], "rev-list", "-1", f"{sha}..{work['branch']}", timeout=TIMEOUT, optional=True) or None
 
 
-def local_sources(at):
-    """Zdroje jednoho ticketu čtené v `at` (DB a git teď); PR se tu nečtou a nasazení zdroj zatím nemá."""
+def local_sources(at, deploy_at=None):
+    """Zdroje jednoho ticketu čtené v `at` (DB a git teď); PR se tu nečtou, nasazení = čas poslední události."""
     # shortcut: git = čas sestavení (headSha ověřil report, after_merge se čte teď); vlastní čas čtení gitu až s L7 §7.3.
     read = {"verifiedAt": at, "ok": True}
     return {"git": read, "checks": read, "sessions": read, "prs": {"verifiedAt": None, "ok": False},
-            "deploy": {"verifiedAt": None, "ok": False}}
+            "deploy": {"verifiedAt": deploy_at, "ok": bool(deploy_at)}}
+
+
+def _age(at, moment):
+    return (moment - datetime.strptime(at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)).total_seconds()
 
 
 def incomplete(sources, now=None):
     """Zdroje, které selhaly, nikdy nebyly čteny nebo jsou starší než `STALE_AFTER` (L7 §4)."""
     moment = now or datetime.now(UTC)
-
-    def old(at):
-        return not at or (moment - datetime.strptime(at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)).total_seconds() \
-            > STALE_AFTER
-    return [name for name, source in sources.items() if not source.get("ok") or old(source.get("verifiedAt"))]
+    return [name for name, source in sources.items()
+            if not source.get("ok") or not source.get("verifiedAt") or _age(source["verifiedAt"], moment) > STALE_AFTER]
 
 
-def view(ticket, sources=None, pr=None):
+def live(run, now=None):
+    """Relace je živá jen s explicitní vazbou na worktree a heartbeat mladším než `STALE_AFTER` (§5a)."""
+    return bool(run.get("worktree") and run.get("heartbeat")
+                and _age(run["heartbeat"], now or datetime.now(UTC)) < STALE_AFTER)
+
+
+def integration(work, log, ticket_id, pr=None):
+    """Osa `integration` (§5a): z merge logu; bez záznamu důkaz gitu (HEAD v cíli) nebo GitHubu (PR merged), způsob
+    neověřen (`mode: None`). Bez záznamu i bez důkazu `none` – neexistence logu sama nic nedokazuje."""
+    logged = merge_log.axis(log, ticket_id)
+    if logged:
+        return logged
+    head, target, merged = work.get("headSha"), work.get("target"), work.get("merged") or {}
+    found = {"target": merged.get("target") or target, "sha": None, "at": None, "mode": None, "op": None}
+    if head and target and head != work.get("baseSha") and any(
+            ancestor(work["repository"], head, ref) for ref in (target, "origin/" + target)):
+        return {**found, "state": "merged", "sha": merged.get("sha"), "at": merged.get("at"), "src": "git"}
+    if (pr or {}).get("state") == "MERGED":
+        return {**found, "state": "merged", "src": "GitHub"}
+    return {**found, "state": "none", "src": "git"}
+
+
+def deployed(work, integ, events):
+    """`{env: {sha, at, origin}}`: prostředí, jehož poslední nasazená revize obsahuje revizi úkolu (začleněnou, jinak
+    HEAD)."""
+    root = work["repository"]
+    sha = (integ["sha"] if integ["state"] == "merged" else None) or work.get("headSha")
+    mine = deploy.latest([e for e in events if os.path.normcase(e.get("repo") or "") == os.path.normcase(root)])
+    return {env: {key: e[key] for key in ("sha", "at", "origin")} for env, e in mine.items()
+            if sha and (e["sha"] == sha or ancestor(root, sha, e["sha"]))}
+
+
+def facts(service, project, ticket, pr=None, log=None, events=None):
+    """Data kuličky mimo ticket (merge log, nasazení, živost relace); board předá log a události přečtené jednou."""
+    work = ticket.get("work")
+    if not work:
+        return {}
+    log = merge_log.read(service.root, project) if log is None else log
+    events = deploy.read(service.root, project) if events is None else events
+    integ = integration(work, log, ticket["ticketId"], pr)
+    return {"integration": integ, "deploy": deployed(work, integ, events),
+            "live": any(live(run) for run in work.get("runs") or []), "deployAt": events[-1]["at"] if events else None}
+
+
+def view(ticket, sources=None, pr=None, facts=None):
     """Ticket s osami, souhrnem, povolenými akcemi a důkazy z jednoho `evaluate` (L7 §4); staré `state`, `stateLabel`,
-    `next` zůstávají pro frontend do L7b."""
-    work = ticket.get("work") or {}
-    after = after_merge(work) if work else None
-    found = evaluate.evaluate(work, after)
+    `next` zůstávají pro frontend do L7b. `facts` z `facts()`; bez nich osy jen ze záznamu ticketu."""
+    work, facts = ticket.get("work") or {}, facts or {}
+    integ = facts.get("integration")
+    after = after_merge(work, integ) if work else None
+    found = evaluate.evaluate(work, after, facts.get("live", False), integ, facts.get("deploy"))
+    shipped = [{"kind": "deploy", "ref": f"{env}@{e['sha'][:7]}", "at": e["at"],
+                "src": "událost prostředí" if e["origin"] == "environment" else "hlášeno člověkem"}
+               for env, e in (facts.get("deploy") or {}).items()]
     return {**ticket, "state": work_state.LEGACY[found["key"]], "stateLabel": found["text"], "next": found["next"],
             "axes": found["axes"], "summary": {key: found[key] for key in ("key", "text", "reason", "next")},
             "allowed": found["allowed"], "blocked": found["blocked"],
-            "incomplete": incomplete(sources or local_sources(tokens.stamp())),
-            "evidence": evaluate.evidence(work, after, pr)}
+            "incomplete": incomplete(sources or local_sources(tokens.stamp(), facts.get("deployAt"))),
+            "evidence": evaluate.evidence(work, after, pr, integ) + shipped}
+
+
+def present(service, project, ticket, pr=None):
+    """`view` se všemi daty kuličky (merge log, nasazení, relace)."""
+    return view(ticket, pr=pr, facts=facts(service, project, ticket, pr))
 
 
 def require(shown, action):
@@ -109,7 +168,7 @@ def _ticket(store, ticket_id, need_work=True):
 
 def get(service, project, ticket_id):
     with service.reading(project):
-        return view(_ticket(TicketStore(service.db_for(project), project), ticket_id))
+        return present(service, project, _ticket(TicketStore(service.db_for(project), project), ticket_id))
 
 
 def _name(value, key):
@@ -174,7 +233,7 @@ def create(service, project, workspace, body, work_in, now, *, root=None):
     with store_for(service, project) as store:
         store.insert(new_id, workspace, "issued", worker_body, {"pins": []}, now)
         store.set_work(new_id, work, now)
-        return view(store.get(new_id))
+        return present(service, project, store.get(new_id))
 
 
 def attach(service, project, ticket_id, work_in, now, *, root=None):
@@ -183,7 +242,7 @@ def attach(service, project, ticket_id, work_in, now, *, root=None):
         if _ticket(store, ticket_id, need_work=False).get("work"):
             raise WorkError("work_exists", 409, "Ticket už práci Linie má.")
         store.set_work(ticket_id, work, now)
-        return view(store.get(ticket_id))
+        return present(service, project, store.get(ticket_id))
 
 
 def _change(service, project, ticket_id, now, change):
@@ -192,16 +251,22 @@ def _change(service, project, ticket_id, now, change):
         work = change(ticket)
         if work != ticket["work"]:
             store.set_work(ticket_id, work, now)
-        return view(store.get(ticket_id))
+        return present(service, project, store.get(ticket_id))
 
 
-def apply_report(work, sha, checks, worktree, now, by):
-    """`work` s novou hlavou: `sha` musí existovat, ležet nad `baseSha` a na větvi úkolu, jinak 409 `work_mismatch`."""
+def on_branch(work, sha):
+    """Plné sha commitu nad `baseSha` na větvi úkolu, jinak 409 `work_mismatch`."""
     root = work["repository"]
     full = rev(root, sha) if isinstance(sha, str) and SHA.fullmatch(sha) else None
     if not (full and ancestor(root, work["baseSha"], full) and ancestor(root, full, work["branch"])):
         raise WorkError("work_mismatch", 409, f"Commit {sha} neleží na větvi {work['branch']} nad bází "
                         f"{work['baseSha'][:7]}.", "Commitujte na větvi úkolu a pošlete git rev-parse HEAD.")
+    return full
+
+
+def apply_report(work, sha, checks, worktree, now, by):
+    """`work` s novou hlavou: `sha` musí existovat, ležet nad `baseSha` a na větvi úkolu, jinak 409 `work_mismatch`."""
+    full = on_branch(work, sha)
     if work.get("merged"):
         if full == work["headSha"]:
             return work
@@ -228,14 +293,19 @@ def report(service, project, ticket_id, sha, checks, worktree, now, by):
 
 
 def run(service, project, ticket_id, payload, now):
-    """Relace LLM na úkolu: nové `sessionId` přidá záznam (zamkne `fromSha` a revizi zadání), stejné ho jen osvěží."""
+    """Relace LLM na úkolu: nové `sessionId` přidá záznam (zamkne `fromSha` a revizi zadání), stejné ho jen osvěží.
+
+    Vazba relace na pokus (§5a) = `{ticket, attempt: runId, repo, worktree, heartbeat}`; heartbeat je `at` posledního
+    `run`, `worktree` zůstává, když ho opakování vynechá."""
     def change(ticket):
         work, runs = ticket["work"], list(ticket["work"].get("runs") or [])
         old = next((r for r in runs if r["sessionId"] == payload["sessionId"]), None)
         record = {"runId": "run_" + uuid.uuid4().hex, "sessionId": payload["sessionId"], "startedAt": now,
                   "fromSha": rev(work["repository"], work["branch"]), "revision": ticket["machine"].get("cardVersion"),
                   **(old or {}), "agent": payload.get("agent") or (old or {}).get("agent"),
-                  "transcriptPath": payload.get("transcriptPath") or (old or {}).get("transcriptPath")}
+                  "transcriptPath": payload.get("transcriptPath") or (old or {}).get("transcriptPath"),
+                  "worktree": payload.get("worktree") or (old or {}).get("worktree"), "repo": work["repository"],
+                  "heartbeat": now}
         return {**work, "runs": [record if r is old else r for r in runs] + ([] if old else [record])}
     return _change(service, project, ticket_id, now, change)
 
@@ -247,7 +317,7 @@ def accept(service, project, ticket_id, sha, note, now):
         if not head or not isinstance(sha, str) or len(sha) < 7 or not head.startswith(sha.lower()):
             raise WorkError("head_moved", 409, f"Revize {sha} není aktuální hlava {(head or 'žádná')[:7]}.",
                             "Načtěte kuličku znovu a přijměte aktuální headSha.")
-        require(view(ticket), "accept")  # přijmout jde jen ověřenou revizi (checks.passed pro HEAD, L7 §8)
+        require(present(service, project, ticket), "accept")  # jen ověřenou revizi (checks.passed pro HEAD, L7 §8)
         return {**work, "acceptance": {"sha": head, "revision": ticket["machine"]["cardVersion"], "by": "human",
                                        "at": now, "note": note or ""}}
     return _change(service, project, ticket_id, now, change)
@@ -272,6 +342,19 @@ def allow_merge(service, project, ticket_id, target, now):
             raise WorkError("target_missing", 422, f"Cílová větev {aim} v repozitáři neexistuje.")
         return {**work, "target": aim, "mergeAllowed": {"target": aim, "targetSha": tip, "sourceSha": work["headSha"],
                                                         "by": "human", "at": now}}
+    return _change(service, project, ticket_id, now, change)
+
+
+def abandon(service, project, ticket_id, sha, why, now, by):
+    """Opuštěná práce je evidence rozhodnutí (§5): přidá `{sha, why, at, by}` do `work.abandoned[]`, HEAD, git ani osy
+    nemění; opakování pro týž commit důvod přepíše."""
+    def change(ticket):
+        work = ticket["work"]
+        full = on_branch(work, sha)
+        if not isinstance(why, str) or not why.strip():
+            raise WorkError("invalid_payload", 422, "why je neprázdný důvod.")
+        kept = [item for item in work.get("abandoned") or [] if item["sha"] != full]
+        return {**work, "abandoned": kept + [{"sha": full, "why": why.strip(), "at": now, "by": by}]}
     return _change(service, project, ticket_id, now, change)
 
 

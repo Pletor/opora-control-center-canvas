@@ -167,11 +167,33 @@ class LinieReportIn(BaseModel):
 
 
 class LinieRunIn(BaseModel):
-    """Relace LLM na úkolu; stejné `sessionId` záznam jen osvěží."""
+    """Relace LLM na úkolu; stejné `sessionId` záznam jen osvěží (heartbeat). `worktree` = explicitní vazba na adresář."""
     model_config = ConfigDict(extra="forbid")
     sessionId: str = Field(min_length=1, max_length=200)
     agent: str | None = Field(default=None, max_length=200)
     transcriptPath: str | None = Field(default=None, max_length=500)
+    worktree: str | None = Field(default=None, max_length=500)
+
+
+class LinieMergeIn(BaseModel):
+    """Identifikátor operace začlenění (UUID); opakování se stejným `op` nic znovu neslučuje (L7 §5a)."""
+    model_config = ConfigDict(extra="forbid")
+    op: str | None = Field(default=None, max_length=64)
+
+
+class LinieAbandonIn(BaseModel):
+    """Opuštěná práce: evidence rozhodnutí, git ani HEAD nemění (L7 §5)."""
+    model_config = ConfigDict(extra="forbid")
+    sha: str = Field(min_length=7, max_length=40)
+    why: str = Field(min_length=1, max_length=2000)
+
+
+class LinieDeployIn(BaseModel):
+    """Událost nasazení `{env, sha}` (L7 §5); `repo` jen když je to repozitář služby."""
+    model_config = ConfigDict(extra="forbid")
+    env: str = Field(min_length=1, max_length=64)
+    sha: str = Field(min_length=7, max_length=40)
+    repo: str | None = Field(default=None, max_length=500)
 
 
 class LinieAcceptIn(BaseModel):

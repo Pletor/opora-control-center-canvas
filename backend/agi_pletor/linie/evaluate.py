@@ -3,7 +3,9 @@
 `axes(work, after_merge)` → pět os z dnešního záznamu `work`; `evaluate(work, after_merge, live)` → `{key, text, reason,
 next, allowed, blocked}` podle tabulky §2a (první platné pravidlo vyhrává); `evidence(work, after_merge, pr)` → důkazy.
 `after_merge` je sha nejnovějšího commitu větve, který začleněný merge neobsahuje (zjistí volající z gitu); HEAD je pak
-on, jinak `headSha`. `live` = agent má ověřeně živou relaci (zdroj zatím není, takže wip je „probíhá (neověřeno)“).
+on, jinak `headSha`. `live` = relace s explicitní vazbou na worktree a čerstvým heartbeat (work.py). `integration` je osa
+z merge logu nebo z gitu/GitHubu (work.py, §5a); bez ní platí `work.merged` jako důkaz gitu (`src: git`, `mode: None`).
+`deploy` = `{env: {sha, at, origin}}` z událostí prostředí, které revizi úkolu obsahují.
 """
 ACTIONS = ("accept", "merge", "attempt")
 ALWAYS = ["block", "unblock"]  # §2a: block/unblock je povolen vždy
@@ -24,7 +26,14 @@ def _checks(work, head):
     return {"state": state, "sha": head, "src": "report"}
 
 
-def axes(work, after_merge=None):
+def _merged(work):
+    merged = work.get("merged")
+    return {"state": "merged" if merged else "none", "target": (merged or {}).get("target") or work.get("target"),
+            "sha": (merged or {}).get("sha"), "at": (merged or {}).get("at"), "mode": None, "op": None,
+            "src": "git" if merged else None}
+
+
+def axes(work, after_merge=None, integration=None, deploy=None):
     work = work or {}
     head = after_merge or work.get("headSha")
     if after_merge:
@@ -35,16 +44,14 @@ def axes(work, after_merge=None):
         state, src = "in_progress", "relace agenta"
     else:
         state, src = "not_started", None
-    accepted, merged = work.get("acceptance"), work.get("merged")
+    accepted = work.get("acceptance")
     return {
         "work": {"state": state, "sha": head, "src": src},
         "checks": _checks(work, head),
         "acceptance": {"state": "pending" if not accepted else "accepted" if accepted.get("sha") == head else "stale",
                        "sha": (accepted or {}).get("sha"), "src": "záznam přijetí"},
-        "integration": {"state": "merged" if merged else "none", "target": (merged or {}).get("target") or work.get(
-            "target"), "sha": (merged or {}).get("sha"), "at": (merged or {}).get("at"),
-            "mode": (merged or {}).get("mode"), "src": "merge log"},
-        "deploy": {"envs": {}, "src": "událost prostředí"},
+        "integration": integration or _merged(work),
+        "deploy": {"envs": deploy or {}, "src": "událost prostředí"},
     }
 
 
@@ -88,6 +95,10 @@ def _rule(work, ax, live):
     if acc["state"] == "pending":
         return ("pending", f"čeká na přijetí {h7}", f"checks.passed({h7}) & acceptance.pending",
                 f"Člověk rozhodne o přijetí {h7}.", ["accept"])
+    if integ["state"] == "unconfirmed":  # started bez finished: merge se stejným op jen ověří výsledek v gitu (§5a)
+        return ("accepted", f"začlenění {h7} zahájeno, výsledek neověřen",
+                f"checks.passed({h7}) & acceptance.accepted({h7}) & integration.unconfirmed",
+                f"Služba ověří výsledek v gitu (merge znovu s op {integ['op']}).", ["merge"])
     reason = f"checks.passed({h7}) & acceptance.accepted({h7}) & integration.none"
     if (work.get("mergeAllowed") or {}).get("sourceSha") != head:  # služba bez povolení pro HEAD nezačlení (merge.py)
         return ("accepted", f"přijato {h7}, čeká na povolení začlenění", reason + " & mergeAllowed chybí",
@@ -96,9 +107,9 @@ def _rule(work, ax, live):
             f"Služba začlení (merge) do {target} a znovu ověří.", ["merge"])
 
 
-def evaluate(work, after_merge=None, live=False):
+def evaluate(work, after_merge=None, live=False, integration=None, deploy=None):
     work = work or {}
-    ax = axes(work, after_merge)
+    ax = axes(work, after_merge, integration, deploy)
     key, text, reason, step, allowed = _rule(work, ax, live)
     if after_merge:
         reason = f"nová revize po začlenění {_short(ax['integration']['sha'])} · " + reason
@@ -107,9 +118,10 @@ def evaluate(work, after_merge=None, live=False):
             "allowed": allowed + [a for a in ALWAYS if a not in allowed], "blocked": blocked, "axes": ax}
 
 
-def evidence(work, after_merge=None, pr=None):
+def evidence(work, after_merge=None, pr=None, integration=None):
     """Důkazy `{kind, ref, at, src}` z téhož záznamu; PR jen když ho volající přečetl."""
     work = work or {}
+    integ = integration or _merged(work)
     found = [{"kind": "session", "ref": run.get("sessionId"), "at": run.get("startedAt"), "src": "agent-office"}
              for run in work.get("runs") or []]
     head = work.get("headSha")
@@ -121,9 +133,8 @@ def evidence(work, after_merge=None, pr=None):
     if work.get("acceptance"):
         found.append({"kind": "accept", "ref": work["acceptance"].get("sha"), "at": work["acceptance"].get("at"),
                       "src": "záznam přijetí"})
-    if work.get("merged"):
-        found.append({"kind": "merge", "ref": work["merged"].get("sha"), "at": work["merged"].get("at"),
-                      "src": "merge log"})
+    if integ["state"] != "none":
+        found.append({"kind": "merge", "ref": integ["sha"] or integ["op"], "at": integ["at"], "src": integ["src"]})
     if after_merge:
         found.append({"kind": "commit", "ref": after_merge, "at": None, "src": "git log"})
     if pr and pr.get("number") is not None:

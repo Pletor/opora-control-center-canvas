@@ -4,12 +4,20 @@ import subprocess
 
 from backend.agi_pletor.linie import board, merge, rows, work
 from backend.agi_pletor.linie.test_branches import run
-from backend.agi_pletor.linie.test_merge import ready
-from backend.agi_pletor.linie.test_work import BODY, NOW, setup  # noqa: F401 (fixture)
+from backend.agi_pletor.linie.test_merge import GREEN, ready
+from backend.agi_pletor.linie.test_work import BODY, NOW, agent_commit, refused, setup  # noqa: F401 (fixture)
+from backend.brain_opora.determinism import tokens
 
 
 def kinds(ball):
     return [link["kind"] for link in ball["links"]]
+
+
+def prs(found):
+    return lambda root: {"prs": found, "ok": True, "error": None}
+
+
+NO_PR = prs({})  # repozitář bez PR: úspěšné čtení, ne výpadek
 
 
 def test_board_links_and_real_merges(setup):
@@ -23,7 +31,7 @@ def test_board_links_and_real_merges(setup):
                                                  "baseBranch": "main"}, NOW, root=repo)
     ready(service, repo, tid)
 
-    found = board.board(service, "draft", "main", repo, pr_lookup=lambda root: {})
+    found = board.board(service, "draft", "main", repo, pr_lookup=NO_PR)
     assert [row["id"] for row in found["rows"]][:2] == ["main", "develop"] and found["mapping"]["develop"] == "develop"
     first, follow, lone = found["balls"]
     assert first["ticketId"] == tid and first["title"] == "Uzel" and first["state"] == "accepted_unmerged"
@@ -31,13 +39,13 @@ def test_board_links_and_real_merges(setup):
     assert found["snapshot"]["sources"]["prs"]["ok"] is True and first["incomplete"] == ["deploy"]
     assert first["links"] == [{"to": "develop", "kind": "planned"}]  # druhá větev má vlastní řádek, bez follows
     assert follow["rowId"] != first["rowId"] and follow["ticketId"] == second
-    assert first["counts"] == {"commits": 1, "prs": None, "merges": 0} and first["mergedAt"] is None
+    assert first["counts"] == {"commits": 1, "prs": 0, "merges": 0} and first["mergedAt"] is None  # bez PR = 0, ne neznámo
     assert follow["title"] == "Proč a k čemu." and kinds(follow) == ["planned"] and lone["links"] == [{"to": "main", "kind": "planned"}]  # target výchozí = baseBranch
     assert all("merged" not in kinds(ball) for ball in found["balls"])  # plán nikdy jako merged (bod 12)
     assert [m for m in found["realMerges"] if m["parents"]] == []  # špičky větví z gitu nejsou merge
 
     merge.merge(service, "draft", tid, NOW)
-    found = board.board(service, "draft", "main", repo, pr_lookup=lambda root: {"feat/uzel": {"number": 3}})
+    found = board.board(service, "draft", "main", repo, pr_lookup=prs({"feat/uzel": {"number": 3}}))
     first = found["balls"][0]
     tip = run(repo, "rev-parse", "develop")
     assert first["state"] == "merged" and first["mergedAt"] == NOW
@@ -46,23 +54,89 @@ def test_board_links_and_real_merges(setup):
     assert [(m["target"], m["sha"]) for m in found["realMerges"] if m["parents"]] == [("develop", tip)]
     assert kinds(found["balls"][1]) == ["planned"]  # nezačleněná kulička dál jen plán
     assert first["evidence"][-1] == {"kind": "pr", "ref": "#3", "url": None, "at": None, "src": "GitHub"}
+    assert first["pr"]["ticketIds"] == [tid]  # commity bez Opora-Mark: jen úkol větve
+    integration = first["axes"]["integration"]
+    assert (integration["src"], integration["mode"], integration["sha"]) == ("merge log", "merge", tip)
 
     def down(root):
         raise OSError("GitHub neodpovídá")
 
     found = board.board(service, "draft", "main", repo, pr_lookup=down)  # výpadek PR nezneplatní merge log
     first = found["balls"][0]
-    assert found["snapshot"]["sources"]["prs"]["ok"] is False and "prs" in first["incomplete"]
-    assert first["summary"]["key"] == "merged" and first["axes"]["integration"]["sha"] == tip
+    source = found["snapshot"]["sources"]["prs"]
+    assert source["ok"] is False and "prs" in first["incomplete"] and source["lastSuccessAt"]
+    assert first["pr"]["number"] == 3 and first["pr"]["unconfirmed"] is True  # poslední známý stav, zastaralý
+    assert first["summary"]["key"] == "merged" and first["axes"]["integration"] == integration
 
 
-def test_pr_outage_keeps_last_known_state():
-    good = ({"feat/x": {"number": 5, "state": "OPEN"}}, "2026-11-07T10:00:00Z")
-    prs, source = board._read_prs(None, lambda root: None, good)
-    assert prs == {"feat/x": {"number": 5, "state": "OPEN", "unconfirmed": True}}
-    assert source["ok"] is False and source["lastSuccessAt"] == good[1] != source["attemptedAt"]
-    prs, source = board._read_prs(None, lambda root: {"feat/x": {"number": 5, "state": "MERGED"}}, good)
-    assert prs["feat/x"]["state"] == "MERGED" and source["ok"] and source["lastSuccessAt"] == source["attemptedAt"]
+def test_pr_outage_keeps_last_known_state(tmp_path):
+    found, source = board.read_prs(tmp_path, "repo", lambda root: {"prs": {}, "ok": False, "error": "x"})
+    assert found == {} and source["ok"] is False and source["lastSuccessAt"] is None  # nikdy nečteno
+    found, source = board.read_prs(tmp_path, "repo", prs({"feat/x": {"number": 5, "state": "OPEN"}}))
+    good = source["lastSuccessAt"]
+    assert source["ok"] and good == source["attemptedAt"]
+    found, source = board.read_prs(tmp_path, "repo", lambda root: {"prs": {}, "ok": False, "error": "OSError"})
+    assert found == {"feat/x": {"number": 5, "state": "OPEN", "unconfirmed": True}}
+    assert (source["ok"], source["lastSuccessAt"], source["error"]) == (False, good, "OSError")
+    found, source = board.read_prs(tmp_path, "repo", NO_PR)  # prázdný seznam je úspěch a přepíše cache
+    assert found == {} and source["ok"]
+    assert board.read_prs(tmp_path, "repo", lambda root: {"ok": False})[0] == {}
+
+
+def test_board_tags_worktrees_and_deploy_are_separate(setup, tmp_path):
+    """Tag (lehký i anotovaný) patří commitu a není nasazení; worktree bez vazby nemá agenta."""
+    service, repo, tid = setup
+    head = agent_commit(repo)
+    run(repo, "tag", "lehky", head)
+    run(repo, "tag", "-a", "v1", "-m", "vydání", head)
+    loose = tmp_path / "volny"
+    run(repo, "worktree", "add", "-q", "--detach", str(loose), "develop")
+    work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
+    found = board.board(service, "draft", "main", repo, pr_lookup=NO_PR)
+    by_name = {t["name"]: t for t in found["tags"]}
+    assert (by_name["lehky"]["sha"], by_name["lehky"]["annotated"]) == (head, False)
+    assert (by_name["v1"]["sha"], by_name["v1"]["annotated"]) == (head, True) and by_name["v1"]["at"]
+    assert "row" not in by_name["v1"]
+    assert found["deploy"] == {"envs": {}} and found["balls"][0]["axes"]["deploy"]["envs"] == {}
+    assert found["snapshot"]["sources"]["deploy"] == {"verifiedAt": None, "ok": False}
+    spare = next(w for w in found["worktrees"] if w["path"].endswith("volny"))
+    assert spare["binding"] is None and spare["sha"] == run(repo, "rev-parse", "develop") and spare["branch"] is None
+    main = next(w for w in found["worktrees"] if w["branch"] == "main")
+    assert main["binding"] is None  # hlavní strom bez vazby relace = jen adresář
+    assert found["balls"][0]["summary"]["text"] != "probíhá"
+
+
+def test_board_worktree_with_run_binding_is_live(setup, tmp_path):
+    service, repo, tid = setup
+    place = tmp_path / "wt-agent"
+    run(repo, "worktree", "add", "-q", "-b", "feat/uzel", str(place), "develop")
+    work.run(service, "draft", tid, {"sessionId": "s1", "agent": "dev", "worktree": str(place)}, tokens.stamp())
+    found = board.board(service, "draft", "main", repo, pr_lookup=NO_PR)
+    bound = next(w for w in found["worktrees"] if w["branch"] == "feat/uzel")["binding"]
+    assert (bound["ticketId"], bound["agent"], bound["live"], bound["to"]) == (tid, "dev", True, None)
+    assert found["balls"][0]["summary"]["text"] == "probíhá"  # živá relace s vazbou
+    stale = work.run(service, "draft", tid, {"sessionId": "s1"}, "2026-11-06T10:00:00Z")
+    assert stale["work"]["runs"][0]["worktree"] == str(place)  # opakování bez worktree vazbu drží
+    assert stale["summary"]["text"] == "probíhá (neověřeno)"  # starý heartbeat = neověřeno
+    bound = next(w for w in board.board(service, "draft", "main", repo, pr_lookup=NO_PR)["worktrees"]
+                 if w["branch"] == "feat/uzel")["binding"]
+    assert bound["live"] is False and bound["to"] == "2026-11-06T10:00:00Z"
+
+
+def test_abandon_keeps_head_and_axes(setup):
+    service, repo, tid = setup
+    first = agent_commit(repo)
+    head = agent_commit(repo, name="v.txt")
+    before = work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
+    after = work.abandon(service, "draft", tid, first[:9], "slepá ulička", NOW, "human")
+    assert after["work"]["headSha"] == head and after["summary"] == before["summary"] and after["axes"] == before["axes"]
+    assert after["work"]["abandoned"] == [{"sha": first, "why": "slepá ulička", "at": NOW, "by": "human"}]
+    ball = board.board(service, "draft", "main", repo, pr_lookup=NO_PR)["balls"][0]
+    marks = {c["sha"]: c["abandoned"] for c in ball["commits"]}
+    assert marks == {first: {"why": "slepá ulička", "at": NOW, "by": "human"}, head: None}
+    assert ball["summary"] == before["summary"] and ball["headSha7"] == head[:7]
+    assert refused(lambda: work.abandon(service, "draft", tid, run(repo, "rev-parse", "feat/a"), "x", NOW,
+                                        "human")).code == "work_mismatch"
 
 
 def test_board_shows_unmerged_git_branch_without_row(setup):
@@ -77,7 +151,7 @@ def test_board_shows_unmerged_git_branch_without_row(setup):
     (repo / "sirotek.txt").write_text("x", encoding="utf-8")
     run(repo, "add", "."), run(repo, "commit", "-q", "-m", "sirotek")
     run(repo, "checkout", "-q", "main")
-    found = board.board(service, "draft", "main", repo, pr_lookup=lambda root: {})
+    found = board.board(service, "draft", "main", repo, pr_lookup=NO_PR)
     extra = [row for row in found["rows"] if row.get("git") and row["branch"] == "feat/sirotek"]
     assert [(r["id"], r["type"], r["base"]["branch"], r["target"], r["ahead"]) for r in extra] ==         [("git:feat/sirotek", "work", "develop", "develop", 1)]
     tip = run(repo, "rev-parse", "feat/sirotek")
@@ -88,7 +162,7 @@ def test_board_shows_unmerged_git_branch_without_row(setup):
 
 def test_board_rows_carry_parent_and_depth(setup):
     service, repo, tid = setup
-    found = board.board(service, "draft", "main", repo, pr_lookup=lambda root: {})
+    found = board.board(service, "draft", "main", repo, pr_lookup=NO_PR)
     by_id = {row["id"]: row for row in found["rows"]}
     assert [(by_id[n]["parent"], by_id[n]["depth"]) for n in ("main", "develop")] == [(None, 0), ("main", 1)]
     uzel = by_id[work.get(service, "draft", tid)["work"]["rowId"]]
@@ -133,7 +207,7 @@ def test_board_row_is_branch_with_manual_row_on_first_branch_and_planned_at_end(
             store.insert(twin, "main", "issued", {"essence": "x", "build": "y", "doneCriteria": ["z"]}, {"pins": []}, NOW)
         work.attach(service, "draft", twin, {"rowId": shared, "branch": branch}, NOW, root=repo)
     empty = rows.add(service.root, "draft", "Nápad", "work")["id"]
-    found = board.board(service, "draft", "main", repo, pr_lookup=lambda root: {})
+    found = board.board(service, "draft", "main", repo, pr_lookup=NO_PR)
     # řádky z gitu (feat/a z fixture) závisí na sekundě commitu vůči main; test sleduje jen ruční a automatické řádky
     listed = [(r["id"], r["branch"], r["depth"], r["planned"], r["auto"]) for r in found["rows"] if not r.get("git")]
     assert listed == [("main", "main", 0, False, False), ("develop", "develop", 1, False, False), ("items", None, 2, False, False),
