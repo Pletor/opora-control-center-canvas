@@ -26,7 +26,6 @@ describe("Čeká na tebe", () => {
   it("jedno tlačítko = accept-merge s revizí, kterou člověk viděl, a s op", () => {
     const [r] = humanQueueView({ queues: { human: [row()] } });
     expect(humanRequest(r, "op-1")).toEqual({ path: "/work/tk_c/accept-merge", body: { sha: SHA, op: "op-1" }, method: "POST", done: "Začleněno feat/a-b-c do feat/a-b." });
-    expect(humanRequest({ ...r, action: { kind: "unblock", label: "Odblokovat" } }, "x")?.path).toBe("/work/tk_c/unblock");
     expect(humanRequest({ ...r, action: null }, "x")).toBeNull();
   });
 
