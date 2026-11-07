@@ -21,7 +21,8 @@ L7g (§7 bod 7): `POST /work/{id}/accept-merge {sha, op?, note?}` jen člověk �
 kroku (`linie/human_queue.py`), zastaví se na prvním 409 s větou a jedinou opravou v `hint`.
 
 L8b (§9): `GET /board.txt?project=&workspace=&mine=` = týž snímek jako `/board` jako text/plain (`linie/board_text.py`),
-agent i člověk (identita jako u zápisů, bez ní 428); `mine=1` ponechá jen kuličky volajícího agenta. Nic nezapisuje.
+agent i člověk (identita jako u zápisů, bez ní 428); `mine=1` ponechá jen kuličky volajícího agenta; `all=1` vypíše i
+uzavřené řádky (L9b §10.2) s kuličkami. Nic nezapisuje.
 """
 from pathlib import Path
 
@@ -121,7 +122,8 @@ def create_linie_work_router(service, pletor, root=None):
                                                              snapshot or None), workspace)
 
     @router.get("/board.txt")
-    def board_text_get(request: Request, project: str = "", workspace: str = "main", mine: int = 0):
+    def board_text_get(request: Request, project: str = "", workspace: str = "main", mine: int = 0,
+                       all: int = 0):  # `?all=1` vypíše i uzavřené řádky celé
         def act():
             by = origin(service, request, project)
             _check(service, project, workspace)
@@ -136,7 +138,7 @@ def create_linie_work_router(service, pletor, root=None):
                 after = page["lastId"]
             asked = requests.listing(service, project, True)
             text = board_text.render(found, mine=by.split(":", 1)[1] if mine else None, journal=events,
-                                     open_requests=len(asked))
+                                     open_requests=len(asked), all=bool(all))
             return PlainTextResponse(text, media_type="text/plain; charset=utf-8")
         return answer(act)
 

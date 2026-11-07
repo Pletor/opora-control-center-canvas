@@ -7,8 +7,13 @@ import type { Board, LaidRow, Worktree } from "./linie-board";
  */
 /** Pruh worktree pod osou: každý agent jeden pruh. */
 export const LANE = 20;
-/** Pruh worktree pod osou větve: jméno agenta jen z vazby relace, od–do; bez `to` dosud pracuje. */
-export type LaidLane = { rowId: string; ticketId: string; agent: string; state: "pracuje" | "vrácen"; x1: number; x2: number; y: number; color: string };
+/** Pruh worktree pod osou větve: jméno agenta jen z vazby relace, od–do; bez `to` dosud pracuje. Pruh začíná 14 px za
+ * odbočkou z osy (`dIn`); vrácený se vrací na osu (`dOut`) a nese tečku „vrácen“ (`back`). */
+export type LaidLane = {
+  rowId: string; ticketId: string; agent: string; state: "pracuje" | "vrácen"; x1: number; x2: number; y: number; color: string;
+  dIn: string; dOut: string | null; back: { x: number; y: number } | null;
+};
+const TURN = 14;
 /** Svislá značka tagu nebo nasazení (`env@sha`) na řádku; `title` nese původ. */
 export type LaidTag = { x: number; y: number; text: string; kind: "tag" | "deploy"; title: string };
 
@@ -30,8 +35,10 @@ export function laneRows(board: Board): Map<string, Worktree[]> {
 export function placeLanes(rows: LaidRow[], lanes: Map<string, Worktree[]>, g: Geometry): LaidLane[] {
   return rows.flatMap((row) => (row.lanes ? lanes.get(row.id) ?? [] : []).map((w, index) => {
     const b = w.binding!;
-    return { rowId: row.id, ticketId: b.ticketId, agent: b.agent || "agent", state: b.to ? "vrácen" as const : "pracuje" as const, x1: g.xOf(b.from), x2: b.to ? g.xOf(b.to) : g.xEnd,
-      y: row.top + (row.height - LANE * row.lanes) + LANE * index + LANE / 2, color: row.color };
+    const from = g.xOf(b.from), x2 = b.to ? g.xOf(b.to) : g.xEnd;
+    const y = row.top + (row.height - LANE * row.lanes) + LANE * index + LANE / 2; // pod osou: osa = base/2, pruhy od base dolů
+    return { rowId: row.id, ticketId: b.ticketId, agent: b.agent || "agent", state: b.to ? "vrácen" as const : "pracuje" as const, x1: from + TURN, x2, y, color: row.color,
+      dIn: `M${from} ${row.y} L${from + TURN} ${y}`, dOut: b.to ? `M${x2} ${y} L${x2 + TURN} ${row.y}` : null, back: b.to ? { x: x2 + TURN, y: row.y } : null };
   }));
 }
 

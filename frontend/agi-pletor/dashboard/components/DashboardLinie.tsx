@@ -8,7 +8,7 @@ import { api, type WriteMethod } from "@/shared/types/logic/types";
 import { layoutBoard, timeRange } from "../logic/linie-board";
 import { layoutGraph } from "../logic/linie-graph";
 import { escTarget, keepScroll, type Mark } from "../logic/linie-keep";
-import { labelWidth, placeLabels } from "../logic/linie-labels";
+import { GAP } from "../logic/linie-labels";
 import { laneRows } from "../logic/linie-marks";
 import { FULL_KEY, LAYERS_KEY, NAMES_KEY, readFull, readLayers, readNames, save, type LayerId } from "../logic/linie-prefs";
 import { queueLines, queues, type QueueId } from "../logic/linie-queues";
@@ -79,13 +79,12 @@ export default function DashboardLinie({ project, workspace }: { project: string
   const ball = board.balls.find((item) => item.ticketId === picked);
   // Pruhy worktree: vrstva zapnutá = všechny řádky s vazbou, jinak jen řádek vybrané kuličky.
   const laneSet = layers.worktree ? new Set(laneRows(shown.board).keys()) : new Set(ball ? [ball.rowId] : []);
-  const layout = layoutBoard(shown.board, { k: zoom.k, now, lanes: laneSet });
-  const labels = placeLabels(layout.balls, picked, laneSet);
+  const layout = layoutBoard(shown.board, { k: zoom.k, now, lanes: laneSet, selected: picked });
   const laid = layout.balls.find((item) => item.ticketId === picked);
   const queueList = queues(board.balls, board.queues, feed.requests ? feed.requests.filter((r) => r.open).length : null);
   const lit = queue ? new Set(queueList.find((item) => item.id === queue)?.ids) : null;
-  // Kuličky, které výběr vytlačil do shluku „+N“ u sebe, vypíše detail.
-  const cluster = laid ? labels.clusters.filter((c) => c.rowId === laid.rowId && Math.abs(c.x - laid.x) <= labelWidth(laid)).flatMap((c) => c.ids)
+  // Kuličky, které výběr vytlačil do „+1“ u sebe (blíž než mezera popisků), vypíše detail.
+  const cluster = laid ? layout.labels.clusters.filter((c) => c.rowId === laid.rowId && Math.abs(c.x - laid.x) < GAP).flatMap((c) => c.ids)
     .map((id) => ({ ticketId: id, title: board.balls.find((b) => b.ticketId === id)?.title ?? id })) : [];
 
   // OP-159D4C.2: stálá poloha výběru – přepnutí vrstvy, sbalení i nová data dorovná posunem o Δy vybrané kuličky.
@@ -119,6 +118,8 @@ export default function DashboardLinie({ project, workspace }: { project: string
   // Rodič se hledá i mezi větvemi, které jsou jen v gitu (bez řádku a kuličky), jinak by mezičlánek spadl na develop.
   const heads = [...new Set([board.mapping.main, board.mapping.develop, ...feed.branchBoard.rows.map((row) => row.branch), ...board.balls.map((b) => b.branch), ...view.lanes.map((item) => item.name)].filter(Boolean))];
   const pick = (id: string) => { if (id !== picked) setAcceptNote(""); setPicked(id); setFlash(""); };
+  // Klik na kostku: kulička zůstane vybraná (kostky vidět), panel ukáže detail commitu; Esc vrací commit → detail.
+  const pickCommit = (ticketId: string, sha: string) => { pick(ticketId); setTrace(""); setCommit(sha); };
   const pickBranch = (name: string) => { setLane(name); pick(board.balls.find((b) => b.branch === name)?.ticketId ?? ""); };
   const focusOn = (branch: string) => {
     setFocus(branch);
@@ -184,9 +185,9 @@ export default function DashboardLinie({ project, workspace }: { project: string
       {editor && queue === "clovek" && <LinieHumanQueue rows={feed.human} idle={idleText(board.balls, board.worktrees)} said={said} onAct={decide} />}
       <div className={`pletor-dashboard__linie${editor || trace || commit || picked ? " pletor-dashboard__linie--with-panel" : ""}`}>
         {editor ? (
-          <LinieBoard scrollRef={scrollRef} names={names} layout={layout} selected={picked} labels={labels} lit={lit} layers={layers} chips={shown.chips}
+          <LinieBoard scrollRef={scrollRef} names={names} layout={layout} selected={picked} lit={lit} layers={layers} chips={shown.chips}
             corner={group === "plan" ? "plátno 2 › plátno 3" : "řádek · větev · cíl"}
-            onPick={pick} onFold={fold} onFocus={focusOn} onNames={width} onRenaming={(on) => { renaming.current = on; }}
+            onPick={pick} onPickCommit={pickCommit} onFold={fold} onFocus={focusOn} onNames={width} onRenaming={(on) => { renaming.current = on; }}
             onRename={(id, name) => void write(`/rows/${encodeURIComponent(id)}`, { name }, `Řádek přejmenován na ${name}.`, "PATCH")} />
         ) : (
           <div className="pletor-dashboard__linie-graph">

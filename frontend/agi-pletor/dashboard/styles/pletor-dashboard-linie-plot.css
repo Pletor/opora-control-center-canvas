@@ -1,0 +1,122 @@
+/* Kulička je evidovaný výsledek a leží přesně na svém čase; její tvar podle souhrnu kreslí linie-plot__ball
+   (pletor-dashboard-linie-ball.css). Vybraná nese klidný bílý prstenec (bez pulzování); mimo zvolenou frontu kuličky
+   jen zeslábnou. „Teď“ je tenká přerušovaná svislice přes celé plátno. */
+.pletor-dashboard__linie-pick {
+  cursor: pointer;
+}
+.pletor-dashboard__linie-pick:focus-visible {
+  outline: 2px solid var(--pletor-ink);
+}
+.pletor-dashboard__linie-pick--dim {
+  opacity: 0.22;
+}
+.pletor-dashboard__linie-ring {
+  fill: none;
+  stroke: var(--pletor-ink);
+  stroke-width: 2;
+}
+.pletor-dashboard__linie-now {
+  stroke: var(--pletor-accent);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+/* Popisek kuličky: název a pod ním souhrn s počtem commitů, 11,5 px s tmavým obrysem, aby se dal číst i přes čáry.
+   Když se nevejde pod osu, uhne nad ni nebo o patro dál (řádek se zvedne); kdo se nevejde vůbec, ukáže jen zelené
+   „+1“ pod kuličkou a celé jméno při najetí. */
+.pletor-dashboard__linie-ball-name,
+.pletor-dashboard__linie-ball-state,
+.pletor-dashboard__linie-cluster {
+  font-family: system-ui, sans-serif;
+  font-size: 11.5px;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--pletor-bg);
+  stroke-width: 3px;
+}
+.pletor-dashboard__linie-ball-name {
+  fill: var(--pletor-ink);
+  font-weight: 600;
+}
+.pletor-dashboard__linie-ball-state {
+  fill: var(--pletor-dim);
+}
+.pletor-dashboard__linie-cluster {
+  fill: var(--pletor-accent);
+  font-weight: 700;
+}
+
+/* Plán je slib, ne fakt: tenká čárkovaná přímka 6 5 s šipkou kousek před cílem, přerušovaný kroužek tam, kde ještě
+   nic nestojí, a popisek „plán → cíl“ (blokovaný červeně). Plány ostatních kuliček mimo vrstvu jen tiše prosvítají. */
+.pletor-dashboard__linie-plan-line {
+  fill: none;
+  stroke-width: 1.6;
+  stroke-dasharray: 6 5;
+}
+.pletor-dashboard__linie-plan {
+  fill: var(--pletor-dim);
+  font-size: 10.5px;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--pletor-bg);
+  stroke-width: 4px;
+}
+.pletor-dashboard__linie-plan--blocked {
+  fill: #e07070;
+}
+.pletor-dashboard__linie-plan-end {
+  fill: var(--pletor-bg);
+  stroke-width: 1.6;
+  stroke-dasharray: 3 2;
+}
+
+/* Skutečné začlenění je plná křivka 2,6 px, která z kuličky přeteče gradientem do barvy cíle a dosedne na jeho osu
+   v čase merge plným bodem. Nakreslí se jednou za 0,9 s, aby oko vidělo, kam práce odešla; pak už stojí. Kdo nechce
+   pohyb, dostane ji rovnou hotovou. */
+.pletor-dashboard__linie-merge {
+  fill: none;
+  stroke-width: 2.6;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: pletor-linie-draw 0.9s ease-out forwards;
+}
+@keyframes pletor-linie-draw {
+  to { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pletor-dashboard__linie-merge {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Bublina při najetí na kuličku i kostku commitu: tmavá karta se zeleným rámem vedle bodu, klíč vlevo šedě,
+   hodnota vpravo, patička „klik = detail“. */
+.pletor-dashboard__linie-tip {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 240px;
+  max-width: 460px;
+  padding: 8px 10px;
+  border: 1px solid var(--pletor-accent);
+  background: var(--pletor-bg-2);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.pletor-dashboard__linie-tip-title {
+  color: var(--pletor-accent);
+  overflow-wrap: anywhere;
+}
+.pletor-dashboard__linie-tip-key,
+.pletor-dashboard__linie-k {
+  display: inline-block;
+  min-width: 110px;
+  margin-right: 8px;
+  color: var(--pletor-dim);
+}
+.pletor-dashboard__linie-tip-hint {
+  color: var(--pletor-dim);
+}

@@ -1,5 +1,6 @@
-import { useRef, useState, type PointerEvent } from "react";
-import { LANE, ROW_THIN, TYPE_LABEL, type LaidLane, type LaidRow } from "../logic/linie-board";
+import "../styles/pletor-dashboard-linie-rows.css";
+import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { LANE, ROW_OPEN, TYPE_LABEL, type LaidLane, type LaidRow } from "../logic/linie-board";
 import { clampNames } from "../logic/linie-prefs";
 import { splitRowName } from "../logic/linie-row-name";
 
@@ -20,9 +21,10 @@ const RowName = ({ text }: { text: string }) => {
 };
 
 /**
- * Sticky sloupec názvů vlevo a roh nad ním: jeden řádek textu s výpustkou (celé jméno v `title` a v detailu), pod ním
- * větev; pod osou jména agentů z pruhů worktree („⌂ agent · pracuje“). Klik nic nepřeskládá: zaměření je tlačítko ⌖,
- * přejmenování ✎ nebo F2. Úchyt v rohu mění šířku sloupce.
+ * Sticky sloupec názvů vlevo a roh nad ním (prototyp Linie v3): na ose řádku sbalení, tečka barvy (kosočtverec
+ * u experimentu), jméno s výpustkou (celé v `title` a v detailu) a chip; při najetí nebo výběru místo chipu akce ⌖ a ✎.
+ * Pod osou větev odkud → kam (jen u řádku s kuličkou) a ve výšce každého pruhu worktree „⌂ agent · stav“. Klik nic
+ * nepřeskládá: zaměření je ⌖, přejmenování ✎ nebo F2. Úchyt v rohu mění šířku sloupce.
  */
 export default function LinieNames({ rows, lanes, chips, selectedRow, corner, onRename, onFold, onFocus, onWidth, onRenaming }: Props) {
   const [editing, setEditing] = useState("");
@@ -49,13 +51,15 @@ export default function LinieNames({ rows, lanes, chips, selectedRow, corner, on
         <span className="pletor-dashboard__linie-grip" role="separator" aria-orientation="vertical" aria-label="Šířka sloupce názvů" {...grip} />
       </div>
       <div className="pletor-dashboard__linie-names">
-        {rows.map((row) => (
-          <div key={row.id} className={`pletor-dashboard__linie-row pletor-dashboard__linie-row--depth-${Math.min(row.depth, 4)}${row.id === selectedRow ? " pletor-dashboard__linie-row--selected" : ""}${row.type === "dir" ? " pletor-dashboard__linie-row--header" : ""}`}
-            style={{ height: row.height }}>
-            <div className="pletor-dashboard__linie-row-body" style={{ height: row.height - LANE * row.lanes }}>
+        {rows.map((row) => {
+          const base = row.height - LANE * row.lanes;
+          const style = { height: row.height, "--c": row.color, "--ind": `${row.ind}px`, "--axis": `${row.y - row.top}px` } as CSSProperties;
+          return (
+            <div key={row.id} className={`pletor-dashboard__linie-row${row.id === selectedRow ? " pletor-dashboard__linie-row--selected" : ""}${row.type === "dir" ? " pletor-dashboard__linie-row--header" : ""}`} style={style}>
               <div className="pletor-dashboard__linie-row-top">
                 <button type="button" className="pletor-dashboard__linie-icon" aria-expanded={!row.collapsed} aria-label={`${row.collapsed ? "Rozbalit" : "Sbalit"} ${label(row)}`}
                   onClick={() => onFold(row.id, !row.collapsed)}>{row.collapsed ? "▸" : "▾"}</button>
+                <span className={`pletor-dashboard__linie-swatch${row.type === "experiment" ? " pletor-dashboard__linie-swatch--exp" : PLAN_ROW.has(row.type) ? " pletor-dashboard__linie-swatch--plan" : ""}`} />
                 {editing === row.id ? (
                   <input className="pletor-dashboard__linie-rename" aria-label="Nový název řádku" value={value} autoFocus onChange={(event) => setValue(event.target.value)}
                     onBlur={() => commit(row)}
@@ -65,23 +69,24 @@ export default function LinieNames({ rows, lanes, chips, selectedRow, corner, on
                       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); edit(null); }
                     }} />
                 ) : (
-                  <span className="pletor-dashboard__linie-row-name" style={{ color: row.color }} title={row.branch || label(row)} tabIndex={renamable(row) ? 0 : undefined}
+                  <span className="pletor-dashboard__linie-row-name" title={row.branch || label(row)} tabIndex={renamable(row) ? 0 : undefined}
                     onKeyDown={renamable(row) ? (event) => { if (event.key === "F2") { event.preventDefault(); edit(row); } } : undefined}><RowName text={label(row)} /></span>
                 )}
-                {row.branch && <button type="button" className="pletor-dashboard__linie-icon" title={`Zaměřit ${row.branch}`} aria-label={`Zaměřit ${label(row)}`} onClick={() => onFocus(row.branch)}>⌖</button>}
-                {renamable(row) && editing !== row.id && <button type="button" className="pletor-dashboard__linie-icon" title="Přejmenovat (F2)" aria-label={`Přejmenovat ${label(row)}`} onClick={() => edit(row)}>✎</button>}
                 <span className="pletor-dashboard__linie-chip">{row.collapsed && chips[row.id] ? chips[row.id] : chip(row)}</span>
+                <span className="pletor-dashboard__linie-acts">
+                  {row.branch && <button type="button" className="pletor-dashboard__linie-icon" title={`Zaměřit ${row.branch}`} aria-label={`Zaměřit ${label(row)}`} onClick={() => onFocus(row.branch)}>⌖</button>}
+                  {renamable(row) && editing !== row.id && <button type="button" className="pletor-dashboard__linie-icon" title="Přejmenovat (F2)" aria-label={`Přejmenovat ${label(row)}`} onClick={() => edit(row)}>✎</button>}
+                </span>
               </div>
-              {row.height - LANE * row.lanes !== ROW_THIN && <div className={`pletor-dashboard__linie-meta${row.branch || PLAN_ROW.has(row.type) ? "" : " pletor-dashboard__linie-meta--none"}`} title={row.branchText}>{row.branchText}</div>}
-              {!row.collapsed && row.height - LANE * row.lanes !== ROW_THIN && !PLAN_ROW.has(row.type) && (
-                <div className="pletor-dashboard__linie-meta">{row.fixed ? row.mappingText : `z ${row.parent || row.baseBranch || "—"} → cíl ${row.target || "zatím neurčeno"}`}</div>
+              {!row.collapsed && base >= ROW_OPEN && (
+                <div className={`pletor-dashboard__linie-meta${row.branch || row.fixed || PLAN_ROW.has(row.type) ? "" : " pletor-dashboard__linie-meta--none"}`} title={row.meta}>{row.meta}</div>
               )}
+              {lanes.filter((lane) => lane.rowId === row.id).map((lane, index) => (
+                <div key={index} className="pletor-dashboard__linie-lane-name" style={{ top: base + LANE * index + LANE / 2 }} title={`worktree agenta ${lane.agent} · ${lane.state}`}>⌂ <strong>{lane.agent}</strong> · {lane.state}</div>
+              ))}
             </div>
-            {lanes.filter((lane) => lane.rowId === row.id).map((lane, index) => (
-              <div key={index} className="pletor-dashboard__linie-lane-name" style={{ height: LANE }} title={`worktree agenta ${lane.agent} · ${lane.state}`}>⌂ <strong>{lane.agent}</strong> · {lane.state}</div>
-            ))}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );
