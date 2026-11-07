@@ -52,7 +52,8 @@ def refused(act):
 def test_create_does_not_make_branch(setup):
     service, repo, tid = setup
     found = work.get(service, "draft", tid)
-    assert found["status"] == "issued" and found["state"] == "open" and found["stateLabel"] == "otevřeno"
+    assert found["status"] == "issued" and found["state"] == "open" and found["stateLabel"] == "nezačato"
+    assert found["summary"]["key"] == "todo" and found["incomplete"] == ["prs", "deploy"]
     assert found["work"]["baseSha"] == run(repo, "rev-parse", "develop") and found["work"]["headSha"] is None
     assert run(repo, "branch", "--list", "feat/uzel") == ""
     assert refused(lambda: work.create(service, "draft", "main", BODY, {"rowId": "row_nic", "branch": "feat/x",
@@ -81,21 +82,29 @@ def test_accept_states_and_no_merge(setup):
     work.report(service, "draft", tid, head, [], None, NOW, "agent:t")
     assert refused(lambda: work.allow_merge(service, "draft", tid, None, NOW)).code == "no_acceptance"
     assert refused(lambda: work.accept(service, "draft", tid, "abc1234", "", NOW)).code == "head_moved"
-    accepted = work.accept(service, "draft", tid, head[:7], "ok", NOW)
-    assert accepted["work"]["acceptance"]["sha"] == head
-    assert accepted["state"] == "awaiting_checks"  # bez kontrol není hotovo (bod 6)
+    # L7 §8: revize bez kontrol (nocheck) ani s červenými (failed) přijmout nejde; dřív se přijalo a čekalo na kontroly
+    early = refused(lambda: work.accept(service, "draft", tid, head[:7], "ok", NOW))
+    assert (early.status, early.code) == (409, "action_not_allowed") and "CI ověří HEAD" in early.body()["error"]
     red = work.report(service, "draft", tid, head, [{"name": "npm test", "status": "red"}], None, NOW, "agent:t")
-    assert red["state"] == "awaiting_checks"
+    assert red["state"] == "awaiting_checks" and red["summary"]["key"] == "failed"
+    assert refused(lambda: work.accept(service, "draft", tid, head, "ok", NOW)).code == "action_not_allowed"
     green = work.report(service, "draft", tid, head, [{"name": "npm test", "status": "green"}], None, NOW, "agent:t")
-    assert green["state"] == "accepted_unmerged" and green["stateLabel"] == "hotovo, ještě nezačleněno"
+    assert green["state"] == "open" and green["allowed"][0] == "accept"
+    accepted = work.accept(service, "draft", tid, head[:7], "ok", NOW)
+    assert accepted["work"]["acceptance"]["sha"] == head and accepted["state"] == "accepted_unmerged"
+    assert accepted["allowed"] == ["allow_merge", "preview", "revoke_accept", "defer", "block"]
     allowed = work.allow_merge(service, "draft", tid, None, NOW)
+    again = refused(lambda: work.allow_merge(service, "draft", tid, None, NOW))
+    assert again.code == "action_not_allowed" and again.body()["error"] == "už povoleno pro HEAD"
     assert allowed["work"]["mergeAllowed"]["targetSha"] == develop and "merge" in allowed["next"]
     # přijetí ani povolení nic neslučuje (bod 3)
     assert (run(repo, "rev-parse", "develop"), run(repo, "rev-parse", "origin/develop")) == (develop, origin)
     newer = agent_commit(repo, name="v.txt")
     stale = work.report(service, "draft", tid, newer, [{"name": "npm test", "status": "green"}], None, NOW, "agent:t")
     assert stale["state"] == "stale"  # přijetí starého SHA po novém commitu (bod 5)
+    # L7a: zrušení zastaralého přijetí projde (úklid); bez přijetí už není co rušit
     assert work.revoke_accept(service, "draft", tid, NOW)["state"] == "open"
+    assert refused(lambda: work.revoke_accept(service, "draft", tid, NOW)).code == "action_not_allowed"
 
 
 def test_block_defer_resume(setup):
