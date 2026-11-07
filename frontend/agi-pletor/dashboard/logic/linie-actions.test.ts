@@ -13,6 +13,8 @@ describe("jedna cesta pro akce", () => {
     expect(actionsOf(ball.judgement, "tk_1", ball.headSha7, detail("9c8050f1a2b3"))).toEqual([
       { id: "allow_merge", label: "Povolit začlenění", enabled: true, why: "" },
       { id: "block", label: "Blokovat", enabled: true, why: "" },
+      { id: "preview", label: "Spustit náhled", enabled: true, why: "" },
+      { id: "revoke_accept", label: "Zrušit přijetí", enabled: true, why: "" },
       { id: "accept", label: "Přijmout 9c8050f", enabled: false, why: "acceptance.accepted(HEAD) – už přijato" },
       { id: "merge", label: "Začlenit", enabled: false, why: "mergeAllowed chybí – nejdřív povolit začlenění" },
     ]);
@@ -32,9 +34,11 @@ describe("jedna cesta pro akce", () => {
   });
   it("trasy akcí", () => {
     const d = detail("9c8050f1a2b3");
-    expect(actionRequest("accept", "tk_1", d)).toEqual({ path: "/work/tk_1/accept", body: { sha: "9c8050f1a2b3" }, method: "POST", done: "Přijato 9c8050f." });
+    expect(actionRequest("accept", "tk_1", d)).toEqual({ path: "/work/tk_1/accept", body: { sha: "9c8050f1a2b3", note: "" }, method: "POST", done: "Přijato 9c8050f." });
+    expect(actionRequest("accept", "tk_1", d, "vypadá dobře")?.body).toEqual({ sha: "9c8050f1a2b3", note: "vypadá dobře" });
     expect(actionRequest("allow_merge", "tk_1", d)?.body).toEqual({ target: "topic/knihovna" });
-    expect(actionRequest("revoke", "tk_1", d)?.method).toBe("DELETE");
+    expect(actionRequest("revoke_accept", "tk_1", d)).toEqual({ path: "/work/tk_1/accept", body: {}, method: "DELETE", done: "Přijetí zrušeno." });
+    expect(actionRequest("preview", "tk_1", d)?.path).toBe("/work/tk_1/preview");
     expect(actionRequest("park", "tk_1", d)?.path).toBe("/work/tk_1/defer");
     expect(actionRequest("unblock", "tk_1", d)).toBeNull();
   });

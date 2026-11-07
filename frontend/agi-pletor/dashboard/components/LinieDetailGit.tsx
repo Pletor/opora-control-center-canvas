@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import type { PletorAction } from "../logic/linie-actions";
 import { acceptanceSentence, previewSentence, short, type WorkDetail } from "../logic/linie-work";
+import LinieActions from "./LinieActions";
 
-type Props = { detail: WorkDetail; actions: PletorAction[]; flash: string; onAct: (id: string) => void };
+type Props = { detail: WorkDetail; actions: PletorAction[]; note: string; onNote: (note: string) => void; flash: string; onAct: (id: string) => void };
 
 const Row = ({ k, children }: { k: string; children: ReactNode }) => (
   <div className="pletor-dashboard__linie-kv"><span className="pletor-dashboard__linie-k">{k}</span><span>{children}</span></div>
@@ -12,7 +13,7 @@ const Row = ({ k, children }: { k: string; children: ReactNode }) => (
  * Záložka Git: větev a revize, commity, PR, kontroly, přijetí a náhled. Akce člověka jsou tentýž seznam jako v panelu
  * Pletora (jen `allowed` / `blocked`, jedna cesta přes rodiče); vlastní odhad tlačítek tu není.
  */
-export default function LinieDetailGit({ detail: d, actions, flash, onAct }: Props) {
+export default function LinieDetailGit({ detail: d, actions, note, onNote, flash, onAct }: Props) {
   return (
     <div className="pletor-dashboard__linie-detail-cols">
       <div className="pletor-dashboard__linie-detail-col">
@@ -44,14 +45,8 @@ export default function LinieDetailGit({ detail: d, actions, flash, onAct }: Pro
         </div>
         <div className="pletor-dashboard__linie-detail-card">
           <h3 className="pletor-dashboard__linie-detail-h">Akce člověka</h3>
-          {actions.length ? (
-            <span className="pletor-dashboard__tools pletor-dashboard__linie-acts">
-              {actions.map((action) => (
-                <button key={action.id} type="button" className="pletor-dashboard__button" disabled={!action.enabled} title={action.why || undefined}
-                  onClick={() => onAct(action.id)}>{action.label}</button>
-              ))}
-            </span>
-          ) : <p className="pletor-dashboard__note">Backend zatím nepovolil žádnou akci (bez `allowed`).</p>}
+          {actions.length ? <LinieActions actions={actions} note={note} onNote={onNote} onAct={onAct} />
+            : <p className="pletor-dashboard__note">Backend zatím nepovolil žádnou akci (bez `allowed`).</p>}
           <p className="pletor-dashboard__note">Agent tato tlačítka nikdy nestiskne za tebe.</p>
           {flash && <p className="pletor-dashboard__linie-flash" role="status">{flash}</p>}
         </div>

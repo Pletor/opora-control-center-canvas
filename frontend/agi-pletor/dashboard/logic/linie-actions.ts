@@ -11,26 +11,26 @@ export type ActionRequest = { path: string; body: object; method: "POST" | "DELE
 
 const LABEL: Record<string, string> = {
   accept: "Přijmout", allow_merge: "Povolit začlenění", merge: "Začlenit", block: "Blokovat", unblock: "Odblokovat",
-  defer: "Odložit", park: "Odložit", resume: "Obnovit", preview: "Spustit náhled", revoke: "Zrušit přijetí", attempt: "Založit pokus",
+  defer: "Odložit", park: "Odložit", resume: "Obnovit", preview: "Spustit náhled", revoke_accept: "Zrušit přijetí", attempt: "Založit pokus",
 };
-const ROUTED = new Set(["accept", "allow_merge", "merge", "block", "defer", "park", "resume", "preview", "revoke"]); // = case v actionRequest
+const ROUTED = new Set(["accept", "allow_merge", "merge", "block", "defer", "park", "resume", "preview", "revoke_accept"]); // = case v actionRequest
 const short = (sha: string) => sha.slice(0, 7);
 
 /** Board (sha7) a otevřený detail (plná hlava) mluví o téže revizi; kulička bez commitu revizi nemá. */
 export const sameRevision = (boardSha7: string, detailSha: string) => !boardSha7 || (!!detailSha && detailSha.startsWith(boardSha7));
 
-/** Trasa a tělo akce; `null` = backend pro ni trasu nemá (unblock, attempt). */
-export function actionRequest(id: string, ticketId: string, d: WorkDetail): ActionRequest | null {
+/** Trasa a tělo akce; `null` = backend pro ni trasu nemá (unblock, attempt). `note` = poznámka člověka k přijetí (smí být prázdná). */
+export function actionRequest(id: string, ticketId: string, d: WorkDetail, note = ""): ActionRequest | null {
   const path = `/work/${encodeURIComponent(ticketId)}`;
   switch (id) {
-    case "accept": return { path: `${path}/accept`, body: { sha: d.headSha }, method: "POST", done: `Přijato ${short(d.headSha)}.` };
+    case "accept": return { path: `${path}/accept`, body: { sha: d.headSha, note }, method: "POST", done: `Přijato ${short(d.headSha)}.` };
     case "allow_merge": return { path: `${path}/allow-merge`, body: { target: d.target }, method: "POST", done: `Začlenění do ${d.target} povoleno.` };
     case "merge": return { path: `${path}/merge`, body: {}, method: "POST", done: "Začleněno službou." };
     case "block": return { path: `${path}/block`, body: { reason: "blokováno člověkem z Linie" }, method: "POST", done: "Zablokováno." };
     case "defer": case "park": return { path: `${path}/defer`, body: {}, method: "POST", done: "Odloženo." };
     case "resume": return { path: `${path}/resume`, body: {}, method: "POST", done: "Obnoveno." };
     case "preview": return { path: `${path}/preview`, body: {}, method: "POST", done: "Náhled se spouští." };
-    case "revoke": return { path: `${path}/accept`, body: {}, method: "DELETE", done: "Přijetí zrušeno." };
+    case "revoke_accept": return { path: `${path}/accept`, body: {}, method: "DELETE", done: "Přijetí zrušeno." };
     default: return null;
   }
 }

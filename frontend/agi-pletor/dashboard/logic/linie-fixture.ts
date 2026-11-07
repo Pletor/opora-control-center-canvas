@@ -43,7 +43,7 @@ export const boardFixture = {
         deploy: { envs: {}, src: "událost prostředí" },
       },
       summary: { key: "accepted", text: "přijato, čeká na začlenění 9c8050f", reason: "checks.passed(HEAD) & acceptance.accepted(HEAD) & integration.none", next: "Služba začlení do topic/knihovna (znovu ověří)." },
-      allowed: ["allow_merge", "block"], blocked: { accept: "acceptance.accepted(HEAD) – už přijato", merge: "mergeAllowed chybí – nejdřív povolit začlenění" }, incomplete: ["prs"],
+      allowed: ["allow_merge", "block", "preview", "revoke_accept"], blocked: { accept: "acceptance.accepted(HEAD) – už přijato", merge: "mergeAllowed chybí – nejdřív povolit začlenění" }, incomplete: ["prs"],
       evidence: [
         { kind: "commit", ref: "1f0c2aa", at: "2026-11-05T10:20:00Z", src: "git log" },
         { kind: "commit", ref: "9c8050f", at: "2026-11-05T11:00:00Z", src: "git log" },

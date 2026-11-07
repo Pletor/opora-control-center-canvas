@@ -11,7 +11,7 @@ type Props = {
   ticketId: string; query: string; judgement: Judgement | null; cluster: { ticketId: string; title: string }[];
   /** Tiknutí boardu (čas posledního úspěšného čtení): detail se načte znovu se stejnou revizí dat jako board. */
   revision: number | null;
-  actions: PletorAction[]; flash: string; onAct: (id: string) => void;
+  actions: PletorAction[]; note: string; onNote: (note: string) => void; flash: string; onAct: (id: string) => void;
   onClose: () => void; onPickTrace: (mark: string) => void; onPick: (ticketId: string) => void;
   /** Načtený detail jde nahoru: rodič z něj bere plnou revizi HEAD a cíl pro akce. */
   onLoad: (detail: WorkDetail | null) => void;
@@ -23,7 +23,7 @@ type Tab = "souhrn" | "git";
  * PR, kontroly, akce). Souhrn čte tentýž `judgement` z boardu jako panel Pletora a obnovuje se s každým tiknutím
  * boardu, takže oba mluví o téže revizi; akce provádí rodič jednou cestou.
  */
-export default function LinieDetail({ ticketId, query, judgement, cluster, revision, actions, flash, onAct, onClose, onPickTrace, onPick, onLoad }: Props) {
+export default function LinieDetail({ ticketId, query, judgement, cluster, revision, actions, note, onNote, flash, onAct, onClose, onPickTrace, onPick, onLoad }: Props) {
   const [detail, setDetail] = useState<WorkDetail | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("souhrn");
@@ -69,7 +69,7 @@ export default function LinieDetail({ ticketId, query, judgement, cluster, revis
       </div>
       {tab === "souhrn"
         ? <LinieDetailSummary judgement={judgement} detail={d} cluster={cluster} onPick={onPick} />
-        : <LinieDetailGit detail={d} actions={actions} flash={flash} onAct={onAct} />}
+        : <LinieDetailGit detail={d} actions={actions} note={note} onNote={onNote} flash={flash} onAct={onAct} />}
     </section>
   );
 }

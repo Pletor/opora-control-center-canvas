@@ -10,7 +10,7 @@ const now = Date.parse("2026-11-06T10:06:00Z");
 describe("čtení summary a os", () => {
   it("summary z backendu platí, akce a důkazy se čtou", () => {
     expect(j("tk_1").summary).toEqual({ key: "accepted", text: "přijato, čeká na začlenění 9c8050f", reason: "checks.passed(HEAD) & acceptance.accepted(HEAD) & integration.none", next: "Služba začlení do topic/knihovna (znovu ověří).", derived: false });
-    expect(j("tk_1").allowed).toEqual(["allow_merge", "block"]);
+    expect(j("tk_1").allowed).toEqual(["allow_merge", "block", "preview", "revoke_accept"]);
     expect(j("tk_1").blocked).toEqual({ accept: "acceptance.accepted(HEAD) – už přijato", merge: "mergeAllowed chybí – nejdřív povolit začlenění" });
     expect(j("tk_1").incomplete).toEqual(["prs"]);
     expect(j("tk_1").axes?.checks).toEqual({ state: "passed", sha: "9c8050f1a2b3", src: "CI" });

@@ -1,11 +1,12 @@
 import type { PletorAction } from "../logic/linie-actions";
+import LinieActions from "./LinieActions";
 
 type Props = {
   lines: string[]; next: string; builtAt: string;
   /** Výpadek čtení boardu („poslední úspěšné čtení před N min · nyní nedostupné“), jinak prázdné. */
   feed: string;
   ages: { name: string; text: string; stale: boolean }[];
-  actions: PletorAction[]; flash: string; onAct: (id: string) => void;
+  actions: PletorAction[]; note: string; onNote: (note: string) => void; flash: string; onAct: (id: string) => void;
 };
 
 /**
@@ -13,7 +14,7 @@ type Props = {
  * čas sestavení snímku a stáří každého zdroje zvlášť, pak akce – povolené jako tlačítka, zakázané šedé s důvodem.
  * Pole „Zadat srdci“ je zatím zavřené: tok žádostí přijde s /api/pletor/requests, falešný tok tu není.
  */
-export default function LiniePletor({ lines, next, builtAt, feed, ages, actions, flash, onAct }: Props) {
+export default function LiniePletor({ lines, next, builtAt, feed, ages, actions, note, onNote, flash, onAct }: Props) {
   return (
     <section className="pletor-dashboard__linie-pletor" aria-label="Pletor – ověřený stav">
       <h2 className="pletor-dashboard__linie-pletor-h">Pletor · ověřený stav</h2>
@@ -30,14 +31,7 @@ export default function LiniePletor({ lines, next, builtAt, feed, ages, actions,
           ))}
         </p>
       )}
-      {actions.length > 0 && (
-        <span className="pletor-dashboard__tools pletor-dashboard__linie-acts">
-          {actions.map((action) => (
-            <button key={action.id} type="button" className="pletor-dashboard__button" disabled={!action.enabled} title={action.why || undefined}
-              onClick={() => onAct(action.id)}>{action.label}</button>
-          ))}
-        </span>
-      )}
+      <LinieActions actions={actions} note={note} onNote={onNote} onAct={onAct} />
       {flash && <p className="pletor-dashboard__linie-flash" role="status">{flash}</p>}
       <textarea className="pletor-dashboard__input pletor-dashboard__linie-pletor-ask" disabled aria-label="Zadat srdci"
         placeholder="Změna plánu nebo zadání… Pletor zapíše „žádost přijata“; plán, ticket, relace a commit se objeví až po potvrzení." />

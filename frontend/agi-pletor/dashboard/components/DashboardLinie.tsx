@@ -47,6 +47,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [flash, setFlash] = useState("");
+  const [acceptNote, setAcceptNote] = useState(""); // jedna poznámka k přijetí pro panel i záložku Git
   const [form, setForm] = useState<"" | "row" | "work">("");
   // Hluboký odkaz `?ticket=` (z PR, Pletora) otevře detail kuličky; `?branch=` jen zaměří editor, detail neotevře.
   const [picked, setPicked] = useState(() => new URLSearchParams(location.search).get("ticket") ?? "");
@@ -127,7 +128,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
   const view = graphView(graphRaw);
   // Rodič se hledá i mezi větvemi, které jsou jen v gitu (bez řádku a kuličky), jinak by mezičlánek spadl na develop.
   const heads = [...new Set([board.mapping.main, board.mapping.develop, ...board.rows.map((row) => row.branch), ...board.balls.map((b) => b.branch), ...view.lanes.map((item) => item.name)].filter(Boolean))];
-  const pick = (id: string) => { setPicked(id); setFlash(""); };
+  const pick = (id: string) => { if (id !== picked) setAcceptNote(""); setPicked(id); setFlash(""); };
   const pickBranch = (name: string) => { setLane(name); pick(board.balls.find((b) => b.branch === name)?.ticketId ?? ""); };
   const focusOn = (branch: string) => {
     setFocus(branch);
@@ -149,9 +150,10 @@ export default function DashboardLinie({ project, workspace }: { project: string
   // Jedna cesta pro akce: seznam z allowed/blocked nad shodnou revizí boardu a detailu, provedení přes actionRequest.
   const actions = ball ? actionsOf(ball.judgement, picked, ball.headSha7, detail) : [];
   const runAction = (id: string) => {
-    const request = detail && actions.find((a) => a.id === id)?.enabled ? actionRequest(id, picked, detail) : null;
+    const request = detail && actions.find((a) => a.id === id)?.enabled ? actionRequest(id, picked, detail, acceptNote.trim()) : null;
     if (!request) return;
     setFlash("");
+    if (id === "accept") setAcceptNote("");
     void act(request.path, request.body, request.done, request.method).then(setFlash);
   };
 
@@ -162,7 +164,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
     <LinieCommit sha={commit} query={query} onClose={() => setCommit("")} onPickTicket={(id) => { setCommit(""); pick(id); }} onPickTrace={setTrace} />
   ) : picked ? (
     <LinieDetail ticketId={picked} query={query} judgement={ball?.judgement ?? null} cluster={cluster} revision={lastSuccessAt}
-      actions={actions} flash={flash} onAct={runAction} onClose={close} onPickTrace={setTrace} onPick={pick} onLoad={setDetail} />
+      actions={actions} note={acceptNote} onNote={setAcceptNote} flash={flash} onAct={runAction} onClose={close} onPickTrace={setTrace} onPick={pick} onLoad={setDetail} />
   ) : null;
   const editor = mode === "editor";
   const links = Object.fromEntries(view.lanes.flatMap((item) => [
@@ -202,7 +204,7 @@ export default function DashboardLinie({ project, workspace }: { project: string
             {editor && (
               <LiniePletor lines={ball ? pletorVerdict(ball.mark || clip(ball.title), ball.judgement, board.snapshot, now) : queueLines(queueList, board.balls.length)}
                 next={ball ? ball.judgement.summary.next || (detail?.ticketId === picked ? detail.next : "") : ""} builtAt={board.snapshot ? hhmm(board.snapshot.builtAt) : ""} ages={sourceAges(board.snapshot, now)}
-                feed={feedText(lastSuccessAt, boardError, now)} actions={actions} flash={flash} onAct={runAction} />
+                feed={feedText(lastSuccessAt, boardError, now)} actions={actions} note={acceptNote} onNote={setAcceptNote} flash={flash} onAct={runAction} />
             )}
             {panel}
           </aside>
