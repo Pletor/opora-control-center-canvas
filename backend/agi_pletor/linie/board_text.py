@@ -102,7 +102,8 @@ def render(board, *, mine=None, journal=None, open_requests=None, all=False):  #
 
     out += ["", "Řádky:" if mine is None else f"Řádky (jen {mine}):"]
     known = {row["id"] for row in board.get("rows") or []}
-    folded = set()  # větve složené pod uzavřeným předkem; řádky jdou do hloubky, rodič je vždy před dětmi
+    # OP-E59AFA.2: podstrom podle `parent` (jako frontend a closed.py), ne podle hloubky; rodič je vždy před dětmi
+    folded = set()
     for row in board.get("rows") or []:
         if row.get("parent") in folded:
             folded.add(row.get("branch"))

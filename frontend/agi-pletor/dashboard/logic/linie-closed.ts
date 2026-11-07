@@ -48,6 +48,7 @@ function atOf(row: BoardRow, board: Board): string {
 export function foldClosed(board: Board, open: Set<string>, all: boolean): { board: Board; knots: Knot[] } {
   const byBranch = new Map(board.rows.filter((r) => r.branch).map((r) => [r.branch, r]));
   const shut = all ? [] : board.rows.filter((r) => r.closed && parentOf(r, byBranch) && !open.has(r.id));
+  // OP-E59AFA.1: skrývají se jen řádky; kuličky zůstanou v boardu, aby se časová osa při skládání nehnula.
   const hidden = new Set(shut.flatMap((r) => [r.id, ...descendants(r, board.rows).map((d) => d.id)]));
   const knots = board.rows.flatMap((row): Knot[] => {
     const up = row.closed && parentOf(row, byBranch);

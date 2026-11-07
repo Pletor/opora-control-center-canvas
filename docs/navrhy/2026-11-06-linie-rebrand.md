@@ -447,7 +447,7 @@ target, by: "merge", balls: N}`:
   sebe a „N kuliček“ součet `closed.balls` podstromu; bez `closed.at` se čas bere z merge `sha` (`realMerges`, commit
   kuličky), jinak konec osy s „uzavřeno ?“, a značka nikdy neleží vlevo za okrajem osy; „navazuje na N začleněných
   kuliček“ ukazuje jen detail nezačleněné kuličky (tip značky ne: uzavřený řádek žádnou nezačleněnou nemá);
-  `board.txt` skrývá pod ⊕ celý podstrom podle `parent`; tag na commitu kuličky složené větve se dál kreslí na main.
+  `board.txt` skrývá pod ⊕ celý podstrom podle `parent`; tag na commitu kuličky složené (i sbalené) větve se nekreslí.
 
 Pořadí: L9a a L9b paralelně (L9a jen frontend, L9b jen backend + `board_text.py`), L9c z integrované špičky obou.
 Hotovo když: na projektu OPORY je řádek `rebrand` (a pod ním dokončené vozy L7g–L7l) složený do značky na

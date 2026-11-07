@@ -38,6 +38,13 @@ describe("skládání uzavřených větví do rodiče", () => {
     expect(knotTip(knot)).toMatchObject({ title: knot.label, hint: "klik = rozbalit", rows: [{ k: "uzavřeno" }, { k: "merge", v: "0000ac5" }] });
   });
 
+  it("tag na commitu kuličky složené větve se nekreslí (ani náhradou na main)", () => {
+    const tagged = boardView({ ...raw, tags: [{ name: "v1", sha: "c1", at: "2026-11-07T12:30:00Z" }],
+      balls: raw.balls.map((b) => (b.ticketId === "l2" ? { ...b, commits: [{ sha: "c1", title: "x", at: "2026-11-07T12:30:00Z" }] } : b)) });
+    expect(layoutBoard(foldClosed(tagged, new Set(), false).board).tags).toEqual([]);
+    expect(layoutBoard(foldClosed(tagged, new Set(), true).board).tags.map((t) => t.text)).toEqual(["v1"]);
+  });
+
   it("klik přepne unfolded; každá úroveň kaskády se rozbaluje zvlášť", () => {
     const once = toggleKnot(new Set(), { rowId: "linie", open: false });
     expect([...once]).toEqual(["linie"]);
