@@ -3,7 +3,9 @@
 Datum: 2026-11-06, revize 2026-11-07 po druhé oponentuře. Navazuje na L6 (`2026-11-06-linie-barvy-a-zamereni.md`).
 Větev `feat/velin-linie-strom-barvy-rebrand` (dítě `feat/velin-linie-strom-barvy`), kulička `OP-546BB9`. Návrh: Claude
 Design, projekt `27995fdc-9d56-462e-a37d-08447c45e9d6`, soubor `Linie v3.dc.html` (živý prototyp celého cyklu; snímky
-`.opora/velin-linie-v3-*.png`). Prototyp je referenční obraz chování, ne zdroj pravdy; pravdu nese tento kontrakt.
+`.opora/velin-linie-v3-*.png`). Prototyp je referenční obraz **vzhledu a ovládání** (přebírá se 1:1); **význam dat a
+operací** nese tento kontrakt. Simulace prototypu (ukázkový scénář, náhodná sha, vymyšlené zdroje) ani jeho známé
+chyby se nepřebírají. Přijetí jednotlivých vozů není přijetí Linie; to přijde až po ověření společného UI a API podle §8.
 
 ## Proč
 
@@ -42,7 +44,9 @@ důvodem) vznikají v **jedné funkci** nad týmiž důkazy (`evaluate(ticket) �
 Nikdy nesmí detail říkat „člověk znovu přijme“, když pravidlo akci `accept` zakazuje. Testy ověřují, že pro každý
 klíč souhrnu je `next` konzistentní s `allowed`.
 
-Vyhodnocuje se **nejdřív aktuální pokus a revize (HEAD = poslední neopuštěný commit pokusu), teprve pak celý úkol**.
+Vyhodnocuje se **nejdřív aktuální pokus a revize (HEAD = skutečná špička větve pokusu podle gitu / `headSha`
+z hlášení), teprve pak celý úkol**. Označení commitu jako opuštěného HEAD nemění (viz §5): editor i Pletor vždy hodnotí
+kód, který na větvi skutečně leží.
 `checks` a `acceptance` platí jen pro sha, pro které byly zaznamenány; pro jiný HEAD jsou „chybí“ / „zastaralé“.
 Historické začlenění nepřebije novou, dosud nezačleněnou revizi: má-li úkol commit po `integration.at`, hodnotí se
 nová revize a souhrn nese předponu „nová revize po začlenění <sha>“.
@@ -60,7 +64,12 @@ Pořadí pravidel (první platné vyhrává):
 | `checking` | `work.submitted` ∧ `checks.running(HEAD)` | čekáme na CI | – |
 | `stale` | `checks.passed(HEAD)` ∧ `acceptance.accepted(sha ≠ HEAD)` | člověk znovu přijme HEAD | `accept` |
 | `pending` | `checks.passed(HEAD)` ∧ `acceptance.pending` | člověk rozhodne | `accept` |
-| `accepted` | `checks.passed(HEAD)` ∧ `acceptance.accepted(HEAD)` ∧ `integration.none` | služba začlení do rodiče (znovu ověří) | `merge` |
+| `accepted` | `checks.passed(HEAD)` ∧ `acceptance.accepted(HEAD)` ∧ `integration.none` | bez povolení: člověk povolí začlenění; s povolením platným pro dvojici (HEAD, špička cíle): služba začlení (znovu ověří) | `allow_merge` → po povolení `merge`; posun cíle vrací `allow_merge` |
+
+HEAD se bere ze **skutečné špičky větve** (git), ne z posledního hlášení: commit bez hlášení znamená `work.in_progress`
+pro novou revizi a kontroly i přijetí starší revize pro ni neplatí; `accept(sha)` s jiným sha než špička = 409
+`head_moved`. Povolení začlenění platí pro dvojici `(sourceSha, targetSha)`; když se cíl posune, povolení propadá a
+pravidlo nabídne nové. Při nedostupném gitu zůstává poslední známá špička a `incomplete` nese `git`.
 
 Nasazení se do souhrnu nikdy nemíchá; je to vlastní značka. `block`/`unblock` je povolen vždy.
 
@@ -134,15 +143,28 @@ Vše, co git má, se dá v Linii vidět; nic se nedělá přímo gitem z prohlí
 | commit | kostka na čáře práce; sha při přiblížení; hover sha · zpráva · čas · úkol | `git log` větve |
 | větev / rodič | řádek a strom (L5) | `tree.py` |
 | merge | plný oblouk do cíle + bod; barva cíle | merge commit |
-| PR otevřený | pilulka `PR #350` na čárkované šipce plánu; stav review barvou | GitHub API (když nedostupné: `incomplete: ["prs"]`, pilulka šedá „neověřeno“) |
+| PR otevřený | pilulka `PR #350` na čárkované šipce plánu; stav review barvou | GitHub API; při výpadku zůstává **poslední známý stav** označený „zastaralé · nyní neověřeno“, `incomplete: ["prs"]`; zdroj nese `lastSuccessAt` i `attemptedAt` zvlášť; výpadek PR nikdy nezneplatní začlenění doložené merge logem |
 | PR sloučený | oblouk merge nese číslo PR | GitHub + merge commit |
 | squash merge | oblouk z posledního commitu práce do jednoho commitu cíle; kostky práce zůstávají, cíl má jednu | merge log služby (`mode: squash`); bez záznamu „začleněno · způsob neověřen“ |
 | revert | nová kostka se šipkou zpět k revertovanému sha | záznam služby `revert {sha}`; commit s `This reverts` je jen navržená vazba |
 | rebase / posunutý cíl | kostky se přesunou; tenká stopa „bylo zde“ do dalšího snímku; `acceptance.stale` | záznam služby `rebase {from, to}`; pouhá změna sha nebo posun cíle rebase nedokazuje |
-| tag | svislá značka na řádku s názvem | `git tag` |
-| nasazení | značka `env@sha` na řádku cíle, jen z potvrzení prostředí | `POST /deploy` |
-| worktree | pruh pod osou větve, tečkovaná odbočka; při vazbě na agenta jméno agenta a od–do | `git worktree list` + relace |
-| opuštěná práce | kostka s ✕ a odbočkou; souhrn úkolu nezmění | `abandon {sha, why}` |
+| tag | svislá značka **u commitu** (lehký i anotovaný); tag patří objektu, ne větvi – řádek, na kterém se kreslí, je prezentační volba (větev, kde commit leží první), ne vlastnictví | `git for-each-ref refs/tags` |
+| nasazení | značka `env@sha` na řádku cíle. Zápis nasazovacím skriptem po ověření běžící revize = „potvrzeno prostředím“; ruční zápis z Velína = „hlášeno člověkem“ a nikdy se netváří jako potvrzení prostředí; backend ověří oprávnění zapisujícího pro dané prostředí | `POST /deploy {env, sha, by}` |
+| worktree | pruh pod osou větve, tečkovaná odbočka. Jméno agenta a od–do jen při **explicitní vazbě** relace na pokus `{ticket, attempt, repo, worktree}` s aktuálním heartbeat/lease; samotný výpis `git worktree list` dává jen adresář bez agenta a bez od–do | `git worktree list --porcelain` + vazba relace |
+| opuštěná práce | kostka s ✕ a odbočkou; **evidence rozhodnutí**, nemění git, HEAD ani osy: opuštěný commit může zůstat předkem HEAD a jeho změny v kódu; odstranění změn je samostatná git operace (revert) | `abandon {sha, why}` |
+
+### 5a. Merge log a nasazení přežijí částečné selhání
+
+- Každé začlenění službou má **identifikátor operace** a dva záznamy: `started {op, ticket, repo, source_sha, target,
+  target_sha_before, mode, by, at}` před gitem a `finished {op, result_sha, ok, at}` po ověření výsledku v gitu.
+  Opakovaný požadavek se stejným `op` (nebo stejnou dvojicí `source_sha` → `target`, která už má `finished.ok`) **neprovede
+  další merge**, jen vrátí záznam. Záznam `started` bez `finished` je „operace zahájena, výsledek neověřen“ a UI ho tak píše.
+- Historie se **nedopočítává** jako záznam operace služby. Starší začlenění lze doložit gitem (merge commit, `--is-ancestor`)
+  nebo GitHubem (PR merged) a důkaz nese tento původ (`src: git` / `src: GitHub`); způsob (squash/merge) bez záznamu zůstává
+  „způsob neověřen“. Neexistence merge logu sama o sobě nedokazuje ani začlenění, ani jeho absenci.
+- Živá relace dokazuje aktivitu jen s explicitní vazbou na pokus (úkol, pokus, repozitář, worktree) a čerstvým heartbeat;
+  „agent někde běží“ nestačí.
+- Nová data **nezapínají uživateli vrstvy**: zpřístupní přepínač a obnoví obsah, zvolená viditelnost i poloha grafu zůstávají.
 
 Operace přes službu OPORY (každá zapíše do deníku, každá se znovu ověří): založit pokus (větev z rodiče podle jména),
 otevřít PR, přijmout (s sha), začlenit (`linie.py merge`), označit opuštěné, zaparkovat, blokovat, potvrdit nasazení.
@@ -197,10 +219,60 @@ Interaktivní rebase a force-push editor neumí záměrně.
 1. **Kontrakt významů a důkazů** – tento dokument + `axes`/`evidence`/`snapshotId` v backendu (`work.py`, `board.py`,
    modely), testy pravidla souhrnu včetně `stale`, squash, chybějící GitHub.
 2. **L7 rozložení a ovládání** – frontend podle §6 na větvi `…-rebrand`; vitest na kolize popisků, souhrn, Esc, zoom.
-3. **Napojení skutečných dat** – PR, tagy, worktree, opuštěné, nasazení; co není evidováno, nese `incomplete` a v UI
-   „neověřeno“.
-4. **Vazby na plán** – `planCardId`, `directionCardId`, seskupení podle plánu, drobek; společný board pro Pletora.
-5. **Operace a pokročilé události** – přijetí s sha, PR ze služby, opuštěno/parkování/nasazení, revert a rebase stopy.
+3. **Napojení skutečných dat (L7c)** – merge log s `op`/`started`/`finished` (§5a), PR s posledním známým stavem a
+   `lastSuccessAt`, tagy u commitu, nasazení s původem (prostředí / člověk) a oprávněním, worktree s explicitní vazbou
+   relace, `abandon` jako evidence bez změny HEAD; co není evidováno, nese `incomplete` a v UI „neověřeno“. Testy: abandon
+   zachová HEAD a přidá důvod; výpadek GitHubu nechá poslední stav PR jako zastaralý a nezneplatní merge log; opakovaný
+   merge se stejným `op` nic neprovede; tag ≠ nasazení; worktree bez vazby nemá agenta; příchod dat nemění vrstvy ani posun.
+4. **Vazby a revize plánu (L7d)** – zjištěno v kódu (7. 11.): tělo ticketu je od vydání neměnné (`tickets.body` nemá
+   UPDATE), ale `machine.cardId` plní jen srdce a `cardVersion` posílá klient bez ověření; karta plánu nemá v datech rodiče
+   na plátně 2 (rodokmen existuje jen u knihovny `derived_from`, typované spojení je jen `machine.intent.workflowVersionId`).
+   Proto:
+   - **Vydání práce zmrazí referenci** `issued: {cardId, cardRevision, at}`; `cardRevision` čte server z karty při
+     vydání, ne z klienta. Snímek textu a kritérií v `body` zůstává (už dnes). Detail ukáže rozdíl proti aktuální kartě.
+     Nové zadání = nová revize ticketu, historie se nepřepisuje.
+   - **Přijetí platí pro dvojici** `(sha, cardRevision)`: změna kritérií na kartě při stejném sha dává
+     `acceptance.state = 'stale_plan'` s důvodem; staré přijetí zůstává historickým záznamem.
+   - **Vazba se ověřuje**, ne prohlašuje: `planCardId` jen když karta existuje v projektu a je na plátně plánu;
+     `directionCardId` přes `workflowVersionId` (plátno 2). Stavy vazby: `none` („bez plánu“), `card_missing`,
+     `source_unavailable`, `ambiguous` – jen první znamená „bez plánu“.
+   - **Seskupení je jiný pohled na týž snímek** (`snapshot.id` se nemění, žádné nové čtení); výběr a časový rozsah
+     zůstávají, svislá poloha se kotví k vybrané kuličce.
+   - **Počty front mají definici**: „Srdce: N plánů čeká na rozpracování“ = karty plánu bez vydaného ticketu;
+     „Tickety: N ticketů čeká na pokus“ = `summary.key = todo`; agregace nad týmž projektem, filtrem a snímkem jako graf.
+   - Testy: změna kritérií bez změny sha → `stale_plan`; karta smazána ≠ bez plánu; přepnutí seskupení nezmění `snapshot.id`.
+5. **Operace a žádosti (L7e)** – zjištěno v kódu: větev dnes zakládá agent, služba git jen čte (`work.create`), rozlišení
+   lokální/publikovaná se neukládá; `block/defer/resume` běží bez gitu, ale nezapisují `by`; brána ani tickety nemají
+   idempotenční klíč (vzor `request_id + digest` je v `opora_execution_budgets`, `opora_execution_pull_requests`);
+   doménový deník neexistuje (`activity_log` je ořezávaný HTTP log, `opora_events` je trvalý outbox s `id`
+   AUTOINCREMENT); revert/rebase v Linii nikde není. Proto:
+   - **Pokus** (`attempt`) eviduje `{repo, baseRef, baseSha, branch, createdBy: agent|service, published: bool}`; větev
+     dál zakládá agent z přiděleného `baseSha`, služba ověří skutečný výsledek při `report` (`merge-base` na `baseSha`,
+     existence `refs/remotes/origin/<branch>` → `published`). Jméno větve rodiče jen **nabízí**; operace přijme a ověří
+     `repository`, `baseRef`, `baseSha`, `target`. Existující větev se nepřevezme bez ověření a nikdy nepřepíše.
+   - **Operace a git**: `accept`, `merge`, `revert`, `attempt` vyžadují git a znovu ověří HEAD; `block`, `park`, `unblock`,
+     `resume`, `abandon` běží i při výpadku gitu, ověřují jen oprávnění a revizi evidence a zapisují `by`.
+   - **Idempotence každého kroku**: klíč + digest obsahu; stejný klíč se stejným obsahem vrátí týž záznam, s jiným obsahem
+     409 `idempotency_conflict`. Po pádu mezi založením větve/PR a zápisem evidence se služba zotaví porovnáním s gitem
+     a GitHubem bez duplikace (`started`/`finished` jako u merge logu §5a).
+   - **Žádost srdci (§4a)** se může větvit: jedna žádost → více ticketů a pokusů; řetězec `plan → ticket → attempt →
+     commit` je souhrn skutečně propojených záznamů; trailer `Opora-Mark` určuje vazbu, nepotvrzuje splnění žádosti.
+   - **Revert** je samostatná operace s `{repo, branch, sha, expectedHead}`; konflikt se hlásí jako nedokončený
+     (`conflict`, merge --abort), nikdy jako hotový. **Rebase se jen eviduje** (`rebase {from, to}` ze záznamu služby),
+     neprovádí.
+   - **Deník Linie** = nové druhy `linie.*` v `opora_events` (stabilní `id`, pořadí, `refs: {ticket?, request?, op?,
+     env?}`); událost nemusí mít kuličku; „nových“ se počítá od posledního přečteného `id`, ne od času; klik otevře důkaz.
+   - Testy: pád po založení větve před zápisem evidence → zotavení bez duplicity; stejný klíč s jiným textem → 409;
+     blokace při nedostupném gitu projde a nese `by`; revert s konfliktem není `finished`; žádost se dvěma tickety.
+6. **Uzavření (L7f)** – integrační dokončení a důkaz společného fungování, žádné nové backendové funkce; nutné opravy
+   backendu dovoleny. Frontend převezme data z L7c (tagy u commitu, worktree s agentem jen při vazbě, nasazení s původem,
+   opuštěné kostky, PR s posledním známým stavem), UI z L7d/L7e (podle plánu, záložka Plán s rozdílem, deník z
+   `opora_events`, řetězce žádostí, pilulka PR na 65 %, „Sledovat živě“). Tři opravy nalezené v kódu L7a/L7b se dělají
+   hned na jejich větvích: stáří zdrojů roste nezávislým časovačem i při výpadku API (`lastSuccessAt`, „nyní
+   nedostupné“); board a otevřený detail sdílejí revizi (akce blokované, dokud se `headSha` liší); jedna cesta akcí z
+   `allowed`/`blocked` včetně `allow_merge` (staré `workActions` pryč). Scénáře §8 se ověří živě na náhledu z Velínu a
+   staré styly a stavy se mažou až po ověření, že je nic nečte. Dvě kuličky „nahrazeno stromem“ se uzavírají ručně se
+   zachovaným důvodem a vazbou na nástupce, ne automaticky jako splněné.
 
 ## 8. Ověření před přijetím
 
