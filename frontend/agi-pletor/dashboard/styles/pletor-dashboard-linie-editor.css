@@ -214,9 +214,9 @@
   color: #d4a24c;
 }
 
-/* Kulička je evidovaný výsledek a leží přesně na svém čase. Výplň mluví dřív než text: plná = začleněno, plná
-   s prstencem = hotovo a čeká, prázdný střed = otevřeno, tečka = ověření, červený střed = blok, tečkovaný obrys =
-   odloženo. Vybraná nese klidný bílý prstenec (bez pulzování); mimo zvolenou frontu kuličky jen zeslábnou. */
+/* Kulička je evidovaný výsledek a leží přesně na svém čase; její tvar podle souhrnu kreslí linie-plot__ball
+   (pletor-dashboard-linie-ball.css). Vybraná nese klidný bílý prstenec (bez pulzování); mimo zvolenou frontu kuličky
+   jen zeslábnou. */
 .pletor-dashboard__linie-pick {
   cursor: pointer;
 }
@@ -230,43 +230,6 @@
   fill: none;
   stroke: var(--pletor-ink);
   stroke-width: 2;
-}
-.pletor-dashboard__linie-ball-core {
-  fill: var(--pletor-bg);
-  stroke: var(--c);
-  stroke-width: 3;
-}
-.pletor-dashboard__linie-ball--merged .pletor-dashboard__linie-ball-core,
-.pletor-dashboard__linie-ball--done .pletor-dashboard__linie-ball-core {
-  fill: var(--c);
-}
-.pletor-dashboard__linie-ball-ring {
-  fill: none;
-  stroke: var(--c);
-  stroke-width: 1.5;
-}
-.pletor-dashboard__linie-ball-dot {
-  fill: var(--c);
-}
-/* Puntík a tenký prstenec v barvě cíle: na první pohled je vidět, do které větve práce teče. */
-.pletor-dashboard__linie-ball-dot--to {
-  fill: var(--t);
-}
-.pletor-dashboard__linie-ball-ring--to {
-  stroke: var(--t);
-}
-.pletor-dashboard__linie-ball--blocked .pletor-dashboard__linie-ball-dot {
-  fill: #ef4444;
-}
-.pletor-dashboard__linie-ball--parked {
-  opacity: 0.7;
-}
-.pletor-dashboard__linie-ball--parked .pletor-dashboard__linie-ball-core {
-  stroke-dasharray: 1 4;
-  stroke-linecap: round;
-}
-.pletor-dashboard__linie-ball--stale .pletor-dashboard__linie-ball-core {
-  stroke: #d6a960;
 }
 /* Popisek kuličky: název a pod ním souhrn slovy, 11,5 px s tmavým obrysem, aby se dal číst i přes čáry. Když se
    nevejde pod osu, uhne nad ni nebo o patro dál; kdo se nevejde vůbec, schová se do „+N“ u sousedů. */

@@ -21,7 +21,7 @@ export type Judgement = { summary: Summary; axes: Axes | null; allowed: string[]
 export type Source = { name: string; verifiedAt: string; ok: boolean };
 export type Snapshot = { id: string; builtAt: string; sources: Source[] };
 
-const KEYS: SummaryKey[] = ["blocked", "merged", "todo", "wip", "failed", "nocheck", "checking", "stale", "pending", "accepted", "parked"];
+export const KEYS: SummaryKey[] = ["blocked", "merged", "todo", "wip", "failed", "nocheck", "checking", "stale", "pending", "accepted", "parked"];
 /** Dnešní `state` (před L7a) → klíč souhrnu. Jen náhradní čtení; jakmile backend pošle `summary.key`, platí ten. */
 export const LEGACY_KEY: Record<string, SummaryKey> = {
   open: "wip", awaiting_checks: "checking", blocked: "blocked", deferred: "parked", accepted_unmerged: "accepted", merged: "merged", stale: "stale",
