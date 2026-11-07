@@ -217,8 +217,46 @@ Interaktivní rebase a force-push editor neumí záměrně.
    relace, `abandon` jako evidence bez změny HEAD; co není evidováno, nese `incomplete` a v UI „neověřeno“. Testy: abandon
    zachová HEAD a přidá důvod; výpadek GitHubu nechá poslední stav PR jako zastaralý a nezneplatní merge log; opakovaný
    merge se stejným `op` nic neprovede; tag ≠ nasazení; worktree bez vazby nemá agenta; příchod dat nemění vrstvy ani posun.
-4. **Vazby na plán** – `planCardId`, `directionCardId`, seskupení podle plánu, drobek; společný board pro Pletora.
-5. **Operace a pokročilé události** – přijetí s sha, PR ze služby, opuštěno/parkování/nasazení, revert a rebase stopy.
+4. **Vazby a revize plánu (L7d)** – zjištěno v kódu (7. 11.): tělo ticketu je od vydání neměnné (`tickets.body` nemá
+   UPDATE), ale `machine.cardId` plní jen srdce a `cardVersion` posílá klient bez ověření; karta plánu nemá v datech rodiče
+   na plátně 2 (rodokmen existuje jen u knihovny `derived_from`, typované spojení je jen `machine.intent.workflowVersionId`).
+   Proto:
+   - **Vydání práce zmrazí referenci** `issued: {cardId, cardRevision, at}`; `cardRevision` čte server z karty při
+     vydání, ne z klienta. Snímek textu a kritérií v `body` zůstává (už dnes). Detail ukáže rozdíl proti aktuální kartě.
+     Nové zadání = nová revize ticketu, historie se nepřepisuje.
+   - **Přijetí platí pro dvojici** `(sha, cardRevision)`: změna kritérií na kartě při stejném sha dává
+     `acceptance.state = 'stale_plan'` s důvodem; staré přijetí zůstává historickým záznamem.
+   - **Vazba se ověřuje**, ne prohlašuje: `planCardId` jen když karta existuje v projektu a je na plátně plánu;
+     `directionCardId` přes `workflowVersionId` (plátno 2). Stavy vazby: `none` („bez plánu“), `card_missing`,
+     `source_unavailable`, `ambiguous` – jen první znamená „bez plánu“.
+   - **Seskupení je jiný pohled na týž snímek** (`snapshot.id` se nemění, žádné nové čtení); výběr a časový rozsah
+     zůstávají, svislá poloha se kotví k vybrané kuličce.
+   - **Počty front mají definici**: „Srdce: N plánů čeká na rozpracování“ = karty plánu bez vydaného ticketu;
+     „Tickety: N ticketů čeká na pokus“ = `summary.key = todo`; agregace nad týmž projektem, filtrem a snímkem jako graf.
+   - Testy: změna kritérií bez změny sha → `stale_plan`; karta smazána ≠ bez plánu; přepnutí seskupení nezmění `snapshot.id`.
+5. **Operace a žádosti (L7e)** – zjištěno v kódu: větev dnes zakládá agent, služba git jen čte (`work.create`), rozlišení
+   lokální/publikovaná se neukládá; `block/defer/resume` běží bez gitu, ale nezapisují `by`; brána ani tickety nemají
+   idempotenční klíč (vzor `request_id + digest` je v `opora_execution_budgets`, `opora_execution_pull_requests`);
+   doménový deník neexistuje (`activity_log` je ořezávaný HTTP log, `opora_events` je trvalý outbox s `id`
+   AUTOINCREMENT); revert/rebase v Linii nikde není. Proto:
+   - **Pokus** (`attempt`) eviduje `{repo, baseRef, baseSha, branch, createdBy: agent|service, published: bool}`; větev
+     dál zakládá agent z přiděleného `baseSha`, služba ověří skutečný výsledek při `report` (`merge-base` na `baseSha`,
+     existence `refs/remotes/origin/<branch>` → `published`). Jméno větve rodiče jen **nabízí**; operace přijme a ověří
+     `repository`, `baseRef`, `baseSha`, `target`. Existující větev se nepřevezme bez ověření a nikdy nepřepíše.
+   - **Operace a git**: `accept`, `merge`, `revert`, `attempt` vyžadují git a znovu ověří HEAD; `block`, `park`, `unblock`,
+     `resume`, `abandon` běží i při výpadku gitu, ověřují jen oprávnění a revizi evidence a zapisují `by`.
+   - **Idempotence každého kroku**: klíč + digest obsahu; stejný klíč se stejným obsahem vrátí týž záznam, s jiným obsahem
+     409 `idempotency_conflict`. Po pádu mezi založením větve/PR a zápisem evidence se služba zotaví porovnáním s gitem
+     a GitHubem bez duplikace (`started`/`finished` jako u merge logu §5a).
+   - **Žádost srdci (§4a)** se může větvit: jedna žádost → více ticketů a pokusů; řetězec `plan → ticket → attempt →
+     commit` je souhrn skutečně propojených záznamů; trailer `Opora-Mark` určuje vazbu, nepotvrzuje splnění žádosti.
+   - **Revert** je samostatná operace s `{repo, branch, sha, expectedHead}`; konflikt se hlásí jako nedokončený
+     (`conflict`, merge --abort), nikdy jako hotový. **Rebase se jen eviduje** (`rebase {from, to}` ze záznamu služby),
+     neprovádí.
+   - **Deník Linie** = nové druhy `linie.*` v `opora_events` (stabilní `id`, pořadí, `refs: {ticket?, request?, op?,
+     env?}`); událost nemusí mít kuličku; „nových“ se počítá od posledního přečteného `id`, ne od času; klik otevře důkaz.
+   - Testy: pád po založení větve před zápisem evidence → zotavení bez duplicity; stejný klíč s jiným textem → 409;
+     blokace při nedostupném gitu projde a nese `by`; revert s konfliktem není `finished`; žádost se dvěma tickety.
 
 ## 8. Ověření před přijetím
 
