@@ -57,19 +57,6 @@ export function acceptanceSentence(d: WorkDetail): string {
   return `přijato ${short(a.sha)} (${head})${a.note ? ` · ${a.note}` : ""}`;
 }
 
-/** Která tlačítka člověka mají smysl; o platnosti rozhoduje stejně backend (409). */
-export function workActions(d: WorkDetail, main: string) {
-  const acceptedHead = !!d.headSha && d.acceptance?.sha === d.headSha;
-  return {
-    preview: !!d.branch && !d.merged,
-    accept: !!d.headSha && !acceptedHead && !d.merged,
-    revoke: !!d.acceptance && !d.merged,
-    allow: acceptedHead && !!d.target && !d.merged && d.mergeAllowed?.target !== d.target,
-    merge: !!d.mergeAllowed && !d.merged,
-    deploy: !!d.merged && d.merged.target === main,
-  };
-}
-
 /** Text odmítnutí: `message` z těla (409 backendu), jinak text chyby. */
 export function failureText(failure: unknown, fallback = "Zápis selhal."): string {
   const body = rec((failure as { body?: unknown } | null)?.body);

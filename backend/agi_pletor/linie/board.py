@@ -11,25 +11,43 @@ Editor ukazuje i skutečný stav: pracovní větev z gitu mladší než main, kt
 řádek `git: True` (jen ke čtení, id `git:<větev>`) se špičkou větve jako bodem; kulička vznikne až s ticketem.
 """
 import time
+import uuid
 
 from backend.agi_pletor.linie import branches, tree
 from backend.agi_pletor.linie import rows as rows_mod
 from backend.agi_pletor.linie import work as work_mod
 from backend.agi_pletor.linie.graph import gh_prs
+from backend.brain_opora.determinism import tokens
 from backend.integrations.gitio import git
 from database.repositories.tickets import TicketStore
 
 TIMEOUT = 15
-PR_CACHE = {"at": 0.0, "value": {}}
+PR_CACHE = {"at": 0.0, "value": {}, "good": {}, "source": {"verifiedAt": None, "lastSuccessAt": None, "ok": False}}
 PR_TTL = 60  # gh se ptá nejvýš jednou za minutu; editor se překresluje častěji
+
+
+def _read_prs(root, lookup, good):
+    """`(prs, source)`; při selhání zůstanou poslední známé PR (stav beze změny, `unconfirmed: True`) a zdroj nese
+    `lastSuccessAt` (poslední úspěšné čtení, = `verifiedAt`) odděleně od `attemptedAt` (poslední pokus)."""
+    attempted = tokens.stamp()
+    try:
+        found = lookup(root)
+    except Exception:  # noqa: BLE001 – jakékoli selhání poskytovatele PR = „nevím“, ne pád boardu
+        found = None
+    # shortcut: gh_prs maskuje selhání jako {} (graph.py mimo scope L7a); pro gh je prázdný výsledek selhání.
+    if found is None or (lookup is gh_prs and not found):
+        return ({branch: {**pr, "unconfirmed": True} for branch, pr in good[0].items()},
+                {"verifiedAt": good[1], "lastSuccessAt": good[1], "attemptedAt": attempted, "ok": False})
+    return found, {"verifiedAt": attempted, "lastSuccessAt": attempted, "attemptedAt": attempted, "ok": True}
 
 
 def _prs(root, lookup):
     if lookup is not gh_prs:
-        return lookup(root)
+        return _read_prs(root, lookup, ({}, None))
     if time.monotonic() - PR_CACHE["at"] > PR_TTL:
-        PR_CACHE.update(at=time.monotonic(), value=lookup(root))
-    return PR_CACHE["value"]
+        value, source = _read_prs(root, lookup, (PR_CACHE["good"], PR_CACHE["source"]["lastSuccessAt"]))
+        PR_CACHE.update(at=time.monotonic(), value=value, source=source, **({"good": value} if source["ok"] else {}))
+    return PR_CACHE["value"], PR_CACHE["source"]
 
 
 def _commits(root, work):
@@ -81,11 +99,13 @@ def _row_for(rows, branch):
     return next((row["id"] for row in rows if row.get("branch") == branch), branch)
 
 
-def _ball(ticket, work, rows, prs):
+VIEW = ("axes", "summary", "allowed", "blocked", "incomplete", "evidence")
+
+
+def _ball(ticket, work, rows, prs, sources):
     allowed = work.get("mergeAllowed")
-    tip = work_mod.rev(work["repository"], allowed["target"]) if allowed else None
-    shown = work_mod.view(ticket, tip)
     pr = prs.get(work["branch"]) if prs else None
+    shown = work_mod.view(ticket, sources, pr)
     links = []
     if work.get("merged"):
         links.append({"to": _row_for(rows, work["merged"]["target"]), "kind": "merged", "sha": work["merged"]["sha"]})
@@ -99,7 +119,8 @@ def _ball(ticket, work, rows, prs):
             "counts": {"commits": _commits(work["repository"], work),
                        "prs": None if not prs else int(pr is not None), "merges": int(bool(work.get("merged")))},
             "links": links, "pr": pr, "preview": work.get("preview"), "acceptance": work.get("acceptance"),
-            "mergeAllowed": allowed, "blocked": work.get("blocked")}
+            # `blocked` = {akce: důvod} z evaluate (L7 §4); ruční blokace kuličky je `block`.
+            "mergeAllowed": allowed, "block": work.get("blocked"), **{key: shown[key] for key in VIEW}}
 
 
 def _follows(tickets, balls):
@@ -121,7 +142,7 @@ def with_tree(rows, balls, heads):
     automatický řádek `auto:<větev>`. Ruční řádky bez větve (nebo s už obsazenou) jdou na konec jako `planned`.
     """
     # Blokovaná kulička na větvi, která už v gitu není, řádek nezakládá: zůstává na svém ručním řádku jako historie.
-    live = [ball for ball in balls if not ball.get("blocked") or ball["branch"] in heads]
+    live = [ball for ball in balls if not ball.get("block") or ball["branch"] in heads]
     first = {}
     for ball in live:
         first.setdefault(ball["rowId"], ball["branch"])
@@ -171,15 +192,25 @@ def with_tree(rows, balls, heads):
 
 
 def board(service, project, workspace, root, *, pr_lookup=gh_prs):
-    """`{rows, balls, mapping, realMerges}` pro editor; kuličky v pořadí vzniku."""
+    """`{rows, balls, mapping, realMerges, snapshot}` pro editor; kuličky v pořadí vzniku.
+
+    `snapshot.sources.<zdroj>.verifiedAt` je čas skutečného čtení zdroje v tomto sestavení (PR z cache = čas
+    posledního úspěšného čtení), ne čas požadavku; `builtAt` je čas sestavení (L7 §4).
+    """
     found = rows_mod.read(service.root, project)
     with service.reading(project):
         tickets = TicketStore(service.db_for(project), project).list_with_work(workspace)
-    prs = _prs(root, pr_lookup)
-    balls = [_ball(ticket, ticket["work"], found["rows"], prs) for ticket in tickets]
+    db_at = tokens.stamp()
+    heads = set(branches._heads(root))
+    git_at = tokens.stamp()
+    prs, pr_source = _prs(root, pr_lookup)
+    sources = {"git": {"verifiedAt": git_at, "ok": bool(heads)}, "prs": pr_source,
+               "checks": {"verifiedAt": db_at, "ok": True}, "sessions": {"verifiedAt": db_at, "ok": True},
+               "deploy": {"verifiedAt": None, "ok": False}}  # nasazení zatím nemá zdroj (L7 §7.3)
+    balls = [_ball(ticket, ticket["work"], found["rows"], prs, sources) for ticket in tickets]
     _follows(tickets, balls)
     extra, tips = git_rows(root, found["rows"], balls)
-    rows = with_tree(found["rows"] + extra, balls, set(branches._heads(root)))
+    rows = with_tree(found["rows"] + extra, balls, heads)
     row_of = {row["branch"]: row["id"] for row in rows if not row["planned"]}
     for ball in balls:  # kulička patří řádku své větve; spojnice na větve míří na jejich řádky
         ball["rowId"] = row_of.get(ball["branch"], ball["rowId"])
@@ -187,4 +218,5 @@ def board(service, project, workspace, root, *, pr_lookup=gh_prs):
             if link["kind"] != "follows":
                 link["to"] = row_of.get(link["to"], link["to"])
     return {"rows": rows, "balls": balls, "mapping": found["mapping"],
-            "realMerges": real_merges(root) + tips}
+            "realMerges": real_merges(root) + tips,
+            "snapshot": {"id": "snap_" + uuid.uuid4().hex[:12], "builtAt": tokens.stamp(), "sources": sources}}
