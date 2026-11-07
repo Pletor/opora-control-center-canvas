@@ -4,6 +4,7 @@ export const PARTS = [
   { id: "mozek", icon: "⌬", label: "Mozek a LLM", ready: true },
   { id: "hlas", icon: "♪", label: "Hlas", ready: true },
   { id: "srdce", icon: "♥", label: "Srdce", ready: true },
+  { id: "linie", icon: "⑂", label: "Linie", ready: true },
   { id: "podklady", icon: "▤", label: "Podklady", ready: true },
   { id: "dilna", icon: "⚒", label: "Dílna", ready: true },
   { id: "monitoring", icon: "◔", label: "Monitoring", ready: true },

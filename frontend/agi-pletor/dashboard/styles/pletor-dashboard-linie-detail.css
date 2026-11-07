@@ -1,0 +1,56 @@
+/* Detail kuličky v panelu pod Pletorem: nahoře název s křížkem, pod tím záložky a karty – co a kde, kontroly,
+   přijetí a akce člověka. Akce stojí poslední, aby je člověk mačkal až po přečtení všeho nad nimi. */
+.pletor-dashboard__linie-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px 12px;
+}
+.pletor-dashboard__linie-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pletor-dashboard__linie-detail-title {
+  margin: 0;
+  font-size: 18px;
+}
+.pletor-dashboard__linie-detail-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+}
+.pletor-dashboard__linie-detail-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pletor-dashboard__linie-detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__linie-detail-h {
+  margin: 0;
+  color: var(--pletor-accent);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.pletor-dashboard__linie-kv {
+  display: flex;
+  border-top: 1px dashed var(--pletor-line);
+  padding-top: 4px;
+  overflow-wrap: anywhere;
+}
+.pletor-dashboard__linie-acts {
+  flex-wrap: wrap;
+}
+.pletor-dashboard__linie-flash {
+  margin: 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--pletor-accent);
+}

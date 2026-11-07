@@ -3,7 +3,8 @@
 Ticket nese tělo pro dělníka bez ID (`body`, JSON), strojovou vrstvu (`card_id`, `execution_id`, `card_version`,
 oddělení a profil kanceláře `department` / `profile`, následníci a předchůdci karty `successors` / `predecessors`,
 piny Brainu `pins`, kritéria záměru stránky `intent` (`{workflowVersionId, nodeIds}`, jen zadané), design systém
-webu `design` (`{revision, export}`, jen u karty webové domény), JSON),
+webu `design` (`{revision, export}`, jen u karty webové domény), JSON), workflow Linie `work` (JSON, zapisuje jen
+`backend/agi_pletor/linie/work.py`, docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §2),
 držitele (`session_id`) a odevzdání (`delivery`, JSON). Položky zpětné vazby mají vlastní řádky s ID a odpovědí srdce.
 Otázkové lístky leží dál v `gate_tickets`. Změna stavu je compare-and-set na starý stav; které přechody smí, říká
 `backend/brain_opora/determinism/ticket_model.py`. Transakci vlastní volající."""
@@ -11,7 +12,7 @@ import json
 
 COLUMNS = ("seq", "id", "project_id", "workspace_id", "status", "body", "card_id", "execution_id", "card_version",
            "session_id", "delivery", "created_at", "updated_at", "department", "profile", "successors", "predecessors",
-           "pins", "intent", "design")
+           "pins", "intent", "design", "work")
 FEEDBACK = ("seq", "id", "ticket_id", "kind", "text", "session_id", "answer", "answered_at", "created_at")
 HELD = ("claimed", "in_progress", "needs_answer", "delivered")  # stavy, ve kterých ticket drží relace dělníka
 
@@ -46,6 +47,7 @@ def public(row, feedback=()):
                         **({"design": _load(value["design"])} if value["design"] else {})},
             "sessionId": value["session_id"], "delivery": _load(value["delivery"]),
             "feedback": [public_feedback(item) for item in feedback],
+            **({"work": _load(value["work"])} if value["work"] else {}),
             "createdAt": value["created_at"], "updatedAt": value["updated_at"]}
 
 
@@ -87,6 +89,18 @@ class TicketStore:
             (new, at, session_id, None if delivery is None else _json(delivery), execution_id, self.project,
              ticket_id, old))
         return cursor.rowcount == 1
+
+    def set_work(self, ticket_id, work, at):
+        """Přepíše `work` ticketu (Linie); True = ticket existuje."""
+        cursor = self.db.execute("UPDATE tickets SET work=?, updated_at=? WHERE project_id=? AND id=?",
+                                 (_json(work), at, self.project, ticket_id))
+        return cursor.rowcount == 1
+
+    def list_with_work(self, workspace=None):
+        """Tickety s `work` od nejstaršího; `workspace=None` = celý projekt."""
+        if workspace is None:
+            return self._select("work IS NOT NULL ORDER BY seq", ())
+        return self._select("workspace_id=? AND work IS NOT NULL ORDER BY seq", (workspace,))
 
     def take_over(self, ticket_id, status, old_session, new_session, at, execution_id=None):
         """Držitele `old_session` vystřídá `new_session` (compare-and-set na stav i držitele, stav se nemění);

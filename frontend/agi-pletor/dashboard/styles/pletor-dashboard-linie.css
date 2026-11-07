@@ -1,0 +1,119 @@
+/* Linie: člověk vidí vývoj jako metro mapu, ne jako seznam. Na tmavém podkladu linie main (zelená), develop (modrá)
+   a témata, každý kořen feat ve vlastním odstínu; větev odbočuje a vrací se obloukem, u špičky visí štítek přijetí
+   nebo bublina náhledu. Stejné barvy nese editor kuliček. Plátno zabere všechen zbývající prostor pod lištou (jedna
+   buňka minmax(0, 1fr), žádné „100vh minus“); vpravo stojí panel 440 px s Pletorem a detailem. Pod 1100 px se panel
+   s detailem položí přes plátno jako překryv a bez výběru zmizí, aby plátno mělo celou šířku. */
+.pletor-dashboard__linie {
+  --linie-main: #4ade80;
+  --linie-develop: #60a5fa;
+  --linie-items: #c084fc;
+  --linie-experiment: #a39cc4;
+  --linie-stale: #d6a960;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 14px;
+}
+.pletor-dashboard__linie--with-panel {
+  grid-template-columns: minmax(0, 1fr) 440px;
+}
+.pletor-dashboard__linie-graph,
+.pletor-dashboard__linie-panel {
+  min-height: 0;
+  overflow: auto;
+}
+.pletor-dashboard__linie-graph {
+  border: 1px solid var(--pletor-line);
+  background: var(--pletor-bg);
+}
+@media (max-width: 1100px) {
+  .pletor-dashboard__linie--with-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pletor-dashboard__linie-panel {
+    position: absolute;
+    inset: 0 0 0 auto;
+    z-index: 6;
+    width: min(440px, 92%);
+    border-left: 1px solid var(--pletor-accent);
+    background: var(--pletor-bg-2);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.5);
+  }
+  .pletor-dashboard__linie-panel--idle {
+    display: none;
+  }
+}
+
+/* Stav main v jedné řádce pod lištou: lokál a origin, server, nasazení, ochrana a tlačítko zápisu nasazení.
+   Dřív to byla celá karta vpravo; jako řádka zabere jednu výšku písma a editor dostane celou šířku. */
+.pletor-dashboard__linie-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 4px 0 4px 10px;
+  border-left: 3px solid #4ade80; /* zelená main; leží mimo blok .pletor-dashboard__linie s proměnnými */
+}
+.pletor-dashboard__linie-svg {
+  display: block;
+  font: 11px var(--mono);
+}
+.pletor-dashboard__linie-head {
+  cursor: pointer;
+}
+.pletor-dashboard__linie-head rect {
+  fill: var(--pletor-bg);
+  stroke-width: 2;
+}
+.pletor-dashboard__linie-head--selected rect {
+  stroke-width: 3;
+  fill: var(--pletor-accent-soft);
+}
+.pletor-dashboard__linie-head:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+}
+.pletor-dashboard__linie-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+.pletor-dashboard__linie-sub {
+  fill: var(--pletor-dim);
+}
+.pletor-dashboard__linie-dot {
+  stroke: var(--pletor-bg);
+  stroke-width: 2;
+}
+/* Popisek přechází přes sousední linie; tmavý obrys pod písmem ho drží čitelný. */
+.pletor-dashboard__linie-label {
+  fill: var(--pletor-ink);
+  paint-order: stroke;
+  stroke: var(--pletor-bg);
+  stroke-width: 4px;
+}
+.pletor-dashboard__linie-sha {
+  fill: var(--pletor-dim);
+}
+.pletor-dashboard__linie-badge rect {
+  fill: var(--pletor-bg);
+  stroke-width: 1.5;
+}
+.pletor-dashboard__linie-badge[role="link"] {
+  cursor: pointer;
+}
+.pletor-dashboard__linie-badge--accepted rect { stroke: var(--linie-main); }
+.pletor-dashboard__linie-badge--accepted text { fill: var(--linie-main); }
+.pletor-dashboard__linie-badge--stale rect { stroke: var(--linie-stale); }
+.pletor-dashboard__linie-badge--stale text { fill: var(--linie-stale); }
+.pletor-dashboard__linie-badge--preview rect { stroke: var(--linie-develop); }
+.pletor-dashboard__linie-badge--preview text { fill: var(--linie-develop); }
+.pletor-dashboard__linie-badge--pr rect { stroke: var(--linie-experiment); }
+.pletor-dashboard__linie-badge--pr text { fill: var(--linie-experiment); }
+
+.pletor-dashboard__tag--warn {
+  background: transparent;
+  color: var(--pletor-dim);
+}

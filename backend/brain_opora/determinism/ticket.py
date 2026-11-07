@@ -15,6 +15,7 @@ nemění, ticket drží nová relace a vznikne událost `ticket.resumed` `{ticke
 """
 import uuid
 
+from backend.agi_pletor.linie import work as linie_work
 from backend.brain import pins
 from backend.brain_opora.determinism import gate, ticket_lifecycle, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, shaped
@@ -230,13 +231,19 @@ def feedback(service, session, body, now=None):
 
 
 def deliver(service, session, body, now=None):
-    """`ticket.deliver`: odevzdání (`summary`, `sha?`) → `delivered`; s otevřenou otázkou 409 `ticket_state`."""
+    """`ticket.deliver`: odevzdání (`summary`, `sha?`) → `delivered`; s otevřenou otázkou 409 `ticket_state`.
+    Ticket s prací Linie (`work`) a `sha`: commit projde `work.apply_report` (sha na větvi úkolu, jinak 409
+    `work_mismatch`, nic se nezapíše); `delivered` neznamená hotovo, kuličku uzavře až začlenění službou."""
     wanted, delivery = deliver_payload(body)
     at = tokens.stamp(now)
 
     def work(store):
         ticket = _held(store, session, wanted)
         targets = ("in_progress", "delivered") if ticket["status"] == "claimed" else ("delivered",)
+        if ticket.get("work") and delivery.get("sha"):
+            reported = linie_work.apply_report(ticket["work"], delivery["sha"], [], None, at,
+                                               "agent:" + (session.get("worker_name") or "?"))
+            store.set_work(wanted, reported, at)
         _walk(store, ticket, targets, at, delivery={**delivery, "at": at})
         # Exekuce mohla být ověřená nebo sloučená dřív než odevzdání ticketu: stav ji dožene hned.
         return {"ticket": {"ticketId": wanted, "status": ticket_lifecycle.follow(store.db, store.project,

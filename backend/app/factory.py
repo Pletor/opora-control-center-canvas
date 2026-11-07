@@ -75,6 +75,9 @@ from backend.api.flow.flow_routes import create_flow_router
 from backend.api.flow.library_routes import create_library_router
 from backend.api.agi_pletor.pletor_routes import create_pletor_router
 from backend.api.agi_pletor.dashboard_routes import create_dashboard_router
+from backend.api.agi_pletor.linie_routes import create_linie_router
+from backend.api.agi_pletor.linie_work_routes import create_linie_work_router
+from backend.api.agi_pletor.pletor_requests_routes import create_pletor_requests_router
 from backend.api.agi_pletor.workshop_routes import create_workshop_router
 from backend.api.project.design_system_routes import create_design_system_router
 from backend.api.project.graphify_routes import create_graphify_router
@@ -489,6 +492,9 @@ def create_app(data_root=None):
     app.include_router(create_pletor_router(service, app.state.pletor))  # Pletor, P1
     app.include_router(create_workshop_router(service))  # Dílna D0 (docs/navrhy/2026-11-05-dilna-skillu.md)
     app.include_router(create_dashboard_router(service, heart, app.state.pletor))  # velín Pletora V2/V3, jen čtení
+    app.include_router(create_linie_router(service, app.state.pletor))  # Linie velínu (docs/navrhy/2026-11-06-velin-git-linie.md)
+    app.include_router(create_linie_work_router(service, app.state.pletor))  # editor a vynucení (…-linie-editor-a-vynuceni.md)
+    app.include_router(create_pletor_requests_router(service))  # žádosti srdci (…-linie-rebrand.md §4a)
     app.include_router(create_intake_router(service))  # vstupní brána (docs/navrhy/2026-10-30-vstupni-brana.md)
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)

@@ -1,13 +1,21 @@
 ﻿# agi-pletor/dashboard
 
-VelĂ­n AGI Pletor: strĂˇnka `?screen=pletor` s levou navigacĂ­ po ÄŤĂˇstech (kontrakt `docs/navrhy/2026-11-05-pletor-opora-dashboard.md`).
+Velín AGI Pletor: stránka `?screen=pletor` s levou navigací po částech (kontrakt `docs/navrhy/2026-11-05-pletor-opora-dashboard.md`).
 
-- `components/PletorDashboard.tsx`: rodiÄŤ; drĹľĂ­ aktivnĂ­ ÄŤĂˇst (`part=` v adrese), Esc a titulek s focusem. SklĂˇdĂˇ dĂ­lky `DashboardOverview`, `DashboardBrain`, `DashboardVoice` a vklĂˇdĂˇ `PletorWorkshop`.
-- `logic/dashboard-route.ts`: ÄŤĂˇsti, parsovĂˇnĂ­ a zĂˇpis `part=`; `overview-cards.ts`: stav Pletora na karty PĹ™ehledu; `use-voice-list.ts`: hlasy serveru.
-- `styles/pletor-dashboard.css`: blok `pletor-dashboard`.
+- `components/PletorDashboard.tsx`: rodič; drží aktivní část (`part=` v adrese), Esc a titulek s focusem. Skládá dílky `Dashboard*` jednotlivých částí a vkládá `PletorWorkshop`.
+- `logic/dashboard-route.ts`: části, parsování a zápis `part=`; `overview-cards.ts`: stav Pletora na karty Přehledu; `use-voice-list.ts`: hlasy serveru; `*-view.ts`: odpovědi API na bezpečné pohledy částí.
+- `styles/pletor-dashboard.css`: blok `pletor-dashboard`; `pletor-dashboard-parts.css`: tabulky a prvky částí.
 
-MilnĂ­k V1: PĹ™ehled, Mozek a LLM, Hlas, DĂ­lna. Srdce a Podklady (V2), Monitoring a Rozhovor (V3), NastavenĂ­ (V4) jsou zatĂ­m jen mĂ­sto s hlĂˇĹˇkou.
+Všechny části jsou funkční: Přehled, Mozek a LLM, Hlas, Dílna (V1), Srdce a Podklady (V2), Monitoring a Rozhovor (V3), Nastavení (V4).
 
-Dluh V1: ÄŤĂˇst Hlas je jen ke ÄŤtenĂ­. VĂ˝bÄ›r hlasu a â€žVyzkouĹˇetâ€ś jsou v `usePletorVoice`, kterĂ˝ drĹľĂ­ jen `PletorWindow`; vĂ˝bÄ›r zĹŻstĂˇvĂˇ v kokpitu (ozubenĂ© kolo). VyĹ™eĹˇit vytaĹľenĂ­m hlasu do sdĂ­lenĂ©ho kontextu.
+Linie (`DashboardLinie`, kontrakt `docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md` §6) je editor řádků a kuliček z `GET /api/pletor/linie/board` (`LinieBoard`, `LinieBall`, `LinieLegend`, formuláře `LinieRowForm` / `LinieWorkForm`, detail `LinieDetail` s akcemi jen pro člověka, logika `linie-board.ts` a `linie-work.ts`, styly `pletor-dashboard-linie-editor.css` a `pletor-dashboard-linie-detail.css`); přepínač „Git graf“ ukáže graf větví z M1 (`LinieGraph`, `linie-graph.ts`, `linie-view.ts`) a řádka stavu main pod lištou drží server, nasazení a stav ochrany.
+
+L6 (`docs/navrhy/2026-11-06-linie-barvy-a-zamereni.md`): barvu větve dává `linie-color.ts` (`branchColor`: každý kořen feat vlastní odstín z hashe jména, děti ho dědí a s hloubkou blednou), spojnice tečou gradientem a puntík v kuličce ukazuje cíl. Sbalení podstromu a zaměření `?branch=` řeší `linie-fold.ts` (ruční řádek sbalení ukládá na server, ostatní v `localStorage` `pletor.linie.folded`); editor má celou šířku a detail, Cesta nebo commit se otevře vpravo jako panel.
+
+L7 UI (`docs/navrhy/2026-11-06-linie-rebrand.md` §6): nahoře fronty odpovědnosti (`LinieQueues`, `linie-queues.ts`: zařazení podle `summary.key`, počty s jednotkou, fronty bez zdroje „— (zatím bez zdroje)“), lišta `LinieToolbar` (měřítko, Vrstvy v `localStorage` `pletor.linie.layers`), editor jako jediný posuvný prvek (`LinieBoard` skládá sticky `LinieNames` a `LiniePlot` + `LinieLink`; šířka názvů `pletor.linie.names`, `linie-prefs.ts`). Čas je společná souřadnice (`linie-zoom.ts` + hook `use-linie-zoom.ts`: kolečko kolem kurzoru, Shift+kolečko posun, tažení ruka, `Vše` / `Teď` / `↻ Výchozí`); kulička se nikdy neposouvá, kolize řeší popisky (`linie-labels.ts`: vybraná přednost, dvě patra, shluk „+N“). Vpravo `LiniePanel` = `LiniePletor` (výrok jen z os a souhrnu, stáří zdrojů, akce `allowed`/`blocked`, `linie-summary.ts`) a detail se záložkami Souhrn / Plán / Git / Relace (`LinieDetailSummary`, `LinieDetailPlan`, `LinieDetailGit`). Stálou polohu výběru a pořadí Esc drží `linie-keep.ts`. Styl panelů `pletor-dashboard-linie-panel.css`.
+
+L7f (UI 1:1 podle prototypu Linie v3, data z L7c–L7e): všechna čtení drží hook `use-linie-feed.ts` (board, týž snímek `?group=plan&snapshot=` pro pohled „podle plánu“ s řádky plátno 2 › plátno 3, graf, deník `/journal?after=`, žádosti `/api/pletor/requests?open=1`, nezávislé hodiny, `ask` s klíčem idempotence). Fronty berou počty z `board.queues` a otevřených žádostí (`null` = „— (nedostupné)“), kuličky z `ball.queues`. Značky skutečných dat kreslí `LiniePlotMarks` z `linie-marks.ts` + `layoutBoard` (čára práce, pruhy worktree jen s vazbou relace, tagy a nasazení s původem, kostky commitů s opuštěnými červeně, pilulka PR v 65 % oblouku s „neověřeno“ při nepotvrzeném zdroji); vrstvy v3 (`linie-prefs.ts`: commity, worktree, plány, PR pilulky, tagy a nasazení). „Sledovat živě“ posune plátno za „teď“ při každém úspěšném čtení. Deník `LinieJournal` (`linie-journal.ts`, sbalený, odznak nových) a řetězce žádostí `LinieRequests` (`linie-requests.ts`: přijata · plán · ticket · pokus · commit). Styl značek `pletor-dashboard-linie-marks.css`. Z v3 úmyslně chybí simulace (náhodné události, tick), záložka „Připomínky“ a kosočtverec experimentu – bez zdroje v API.
+
+Dluh V1: část Hlas je jen ke čtení. Výběr hlasu a „Vyzkoušet“ jsou v `usePletorVoice`, který drží jen `PletorWindow`; výběr zůstává v kokpitu (ozubené kolo). Vyřešit vytažením hlasu do sdíleného kontextu.
 
 `logic/dashboard-nav.ts`: zasunutí levého menu do ikon (`localStorage` `pletor.nav`, klávesa `[`).
