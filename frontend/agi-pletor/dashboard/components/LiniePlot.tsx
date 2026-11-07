@@ -5,6 +5,7 @@ import type { LayerState } from "../logic/linie-prefs";
 import { xOf } from "../logic/linie-zoom";
 import LinieBall from "./LinieBall";
 import LinieLink from "./LinieLink";
+import { PlotMarksHtml, PlotMarksSvg } from "./LiniePlotMarks";
 
 type Props = {
   layout: BoardLayout; selected: string; labels: Labels; lit: Set<string> | null; layers: LayerState;
@@ -14,16 +15,16 @@ type Props = {
 const TIP_W = 260;
 
 /**
- * Plátno Linie: čáry řádků, spojnice, skutečné merge, kuličky na svém čase a jejich popisky v patrech z `labels`.
- * Vybraná kulička má stálý prstenec; ztlumené (mimo zvolenou frontu) jen zprůhlední. Plány ostatních kuliček a commity
- * jsou vrstvy, vybrané se ukážou vždy. Prázdné místo nese `data-pan`: tažením se posouvá.
+ * Plátno Linie: čáry řádků, spojnice, skutečné merge, kuličky na svém čase a jejich popisky v patrech z `labels`;
+ * značky (commity, worktree, tagy, nasazení, pilulky PR) kreslí `LiniePlotMarks`. Vybraná kulička má stálý prstenec;
+ * ztlumené (mimo zvolenou frontu) jen zprůhlední. Plány ostatních kuliček jsou vrstva, vybrané se ukážou vždy.
+ * Prázdné místo nese `data-pan`: tažením se posouvá.
  */
 export default function LiniePlot({ layout, selected, labels, lit, layers, onPick }: Props) {
   const gradientId = `linie-g${useId().replace(/[^\w-]/g, "")}`; // dvojtečky z useId by v url(#…) neprošly
   const [tip, setTip] = useState<LaidBall | null>(null);
   const mine = (ticketId: string) => ticketId === selected;
   const links = layout.links.filter((link) => link.kind === "merged" || layers.plans || mine(link.ticketId));
-  const commits = layout.commits.filter((commit) => layers.commits || mine(commit.ticketId));
   const nowX = layout.now === null ? null : xOf({ t0: layout.t0, k: layout.k }, layout.now);
   const key = (ball: LaidBall) => (event: KeyboardEvent) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPick(ball.ticketId); } };
 
@@ -35,14 +36,10 @@ export default function LiniePlot({ layout, selected, labels, lit, layers, onPic
             strokeWidth={row.fixed ? 3 : 2} opacity={row.collapsed ? 0.25 : row.fixed ? 0.9 : 0.55} />
         ))}
         {nowX !== null && <line className="pletor-dashboard__linie-now" x1={nowX} y1={0} x2={nowX} y2={layout.height} />}
+        <PlotMarksSvg layout={layout} selected={selected} layers={layers} onPickCommit={onPick} />
         {links.map((link, index) => <LinieLink key={index} link={link} id={`${gradientId}-${index}`} />)}
         {layout.merges.map((merge) => (
           <circle key={merge.sha7} cx={merge.x} cy={merge.y} r={5} fill={merge.color}><title>{`${merge.sha7}: ${merge.title}`}</title></circle>
-        ))}
-        {commits.map((commit) => (
-          <rect key={`${commit.ticketId}-${commit.ref}`} className="pletor-dashboard__linie-cube" x={commit.x - 4} y={commit.y - 4} width={8} height={8}>
-            <title>{`${commit.ref} · ${commit.at}`}</title>
-          </rect>
         ))}
         {layout.balls.map((ball) => {
           const slot = labels.slots[ball.ticketId];
@@ -69,6 +66,7 @@ export default function LiniePlot({ layout, selected, labels, lit, layers, onPic
           );
         })}
       </svg>
+      <PlotMarksHtml layout={layout} selected={selected} layers={layers} />
       {tip && (
         <div className="pletor-dashboard__linie-tip" style={{ left: Math.min(tip.x + 16, layout.width - TIP_W), top: Math.max(tip.y - 70, 4) }}>
           <strong className="pletor-dashboard__linie-tip-title">{tip.hover.title}</strong>

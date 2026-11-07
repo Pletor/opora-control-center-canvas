@@ -13,7 +13,8 @@ const GAP = 8;
 // shortcut: šířka popisku odhadem 6,4 px na znak při 11,5 px písma; měřit přes canvas.measureText, až budou popisky překrývat
 export const labelWidth = (b: Pick<LabelBall, "label" | "stateLabel">) => Math.max(b.label.length, b.stateLabel.length) * 6.4 + GAP;
 
-export function placeLabels(balls: LabelBall[], selected: string): Labels {
+/** `upOnly` = řádky s pruhy worktree pod osou: popisky smí jen nad osu (pruhy a jejich jména jsou pod ní). */
+export function placeLabels(balls: LabelBall[], selected: string, upOnly: Set<string> = new Set()): Labels {
   const slots: Record<string, Slot> = {};
   const clusters: Cluster[] = [];
   const rows = new Map<string, LabelBall[]>();
@@ -21,10 +22,11 @@ export function placeLabels(balls: LabelBall[], selected: string): Labels {
   for (const [rowId, inRow] of rows) {
     const taken = new Map<string, [number, number][]>();
     const order = [...inRow].sort((a, b) => Number(b.ticketId === selected) - Number(a.ticketId === selected) || a.x - b.x);
+    const allowed = upOnly.has(rowId) ? ORDER.filter((s) => s.side === -1) : ORDER;
     let open: Cluster | null = null;
     for (const ball of order) {
       const half = labelWidth(ball) / 2, span: [number, number] = [ball.x - half, ball.x + half];
-      const slot = ORDER.find((s) => !(taken.get(`${s.side}${s.tier}`) ?? []).some(([a, b]) => span[0] < b && a < span[1]));
+      const slot = allowed.find((s) => !(taken.get(`${s.side}${s.tier}`) ?? []).some(([a, b]) => span[0] < b && a < span[1]));
       if (slot) {
         slots[ball.ticketId] = slot;
         taken.set(`${slot.side}${slot.tier}`, [...(taken.get(`${slot.side}${slot.tier}`) ?? []), span]);

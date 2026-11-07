@@ -7,6 +7,8 @@ začlenění nejnovější commit mimo merge, jinak špička ≠ `headSha`; HEAD
 dnešní špička cíle povolení; povolení platí jen pro tutéž dvojici HEAD → špička cíle. `live` = relace s explicitní vazbou na worktree a čerstvým heartbeat (work.py). `integration` je osa
 z merge logu nebo z gitu/GitHubu (work.py, §5a); bez ní platí `work.merged` jako důkaz gitu (`src: git`, `mode: None`).
 `deploy` = `{env: {sha, at, origin}}` z událostí prostředí, které revizi úkolu obsahují.
+L7d (§7 bod 4): přijetí platí pro dvojici `(sha, cardRevision)`; jiná revize zadání karty při stejném sha = klíč
+`stale_plan` hned za `stale`, `allowed: accept`.
 """
 ACTIONS = ("accept", "allow_merge", "merge", "attempt", "resume", "unblock", "preview", "revoke_accept", "defer")
 ALWAYS = ["block"]  # block vždy; unblock jen u blocked, resume jen u deferred (zadání L7a po oponentuře)
@@ -34,7 +36,17 @@ def _merged(work):
             "src": "git" if merged else None}
 
 
-def axes(work, after_merge=None, integration=None, deploy=None):
+def _acceptance(accepted, head, card_revision):
+    """Přijetí platí pro dvojici (sha, cardRevision): stejné sha s jinou revizí zadání karty = `stale_plan` (L7d)."""
+    if not accepted:
+        return "pending"
+    if accepted.get("sha") != head:
+        return "stale"
+    old = accepted.get("cardRevision")
+    return "stale_plan" if old is not None and card_revision is not None and old != card_revision else "accepted"
+
+
+def axes(work, after_merge=None, integration=None, deploy=None, card_revision=None):
     work = work or {}
     head = after_merge or work.get("headSha")
     integ = integration or _merged(work)
@@ -50,14 +62,14 @@ def axes(work, after_merge=None, integration=None, deploy=None):
     return {
         "work": {"state": state, "sha": head, "src": src},
         "checks": _checks(work, head),
-        "acceptance": {"state": "pending" if not accepted else "accepted" if accepted.get("sha") == head else "stale",
-                       "sha": (accepted or {}).get("sha"), "src": "záznam přijetí"},
+        "acceptance": {"state": _acceptance(accepted, head, card_revision), "sha": (accepted or {}).get("sha"),
+                       "cardRevision": (accepted or {}).get("cardRevision"), "src": "záznam přijetí"},
         "integration": integ,
         "deploy": {"envs": deploy or {}, "src": "událost prostředí"},
     }
 
 
-def _rule(work, ax, live, target_sha=None):
+def _rule(work, ax, live, target_sha=None, card_revision=None):
     """`(key, text, reason, next, allowed)` – pořadí přesně podle tabulky §2a (+ `deferred` před `todo`)."""
     head, h7 = ax["work"]["sha"], _short(ax["work"]["sha"])
     checks, acc, integ = ax["checks"], ax["acceptance"], ax["integration"]
@@ -94,6 +106,10 @@ def _rule(work, ax, live, target_sha=None):
         return ("stale", f"přijato pro starší {_short(acc['sha'])}",
                 f"checks.passed({h7}) & acceptance.accepted({_short(acc['sha'])} ≠ HEAD {h7})",
                 f"Člověk znovu přijme HEAD {h7}.", ["accept"])
+    if acc["state"] == "stale_plan":
+        return ("stale_plan", f"přijato {h7} pro starší zadání R{acc['cardRevision']}",
+                f"checks.passed({h7}) & acceptance.accepted({h7}, R{acc['cardRevision']} ≠ karta R{card_revision})",
+                f"Člověk potvrdí přijetí vůči nové revizi zadání (karta R{card_revision}).", ["accept"])
     if acc["state"] == "pending":
         return ("pending", f"čeká na přijetí {h7}", f"checks.passed({h7}) & acceptance.pending",
                 f"Člověk rozhodne o přijetí {h7}.", ["accept"])
@@ -121,17 +137,18 @@ def _side(key, ax):
     found = []
     if ax["work"]["sha"] and key not in ("merged", "blocked"):
         found.append("preview")
-    if ax["acceptance"]["state"] in ("accepted", "stale") and ax["integration"]["state"] == "none":  # stale = úklid
+    if ax["acceptance"]["state"] in ("accepted", "stale", "stale_plan") and ax["integration"]["state"] == "none":
         found.append("revoke_accept")
     if key != "merged":
         found.append("defer")
     return found
 
 
-def evaluate(work, after_merge=None, live=False, integration=None, deploy=None, target_sha=None):
+def evaluate(work, after_merge=None, live=False, integration=None, deploy=None, target_sha=None, card_revision=None):
+    """`card_revision` = aktuální revize zadání karty plánu (plan_link), None = neznámá / bez karty."""
     work = work or {}
-    ax = axes(work, after_merge, integration, deploy)
-    key, text, reason, step, allowed, *own = _rule(work, ax, live, target_sha)
+    ax = axes(work, after_merge, integration, deploy, card_revision)
+    key, text, reason, step, allowed, *own = _rule(work, ax, live, target_sha, card_revision)
     if after_merge and ax["integration"]["state"] == "merged":
         reason = f"nová revize po začlenění {_short(ax['integration']['sha'])} · " + reason
     elif after_merge:

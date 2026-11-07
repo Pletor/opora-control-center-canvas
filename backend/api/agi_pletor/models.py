@@ -142,6 +142,7 @@ class LinieAttachIn(BaseModel):
     baseBranch: str | None = Field(default=None, max_length=200)  # chybí → rodič ze jména (linie/tree.py)
     target: str | None = Field(default=None, max_length=200)
     title: str | None = Field(default=None, max_length=200)
+    requestId: str | None = Field(default=None, min_length=1, max_length=80)  # žádost srdci (linie/requests.py)
 
 
 class LinieWorkIn(LinieAttachIn):
@@ -151,6 +152,7 @@ class LinieWorkIn(LinieAttachIn):
     essence: str
     build: str
     doneCriteria: list[str]
+    idempotencyKey: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class LinieCheckIn(BaseModel):
@@ -179,6 +181,49 @@ class LinieMergeIn(BaseModel):
     """Identifikátor operace začlenění (UUID); opakování se stejným `op` nic znovu neslučuje (L7 §5a)."""
     model_config = ConfigDict(extra="forbid")
     op: str | None = Field(default=None, max_length=64)
+
+
+class LinieAttemptIn(BaseModel):
+    """Pokus práce (L7 §7 bod 5): větev zakládá agent z `baseSha`; `baseRef` chybí → rodič ze jména."""
+    model_config = ConfigDict(extra="forbid")
+    branch: str = Field(min_length=1, max_length=200)
+    baseRef: str | None = Field(default=None, min_length=1, max_length=200)
+    baseSha: str | None = Field(default=None, min_length=7, max_length=40)
+    repo: str | None = Field(default=None, max_length=500)
+    agent: str | None = Field(default=None, max_length=200)
+    requestId: str | None = Field(default=None, min_length=1, max_length=80)
+    idempotencyKey: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class LinieRevertIn(BaseModel):
+    """Revert commitu na větvi úkolu; `expectedHead` = hlava, kterou volající viděl."""
+    model_config = ConfigDict(extra="forbid")
+    sha: str = Field(min_length=7, max_length=40)
+    expectedHead: str = Field(min_length=7, max_length=40)
+    op: str | None = Field(default=None, max_length=64)
+
+
+class LinieRebaseNoteIn(BaseModel):
+    """Evidence rebase `{from, to}`; v gitu se nic neprovádí."""
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    old: str = Field(alias="from", min_length=7, max_length=40)
+    to: str = Field(min_length=7, max_length=40)
+
+
+class PletorRequestIn(BaseModel):
+    """Žádost srdci (L7 §4a); opakování se stejným klíčem vrátí tutéž žádost."""
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=TEXT_LIMIT)
+    idempotencyKey: str = Field(min_length=1, max_length=200)
+
+
+class PletorRequestStepIn(BaseModel):
+    """Potvrzení kroku žádosti s důkazem, nebo jeho selhání (`failed`, `why`)."""
+    model_config = ConfigDict(extra="forbid")
+    k: Literal["plan", "ticket", "attempt", "commit"]
+    evidence: dict[str, Any] | None = None
+    failed: bool = False
+    why: str | None = Field(default=None, max_length=2000)
 
 
 class LinieAbandonIn(BaseModel):
