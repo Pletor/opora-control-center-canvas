@@ -63,6 +63,36 @@ def test_target_moved(setup):
     assert code(service, tid) == "target_moved"
 
 
+def test_unreported_tip_blocks_accept_of_old_revision(setup):
+    """Regrese oponenta: report A (zelené) → commit B bez reportu → accept(A) = 409 head_moved, souhrn ≠ pending."""
+    service, repo, tid = setup
+    old = agent_commit(repo)
+    work.report(service, "draft", tid, old, GREEN, None, NOW, "agent:t")
+    assert work.get(service, "draft", tid)["summary"]["key"] == "pending"
+    tip = agent_commit(repo, name="v.txt")
+    shown = work.get(service, "draft", tid)
+    assert shown["summary"]["key"] != "pending" and "accept" not in shown["allowed"]
+    assert shown["axes"]["work"] == {"state": "in_progress", "sha": tip, "src": "git log · bez hlášení"}
+    assert shown["axes"]["checks"]["state"] == "missing" and shown["summary"]["reason"].startswith(f"HEAD {tip[:7]}")
+    assert refused(lambda: work.accept(service, "draft", tid, old, "", NOW)).code == "head_moved"
+    assert work.get(service, "draft", tid)["work"]["acceptance"] is None
+
+
+def test_allow_merge_recovers_after_target_moved(setup):
+    service, repo, tid = setup
+    ready(service, repo, tid)
+    run(repo, "checkout", "-q", "develop")
+    moved = commit(repo, "jiny.txt")  # cíl se posunul po allow-merge
+    run(repo, "checkout", "-q", "main")
+    shown = work.get(service, "draft", tid)
+    assert "allow_merge" in shown["allowed"] and "merge" not in shown["allowed"]
+    assert shown["blocked"]["merge"].startswith("cíl develop se od povolení posunul (") and moved[:7] in shown["blocked"]["merge"]
+    assert shown["next"].startswith("Člověk povolí začlenění znovu")
+    again = work.allow_merge(service, "draft", tid, "develop", NOW)
+    assert again["work"]["mergeAllowed"]["targetSha"] == moved and "merge" in again["allowed"]
+    assert merge.merge(service, "draft", tid, NOW)["summary"]["key"] == "merged"
+
+
 def test_merge_writes_from_git_and_is_idempotent(setup):
     service, repo, tid = setup
     with service.lock_for("draft"), service.db_for("draft") as db:
