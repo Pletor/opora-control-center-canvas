@@ -90,7 +90,7 @@
 }
 
 /* Panel Pletora vpravo nahoře: výrok jako odstavec, pod ním další krok tučně uvedený, pak drobně snímek a stáří
-   zdrojů (zastaralý zdroj oranžově), akce a zatím zavřené pole „Zadat srdci“. Detail kuličky navazuje pod ním. */
+   zdrojů (zastaralý zdroj oranžově), akce a pole „Zadat srdci“ s řetězci žádostí. Detail kuličky navazuje pod ním. */
 .pletor-dashboard__linie-panel {
   display: flex;
   flex-direction: column;
@@ -132,7 +132,7 @@
   resize: vertical;
 }
 
-/* Detail pod panelem: titulek s křížkem vpravo, stav a značka, záložky Souhrn | Git. Pět os jako tabulka: osa,
+/* Detail pod panelem: titulek s křížkem vpravo, drobek směr › plán › značka, záložky Souhrn | Plán | Git | Relace. Pět os jako tabulka: osa,
    hodnota tučně, revize monospace a zdroj šedě, aby u každého tvrzení bylo vidět, odkud je. */
 .pletor-dashboard__linie-detail-meta {
   display: flex;

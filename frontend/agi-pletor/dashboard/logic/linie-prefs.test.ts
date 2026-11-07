@@ -9,8 +9,8 @@ describe("předvolby pro aplikaci", () => {
     expect(readNames(store({}))).toBe(NAMES_DEFAULT);
     expect(clampNames(10)).toBe(160);
   });
-  it("vrstvy: jen známé, jen true; rozbitý zápis = vše vypnuto", () => {
-    expect(readLayers(store({ [LAYERS_KEY]: '{"plans":true,"x":true,"tags":"ano"}' }))).toEqual({ commits: false, plans: true, tags: false, worktree: false });
-    expect(readLayers(store({ [LAYERS_KEY]: "{" })).plans).toBe(false);
+  it("vrstvy: jen známé, jen boolean, chybějící má výchozí (PR a tagy zapnuté); rozbitý zápis = výchozí", () => {
+    expect(readLayers(store({ [LAYERS_KEY]: '{"plans":true,"x":true,"tags":"ano","prs":false}' }))).toEqual({ commits: false, plans: true, tags: true, worktree: false, prs: false });
+    expect(readLayers(store({ [LAYERS_KEY]: "{" }))).toEqual({ commits: false, plans: false, tags: true, worktree: false, prs: true });
   });
 });

@@ -22,6 +22,11 @@ describe("kolize popisků", () => {
     expect(slots.a).toEqual({ side: -1, tier: 1 });
     expect(clusters[0].ids).toEqual(["d"]);
   });
+  it("řádek s pruhy worktree má popisky jen nad osou", () => {
+    const { slots, clusters } = placeLabels([b("a", 0), b("b", 10), b("c", 20)], "", new Set(["r"]));
+    expect([slots.a, slots.b]).toEqual([{ side: -1, tier: 1 }, { side: -1, tier: 2 }]);
+    expect(clusters[0].ids).toEqual(["c"]);
+  });
   it("druhé patro nese jen název, první název i stav", () => {
     expect(labelOffsets({ side: 1, tier: 1 })).toEqual({ name: 23, state: 36 });
     expect(labelOffsets({ side: -1, tier: 2 }).state).toBeNull();

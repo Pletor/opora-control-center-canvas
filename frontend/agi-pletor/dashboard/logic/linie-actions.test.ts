@@ -29,7 +29,9 @@ describe("jedna cesta pro akce", () => {
   });
   it("akce bez trasy zakázané; bez allowed nic", () => {
     const j = judgementOf({ allowed: ["unblock", "resume"] });
-    expect(actionsOf(j, "tk_1", "", detail("")).map((a) => [a.id, a.enabled, a.why])).toEqual([["unblock", false, "operace zatím bez API (L7 PR 5)"], ["resume", true, ""]]);
+    expect(actionsOf(j, "tk_1", "", detail("")).map((a) => [a.id, a.enabled, a.why])).toEqual([["unblock", true, ""], ["resume", true, ""]]);
+    expect(actionsOf(judgementOf({ allowed: ["attempt"] }), "tk_1", "", detail(""))[0].enabled).toBe(false);
+    expect(actionRequest("unblock", "tk_1", detail(""))?.path).toBe("/work/tk_1/unblock");
     expect(actionsOf(judgementOf({}), "tk_1", "", null)).toEqual([]);
   });
   it("trasy akcí", () => {
@@ -40,6 +42,6 @@ describe("jedna cesta pro akce", () => {
     expect(actionRequest("revoke_accept", "tk_1", d)).toEqual({ path: "/work/tk_1/accept", body: {}, method: "DELETE", done: "Přijetí zrušeno." });
     expect(actionRequest("preview", "tk_1", d)?.path).toBe("/work/tk_1/preview");
     expect(actionRequest("park", "tk_1", d)?.path).toBe("/work/tk_1/defer");
-    expect(actionRequest("unblock", "tk_1", d)).toBeNull();
+    expect(actionRequest("attempt", "tk_1", d)).toBeNull();
   });
 });

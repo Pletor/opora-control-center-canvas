@@ -16,6 +16,10 @@ export type WorkDetail = {
   blocked: string;
   commits: { sha7: string; title: string; at: string }[];
   pr: { number: string; url: string; state: string } | null;
+  /** Pokusy (`work.attempts[]`, L7e): větev z rodiče, agent, `published` po ověření v originu. */
+  attempts: { attemptId: string; branch: string; baseRef: string; agent: string; at: string; published: boolean }[];
+  /** Relace agentů (`work.runs[]`): vazba na worktree a heartbeat; živost říká backend v osách, tady jen výpis. */
+  runs: { runId: string; agent: string; startedAt: string; heartbeat: string; worktree: string }[];
 };
 
 const opt = (value: unknown) => (value && typeof value === "object" && !Array.isArray(value) ? rec(value) : null);
@@ -40,6 +44,8 @@ export function workDetail(raw: unknown): WorkDetail {
     blocked: str(opt(w.blocked)?.reason),
     commits: list(root.commits).map((item) => ({ sha7: str(rec(item).sha7), title: str(rec(item).title), at: str(rec(item).at) })),
     pr: pr && { number: str(pr.number), url: str(pr.url), state: str(pr.state) },
+    attempts: list(w.attempts).map((item) => { const a = rec(item); return { attemptId: str(a.attemptId), branch: str(a.branch), baseRef: str(a.baseRef), agent: str(a.agent), at: str(a.at), published: a.published === true }; }),
+    runs: list(w.runs).map((item) => { const r = rec(item); return { runId: str(r.runId), agent: str(r.agent), startedAt: str(r.startedAt), heartbeat: str(r.heartbeat), worktree: str(r.worktree) }; }),
   };
 }
 

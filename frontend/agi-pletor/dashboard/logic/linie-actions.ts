@@ -13,7 +13,7 @@ const LABEL: Record<string, string> = {
   accept: "Přijmout", allow_merge: "Povolit začlenění", merge: "Začlenit", block: "Blokovat", unblock: "Odblokovat",
   defer: "Odložit", park: "Odložit", resume: "Obnovit", preview: "Spustit náhled", revoke_accept: "Zrušit přijetí", attempt: "Založit pokus",
 };
-const ROUTED = new Set(["accept", "allow_merge", "merge", "block", "defer", "park", "resume", "preview", "revoke_accept"]); // = case v actionRequest
+const ROUTED = new Set(["accept", "allow_merge", "merge", "block", "unblock", "defer", "park", "resume", "preview", "revoke_accept"]); // = case v actionRequest
 const short = (sha: string) => sha.slice(0, 7);
 
 /** Board (sha7) a otevřený detail (plná hlava) mluví o téže revizi; kulička bez commitu revizi nemá. */
@@ -27,6 +27,7 @@ export function actionRequest(id: string, ticketId: string, d: WorkDetail, note 
     case "allow_merge": return { path: `${path}/allow-merge`, body: { target: d.target }, method: "POST", done: `Začlenění do ${d.target} povoleno.` };
     case "merge": return { path: `${path}/merge`, body: {}, method: "POST", done: "Začleněno službou." };
     case "block": return { path: `${path}/block`, body: { reason: "blokováno člověkem z Linie" }, method: "POST", done: "Zablokováno." };
+    case "unblock": return { path: `${path}/unblock`, body: {}, method: "POST", done: "Odblokováno." };
     case "defer": case "park": return { path: `${path}/defer`, body: {}, method: "POST", done: "Odloženo." };
     case "resume": return { path: `${path}/resume`, body: {}, method: "POST", done: "Obnoveno." };
     case "preview": return { path: `${path}/preview`, body: {}, method: "POST", done: "Náhled se spouští." };
@@ -41,7 +42,7 @@ export function actionsOf(j: Judgement, ticketId: string, boardSha7: string, det
   return [...new Set([...j.allowed, ...Object.keys(j.blocked)])].map((id) => {
     const label = id === "accept" && synced && detail!.headSha ? `Přijmout ${short(detail!.headSha)}` : LABEL[id] ?? id;
     if (!j.allowed.includes(id)) return { id, label, enabled: false, why: j.blocked[id] || "pravidlo akci nepovoluje" };
-    if (!ROUTED.has(id)) return { id, label, enabled: false, why: "operace zatím bez API (L7 PR 5)" };
+    if (!ROUTED.has(id)) return { id, label, enabled: false, why: "pokus zakládá kancelář (větev z rodiče podle jména), ne tlačítko" };
     if (!synced) return { id, label, enabled: false, why: "načítám aktuální revizi" };
     return { id, label, enabled: true, why: "" };
   });
