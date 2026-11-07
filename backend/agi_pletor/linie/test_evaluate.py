@@ -103,7 +103,20 @@ def test_checks_for_other_sha_are_nocheck_and_block_accept():
 def test_acceptance_for_other_sha_is_stale():
     found = evaluate({**BASE, "checks": GREEN, "acceptance": {"sha": OLD}})
     assert found["key"] == "stale" and found["axes"]["acceptance"] == {"state": "stale", "sha": OLD,
-                                                                       "src": "záznam přijetí"}
+                                                                       "cardRevision": None, "src": "záznam přijetí"}
+
+
+def test_new_card_revision_with_same_sha_is_stale_plan():
+    """Přijetí platí pro dvojici (sha, cardRevision): změna kritérií karty bez nového commitu = stale_plan (L7d)."""
+    work = {**BASE, "checks": GREEN, "acceptance": {"sha": H, "cardRevision": 2},
+            "mergeAllowed": {"sourceSha": H, "target": "develop"}}
+    found = evaluate(work, card_revision=3)
+    assert found["key"] == "stale_plan" and found["axes"]["acceptance"]["state"] == "stale_plan"
+    assert found["next"] == "Člověk potvrdí přijetí vůči nové revizi zadání (karta R3)."
+    assert "accept" in found["allowed"] and "merge" not in found["allowed"]  # staré povolení začlenění neplatí
+    assert evaluate(work, card_revision=2)["key"] == "accepted"
+    assert evaluate(work)["key"] == "accepted"  # revize karty neznámá (bez karty / zdroj nedostupný) = nesoudí se
+    assert evaluate({**work, "acceptance": {"sha": H}}, card_revision=3)["key"] == "accepted"  # přijetí před L7d
 
 
 def test_accepted_without_merge_permission_does_not_promise_merge():

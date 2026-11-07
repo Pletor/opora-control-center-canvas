@@ -15,6 +15,10 @@ rozhodnutí do `work.abandoned[]`; HEAD, git ani osy nemění.
 L7e (§7 bod 5): každá změna `work` zapíše v téže transakci událost deníku `linie.*` (`journal.py`) s původcem `by`;
 `block` / `defer` / `unblock` / `resume` / `abandon` běží i bez gitu (git jen `optional`). `requestId` váže práci na
 žádost srdci (`requests.py`); `attempts[]` plní `attempt.py`.
+
+L7d (§7 bod 4, `plan_link.py`): `create` / `attach` zmrazí `work.issued = {cardId, cardRevision, at}` (revizi čte
+server), `accept` uloží dvojici `(sha, cardRevision)`, smaže povolení začlenění a staré přijetí přesune do
+`work.acceptanceHistory[]`; `view` nese `plan = {state, planCardId, directionCardId, cardRevision, issued, text, diff}`.
 """
 import os
 import re
@@ -22,7 +26,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
-from backend.agi_pletor.linie import deploy, evaluate, journal, merge_log, rows, tree, work_state
+from backend.agi_pletor.linie import deploy, evaluate, journal, merge_log, plan_link, rows, tree, work_state
 from backend.brain_opora.determinism import gate, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.ticket_model import body_payload
@@ -53,12 +57,23 @@ def ancestor(root, older, newer):
     return git(root, "merge-base", "--is-ancestor", older, newer, timeout=TIMEOUT, optional=True) is not None
 
 
-def after_merge(work, integ=None):
-    """Nejnovější commit větve, který začleněný merge neobsahuje (nová revize po začlenění), jinak None."""
-    sha = integ["sha"] if integ and integ["state"] == "merged" else (work.get("merged") or {}).get("sha")
-    if not sha or not work.get("branch"):
-        return None
-    return git(work["repository"], "rev-list", "-1", f"{sha}..{work['branch']}", timeout=TIMEOUT, optional=True) or None
+def unreported(work, integ=None):
+    """`(sha, git_ok)`: skutečná špička větve, kterou hlášení nepokrývá (L7 §2a HEAD = špička podle gitu), jinak None.
+
+    Po začlenění je to nejnovější commit, který merge neobsahuje; před ním špička `rev(branch)`, když se liší od
+    `headSha`. Nedostupná špička u nahlášené nezačleněné práce = `git_ok: False` (HEAD zůstává `headSha`)."""
+    merged = integ["state"] == "merged" if integ else bool(work.get("merged"))
+    if not work.get("branch"):
+        return None, True
+    if merged:
+        sha = integ["sha"] if integ else work["merged"].get("sha")
+        return (git(work["repository"], "rev-list", "-1", f"{sha}..{work['branch']}", timeout=TIMEOUT,
+                    optional=True) or None) if sha else None, True
+    if not work.get("headSha"):
+        return None, True
+    # OP-020DBE.2: přijetí i kontroly se hodnotí proti špičce větve, ne proti poslednímu hlášení
+    tip = rev(work["repository"], work["branch"])
+    return (tip if tip and tip != work["headSha"] else None), bool(tip)
 
 
 def local_sources(at):
@@ -111,16 +126,20 @@ def deployed(work, integ, events):
             if sha and (e["sha"] == sha or ancestor(root, sha, e["sha"]))}
 
 
-def facts(service, project, ticket, pr=None, log=None, events=None):
-    """Data kuličky mimo ticket (merge log, nasazení, živost relace); board předá log a události přečtené jednou."""
+def facts(service, project, ticket, pr=None, log=None, events=None, graph=None):
+    """Data kuličky mimo ticket (merge log, nasazení, živost relace, vazba na plán); board předá log, události a graf
+    prostoru přečtené jednou."""
     work = ticket.get("work")
     if not work:
         return {}
     log = merge_log.read(service.root, project) if log is None else log
     events = deploy.read(service.root, project) if events is None else events
     integ = integration(work, log, ticket["ticketId"], pr)
+    allowed = work.get("mergeAllowed")
     return {"integration": integ, "deploy": deployed(work, integ, events),
-            "live": any(live(run) for run in work.get("runs") or [])}
+            "live": any(live(run) for run in work.get("runs") or []),
+            "targetSha": rev(work["repository"], allowed["target"]) if allowed else None,
+            "plan": plan_link.resolve(service, project, ticket, graph)}
 
 
 def view(ticket, sources=None, pr=None, facts=None):
@@ -128,16 +147,22 @@ def view(ticket, sources=None, pr=None, facts=None):
     `next` zůstávají pro frontend do L7b. `facts` z `facts()`; bez nich osy jen ze záznamu ticketu."""
     work, facts = ticket.get("work") or {}, facts or {}
     integ = facts.get("integration")
-    after = after_merge(work, integ) if work else None
-    found = evaluate.evaluate(work, after, facts.get("live", False), integ, facts.get("deploy"))
+    after, git_ok = unreported(work, integ) if work else (None, True)
+    plan = facts.get("plan")
+    found = evaluate.evaluate(work, after, facts.get("live", False), integ, facts.get("deploy"),
+                              facts.get("targetSha"), (plan or {}).get("cardRevision"))
+    sources = sources or local_sources(tokens.stamp())
+    if not git_ok:
+        sources = {**sources, "git": {**sources["git"], "ok": False}}
     shipped = [{"kind": "deploy", "ref": f"{env}@{e['sha'][:7]}", "at": e["at"],
                 "src": "událost prostředí" if e["origin"] == "environment" else "hlášeno člověkem"}
                for env, e in (facts.get("deploy") or {}).items()]
     return {**ticket, "state": work_state.LEGACY[found["key"]], "stateLabel": found["text"], "next": found["next"],
             "axes": found["axes"], "summary": {key: found[key] for key in ("key", "text", "reason", "next")},
             "allowed": found["allowed"], "blocked": found["blocked"],
-            "incomplete": incomplete(sources or local_sources(tokens.stamp())),
-            "evidence": evaluate.evidence(work, after, pr, integ) + shipped}
+            "incomplete": incomplete(sources),
+            "evidence": evaluate.evidence(work, after, pr, integ) + shipped,
+            "plan": {**plan, "diff": plan_link.diff(plan)} if plan else None}
 
 
 def present(service, project, ticket, pr=None):
@@ -237,6 +262,7 @@ def create(service, project, workspace, body, work_in, now, *, root=None, ticket
         if TicketStore(service.db_for(project), project).get(new_id):
             return get(service, project, new_id)
     work = _new_work(service, project, root or REPO_ROOT, work_in, new_id, auto_row=True)
+    work["issued"] = {"cardId": None, "cardRevision": None, "at": now}  # editor vydává bez karty plánu
     with store_for(service, project) as store:
         store.insert(new_id, workspace, "issued", worker_body, {"pins": []}, now)
         store.set_work(new_id, work, now)
@@ -246,13 +272,15 @@ def create(service, project, workspace, body, work_in, now, *, root=None, ticket
 
 
 def attach(service, project, ticket_id, work_in, now, *, root=None):
+    """`work` existujícímu ticketu se zmrazenou referencí `issued` na kartu (revizi čte server, L7d)."""
     work = _new_work(service, project, root or REPO_ROOT, work_in, ticket_id)
     with store_for(service, project) as store:
-        if _ticket(store, ticket_id, need_work=False).get("work"):
+        ticket = _ticket(store, ticket_id, need_work=False)
+        if ticket.get("work"):
             raise WorkError("work_exists", 409, "Ticket už práci Linie má.")
-        store.set_work(ticket_id, work, now)
+        store.set_work(ticket_id, {**work, "issued": plan_link.issue(service, project, ticket, now)}, now)
         journal.write(store.db, project, "linie.work.attached", "human",
-                      {"ticket": ticket_id, "request": work["requestId"]}, branch=work["branch"])
+                      {"ticket": ticket_id, "request": work["requestId"]}, ticket["workspaceId"], branch=work["branch"])
         return present(service, project, store.get(ticket_id))
 
 
@@ -326,22 +354,32 @@ def run(service, project, ticket_id, payload, now):
 
 
 def accept(service, project, ticket_id, sha, note, now):
-    """Přijetí přesně aktuální hlavy (`sha == headSha`, i zkrácené), s revizí zadání. Nic neslučuje."""
+    """Přijetí přesně aktuální hlavy (`sha` == skutečná špička větve, i zkrácené), s revizí zadání. Nic neslučuje."""
     def change(ticket):
-        work, head = ticket["work"], ticket["work"].get("headSha")
+        work, shown = ticket["work"], present(service, project, ticket)
+        head = shown["axes"]["work"]["sha"]  # skutečná špička větve, ne jen poslední hlášení
         if not head or not isinstance(sha, str) or len(sha) < 7 or not head.startswith(sha.lower()):
             raise WorkError("head_moved", 409, f"Revize {sha} není aktuální hlava {(head or 'žádná')[:7]}.",
                             "Načtěte kuličku znovu a přijměte aktuální headSha.")
-        require(present(service, project, ticket), "accept")  # jen ověřenou revizi (checks.passed pro HEAD, L7 §8)
-        return {**work, "acceptance": {"sha": head, "revision": ticket["machine"]["cardVersion"], "by": "human",
-                                       "at": now, "note": note or ""}}
+        require(shown, "accept")  # jen ověřenou revizi (checks.passed pro HEAD, L7 §8)
+        # OP-8A69A3.accept: přijetí platí pro dvojici (sha, cardRevision); revize je táž, kterou ověřil require
+        card = (shown["plan"] or {}).get("cardRevision")
+        return {**_archived(work), "mergeAllowed": None,
+                "acceptance": {"sha": head, "cardRevision": card, "revision": ticket["machine"]["cardVersion"],
+                               "by": "human", "at": now, "note": note or ""}}
     return _change(service, project, ticket_id, now, change, "linie.accept", "human", sha=sha)
+
+
+def _archived(work):
+    """Dosavadní přijetí zůstává historickým záznamem v `work.acceptanceHistory[]`."""
+    old = work.get("acceptance")
+    return {**work, "acceptanceHistory": (work.get("acceptanceHistory") or []) + ([old] if old else [])}
 
 
 def revoke_accept(service, project, ticket_id, now):
     def change(ticket):
         require(present(service, project, ticket), "revoke_accept")  # jen platné přijetí HEAD před začleněním
-        return {**ticket["work"], "acceptance": None, "mergeAllowed": None}
+        return {**_archived(ticket["work"]), "acceptance": None, "mergeAllowed": None}
     return _change(service, project, ticket_id, now, change, "linie.accept.revoked", "human")
 
 

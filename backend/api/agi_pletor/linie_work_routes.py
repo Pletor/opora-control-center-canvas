@@ -105,8 +105,11 @@ def create_linie_work_router(service, pletor, root=None):
         return answer(lambda: act(origin(service, request, project, ticket_id)))
 
     @router.get("/board")
-    def board_state(request: Request, project: str = "", workspace: str = "main"):
-        return human(request, project, lambda: board.board(service, project, workspace, root), workspace)
+    def board_state(request: Request, project: str = "", workspace: str = "main", group: str = "branch",
+                    snapshot: str = ""):
+        """`?group=plan&snapshot=<id>` = týž snímek seskupený podle plánu bez nového čtení (L7d)."""
+        return human(request, project, lambda: board.grouped(service, project, workspace, root, group,
+                                                             snapshot or None), workspace)
 
     @router.post("/rows")
     def row_add(request: Request, body: LinieRowIn, project: str = ""):
