@@ -220,3 +220,14 @@ def test_board_row_is_branch_with_manual_row_on_first_branch_and_planned_at_end(
     assert {b["branch"]: b["rowId"] for b in found["balls"]} == {
         "feat/uzel": shared, "feat/velin": "auto:feat/velin", "feat/velin-linie": "auto:feat/velin-linie"}
     assert next(r for r in found["rows"] if r["id"] == "auto:feat/velin-linie")["parent"] == "feat/velin"
+
+
+def test_with_tree_drops_empty_duplicate_row_of_claimed_branch():
+    """Druhý ruční řádek se jménem větve a bez kuliček je duplikát, ne plánovaný řádek."""
+    rows = [{"id": "main", "branch": "main"}, {"id": "develop", "branch": "develop"},
+            {"id": "r1", "name": "feat/velin", "branch": None, "base": {"branch": "develop"}, "order": 1},
+            {"id": "r2", "name": "feat/velin", "branch": None, "base": {"branch": "develop"}, "order": 2},
+            {"id": "r3", "name": "Nápad", "branch": None, "base": None, "order": 3}]
+    balls = [{"rowId": "r1", "branch": "feat/velin"}, {"rowId": "r2", "branch": "feat/velin"}]  # druhá kulička na duplikátu
+    found = board.with_tree(rows, balls, {"main", "develop", "feat/velin"})
+    assert [(r["id"], r["planned"]) for r in found] == [("main", False), ("develop", False), ("r1", False), ("r3", True)]
