@@ -6,6 +6,9 @@ s kuličkami a deník. Čisté UTF-8 bez barev; jedna kulička = jeden řádek, 
 
 `mine=<agent>`: snímek nenese práci kuličky, jen vazby pracovních stromů, proto kulička patří agentovi, když ji
 `worktrees[].binding` (`ticketId`, `agent`) váže na něj; ostatní kuličky a řádky bez nich v sekci Řádky zmizí.
+
+Uzavřený řádek (`row.closed`, §10.2) je jedna řádka „⊕ název · uzavřeno HH:MM → cíl (N kuliček)“ bez kuliček;
+`all=True` ho vypíše celý.
 """
 from datetime import datetime
 
@@ -56,7 +59,14 @@ def _journal(events, marks):
     return lines
 
 
-def render(board, *, mine=None, journal=None, open_requests=None):
+def _clock(at):
+    try:
+        return datetime.fromisoformat(at).astimezone().strftime("%H:%M")  # místní čas jako obrazovka
+    except (AttributeError, ValueError):
+        return "?"
+
+
+def render(board, *, mine=None, journal=None, open_requests=None, all=False):  # `?all=1` / `--all`
     balls, queues, snapshot = board.get("balls") or [], board.get("queues") or {}, board.get("snapshot") or {}
     marks = {ball["ticketId"]: ball.get("mark") or ball["ticketId"] for ball in balls}
     human = queues.get("human") or []
@@ -96,6 +106,11 @@ def render(board, *, mine=None, journal=None, open_requests=None):
         if owned is not None and row["id"] not in by_row:
             continue
         pad = "  " * (row.get("depth") or 0)
+        shut = None if all else row.get("closed")
+        if shut:
+            out.append(f"{pad}⊕ {row['name']} · uzavřeno {_clock(shut.get('at'))} → {shut['target']} "
+                       f"({_plural(shut['balls'], 'kulička', 'kuličky', 'kuliček')})")
+            continue
         out.append(f"{pad}{row['name']}" + (f" [{row['branch']}]" if row.get("branch") else "")
                    + (f" → {row['target']}" if row.get("target") else ""))
         out += [ball_line(ball, pad + "  ") for ball in by_row.get(row["id"], [])]

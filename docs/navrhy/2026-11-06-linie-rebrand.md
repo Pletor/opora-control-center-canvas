@@ -412,6 +412,13 @@ target, by: "merge", balls: N}`:
   (N kuliček)“ bez výpisu kuliček (`--all` je vypíše).
 - Testy (`test_board.py` / nový `test_closed.py` s fixture gitu): větev se dvěma začleněnými kuličkami → closed;
   jedna kulička `wip` → null; dítě otevřené → rodič null; commit po merge → null; squash; kaskáda tři úrovně.
+- **Postaveno 2026-11-07** (`linie/closed.py`). Odchylky: kulička musí mít `merged` osu i stav (stav `merged` už
+  vylučuje commit po začlenění, takže „ahead nad sha“ i „špička v cíli“ řeší jedna git otázka `merge-base
+  --is-ancestor` proti cíli lokálně i v origin); rodič i děti se berou podle jména (`tree.parent`), ne z `base`
+  ručního řádku; řádek bez vlastní kuličky se neuzavře ani s uzavřenými dětmi; squash se pozná podle
+  `integration.mode == "squash"` posledního merge (pak stačí začleněné kuličky, `merged.sourceSha` nevzniklo, merge.py
+  dnes jen `--no-ff`); smazaná větev po úklidu = test se ptá na merge `sha`; `HH:MM` v `board.txt` je místní čas;
+  uzavřený řádek v textu skryje jen své kuličky, děti se tisknou dál (každé svou řádkou ⊕).
 
 ### 10.3 L9c Skládání do rodiče a znovuotevření (frontend, větev `feat/velin-linie-kresba-skladani`, po L9a+L9b)
 - **Uzavřený řádek zmizí** z editoru (ne ze stromu dat). Na ose **rodiče** v čase `closed.at` leží **značka složené

@@ -199,5 +199,7 @@ def test_board_prints_text_of_route_and_mine_flag(repo, monkeypatch, capsys):
     code, out = run(monkeypatch, capsys, server, repo, "board", "--project", "p", "--workspace", "main", "--mine")
     assert code == 0 and out == shown
     assert server.calls[0][1].endswith("/board.txt?project=p&workspace=main&mine=1") and server.calls[0][2] == "text/plain"
+    code, out = run(monkeypatch, capsys, server, repo, "board", "--project", "p", "--workspace", "main", "--all")
+    assert code == 0 and server.calls[1][1].endswith("/board.txt?project=p&workspace=main&all=1")
     code, out = run(monkeypatch, capsys, server, repo, "board")
     assert code == 2 and "projekt" in out
