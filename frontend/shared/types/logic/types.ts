@@ -199,9 +199,9 @@ function send(url: string, body?: object, conditional = true, method: WriteMetho
       : { headers: conditional ? etags.headers(url) : {}, cache: "no-store" },
   );
 }
-/** Zápis jde jako POST; `PATCH` a `PUT` jen tam, kde je backend výslovně nabízí (přiřazení worktree k doméně,
- *  technický model Studia `PUT /api/studio/model`). */
-export type WriteMethod = "POST" | "PATCH" | "PUT";
+/** Zápis jde jako POST; `PATCH`, `PUT` a `DELETE` jen tam, kde je backend výslovně nabízí (přiřazení worktree k doméně,
+ *  technický model Studia `PUT /api/studio/model`, linie velínu `DELETE /api/pletor/linie/...`). */
+export type WriteMethod = "POST" | "PATCH" | "PUT" | "DELETE";
 export async function api<T>(url: string, body?: object, method: WriteMethod = "POST"): Promise<T> {
   if (body) await ensureHumanSession();
   let response = await send(url, body, true, method);

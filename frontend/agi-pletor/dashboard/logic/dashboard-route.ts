@@ -4,6 +4,7 @@ export const PARTS = [
   { id: "mozek", label: "Mozek a LLM", ready: true },
   { id: "hlas", label: "Hlas", ready: true },
   { id: "srdce", label: "Srdce", ready: true },
+  { id: "linie", label: "Linie", ready: true },
   { id: "podklady", label: "Podklady", ready: true },
   { id: "dilna", label: "Dílna", ready: true },
   { id: "monitoring", label: "Monitoring", ready: true },

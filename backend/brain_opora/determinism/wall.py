@@ -32,6 +32,7 @@ LANE = (
     "/api/desktop-v3/agent-message-receipt",
     "/api/desktop-v3/agent-workspace",
     "/api/desktop-v3/lease",
+    "/api/pletor/linie/work",  # hlášení úkolu Linie z terminálu; kdo smí co, ověří routa
 )
 # Relé záměru (docs/brain-heart-orchestrator.md §8): pracovník brány předá srdci zprávu člověka. Log pláten 2–4
 # (docs/navrhy/2026-11-03-platno-2-zamer-stranky.md §6): dělník hlásí chybu plátna. Jen tyto přesné cesty a jen

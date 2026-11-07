@@ -1,0 +1,64 @@
+/* Panel commitu nahradí kartu MAIN: nahoře věta, co se stalo, pod ní čtyři karty pod sebou v pořadí záměr, kdo, co,
+   kde. Karty mají stejný rámeček jako ostatní karty Linie, aby panel nepůsobil jako cizí tělo. */
+.pletor-dashboard__linie-commit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--pletor-line);
+  overflow-wrap: anywhere;
+}
+.pletor-dashboard__linie-commit-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+/* Tlačítko Zavřít zůstává jedním slovem na řádku; dlouhá věta se láme, tlačítko ne. */
+.pletor-dashboard__linie-commit-head .pletor-dashboard__button {
+  flex: none;
+  white-space: nowrap;
+}
+.pletor-dashboard__linie-commit-sentence {
+  margin: 0;
+}
+.pletor-dashboard__linie-commit-layer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__linie-commit-layer--none {
+  border-style: dashed;
+  font-weight: 600;
+}
+.pletor-dashboard__linie-commit-h {
+  margin: 0;
+  color: var(--pletor-accent);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.pletor-dashboard__linie-commit-list {
+  margin: 0;
+  padding-left: 18px;
+}
+/* Tečka v grafu je klikací: ukazatel a zvýraznění říkají, že z ní vede detail. */
+.pletor-dashboard__linie-commit-pick {
+  cursor: pointer;
+}
+.pletor-dashboard__linie-commit-pick:hover .pletor-dashboard__linie-dot,
+.pletor-dashboard__linie-commit-pick:focus .pletor-dashboard__linie-dot {
+  stroke: var(--pletor-accent);
+  stroke-width: 3;
+}
+
+/* Seznam souborů commitu: každá cesta na vlastním řádku drobným monospace, dlouhé cesty se lámou kdekoli,
+   aby úzký sloupec nikdy neutekl do strany. */
+.pletor-dashboard__linie-commit-paths {
+  margin: 0 0 6px;
+  padding-left: 14px;
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}

@@ -6,7 +6,8 @@ přechodech `ticket_model.advance`:
 - `bind`: `ticket.claim` s `executionId` smí jen na běžící exekuci karty ticketu (`cardId`) ve stejném prostoru,
   kterou nedrží jiný otevřený ticket; jinak 409 `ticket_execution`.
 - `follow`: `delivered` → `verified`, když výsledek exekuce nese `selfChecks` a všechny prošly, nebo když je PR
-  exekuce sloučený; `verified` → `closed` po sloučení PR (GitHub i lokální sloučení); zrušená exekuce
+  exekuce sloučený; `verified` → `closed` po sloučení PR (GitHub i lokální sloučení) nebo po začlenění službou
+  Linie (`work.merged`, docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §4); zrušená exekuce
   (`cancelled`) → `failed`. Bez navázaného ticketu se nestane nic. Přechod na `failed` vydá událost `ticket.failed`
   `{ticketId, status, reason}`, ze které srdce dostane vstup `workFailed` (`flow/catalogs/heart/inputs.py`).
 - `safe_follow`: háček pro místa exekucí (výsledek, sloučení, zrušení). Chyba ticketu exekuci nikdy nezastaví.
@@ -80,14 +81,14 @@ def _next(db, project, ticket):
         return "failed"
     if status == "delivered" and (_verified(db, project, execution_id) or _merged(db, project, execution_id)):
         return "verified"
-    if status == "verified" and _merged(db, project, execution_id):
+    if status == "verified" and ((ticket.get("work") or {}).get("merged") or _merged(db, project, execution_id)):
         return "closed"
     return None
 
 
 def follow(db, project, ticket, now=None):
     """Posune ticket podle faktů jeho exekuce (po jednom přechodu přes `advance`); vrátí výsledný stav."""
-    if not ticket or not ticket["machine"]["executionId"]:
+    if not ticket or not (ticket["machine"]["executionId"] or ticket.get("work")):
         return ticket and ticket["status"]
     store, at, status = TicketStore(db, project), tokens.stamp(now), ticket["status"]
     target = _next(db, project, ticket)

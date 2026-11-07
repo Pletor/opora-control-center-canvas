@@ -1,0 +1,61 @@
+/* Panel Cesta nahradí kartu MAIN: nahoře značka a věta, co se s prací stalo, pod ní pět karet pod sebou v pořadí
+   proč, kdo, co, kde, mezery. Rámečky jsou stejné jako u detailu commitu, aby oba panely působily jako jedna rodina. */
+.linie-trace {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--pletor-line);
+  overflow-wrap: anywhere;
+}
+.linie-trace__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+/* Tlačítko Zavřít zůstává jedním slovem na řádku; dlouhá věta se láme, tlačítko ne. */
+.linie-trace__head .pletor-dashboard__button {
+  flex: none;
+  white-space: nowrap;
+}
+.linie-trace__sentence {
+  margin: 0;
+}
+/* Vrstva je jedna otázka cesty (proč, kdo, co, kde, mezery) s malým nadpisem v barvě akcentu. */
+.linie-trace__layer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--pletor-line);
+}
+.linie-trace__h {
+  margin: 0;
+  color: var(--pletor-accent);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.linie-trace__list {
+  margin: 0;
+  padding-left: 18px;
+}
+/* Jedna hrana cesty (relace, commit, místo v kódu) je jeden řádek; štítek stavu stojí na jeho konci. */
+.linie-trace__item {
+  font-size: 12px;
+}
+/* Štítek stavu říká, jak moc se hraně věří: ověřeno je zelené, tvrzeno žluté, odvozeno modré, chybí červené,
+   aby se mezery v procesu daly najít pohledem. */
+.linie-trace__status {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid currentColor;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.linie-trace__status--verified { color: #4ade80; }
+.linie-trace__status--claimed { color: #facc15; }
+.linie-trace__status--inferred { color: #60a5fa; }
+.linie-trace__status--missing { color: #f87171; }

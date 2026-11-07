@@ -48,9 +48,10 @@ def test_refusals_carry_code_and_hint():
 
 LANE_PATHS = ("/api/oporahub/executions/claim", "/api/oporahub/executions/e1/deliver",
               "/api/oporahub/executions/e1/heartbeat", "/api/oporahub/harness-invocations",
-              "/api/oporahub/review-identities/claim", "/api/desktop-v3/agent-output")
+              "/api/oporahub/review-identities/claim", "/api/desktop-v3/agent-output",
+              "/api/pletor/linie/work/tk1/report")
 WALLED = (PLAN, "/api/oporahub/graph-proposals", "/api/desktop-v3/node", "/api/desktop-v3/rule",
-          "/api/oporahub/executionsX", "/api/oporahub/review-identities/i1/verify", "/api/desktop-v3/agent-outputs")
+          "/api/oporahub/executionsX", "/api/pletor/linie/rows", "/api/oporahub/review-identities/i1/verify", "/api/desktop-v3/agent-outputs")
 
 
 def test_lane_lets_card_work_through_without_token():
