@@ -3,7 +3,9 @@
 Datum: 2026-11-06, revize 2026-11-07 po druhé oponentuře. Navazuje na L6 (`2026-11-06-linie-barvy-a-zamereni.md`).
 Větev `feat/velin-linie-strom-barvy-rebrand` (dítě `feat/velin-linie-strom-barvy`), kulička `OP-546BB9`. Návrh: Claude
 Design, projekt `27995fdc-9d56-462e-a37d-08447c45e9d6`, soubor `Linie v3.dc.html` (živý prototyp celého cyklu; snímky
-`.opora/velin-linie-v3-*.png`). Prototyp je referenční obraz chování, ne zdroj pravdy; pravdu nese tento kontrakt.
+`.opora/velin-linie-v3-*.png`). Prototyp je referenční obraz **vzhledu a ovládání** (přebírá se 1:1); **význam dat a
+operací** nese tento kontrakt. Simulace prototypu (ukázkový scénář, náhodná sha, vymyšlené zdroje) ani jeho známé
+chyby se nepřebírají. Přijetí jednotlivých vozů není přijetí Linie; to přijde až po ověření společného UI a API podle §8.
 
 ## Proč
 
@@ -62,7 +64,12 @@ Pořadí pravidel (první platné vyhrává):
 | `checking` | `work.submitted` ∧ `checks.running(HEAD)` | čekáme na CI | – |
 | `stale` | `checks.passed(HEAD)` ∧ `acceptance.accepted(sha ≠ HEAD)` | člověk znovu přijme HEAD | `accept` |
 | `pending` | `checks.passed(HEAD)` ∧ `acceptance.pending` | člověk rozhodne | `accept` |
-| `accepted` | `checks.passed(HEAD)` ∧ `acceptance.accepted(HEAD)` ∧ `integration.none` | služba začlení do rodiče (znovu ověří) | `merge` |
+| `accepted` | `checks.passed(HEAD)` ∧ `acceptance.accepted(HEAD)` ∧ `integration.none` | bez povolení: člověk povolí začlenění; s povolením platným pro dvojici (HEAD, špička cíle): služba začlení (znovu ověří) | `allow_merge` → po povolení `merge`; posun cíle vrací `allow_merge` |
+
+HEAD se bere ze **skutečné špičky větve** (git), ne z posledního hlášení: commit bez hlášení znamená `work.in_progress`
+pro novou revizi a kontroly i přijetí starší revize pro ni neplatí; `accept(sha)` s jiným sha než špička = 409
+`head_moved`. Povolení začlenění platí pro dvojici `(sourceSha, targetSha)`; když se cíl posune, povolení propadá a
+pravidlo nabídne nové. Při nedostupném gitu zůstává poslední známá špička a `incomplete` nese `git`.
 
 Nasazení se do souhrnu nikdy nemíchá; je to vlastní značka. `block`/`unblock` je povolen vždy.
 
