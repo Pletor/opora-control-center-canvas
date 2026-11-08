@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from backend.agi_pletor.linie import acceptance, branches, graph, previews, work
+from backend.agi_pletor.linie import acceptance, branches, gitsnap, graph, previews, work
 from backend.agi_pletor.linie.view import linie_view
 from backend.api.agi_pletor.models import LinieDeployedIn, LiniePreviewIn
 from backend.api.agi_pletor.pletor_routes import _check
@@ -24,6 +24,7 @@ from backend.canvas.activity_log import require_human
 from backend.paths import REPO_ROOT
 
 HUMAN = "Linii ve Velínu řídí jen člověk v UI."
+GRAPHS = {}  # (projekt, repozitář) → poslední hotový graf s klíčem (gitsnap.cached)
 
 
 def _now():
@@ -60,12 +61,21 @@ def create_linie_router(service, pletor, root=None):
     def graph_state(request: Request, project: str = ""):
         def act():
             found = accepted(project)
-            view = linie_view(pletor.folder, root, found)
-            data = graph.graph(root, pletor.folder, found)
-            for lane in data["lanes"]:  # origin sha pro karty MAIN a DEVELOP
-                summary = view.get(lane["name"])
-                lane["remote"] = summary.get("remote") if isinstance(summary, dict) else None
-            return {**data, **{key: view[key] for key in ("server", "deployed", "enforcement")}}
+            running = previews.status(pletor.folder)  # registr náhledů jednou pro souhrn i graf
+
+            def build():
+                with gitsnap.scope():  # souhrn větví a reference jednou na požadavek
+                    view = linie_view(pletor.folder, root, found, running)
+                    data = graph.graph(root, pletor.folder, found, running=running)
+                for lane in data["lanes"]:  # origin sha pro karty MAIN a DEVELOP
+                    summary = view.get(lane["name"])
+                    lane["remote"] = summary.get("remote") if isinstance(summary, dict) else None
+                return {**data, **{key: view[key] for key in ("server", "deployed", "enforcement")}}
+
+            # opakovaný požadavek bez změny gitu, přijetí, nasazení, náhledů a PR = hotová odpověď bez subprocesu
+            key = (gitsnap.state(root), gitsnap.files(acceptance._path(pletor.folder)), found,
+                   tuple((r.get("slug"), r.get("state")) for r in running), graph.recent_prs(root))
+            return gitsnap.cached(GRAPHS, (project, gitsnap._key(root)), key, build)
 
         return guarded(request, act)
 

@@ -6,9 +6,9 @@ značky na větvi úkolu `inferred`. Komentář v kódu je `verified`, jen když
 import re
 from datetime import datetime
 
+from backend.agi_pletor.linie import gitsnap
 from backend.agi_pletor.linie.commit import TRAILER
 from backend.agi_pletor.linie.work import ancestor
-from backend.integrations.gitio import git
 
 TIMEOUT = 15
 FORMAT = "--format=%H%x1f%cI%x1f%an%x1f%s%x1f%b%x1e"
@@ -17,7 +17,7 @@ SYMBOL = re.compile(r"^\s*(?:export\s+(?:default\s+)?(?:async\s+)?(?:const|funct
 
 
 def _git(root, *args):
-    return git(root, *args, timeout=TIMEOUT, optional=True) or ""
+    return gitsnap.frozen(root, *args) or ""  # argumenty jen z plných SHA se pamatují (commit se nemění)
 
 
 def _log(root, *args):

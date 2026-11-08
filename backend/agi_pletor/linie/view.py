@@ -11,12 +11,12 @@ from backend.agi_pletor.linie.graph import stamped
 ENFORCEMENT = "nevynuceno"
 
 
-def linie_view(folder, root, accepted=None):
+def linie_view(folder, root, accepted=None, running=None):
     """`{main, develop, server, deployed, branches, previews, enforcement}`; větve nesou přijetí (`accepted` =
-    `{větev: work.acceptance}` z ticketů) a náhled."""
+    `{větev: work.acceptance}` z ticketů) a náhled (`running` = už přečtený `previews.status`)."""
     git = safe(lambda: branches.summary(root))
     accepted, deployed = accepted or {}, acceptance.read_deployed(folder)
-    running = safe(lambda: previews.status(folder))
+    running = safe(lambda: previews.status(folder)) if running is None else running
     by_branch = {p.get("branch"): p for p in running} if isinstance(running, list) else {}
     if "error" in git:
         return {"main": git, "develop": None, "server": git, "deployed": deployed, "branches": [],

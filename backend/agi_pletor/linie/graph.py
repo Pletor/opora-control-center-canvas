@@ -7,10 +7,11 @@ chyba gitu je `ValueError`. Přijetí `accepted` = `{větev: work.acceptance}` z
 import json
 import shutil
 import subprocess
+import threading
+import time
 from datetime import UTC, datetime
 
-from backend.agi_pletor.linie import branches, previews, tree
-from backend.integrations.gitio import git
+from backend.agi_pletor.linie import branches, gitsnap, previews, tree
 
 TIMEOUT = branches.TIMEOUT
 FORMAT = "--format=%H%x1f%P%x1f%cI%x1f%s"
@@ -18,7 +19,7 @@ NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 def _commits(root, *args):
-    out = git(root, "log", FORMAT, *args, timeout=TIMEOUT)
+    out = gitsnap.frozen(root, "log", FORMAT, *args, optional=False)  # argumenty z plných SHA se pamatují
     rows = []
     for line in reversed(out.splitlines()):
         sha, parents, at, title = line.split("\x1f", 3)
@@ -62,18 +63,40 @@ def gh_prs(root):
     return gh_lookup(root)["prs"]
 
 
-def graph(root, folder, accepted=None, *, pr_lookup=gh_prs):
+PR_SEEN = {}  # repozitář → (monotonic, prs) pro graf
+PR_TTL = 60
+
+
+def recent_prs(root):
+    """`gh_prs` nejvýš jednou za minutu a nikdy v cestě požadavku (gh trvá ~1 s): obnoví se na pozadí, do té doby
+    poslední známé PR (první požadavek bez PR)."""
+    seen = PR_SEEN.get(str(root))
+    if seen is None or time.monotonic() - seen[0] > PR_TTL:
+        seen = PR_SEEN[str(root)] = (time.monotonic(), seen[1] if seen else {})
+        threading.Thread(target=lambda: PR_SEEN.__setitem__(str(root), (time.monotonic(), gh_prs(root))),
+                         daemon=True).start()
+    return seen[1]
+
+
+def graph(root, folder, accepted=None, *, pr_lookup=recent_prs, running=None):
+    """`running` = `previews.status(folder)`, když ho volající už přečetl."""
+    with gitsnap.scope():
+        return _graph(root, folder, accepted, pr_lookup, running)
+
+
+def _graph(root, folder, accepted, pr_lookup, running):
+    stamps_args = ("for-each-ref", "refs/heads", "--format=%(refname:short)\t%(committerdate:unix)")
+    unmerged_args = ("for-each-ref", "--no-merged", "main", "refs/heads", "--format=%(refname:short)")
+    gitsnap.warm(root, [*branches.reads(root), stamps_args, unmerged_args])  # nezávislé gity souběžně
     found = branches.summary(root)
     rows = {b["name"]: b for b in found["branches"]}
     if "main" not in rows:
         raise ValueError("Repozitář nemá větev main.")
-    stamps = git(root, "for-each-ref", "refs/heads", "--format=%(refname:short)\t%(committerdate:unix)",
-                 timeout=TIMEOUT)
+    stamps = gitsnap.read(root, *stamps_args, optional=False)
     when = {name: int(at) for name, _, at in (line.partition("\t") for line in stamps.splitlines()) if at.isdigit()}
-    unmerged = set(git(root, "for-each-ref", "--no-merged", "main", "refs/heads", "--format=%(refname:short)",
-                       timeout=TIMEOUT).splitlines())
+    unmerged = set(gitsnap.read(root, *unmerged_args, optional=False).splitlines())
     accepted = accepted or {}
-    running = {p.get("branch"): p for p in previews.status(folder)}
+    running = {p.get("branch"): p for p in (previews.status(folder) if running is None else running)}
     # shortcut: aktivní téma = nesloučené větve mladší než špička main (poslední přijaté vydání);
     # po M2 nahradí vazba na ticket.
     work = {name for name, row in rows.items() if row["role"] in branches.ROLES and name in unmerged
@@ -87,15 +110,21 @@ def graph(root, folder, accepted=None, *, pr_lookup=gh_prs):
 
     prs = pr_lookup(root)
     lanes = []
-    for name in [n for n in tree.order(rows) if n in ("main", "develop") or n in work]:
+    names = [n for n in tree.order(rows) if n in ("main", "develop") or n in work]
+    sha = {name: row["sha"] for name, row in rows.items()}  # jména → SHA z téhož čtení: výstup gitu se pamatuje
+    pair = {n: (sha.get(rows[n]["parent"]) or rows[n]["parent"], sha[n]) for n in names if n != "main"}
+    gitsnap.prefetch(root, [("merge-base", *pair[n]) for n in pair])
+    bases = {n: gitsnap.frozen(root, "merge-base", *pair[n], optional=False) for n in pair}
+    span = {n: ("-n", "31", sha[n], "--not", bases[n] + "^@") if n == "develop" else ("-n", "30", "..".join(pair[n]))
+            for n in pair}
+    gitsnap.prefetch(root, [("log", FORMAT, *span[n]) for n in span] + [("log", FORMAT, "-n", "8", sha["main"])])
+    for name in names:
         row = rows[name]
         if name == "main":
-            base, commits = None, _commits(root, "-n", "8", "main")
+            base, commits = None, _commits(root, "-n", "8", sha["main"])
         else:
-            base = git(root, "merge-base", row["parent"], name, timeout=TIMEOUT)
             # develop i s odbočným commitem (`base^@` vyloučí jen jeho rodiče); pracovní větev jen rodič..větev
-            commits = (_commits(root, "-n", "31", name, "--not", base + "^@") if name == "develop"
-                       else _commits(root, "-n", "30", f"{row['parent']}..{name}"))
+            base, commits = bases[name], _commits(root, *span[name])
         lanes.append({"name": name, "role": row["role"], "parent": row["parent"], "sha": row["sha"], "base": base,
                       "commits": commits, "acceptance": stamped(accepted.get(name), row["sha"]),
                       "preview": running.get(name), "pr": prs.get(name)})

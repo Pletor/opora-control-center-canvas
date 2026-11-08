@@ -39,6 +39,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 from backend.agi_pletor.linie import (
     deploy,
     evaluate,
+    gitsnap,
     journal,
     merge_log,
     plan_link,
@@ -73,7 +74,7 @@ def rev(root, ref):
     """Plné SHA commitu `ref`, nebo None (neexistuje / vypadá jako přepínač)."""
     if not isinstance(ref, str) or not ref or ref.startswith("-"):
         return None
-    return git(root, "rev-parse", "--verify", "-q", ref + "^{commit}", timeout=TIMEOUT, optional=True) or None
+    return gitsnap.rev(root, ref)
 
 
 def tip(root, branch, fetch=False):
@@ -84,7 +85,7 @@ def tip(root, branch, fetch=False):
 
 
 def ancestor(root, older, newer):
-    return git(root, "merge-base", "--is-ancestor", older, newer, timeout=TIMEOUT, optional=True) is not None
+    return gitsnap.ancestor(root, older, newer)
 
 
 def unreported(work, integ=None, squashed=()):
@@ -99,8 +100,7 @@ def unreported(work, integ=None, squashed=()):
     if merged:
         # OP-43F5B0.2: začleněná hlava = headSha (merge chce headSha == přijatá == špička); squash ji v cíli nemá
         sha = work.get("headSha") or (integ["sha"] if integ else work["merged"].get("sha"))
-        new = (git(work["repository"], "rev-list", "-1", f"{sha}..{work['branch']}", timeout=TIMEOUT,
-                   optional=True) or None) if sha else None
+        new = gitsnap.range_tip(work["repository"], sha, work["branch"]) if sha else None
         # §10.2: commit po merge, který už v cíli leží (začlenila ho další kulička téže větve), větev znovu neotvírá
         target = (integ or {}).get("target") or (work.get("merged") or {}).get("target") or work.get("target")
         refs = (target, "origin/" + target, *squashed) if target else squashed
@@ -191,8 +191,7 @@ def trial(work, preview, head):
     tried = work.get("tried")
     news = []
     if tried and head and tried["sha"] != head:
-        out = git(work["repository"], "log", "--format=%H%x1f%s", f"{tried['sha']}..{head}", timeout=TIMEOUT,
-                  optional=True) or ""
+        out = gitsnap.frozen(work["repository"], "log", "--format=%H%x1f%s", f"{tried['sha']}..{head}") or ""
         news = [dict(zip(("sha", "subject"), line.split("\x1f", 1))) for line in out.splitlines()]
     tryout = work.get("tryout") or {}
     return {"state": state, "url": with_at((shown or {}).get("url"), tryout.get("at")),

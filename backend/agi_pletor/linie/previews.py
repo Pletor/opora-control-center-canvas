@@ -194,12 +194,35 @@ def start(folder, root, branch, project, data_root, now, *, fresh=False, build=_
     return record
 
 
+def _pid_alive(pid):
+    """Běží proces `pid`? Bez sítě a bez subprocesu (Windows: OpenProcess + kód ukončení)."""
+    if os.name != "nt":
+        try:
+            os.kill(int(pid), 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        return True
+    import ctypes  # jen na Windows
+
+    kernel = ctypes.windll.kernel32
+    handle = kernel.OpenProcess(0x1000, False, int(pid))  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return False
+    code = ctypes.c_ulong()
+    ok = kernel.GetExitCodeProcess(handle, ctypes.byref(code))
+    kernel.CloseHandle(handle)
+    return bool(ok) and code.value == 259  # STILL_ACTIVE
+
+
 def _alive(record):
     process = RUNNING.get(record.get("slug"))
     if process is not None:
         return process.poll() is None
-    # shortcut: po restartu serveru chybí Popen; běh se pozná jen podle portu, ne podle pid.
-    return bool(record.get("port")) and _listening(record["port"])
+    # shortcut: po restartu serveru chybí Popen; běh se pozná podle živého PID (port se ověřuje až při startu a stopu),
+    # znovu použité PID cizím procesem ukáže náhled jako běžící, dokud ho člověk nezastaví.
+    return bool(record.get("pid")) and _pid_alive(record["pid"])
 
 
 def status(folder):
@@ -218,7 +241,8 @@ def stop(folder, name):
     process = RUNNING.pop(name, None)
     if process is not None:
         process.terminate()
-    elif record.get("pid") and record.get("state") == "running" and _alive(record):
+    elif record.get("pid") and record.get("state") == "running" and _alive(record) and _listening(record.get("port") or 0):
+        # cizí proces se znovu použitým PID nezabíjet: náhled musí i poslouchat na svém portu
         try:
             os.kill(record["pid"], signal.SIGTERM)
         except OSError:

@@ -1,5 +1,6 @@
 """Board editoru: řádky, kuličky, spojnice follows / planned / merged a skutečné merge z gitu (kontrakt §7 bod 12)."""
 import os
+import time
 import subprocess
 
 from backend.agi_pletor.linie import board, merge, rows, work
@@ -231,3 +232,17 @@ def test_with_tree_drops_empty_duplicate_row_of_claimed_branch():
     balls = [{"rowId": "r1", "branch": "feat/velin"}, {"rowId": "r2", "branch": "feat/velin"}]  # druhá kulička na duplikátu
     found = board.with_tree(rows, balls, {"main", "develop", "feat/velin"})
     assert [(r["id"], r["planned"]) for r in found] == [("main", False), ("develop", False), ("r1", False), ("r3", True)]
+
+
+def test_board_repeat_spawns_nothing_and_ref_change_rebuilds(setup, monkeypatch):
+    service, repo, _ = setup
+    at = tokens.stamp()  # PR jako by je pozadí už přečetlo: gh se v testu nespouští
+    monkeypatch.setitem(board.PR_SEEN, str(repo), (time.monotonic(), {}, {
+        "verifiedAt": at, "lastSuccessAt": at, "attemptedAt": at, "ok": True, "error": None}))
+    first = board.board(service, "draft", "main", repo)
+    spawned, real = [], subprocess.run
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: spawned.append(a) or real(*a, **k))
+    assert board.board(service, "draft", "main", repo) is first and spawned == []  # za tepla žádný subproces
+    run(repo, "tag", "v1")  # nová reference = jiný otisk gitu
+    again = board.board(service, "draft", "main", repo)
+    assert again is not first and [t["name"] for t in again["tags"]] == ["v1"] and spawned

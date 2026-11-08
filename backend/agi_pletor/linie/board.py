@@ -23,6 +23,7 @@ L7g (§7 bod 7): `queues.human[]` = seřazená fronta „Čeká na tebe“ (`hum
 L9b (§10.2): každý řádek nese `closed` (`closed.closed_rows`): `null` nebo `{at, sha, target, by, balls}`.
 """
 import os
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -31,6 +32,7 @@ from backend.agi_pletor.linie import (
     branches,
     closed,
     deploy,
+    gitsnap,
     human_queue,
     jsonfile,
     merge_log,
@@ -45,12 +47,12 @@ from backend.agi_pletor.linie import work as work_mod
 from backend.agi_pletor.linie.graph import gh_lookup
 from backend.brain_opora.determinism import tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
-from backend.integrations.gitio import git
 from database.repositories.tickets import TicketStore
 
 TIMEOUT = 15
 PR_SEEN = {}  # repozitář → (monotonic, prs, source); jen skutečné gh
 PR_TTL = 60  # gh se ptá nejvýš jednou za minutu; editor se překresluje častěji
+BOARDS = {}  # (projekt, prostor, repozitář) → (klíč, čas, (výsledek, graf plánu, repozitáře)); jen poslední
 
 
 def read_prs(data_root, root, lookup):
@@ -66,11 +68,15 @@ def read_prs(data_root, root, lookup):
                                                  key: {"prs": found["prs"], "lastSuccessAt": attempted}})
         return found["prs"], {"verifiedAt": attempted, "lastSuccessAt": attempted, "attemptedAt": attempted,
                               "ok": True, "error": None}
+    return _last_known(path, key, attempted, found.get("error"))
+
+
+def _last_known(path, key, attempted, error):
     cache = jsonfile.read(path, {})
     last = (cache.get(key) if isinstance(cache, dict) else None) or {}
     return ({branch: {**pr, "unconfirmed": True} for branch, pr in (last.get("prs") or {}).items()},
             {"verifiedAt": last.get("lastSuccessAt"), "lastSuccessAt": last.get("lastSuccessAt"),
-             "attemptedAt": attempted, "ok": False, "error": found.get("error")})
+             "attemptedAt": attempted, "ok": False, "error": error})
 
 
 def _prs(data_root, root, lookup):
@@ -78,22 +84,42 @@ def _prs(data_root, root, lookup):
         return read_prs(data_root, root, lookup)
     seen = PR_SEEN.get(str(root))
     if not seen or time.monotonic() - seen[0] > PR_TTL:
-        seen = PR_SEEN[str(root)] = (time.monotonic(), *read_prs(data_root, root, lookup))
+        # gh trvá ~1 s a v cestě požadavku není: obnoví se na pozadí, do té doby poslední známé PR (při prvním
+        # požadavku z prs.json jako `unconfirmed`, zdroj `ok: False`); nová data změní klíč boardu
+        known = seen[1:] if seen else _last_known(Path(data_root) / "pletor" / "linie" / "prs.json", str(root),
+                                                  tokens.stamp(), "gh se teprve čte")
+        seen = PR_SEEN[str(root)] = (time.monotonic(), *known)
+
+        def refresh():
+            PR_SEEN[str(root)] = (time.monotonic(), *read_prs(data_root, root, lookup))
+        threading.Thread(target=refresh, daemon=True).start()
     return seen[1], seen[2]
+
+
+def _range(work):
+    """`báze..špička` se špičkou jako SHA (výstup gitu se pak pamatuje), jinak jménem větve."""
+    return f"{work['baseSha']}..{gitsnap.rev(work['repository'], work['branch']) or work['branch']}"
 
 
 def _commits(work):
     """Commity větve nad bází (nejstarší první) s rozhodnutím `abandoned` (git ani HEAD nemění)."""
     gave_up = {item["sha"]: {k: item[k] for k in ("why", "at", "by")} for item in work.get("abandoned") or []}
-    found = trace_git._log(work["repository"], f"{work['baseSha']}..{work['branch']}") if work.get("headSha") else []
+    found = trace_git._log(work["repository"], _range(work)) if work.get("headSha") else []
     return [{"sha": c["sha"], "sha7": c["sha7"], "title": c["title"], "at": c["at"], "mark": c["trailers"]["mark"],
              "abandoned": gave_up.get(c["sha"])} for c in reversed(list(found))]
 
 
+TAGS = ("for-each-ref", "refs/tags", ("--format=%(refname:short)%1f%(objecttype)%1f%(objectname)%1f"
+                                      "%(*objecttype)%1f%(*objectname)%1f%(creatordate:iso-strict)"))
+TREES = ("worktree", "list", "--porcelain")
+# jedno for-each-ref nese čas i špičku (sha, čas, předmět) každé větve; dřív `log -1` na větev
+STAMPS = ("for-each-ref", "refs/heads", ("--format=%(refname:short)%1f%(committerdate:unix)%1f%(objectname)%1f"
+                                         "%(committerdate:iso-strict)%1f%(contents:subject)"))
+
+
 def tags(root):
     """`[{name, sha, at, annotated}]`: lehké i anotované tagy na commit; `sha` je commit (u anotovaných cíl tagu)."""
-    out = git(root, "for-each-ref", "refs/tags", "--format=%(refname:short)%1f%(objecttype)%1f%(objectname)%1f"
-              "%(*objecttype)%1f%(*objectname)%1f%(creatordate:iso-strict)", timeout=TIMEOUT, optional=True) or ""
+    out = gitsnap.read(root, *TAGS) or ""
     found = []
     for line in out.splitlines():
         name, kind, sha, target_kind, target, at = line.split("\x1f")
@@ -115,7 +141,7 @@ def worktrees(root, tickets):
             if key and (key not in bound or (run.get("heartbeat") or "") > (bound[key][1].get("heartbeat") or "")):
                 bound[key] = (ticket["ticketId"], run)
     found = []
-    out = git(root, "worktree", "list", "--porcelain", timeout=TIMEOUT, optional=True) or ""
+    out = gitsnap.read(root, *TREES) or ""
     for block in out.split("\n\n"):
         fields = dict(line.partition(" ")[::2] for line in block.splitlines() if line)
         if "worktree" not in fields:
@@ -135,8 +161,8 @@ def real_merges(root):
     """Posledních 20 merge commitů na main a develop: `[{target, sha, parents, at, title}]`."""
     found = []
     for target in rows_mod.MAPPING.values():
-        out = git(root, "log", "--merges", "-n", "20", "--format=%H%x1f%P%x1f%cI%x1f%s", target, "--",
-                  timeout=TIMEOUT, optional=True) or ""
+        out = gitsnap.frozen(root, "log", "--merges", "-n", "20", "--format=%H%x1f%P%x1f%cI%x1f%s",
+                             gitsnap.rev(root, target) or target, "--") or ""
         for line in out.splitlines():
             sha, parents, at, title = line.split("\x1f", 3)
             found.append({"target": target, "sha": sha, "parents": parents.split(), "at": at, "title": title})
@@ -150,9 +176,9 @@ def git_rows(root, rows, balls):
     """Řádky z gitu pro nesloučené pracovní větve bez řádku ani kuličky + jejich špičky jako body `realMerges`."""
     known = {row.get("branch") for row in rows} | {ball["branch"] for ball in balls}
     # shortcut: větev mladší než špička main = rozpracovaná; starší (squashem už v main) by editor jen zaplevelily.
-    stamps = git(root, "for-each-ref", "refs/heads", "--format=%(refname:short)	%(committerdate:unix)",
-                 timeout=TIMEOUT, optional=True) or ""
-    when = {name: int(at) for name, _, at in (line.partition("	") for line in stamps.splitlines()) if at.isdigit()}
+    stamps = gitsnap.read(root, *STAMPS) or ""
+    heads = {row[0]: row for row in (line.split("\x1f") for line in stamps.splitlines()) if len(row) == 5}
+    when = {name: int(row[1]) for name, row in heads.items() if row[1].isdigit()}
     found, tips = [], []
     for order, b in enumerate(branches.summary(root)["branches"]):
         if (b["role"] not in branches.ROLES or b["name"] in known or not b["ahead"]
@@ -162,9 +188,8 @@ def git_rows(root, rows, balls):
                       "ticketId": None, "branch": b["name"], "base": {"branch": b["parent"], "sha": None},
                       "target": b["parent"], "collapsed": False, "order": 10_000 + order, "git": True,
                       "ahead": b["ahead"]})
-        line = git(root, "log", "-1", "--format=%H%x1f%cI%x1f%s", b["name"], "--", timeout=TIMEOUT, optional=True)
-        if line:
-            sha, at, title = line.split("", 2)
+        if b["name"] in heads:
+            _, _, sha, at, title = heads[b["name"]]
             tips.append({"target": b["name"], "sha": sha, "parents": [], "at": at, "title": title})
     return found, tips
 
@@ -286,6 +311,38 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
     posledního úspěšného čtení, `deploy` = přečtení záznamu událostí; stáří události je v `envs[env].at`), ne čas
     požadavku; `builtAt` je čas sestavení (L7 §4).
     """
+    if pr_lookup is not gh_lookup:  # vlastní zdroj PR (testy): vždy čerstvé sestavení
+        with gitsnap.scope():
+            return _board(service, project, workspace, root, pr_lookup)[0]
+    # Opakovaný požadavek bez změny = hotová odpověď bez subprocesu. Klíč: otisky gitu (stat), stat dat projektu
+    # (tickety a plán v SQLite, řádky, merge log, nasazení), registr a živost náhledů a známé PR.
+    ident = (project, workspace, gitsnap._key(root))
+    kept = BOARDS.get(ident)
+    prs, pr_source = _prs(service.root, root, pr_lookup)
+    running = previews.status(work_mod.folder(service))
+    data = Path(service.root) / "projects" / project
+
+    def key(repos):
+        return (repos, tuple(gitsnap.state(repo) for repo in repos),
+                gitsnap.files(data / "project.sqlite", data / "project.sqlite-wal",
+                              work_mod.folder(service) / "linie" / "previews.json"),
+                gitsnap.folder(data / "linie"), tuple((r.get("slug"), r.get("state")) for r in running), prs,
+                pr_source["ok"])
+
+    repos = kept[2][2] if kept else _repos(service, project, root, ())
+    with gitsnap.scope():
+        result, graph, found = gitsnap.cached(BOARDS, ident, key(repos), lambda: _board(service, project, workspace,
+                                                                                         root, pr_lookup))
+    if found != repos:  # první sestavení zjistilo další repozitáře (tickety, git plánu): klíč i s jejich otisky
+        BOARDS[ident] = (key(found), BOARDS[ident][1], BOARDS[ident][2])
+    plan_view.remember(project, workspace, result, graph)  # snímek pro ?group=plan i po vytlačení z paměti
+    return result
+
+
+def _board(service, project, workspace, root, pr_lookup):
+    """`(výsledek, graf plánu, repozitáře, na kterých výsledek závisí)`."""
+    # nezávislé gity běží na pozadí, zatímco se čte databáze a plán
+    gitsnap.warm(root, [*branches.reads(root), *gitsnap.parents_reads(root), TAGS, TREES, STAMPS])
     found = rows_mod.read(service.root, project)
     with service.reading(project):
         store = TicketStore(service.db_for(project), project)
@@ -304,7 +361,10 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
                "checks": {"verifiedAt": db_at, "ok": True}, "sessions": {"verifiedAt": db_at, "ok": True},
                "deploy": {"verifiedAt": deploy_at, "ok": True}}
     by_mark = {t["work"].get("mark"): t["ticketId"] for t in tickets if t["work"].get("mark")}
-    running = previews.status(work_mod.folder(service))  # registr náhledů jednou (status ověřuje porty)
+    running = previews.status(work_mod.folder(service))  # registr náhledů jednou
+    for repo in {t["work"]["repository"] for t in tickets}:  # studený start: rozsahy commitů kuliček souběžně
+        gitsnap.prefetch(repo, [("log", _range(t["work"]), trace_git.FORMAT) for t in tickets
+                                if t["work"].get("headSha") and t["work"]["repository"] == repo])
     with service.reading(project):  # jeden snímek grafu pro revize karet všech kuliček
         balls = [_ball(service, project, ticket, found["rows"], prs, sources, log, events, by_mark, graph, running)
                  for ticket in tickets]
@@ -331,7 +391,16 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
               "queues": {**plan_view.queues(balls, graph, carded), "humanDecisions": len(human), "human": human},  # jeden zdroj pravdy
               "snapshot": {"id": "snap_" + uuid.uuid4().hex[:12], "builtAt": tokens.stamp(), "sources": sources}}
     plan_view.remember(project, workspace, result, graph)
-    return result
+    return result, graph, _repos(service, project, root, [t["work"]["repository"] for t in tickets])
+
+
+def _repos(service, project, root, more):
+    """Repozitáře, na kterých board závisí (kořen, git plánu projektu, repozitáře ticketů), bez subprocesu."""
+    try:  # plán čte graf z gitu projektu: i jeho otisk patří do klíče
+        planned = [str(service.location(project, "main")[0])]
+    except (ValueError, KeyError, LookupError, OSError):
+        planned = []
+    return tuple(sorted({gitsnap._key(repo) for repo in (str(root), *planned, *more)}))
 
 
 def grouped(service, project, workspace, root, group="branch", snapshot=None, *, pr_lookup=gh_lookup):

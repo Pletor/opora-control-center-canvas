@@ -27,7 +27,7 @@ uzavřené řádky (L9b §10.2) s kuličkami. Nic nezapisuje.
 from pathlib import Path
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
 from backend.agi_pletor.linie import (
     attempt,
@@ -102,6 +102,16 @@ def answer(act):
         return JSONResponse(error.body(), status_code=error.status)
 
 
+ENCODED = {}  # poslední hotový board → jeho JSON; opakovaný board se nekóduje znovu (~0,5 MB)
+
+
+def encoded(found):
+    """Board jako hotové JSON bajty; týž objekt z cache boardu se kóduje jen jednou."""
+    if ENCODED.get("of") is not found:
+        ENCODED.update(of=found, body=JSONResponse(found).body)
+    return Response(ENCODED["body"], media_type="application/json")
+
+
 def create_linie_work_router(service, pletor, root=None):
     router = APIRouter(prefix="/api/pletor/linie", tags=["pletor"])
     root = root or REPO_ROOT  # čteno až tady, ať test může podvrhnout repozitář
@@ -119,8 +129,11 @@ def create_linie_work_router(service, pletor, root=None):
     def board_state(request: Request, project: str = "", workspace: str = "main", group: str = "branch",
                     snapshot: str = ""):
         """`?group=plan&snapshot=<id>` = týž snímek seskupený podle plánu bez nového čtení (L7d)."""
-        return human(request, project, lambda: board.grouped(service, project, workspace, root, group,
-                                                             snapshot or None), workspace)
+        def act():
+            found = board.grouped(service, project, workspace, root, group, snapshot or None)
+            return encoded(found) if group == "branch" else found  # podle plánu je každé seskupení nový objekt
+
+        return human(request, project, act, workspace)
 
     @router.get("/board.txt")
     def board_text_get(request: Request, project: str = "", workspace: str = "main", mine: int = 0,
