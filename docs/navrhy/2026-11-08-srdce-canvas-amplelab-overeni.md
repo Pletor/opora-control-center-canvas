@@ -8,8 +8,8 @@ Návrh produktu není jeho přijetí ani realizace. Nezměněné karty, ID, hist
 
 | Milník | Nutný důkaz | Stav |
 |---|---|---|
-| M0 | Aktuální běh: poslední úspěšný a první chybějící krok; konkrétní události, kód, data; konečný inventář všech 12 kategorií operací | doloženo v diagnóze a inventáři; oprava ještě ověřována |
-| M1 | Srdce z konkrétního podkladu uloží malý návrh s vazbami; zpětné načtení přes API a obnovená stránka | neprokázáno |
+| M0 | Aktuální běh: poslední úspěšný a první chybějící krok; konkrétní události, kód, data; konečný inventář všech 12 kategorií operací | doloženo; první oprava ověřena v M1 |
+| M1 | Srdce z konkrétního podkladu uloží malý návrh s vazbami; zpětné načtení přes API a obnovená stránka | ověřeno nad aktuálním kódem Ample; původní výzkum dosud nepřipojen (M3) |
 | M2 | Každý řádek inventáře má nástroj, vstup/výstup, hranice oprávnění, chyby a ověření; pohled relace oddělen od plánu | neprokázáno |
 | M3 | Skutečné V1–V5, jejich historie, důkazy i mezery propojeny s požadavky, rozhodnutími, úkoly a ověřením | neprokázáno |
 | M4 | Neměnný pracovní balíček, jednoznačný vlastník, konflikt dvou relací, pokračování z rozpracovaného stavu | neprokázáno |
@@ -59,3 +59,19 @@ První úplný běh zachytil 17 selhání v integračních testech Heart. Šest 
 
 Cílený běh po první úpravě: 26 passed / 3 failed. Odhalil i skutečnou chybu CLI: informace pro bezpečné opakování zakryla původní radu k pracovnímu prostoru. Oprava zachovává obě informace; samostatně 16 cílených testů včetně skutečných HTTP/Git workspace scénářů prošlo. Finální běh všech 29 testů šesti dotčených modulů probíhá. Původní úplný běh nelze vydávat za zelený; obsahuje již diagnostikovaná selhání a pokračuje v ostatních oblastech.
 Finální opakování všech šesti dotčených integračních modulů: **29 passed** za 96,25 s. Výchozí návrh, výslovné přijetí, pracovní prostor i konkrétní chybová rada ověřeny. Kompletní sada zůstává nedokončená a její první běh obsahuje výše popsaná selhání.
+
+## M1: skutečný průchod Pletor → Srdce → uložený návrh → reload
+
+Pracovní backend na portu 8740 běží dočasně z větve `feat/velin-linie-plan`, revize `3a3524f1`, s původní konfigurací a skutečnými daty `P:/opora-data`. Nejde dosud o začlenění do rodiče; Linie čeká na úplné kontroly. Původní backend byl zastaven nečinný. Uživatelský Vite na 5173 zůstal spuštěný.
+
+Pletor skutečně přijal požadavek a předal `heart_message`. Heart run `a844fbfdefb44e3caf3f9403310d59d5`, Claude session `730c4aa1-1c18-4363-aca5-e2675c7b068c`. Srdce ověřilo zdrojový HEAD `c2dc67a71df5824b7916686e15886c57b6e42787`, přečetlo aktuální soubory a uložilo nepřijatý návrh `412d55d50072419fb592dd60325a45b71a60c240` s operationId `ample-v3-first-draft-20261108`.
+
+- Varianty: uzel `c53067ce-7f01-44d2-b661-5e1b6fc37301`.
+- Testovací kontrakt: uzel `c87bc089-46ec-4c68-9f0c-313a6c456b11`.
+- Vazba next `abf8343c-2d61-47d4-939a-fd50257e7867`, varianty → kontrakt; oba uzly pod existujícím sektorem `3aa787e7-9ba8-4151-b7c4-41f31491955e`.
+- Nativní GET a operation journal shodně potvrzují persisted/verified, plný obsah návrhu a accepted=false. Přijatá hlava zůstala `1941c57790454d32f91d2cb0040b6adef598cc50`, digest `893bb295bd8747f04aaca30ef2720e0577a8084057abfd86f39136f41555add4` a živý přijatý graf 185 uzlů / 116 hran.
+- Playwright ověřil zobrazení 187 uzlů / 117 hran v náhledu, detail s přesnou revizí kódu a reload; žádné pageerror. Důkazy `m1-independent-native-proof.json`, `ample-m1-browser-proof.json`, `ample-m1-canvas-reload.png`, `ample-m1-detail.png` v adresáři opora-plan-proof.
+
+Omezení skutečného běhu: Srdce hledalo původní fragment V3 jako novou research kartu a dostalo 404. Původní výzkum nepřečetlo, což samo uvedlo. Uložený návrh dokládá funkční práci s aktuálním kódem, nikoli dokončení provenience V3 či zapracování všech pěti výzkumů. Další iterace musí spojit původní ID, uložené výstupy a aktuální research model bez ztráty historie.
+
+Další selhání úplné sady: dokumentační guard postrádal existující route `/api/pletor/linie/work/{ticket_id}/tried`; chyběla již v základní revizi 70131036. Doplněn pravdivý kontrakt s lidskou autorizační hranicí; cílený modul 11 passed. Původní plný běh stále pokračuje a není zelený.

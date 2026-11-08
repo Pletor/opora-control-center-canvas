@@ -230,6 +230,7 @@ Přijetí a povolení sloučení zůstávají lidské kroky. Služba odmítne p�
 | POST `/api/pletor/linie/work/{ticket_id}/report` | `{sha, checks:[{name,status:green/red/pending}], worktree?}` hlásí hlavu a kontroly, publikuje pokus a naváže krok žádosti | člověk/agent |
 | POST `/api/pletor/linie/work/{ticket_id}/attempt` | `{branch, baseRef?, baseSha?, repo?, agent?, requestId?, idempotencyKey?}` eviduje pokus práce; větev vytváří agent | člověk/agent |
 | POST `/api/pletor/linie/work/{ticket_id}/preview` | spustí náhled větve ticketu a připne jeho revizi | člověk |
+| POST `/api/pletor/linie/work/{ticket_id}/tried` | `?project=<id>`, JSON `{}`; po skutečném otevření běžícího náhledu člověkem vrátí aktualizovaný ticket s `work.tried={sha,at}` a zapíše `linie.preview.tried`. SHA bere z náhledu, nikoli ze vstupu; bez běžícího náhledu 409 `preview_not_running`. Nepřijímá ani neslučuje práci; agent nesmí tento lidský doklad nahrazovat vlastním tvrzením. | pouze skutečný člověk v UI (`require_human`, i při plné autonomii) |
 | POST/DELETE `/api/pletor/linie/work/{ticket_id}/accept` | POST `{sha, note?}` přijme konkrétní aktuální hlavu; DELETE toto přijetí odvolá | člověk |
 | POST `/api/pletor/linie/work/{ticket_id}/allow-merge` | `{target?}` povolí sloučení přijaté hlavy do konkrétního cíle a jeho aktuální revize | člověk |
 | POST `/api/pletor/linie/work/{ticket_id}/accept-merge` | `{sha, op?, note?}` provede přijetí, povolení a sloučení, zastaví se na první zavřené bráně | člověk |
