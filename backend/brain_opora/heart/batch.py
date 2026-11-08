@@ -49,6 +49,7 @@ class BatchSpec:
     source_root: Path | None = None
     model: str = command.MODEL  # uzel `model.claude` enginu toků; výchozí = dnešní srdce
     advisor_model: str = command.ADVISOR
+    effort: str | None = None  # uzel `model.claude`: hloubka uvažování hlavního modelu, None = výchozí
     subcommands: tuple | None = None  # uzel `tool.opora_heart`: povolené podpříkazy, None = všechny
     steps: list = field(default_factory=list)  # kroky běžící dávky, plní se za běhu (`steps.py`, `current.steps`)
 
@@ -257,7 +258,7 @@ def run(spec, runner=run_process, clock=time.time):
     advisor = advisor_spent(brain, started) < ADVISOR_DAY_USD
     line = command.build_command(spec.claude, session_id=session_id, resume=resume, settings_path=settings_path,
                                  mcp_path=mcp_path, prompt_file=prompt_path, source_root=spec.source_root, advisor=advisor, model=spec.model,
-                                 advisor_model=spec.advisor_model, subcommands=spec.subcommands)
+                                 advisor_model=spec.advisor_model, subcommands=spec.subcommands, effort=spec.effort)
     env = command.child_env(base_url=spec.base_url, token=spec.token, project=spec.project, workspace=spec.workspace,
                             source_root=spec.source_root)
     live = Steps(clock, started, spec.token, spec.steps)

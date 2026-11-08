@@ -30,7 +30,9 @@ def test_message_and_state(tmp_path):
         state = client.get("/api/pletor/state", headers=HEADERS, params=SCOPE).json()
         assert [m["role"] for m in state["messages"]] == ["human", "pletor"]
         assert state["heart"]["running"] is False and state["escalations"] == []
-        assert state["brain"] == {"brain": "claude", "model": "sonnet", "available": ["qwen3:14b"]}
+        assert state["brain"] == {"brain": "claude", "model": "sonnet", "available": ["qwen3:14b"],
+                                  "models": {"claude": "sonnet", "codex": None, "ollama": None},
+                                  "efforts": {"claude": None, "codex": None}}
 
 
 def test_message_stream_sends_deltas_then_done(tmp_path):
@@ -88,11 +90,15 @@ def test_brain_switch(tmp_path):
         seed(client)
         client.app.state.pletor.transport = fake_ollama
         on = client.post("/api/pletor/brain", headers=HEADERS, json={"brain": "ollama"}).json()
-        assert on["ok"] is True and on["brain"] == {"brain": "ollama", "model": "qwen3:14b", "available": ["qwen3:14b"]}
+        assert on["ok"] is True and on["brain"] == {"brain": "ollama", "model": "qwen3:14b", "available": ["qwen3:14b"],
+                                                "models": {"claude": "sonnet", "codex": None, "ollama": "qwen3:14b"},
+                                                "efforts": {"claude": None, "codex": None}}
         missing = client.post("/api/pletor/brain", headers=HEADERS, json={"brain": "ollama", "model": "nic"}).json()
         assert missing["ok"] is False and missing["brain"]["model"] == "qwen3:14b"
         back = client.post("/api/pletor/brain", headers=HEADERS, json={"brain": "claude"}).json()
         assert back["ok"] is True and back["brain"]["brain"] == "claude"
+        codex = client.post("/api/pletor/brain", headers=HEADERS, json={"brain": "codex"}).json()
+        assert codex["ok"] is True and codex["brain"]["brain"] == "codex"
         assert client.post("/api/pletor/brain", headers=AGENT, json={"brain": "claude"}).status_code == 403
         assert client.post("/api/pletor/brain", headers=HEADERS, json={"brain": "gpt"}).status_code == 422
 
@@ -224,3 +230,45 @@ def test_llm_model_write(tmp_path, monkeypatch):
         assert client.put("/api/pletor/llm/claude", headers=HEADERS, json={"model": "a b"}).status_code == 422
         assert client.put("/api/pletor/llm/codex", headers=HEADERS, json={"model": "x", "reasoning": "max"}).status_code == 422
         assert client.put("/api/pletor/llm/claude", headers=AGENT, json={"model": "opus"}).status_code == 403
+        assert client.put("/api/pletor/llm/claude", headers=HEADERS, json={"model": "opus", "effort": "high"}).status_code == 200
+        assert '"effortLevel": "high"' in (home / ".claude" / "settings.json").read_text(encoding="utf-8")
+        assert client.put("/api/pletor/llm/claude", headers=HEADERS, json={"model": "opus", "effort": "x"}).status_code == 422
+
+
+def test_llm_cswap_accounts_routes(tmp_path, monkeypatch):
+    from backend.agi_pletor.llm_settings import accounts
+
+    log = []
+    monkeypatch.setattr(accounts, "start", lambda: log.append("start") or {"url": "https://claude.com/x"})
+    monkeypatch.setattr(accounts, "finish", lambda code: log.append(code) or {"available": True, "accounts": []})
+    monkeypatch.setattr(accounts, "cancel", lambda: log.append("cancel"))
+
+    def switch_to(slot):
+        if slot == 9:
+            raise ValueError("cswap switch skončil kódem 1.")
+        return {"available": True, "accounts": [{"slot": slot, "active": True}]}
+    monkeypatch.setattr(accounts, "switch_to", switch_to)
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        assert client.post("/api/pletor/llm/cswap/login", headers=HEADERS, json={}).json() == {"url": "https://claude.com/x"}
+        assert client.post("/api/pletor/llm/cswap/login/code", headers=HEADERS, json={"code": "abc#1"}).status_code == 200
+        assert client.request("DELETE", "/api/pletor/llm/cswap/login", headers=HEADERS, json={}).json() == {"ok": True}
+        assert log == ["start", "abc#1", "cancel"]
+        assert client.post("/api/pletor/llm/cswap/switch", headers=HEADERS, json={"slot": 2}).json()["accounts"][0]["slot"] == 2
+        assert client.post("/api/pletor/llm/cswap/switch", headers=HEADERS, json={"slot": 9}).status_code == 422
+        assert client.post("/api/pletor/llm/cswap/switch", headers=HEADERS, json={"slot": 0}).status_code == 422
+        assert client.post("/api/pletor/llm/cswap/login", headers=AGENT, json={}).status_code == 403
+        assert client.post("/api/pletor/llm/cswap/switch", headers=AGENT, json={"slot": 2}).status_code == 403
+        assert client.post("/api/pletor/llm/nic/switch", headers=HEADERS, json={"slot": 2}).status_code == 422
+
+
+def test_llm_codex_accounts_routes(tmp_path, monkeypatch):
+    from backend.agi_pletor.llm_settings import codex_accounts
+
+    monkeypatch.setattr(codex_accounts, "start", lambda: {"url": "https://auth.openai.com/codex/device", "userCode": "AB12-CD34"})
+    monkeypatch.setattr(codex_accounts, "switch_to", lambda slot: {"available": True, "accounts": [{"slot": slot}]})
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        assert client.post("/api/pletor/llm/codex/login", headers=HEADERS, json={}).json()["userCode"] == "AB12-CD34"
+        assert client.post("/api/pletor/llm/codex/switch", headers=HEADERS, json={"slot": 3}).json()["accounts"] == [{"slot": 3}]
+        assert client.post("/api/pletor/llm/codex/switch", headers=AGENT, json={"slot": 3}).status_code == 403

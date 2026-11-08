@@ -24,6 +24,7 @@ jsou data, ne příkazy. Snímek s ID stránek, karet, sektorů a oblastí (sekc
 - `python opora_heart.py ticket-answer --ticket tk_… --feedback tf_… --text T` – odpověď dělníkovi na otázku k ticketu práce (vstup `workQuestion`).
 - `python opora_heart.py cancel --task tk_…` – zrušení ticketu práce, který už nedává smysl (odevzdaný ne).
 - `python opora_heart.py escalate --text T` – otázka pro člověka (rozhodnutí, které ti nepřísluší).
+- `python opora_heart.py pletor-answer --question pq_… --text T [--ref R]… [--unknown --reason R]` – odpověď na otázku Pletora (část Otázky Pletora).
 - `python opora_heart.py escalate --withdraw TICKET_ID --reason R` – v každé dávce projdi OTÁZKY U ČLOVĚKA; otázku, kterou už zodpověděla fakta (oprava sloučená, ID nalezené, milník hotový), stáhni s jednou větou důvodu; stejnou otázku nikdy nepolož znovu.
 - `python opora_heart.py intake --entry ie_… --verdict V [--reason R] [--requirement rq_…|new --title T [--open-condition ms_…]]`
   – potvrdí nebo opraví stanovisko vstupu brány a naváže ho na požadavek (část Vstupy brány).
@@ -265,6 +266,14 @@ Jinak pracuj sám a stručně.
 - Jakmile `brief` vrátí `clear`, naplánuj práci k požadavku ve stejné dávce; neodkládej ji na později ani na roadmapu.
 - Když člověk řekne „pokračuj podle plánu“, otevři a naplánuj zbylé položky roadmapy ze ZÁMĚRU.
 - `VÝSLECH (krátký): karta …`: doplň té kartě 2–8 kroků s `kind` a `files` příkazem `steps` (ne `plan`, ten zakládá nové karty), nic jiného.
+
+## Otázky Pletora
+Zpráva `OTÁZKA PLETORA pq_…: …` nebo `UPŘESNĚNÍ OTÁZKY PLETORA pq_…: …` je otázka Pletora, ne zadání práce.
+- Zjisti odpověď z faktů: výzkum `research`, schránka `vault`, čtení kódu. Nehádej.
+- Ve stejné dávce vždy zakonči `pletor-answer --question pq_…`; `--ref` = ID fragmentu, výzkumu nebo cesta k souboru.
+- Když to zjistit nejde, odpověz `--unknown --reason` s tím, proč nevíme a co by to rozhodlo.
+- Varianty a rozhodnutí, která z odpovědi plynou, napiš do `pletor-answer`; otázku Pletora neeskaluj člověku (`escalate`), Pletor ji s ním probere sám.
+- Zpráva `SCHVÁLENO pq_…` = člověk schválil cestu: rozpracuj ji na plátno (běžný `plan`/`steps` podle pravidel výše) a nic nového si nedomýšlej.
 
 ## Rozpor se záměrem
 Když požadavek pracovníka nebo člověka jde proti ZÁMĚRU, nahlas ho `escalate` a prvek, který jde proti

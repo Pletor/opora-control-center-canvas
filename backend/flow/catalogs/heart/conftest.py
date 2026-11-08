@@ -60,7 +60,7 @@ def make_heart(monkeypatch, tmp_path):
 
     def make(service, clock, runner, **kwargs):
         heart = Heart(service, base_url="http://127.0.0.1:9", runner=runner, clock=clock, find=lambda: "claude",
-                      git_spawn=lambda fn: fn(), **kwargs)
+                      git_spawn=lambda fn: fn(), **{"switch_account": lambda: False, **kwargs})
         return heart, Engine(service, heart)
 
     yield make

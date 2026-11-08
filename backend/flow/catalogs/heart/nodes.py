@@ -96,13 +96,15 @@ def _agent(ctx, runtime):
                            token=heart._token(project, workspace), project=project, workspace=workspace,
                            snapshot=data["snapshot"], skills=skills, inputs=inputs,
                            source_root=heart._source(project, workspace),
-                           model=model["model"], advisor_model=model["advisor"],
+                           model=model["model"], advisor_model=model["advisor"], effort=model.get("effort") or None,
                            subcommands=_subcommands(ctx["config"].get("tool") or []),
                            steps=heart.current[project]["steps"])
     entry = batch.run(spec, heart.runner, heart.clock)
     heart.errors.pop(project, None)
     if entry["status"] == "rate_limited":
-        heart.sleeping_until = heart.clock() + float(params(ctx["node"], AGENT_DEFAULTS)["rate_sleep_seconds"])
+        # jiný účet claude-swap s volnou kvótou = vstupy hned zpátky do fronty, spí se jen bez něj
+        sleep = 0.0 if heart.switch_account() else float(params(ctx["node"], AGENT_DEFAULTS)["rate_sleep_seconds"])
+        heart.sleeping_until = heart.clock() + sleep
         for item in data["items"]:
             heart._add(project, workspace, item, heart.sleeping_until)
     output = {key: entry.get(key) for key in ("at", "status", "sessionId", "costUsd", "numTurns", "summary", "error",

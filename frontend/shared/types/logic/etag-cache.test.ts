@@ -76,6 +76,33 @@ describe("api conditional GET", () => {
 describe("api human session", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it("initializes a fresh research deep link before reading scoped events", async () => {
+    vi.resetModules();
+    const { api: freshApi } = await import("@/shared/types/logic/types");
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      calls.push(url);
+      return new Response(url === "/api/access/ui-session" ? "{}" : '{"events":[]}', { status: 200 });
+    }));
+    const url = "/api/research/events?project=p&workspace=w";
+    expect(await freshApi(url)).toEqual({ events: [] });
+    expect(calls).toEqual(["/api/access/ui-session", url]);
+  });
+
+  it("renews an expired research session once without swallowing authorization errors", async () => {
+    vi.resetModules();
+    const { api: freshApi } = await import("@/shared/types/logic/types");
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      calls.push(url);
+      return new Response(url === "/api/access/ui-session" ? "{}" : '{"error":"Denied"}',
+        { status: url === "/api/access/ui-session" ? 200 : 401 });
+    }));
+    const url = "/api/research?project=p&workspace=w";
+    await expect(freshApi(url)).rejects.toThrow("Denied");
+    expect(calls).toEqual(["/api/access/ui-session", url, "/api/access/ui-session", url]);
+  });
+
   it("renews the UI session after a restart and repeats a human-only read once", async () => {
     const calls: string[] = [];
     const replies = [

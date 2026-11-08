@@ -1,0 +1,15 @@
+/* Člověk vidí podklady posouzení a následný návrh odděleně; formulář drží čitelné pořadí kroků v úzkém detailu. */
+.research-decision { border-top: 1px solid var(--line, #344049); padding-top: 14px; }
+.research-decision label { display: grid; gap: 5px; margin-block: 10px; }
+.research-decision fieldset { min-width: 0; border: 1px solid var(--line, #344049); border-radius: 6px; padding: 10px; margin-block: 10px; }
+.research-decision legend { font-weight: 600; padding-inline: 4px; }
+.research-decision input:not([type="checkbox"]), .research-decision textarea, .research-decision select { width: 100%; box-sizing: border-box; min-width: 0; background: var(--bg, #11181d); color: inherit; border: 1px solid var(--line, #344049); border-radius: 4px; padding: 7px; }
+.research-decision textarea { min-height: 75px; resize: vertical; }
+.research-decision .research-decision__check { display: flex; align-items: start; gap: 8px; }
+.research-decision__check input { flex-shrink: 0; margin-top: 3px; }
+.research-decision dt { font-weight: 600; margin-top: 10px; }
+.research-decision dd { margin: 4px 0; white-space: pre-wrap; }
+.research-decision__status { border-left: 3px solid #81b9a6; padding-left: 9px; }
+.research-decision__proposal { border-left: 3px solid #c9b477; padding-left: 9px; }
+.research-decision button { margin: 5px 6px 5px 0; }
+.research-decision__proposal a { display: block; margin-block: 10px; }

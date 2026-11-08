@@ -34,8 +34,7 @@
 .pletor-dashboard__title:focus-visible {
   outline: none;
 }
-.pletor-dashboard__button,
-.pletor-dashboard__choice {
+.pletor-dashboard__button {
   padding: 7px 14px;
   border: 1px solid var(--pletor-line);
   background: var(--pletor-accent-soft);
@@ -44,7 +43,6 @@
   cursor: pointer;
 }
 .pletor-dashboard__button:focus-visible,
-.pletor-dashboard__choice:focus-visible,
 .pletor-dashboard__tab:focus-visible {
   outline: 2px solid var(--pletor-accent);
   outline-offset: 2px;
@@ -169,20 +167,6 @@
   font-size: 11px;
 }
 
-/* Přepínač mozku: dvě tlačítka vedle sebe; zvolený mozek svítí, nedostupný (Ollama bez modelu) je tlumený. */
-.pletor-dashboard__switch {
-  display: flex;
-  gap: 8px;
-}
-.pletor-dashboard__choice[aria-pressed="true"] {
-  background: var(--pletor-accent);
-  color: var(--pletor-bg);
-}
-.pletor-dashboard__choice:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
 /* Hlasy jen ke čtení: skupina na engine, pod ní řádky se jménem, štítkem cloud/lokální a důvodem, když hlas nejde. */
 .pletor-dashboard__voices {
   margin: 0;
@@ -211,4 +195,32 @@
   position: absolute;
   inset: 0;
   z-index: auto;
+}
+
+/* Mozek a LLM: každý agent má vlastní sekci s nadpisem a jednou větou o roli, aby bylo vidět, že Pletor a srdce se nastavují zvlášť;
+   mezi sekcemi je vzduch a tenká čára, společná část počítače jde až na konec. */
+.pletor-dashboard__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--pletor-line);
+}
+.pletor-dashboard__section-title {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* Model srdce: dva výběry vedle sebe s popiskem Model / Poradce, hned pod větou o roli srdce. */
+.heart-model {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.heart-model__field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--pletor-dim);
 }

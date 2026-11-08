@@ -1,6 +1,6 @@
 /* Přehled LLM počítače jsou čtyři karty pod sebou ve stejném pořadí, v jakém člověk na modely myslí: Claude Code,
-   Codex, Ollama, nakonec účty. Nahoře jedna věta stavu a tlačítko Obnovit; čtení trvá pár sekund (verze CLI, cswap),
-   proto se nečte samo při každém otevření. Je to přehled, ne formulář: žádné pole se tu nedá upravit. */
+   Codex, Ollama, nakonec účty Claude Code a Codexu. Nahoře jedna věta stavu a tlačítko Obnovit; čtení trvá pár sekund (verze CLI, cswap),
+   proto se nečte samo při každém otevření. Je to přehled; jediné, co člověk mění, jsou účty Claude Code dole. */
 .pletor-llm {
   display: flex;
   flex-direction: column;
@@ -158,3 +158,70 @@
 .pletor-llm__bar--warn .pletor-llm__fill { background: #e8c46a; }
 .pletor-llm__bar--high .pletor-llm__fill { background: var(--pletor-error); }
 .pletor-llm__bar--unknown .pletor-llm__fill { background: transparent; }
+
+/* Účty jsou jediné místo, kde člověk zasahuje: u neaktivního účtu drobné Přepnout vpravo v řádku se jménem, pod
+   seznamem Přidat účet. Po kliknutí se místo tlačítka rozvine krátký návod ve dvou krocích a jeden řádek s polem na
+   kód a dvěma tlačítky; přihlášení samo proběhne v prohlížeči, tady se jen předá, co prohlížeč ukázal. */
+.pletor-llm__switch {
+  float: right;
+  min-height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--pletor-ink);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.pletor-llm__switch:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+.pletor-llm__login {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.pletor-llm__link {
+  color: var(--pletor-accent);
+}
+.pletor-llm__login-row {
+  display: flex;
+  gap: 6px;
+}
+.pletor-llm__code {
+  flex: 1;
+  min-width: 0;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pletor-ink);
+  font: inherit;
+  font-size: 11px;
+}
+.pletor-llm__user-code {
+  color: var(--pletor-accent);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+/* Model Claude Code a Codexu se v kartě volí ze seznamu přímo v řádku „model“; pod ním drobná věta připomíná, že seznam
+   platí jen pro právě přihlášený účet. Změna se zapíše hned, proto výběr vypadá jako ostatní hodnoty karty, jen s okrajem. */
+.pletor-llm__model {
+  max-width: 100%;
+  min-height: 24px;
+  border: 1px solid var(--pletor-line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pletor-ink);
+  font: inherit;
+  font-size: 11px;
+}
+.pletor-llm__model:focus-visible {
+  outline: 2px solid var(--pletor-accent);
+  outline-offset: 1px;
+}

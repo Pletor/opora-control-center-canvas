@@ -4,12 +4,14 @@ Druhy požadavků, jejich kontroly a obsluhy drží tabulka `kinds.py`; tady jso
 a jejich ověření, zápis lístku (`record`), odpověď člověka nebo srdce, eskalace srdce a schránka.
 Lístek `change` / `ask` pracovníka zapíše i vstup vstupní brány (`intake.py`); srdce budí dál.
 Vytvoření i odpověď lístku vydají událost `gate.ticket`. Nic tu nevolá model.
+Nová a stažená eskalace srdce zavolá hák `service.heart_escalation_hook` (Pletor, registruje `factory.py`).
 """
 import json
+import logging
 import time
 import uuid
 
-from backend.brain_opora.determinism import intake, tokens
+from backend.brain_opora.determinism import gate_setting, intake, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, answer_payload, session_payload
 from backend.canvas.opora_events import emit_event
 from database.repositories.gate_tickets import GateTicketStore
@@ -17,6 +19,7 @@ from database.repositories.gate_tickets import GateTicketStore
 INBOX_LIMIT = 100
 INTAKE_TEXT = {"change": "proposal", "ask": "question"}  # pole lístku, které jde jako věta do vstupní brány
 TOKEN_HINT = "Založte relaci: POST /api/gate/sessions a pošlete token v hlavičce X-Opora-Gate-Token."
+LOGGER = logging.getLogger(__name__)
 WRITERS = {"human": {"kind": "human", "name": None}, "heart": {"kind": "agent", "name": "heart"}}
 
 
@@ -98,9 +101,23 @@ def record(service, session, kind, body, now=None, *, answered=False, answer=Non
     return ticket
 
 
+def _announce(service, project, workspace, ticket_id, text, withdrawn=False):
+    """Hák eskalací pro Pletora; bez háku (testy, srdce vypnuté) nic. Lístek už je zapsaný, chyba háku ho nevrací."""
+    hook = getattr(service, "heart_escalation_hook", None)
+    if hook is None:
+        return
+    try:
+        hook(project, workspace, ticket_id, text, withdrawn)
+    except Exception:  # noqa: BLE001 – srdce by po chybě eskalaci zopakovalo a člověk by ji měl dvakrát
+        LOGGER.exception("Hák eskalace srdce selhal (%s).", ticket_id)
+
+
 def escalate(service, session, text, now=None):
     """Otázka srdce pro člověka: čekající lístek `ask` `{text, for: "human"}`; srdce se na ni samo nebudí."""
-    return record(service, session, "ask", {"text": text, "for": "human"}, now)
+    ticket = record(service, session, "ask", {"text": text, "for": "human"}, now)
+    # OP-FB0522.c1: jeden rozhovor – Pletor se o nové otázce srdce dozví hned a sežene člověka
+    _announce(service, session["project_id"], session["workspace_id"], ticket["ticketId"], text)
+    return ticket
 
 
 def escalations(service, project, workspace, limit=INBOX_LIMIT):
@@ -141,6 +158,7 @@ def withdraw(service, session, ticket_id, reason, now=None):
                                 "Otevřené otázky jsou ve snímku v sekci OTÁZKY U ČLOVĚKA.")
             ticket = store.get(ticket_id)
             _emit(db, project, workspace, ticket, _actor(session))
+    _announce(service, project, workspace, ticket_id, reason, withdrawn=True)
     return ticket
 
 
@@ -148,6 +166,17 @@ def heart_escalation_workspace(service, project, ticket_id):
     """Pracovní prostor lístku, když jde o eskalaci srdce pro člověka; jinak None (lístek pracovníka)."""
     with service.reading(project):
         return GateTicketStore(service.db_for(project), project).heart_escalation_workspace(ticket_id)
+
+
+def wake_heart(service, heart, project, ticket):
+    """Odpověď člověka na eskalaci srdce = zpráva člověka srdci (obchází hodinový strop, #149).
+    Volá ji panel (`POST /api/gate/tickets/{id}/answer`) i Pletor (akce `heart_escalation_answer`)."""
+    workspace = heart_escalation_workspace(service, project, ticket["ticketId"])
+    if heart is None or workspace is None or not gate_setting.is_on(service, project):
+        return
+    heart.message(project, workspace,
+                  f"ODPOVĚĎ ČLOVĚKA na {ticket['ticketId']}: {answer_text(ticket['answer'])}",
+                  record_intake=False)  # odpověď na otázku srdce není nový požadavek pro vstupní bránu
 
 
 def answer_text(value):

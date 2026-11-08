@@ -11,6 +11,7 @@ import os
 import re
 from pathlib import Path
 
+from backend.agi_pletor.llm_settings import cswap
 from backend.agi_pletor.pletor_opora_settings import skills_store
 from backend.brain_opora.heart import batch, command, session
 from backend.brain_opora.heart.process import run_process
@@ -22,9 +23,10 @@ TIMEOUT = 180
 MAX_TURNS = 2  # bez nástrojů stačí jeden tah; druhý je rezerva
 
 
-def build_command(claude, session_id, resume, prompt_path=PERSONA):
+def build_command(claude, session_id, resume, prompt_path=PERSONA, model=MODEL, effort=None):
     return [claude, "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
-            "--model", MODEL, *(["--resume", session_id] if resume else ["--session-id", session_id]),
+            "--model", model, *(["--effort", effort] if effort else []),
+            *(["--resume", session_id] if resume else ["--session-id", session_id]),
             "--setting-sources", "project", "--strict-mcp-config", "--tools", "", "--permission-mode", "dontAsk",
             "--system-prompt-file", str(prompt_path), "--disable-slash-commands", "--max-turns", str(MAX_TURNS)]
 
@@ -122,9 +124,11 @@ def stream_lines(on_delta):
     return line
 
 
-def turn(folder, stdin_text, *, runner=run_process, find=command.find_claude, on_delta=None):
+def turn(folder, stdin_text, *, runner=run_process, find=command.find_claude, on_delta=None, switch=None,
+         model=MODEL, effort=None):
     """Spustí tah a vrátí `(reply, actions)`; chyba procesu je `RuntimeError` s českou zprávou.
-    `on_delta(text)` dostává za běhu kousky odpovědi (`stream_lines`)."""
+    `on_delta(text)` dostává za běhu kousky odpovědi (`stream_lines`). Po limitu předplatného přepne účet
+    claude-swap (`switch`) a tah jednou zopakuje."""
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     claude = find()
@@ -135,7 +139,7 @@ def turn(folder, stdin_text, *, runner=run_process, find=command.find_claude, on
     prompt_path.write_bytes(prompt)
     digest = hashlib.sha256(prompt).hexdigest()  # změna persony i skillu = nová relace
     session_id, resume = session.choose(folder, prompt_digest=digest)
-    outcome = runner(build_command(claude, session_id, resume, prompt_path), cwd=str(folder), env=child_env(),
+    outcome = runner(build_command(claude, session_id, resume, prompt_path, model, effort), cwd=str(folder), env=child_env(),
                      stdin_text=stdin_text, timeout=TIMEOUT,
                      on_line=stream_lines(on_delta) if on_delta else None)
     result = batch.parse(outcome.stdout)
@@ -147,6 +151,9 @@ def turn(folder, stdin_text, *, runner=run_process, find=command.find_claude, on
         session.record(folder, result["session_id"],
                        session.context_tokens(outcome.stdout, result) if ok else session.ROTATE_AT + 1, digest)
     if result is None or result.get("is_error"):
-        detail = "limit předplatného" if batch.rate_limited(result, outcome.stderr) else "chyba procesu"
-        raise RuntimeError(f"Pletor teď neodpovídá ({detail}).")
+        limited = batch.rate_limited(result, outcome.stderr)
+        if limited and (switch or cswap.switch)():  # výchozí až za běhu, aby ho testy mohly vypnout
+            return turn(folder, stdin_text, runner=runner, find=find, on_delta=on_delta, switch=lambda: False,
+                        model=model, effort=effort)
+        raise RuntimeError(f"Pletor teď neodpovídá ({'limit předplatného' if limited else 'chyba procesu'}).")
     return parse_reply(result.get("result"))

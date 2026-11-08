@@ -1,44 +1,64 @@
 import { api, apiStream } from "@/shared/types/logic/types";
 import type { HeartStatus } from "@/layout/heart-channel/logic/heart-api";
 import { statusLine } from "@/layout/heart-channel/logic/heart-status";
-import { parseLlm, type PletorLlm } from "./llm-settings";
+import { parseCswap, parseLlm, type CswapLlm, type PletorLlm } from "./llm-settings";
 
 /** Síťová volání okna Pletor (docs/navrhy/2026-11-04-pletor-jarvis.md, P1) a mapování odpovědí na to, co okno ukáže. */
 
-export type PletorRole = "human" | "pletor";
+/** `heart` = odpověď srdce na otázku Pletora, zapsaná do rozhovoru serverem (docs/navrhy/2026-11-08-pletor-otazky-srdci.md). */
+export type PletorRole = "human" | "pletor" | "heart";
 export type PletorMessage = { role: PletorRole; text: string; at: string };
-export type PletorActionType = "heart_message" | "vault_note";
+export type PletorActionType = "heart_message" | "vault_note" | "heart_question" | "heart_question_close" | "heart_escalation_answer";
 export type PletorAction = { type: PletorActionType; text: string; ok: boolean; detail?: string };
 export type PletorReply = { reply: string; actions: PletorAction[] };
-/** Zvolený mozek Pletora (P2): Claude pod předplatným, nebo lokální model v Ollamě; přepíná se větou nebo v nastavení.
- *  `available` jsou modely Ollamy i při Claude, aby nastavení ukázalo, kterým lokálním modelem by Pletor mluvil. */
-export type PletorBrain = { brain: "claude" | "ollama"; model: string | null; available: string[] };
+/** Zvolený mozek Pletora: Claude nebo Codex pod předplatným, nebo lokální model v Ollamě; přepíná se větou nebo v nastavení.
+ *  `model` je model zvoleného mozku (Codex `null` = výchozí z Codexu), `available` modely Ollamy i při jiném mozku
+ *  a `models` uložená volba modelu pro každý mozek (M2d). */
+export type PletorBrainKind = "claude" | "codex" | "ollama";
+export type PletorBrain = {
+  brain: PletorBrainKind; model: string | null; available: string[];
+  models: Record<PletorBrainKind, string | null>;
+  /** Uložený effort Claude a Codexu, null = výchozí; Ollama effort nemá. */
+  efforts: Record<"claude" | "codex", string | null>;
+};
 export type PletorState = { messages: PletorMessage[]; heart: unknown; escalations: unknown[]; brain: PletorBrain };
 
-export const CLAUDE_BRAIN: PletorBrain = { brain: "claude", model: null, available: [] };
+export const CLAUDE_BRAIN: PletorBrain = { brain: "claude", model: null, available: [], models: { claude: null, codex: null, ollama: null }, efforts: { claude: null, codex: null } };
 
 /** Pole `brain` ze stavu; chybějící nebo cizí hodnota je Claude (výchozí mozek). */
 export function parseBrain(value: unknown): PletorBrain {
   const raw = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   const available = Array.isArray(raw.available) ? raw.available.filter((name): name is string => typeof name === "string") : [];
-  const model = typeof raw.model === "string" ? raw.model : null;
-  return { brain: raw.brain === "ollama" ? "ollama" : "claude", model: raw.brain === "ollama" || raw.brain === "claude" ? model : null, available };
+  const saved = (raw.models && typeof raw.models === "object" ? raw.models : {}) as Record<string, unknown>;
+  const pick = (kind: PletorBrainKind) => (typeof saved[kind] === "string" && saved[kind] ? saved[kind] as string : null);
+  const efforts = (raw.efforts && typeof raw.efforts === "object" ? raw.efforts : {}) as Record<string, unknown>;
+  const level = (kind: "claude" | "codex") => (typeof efforts[kind] === "string" && efforts[kind] ? efforts[kind] as string : null);
+  const known = raw.brain === "ollama" || raw.brain === "codex" || raw.brain === "claude";
+  return {
+    brain: known ? raw.brain as PletorBrainKind : "claude", available,
+    model: known && typeof raw.model === "string" ? raw.model : null,
+    models: { claude: pick("claude"), codex: pick("codex"), ollama: pick("ollama") },
+    efforts: { claude: level("claude"), codex: level("codex") },
+  };
 }
 
-/** Přepnutí mozku (`POST /api/pletor/brain`); `ok: false` nese důvod v `reply` (např. Ollama nemá model). */
-export const setPletorBrain = (brain: PletorBrain["brain"]) =>
-  api<{ ok?: unknown; reply?: unknown; brain?: unknown }>("/api/pletor/brain", { brain }).then((raw) => ({
+/** Přepnutí mozku (`POST /api/pletor/brain {brain, model?, effort?}`; effort "" = výchozí); `ok: false` nese důvod v `reply` (např. Ollama nemá model). */
+export const setPletorBrain = (brain: PletorBrainKind, model?: string, effort?: string) =>
+  api<{ ok?: unknown; reply?: unknown; brain?: unknown }>("/api/pletor/brain", { brain, ...(model ? { model } : {}), ...(effort === undefined ? {} : { effort }) }).then((raw) => ({
     ok: raw.ok === true, reply: typeof raw.reply === "string" ? raw.reply : "", brain: parseBrain(raw.brain),
   }));
 
-/** Readout mozku do rohu HUD: `claude`, nebo `ollama · <model>`. */
-export const brainText = (brain: PletorBrain) => (brain.brain === "ollama" && brain.model ? `ollama · ${brain.model}` : brain.brain);
+/** Readout mozku do rohu HUD: `claude · haiku`, `codex · gpt-6.1-sol`, `ollama · <model>`; bez modelu jen jméno mozku. */
+export const brainText = (brain: PletorBrain) => (brain.model ? `${brain.brain} · ${brain.model}` : brain.brain);
 
-const CLAUDE_NAMES: Record<string, string> = { sonnet: "Claude Sonnet 5.5", opus: "Claude Opus 5.5", haiku: "Claude Haiku 5.5" };
+const CLAUDE_NAMES: Record<string, string> = {
+  fable: "Claude Fable 5.1", sonnet: "Claude Sonnet 5.5", opus: "Claude Opus 5.5", haiku: "Claude Haiku 5.5",
+};
 
-/** Co člověk vidí pod jádrem: který model mluví a kdo ho platí. Claude jede pod předplatným, Ollama je lokální a zdarma. */
+/** Co člověk vidí pod jádrem: který model mluví a kdo ho platí. Claude a Codex jedou pod předplatným, Ollama je lokální a zdarma. */
 export function brainLabel(brain: PletorBrain): { name: string; plan: string; local: boolean } {
   if (brain.brain === "ollama") return { name: brain.model ?? "lokální model", plan: "lokální · zdarma", local: true };
+  if (brain.brain === "codex") return { name: brain.model ?? "Codex", plan: "pod předplatným ChatGPT", local: false };
   const alias = brain.model ?? "sonnet";
   return { name: CLAUDE_NAMES[alias] ?? `Claude ${alias}`, plan: "cloud · předplatné", local: false };
 }
@@ -52,7 +72,7 @@ export function parseState(value: unknown): PletorState {
   const messages = Array.isArray(raw.messages) ? raw.messages : [];
   return {
     messages: messages.filter((m): m is PletorMessage =>
-      !!m && (m.role === "human" || m.role === "pletor") && typeof m.text === "string"),
+      !!m && (m.role === "human" || m.role === "pletor" || m.role === "heart") && typeof m.text === "string"),
     heart: raw.heart ?? null,
     escalations: Array.isArray(raw.escalations) ? raw.escalations : [],
     brain: parseBrain(raw.brain),
@@ -72,7 +92,23 @@ export function parseReply(value: unknown): PletorReply {
 export const fetchPletorLlm = (): Promise<PletorLlm> => api<unknown>("/api/pletor/llm").then(parseLlm);
 
 /** Zápis modelu (M2): `PUT /api/pletor/llm/claude|codex`; vrací název zálohy (`null` = soubor dosud nebyl). */
-export const putPletorLlm = (target: "claude" | "codex", body: { model: string; reasoning?: string }): Promise<string | null> =>
+/** Přepínač účtů: `cswap` = Claude Code (claude-swap), `codex` = Codex (codex-swap). */
+export type AccountTool = "cswap" | "codex";
+/** Spuštěné přihlášení: adresa k otevření, u Codexu i jednorázový kód, který člověk zadá na stránce. */
+export type AccountLogin = { url: string; userCode: string | null };
+
+export const startAccountLogin = (tool: AccountTool): Promise<AccountLogin> =>
+  api<{ url?: unknown; userCode?: unknown }>(`/api/pletor/llm/${tool}/login`, {}).then((out) => {
+    if (typeof out.url !== "string" || !out.url.startsWith("https://")) throw new Error("Server nevrátil adresu k přihlášení.");
+    return { url: out.url, userCode: typeof out.userCode === "string" ? out.userCode : null };
+  });
+export const finishAccountLogin = (tool: AccountTool, code: string): Promise<CswapLlm> =>
+  api<unknown>(`/api/pletor/llm/${tool}/login/code`, { code }).then(parseCswap);
+export const cancelAccountLogin = (tool: AccountTool): Promise<unknown> => api<unknown>(`/api/pletor/llm/${tool}/login`, {}, "DELETE");
+export const switchAccount = (tool: AccountTool, slot: number): Promise<CswapLlm> =>
+  api<unknown>(`/api/pletor/llm/${tool}/switch`, { slot }).then(parseCswap);
+
+export const putPletorLlm = (target: "claude" | "codex", body: { model: string; reasoning?: string; effort?: string }): Promise<string | null> =>
   api<{ backup?: unknown }>(`/api/pletor/llm/${target}`, body, "PUT").then((out) => (typeof out.backup === "string" ? out.backup : null));
 
 export const fetchPletorState =(project: string, workspace: string) =>
@@ -120,6 +156,25 @@ export function heartText(heart: unknown): string {
   return "Stav srdce neznámý";
 }
 
+/** Otevřená otázka Pletora pro srdce jednou řádkou: „ve frontě“ není „zodpovězeno“; bez otevřené otázky prázdný řetězec. */
+export function questionText(value: unknown): string {
+  const open = (value && typeof value === "object" ? (value as { open?: unknown }).open : null) as Record<string, unknown> | null;
+  if (!open || typeof open !== "object" || typeof open.id !== "string") return "";
+  const state = open.status === "answered" ? "srdce odpovědělo" : "ve frontě srdce";
+  return `Otázka pro srdce: ${typeof open.text === "string" ? open.text : open.id} · ${state}`;
+}
+
+/** Srdce na otevřenou otázku odpovědělo a člověk ji ještě neuzavřel (uzavřená už není `open`). */
+export function questionAnswered(value: unknown): boolean {
+  const open = value && typeof value === "object" ? (value as { open?: unknown }).open : null;
+  return !!open && typeof open === "object" && (open as { status?: unknown }).status === "answered";
+}
+
+/** Řádek otázky pro srdce a zda už má odpověď (`GET /api/pletor/questions?project=`). */
+export const fetchPletorQuestion = (project: string) =>
+  api<unknown>(`/api/pletor/questions?project=${encodeURIComponent(project)}`)
+    .then((raw) => ({ text: questionText(raw), answered: questionAnswered(raw) }));
+
 export function escalationText(count: number): string {
   if (count === 0) return "žádná eskalace";
   if (count === 1) return "1 čekající eskalace";
@@ -131,6 +186,9 @@ export function actionLabel(action: PletorAction): { ok: boolean; text: string }
   if (!action.ok) return { ok: false, text: `Selhalo: ${action.detail || action.text || action.type}` };
   if (action.type === "heart_message") return { ok: true, text: "Poslal jsem srdci" };
   if (action.type === "vault_note") return { ok: true, text: "Zapsal do Schránky" };
+  if (action.type === "heart_question") return { ok: true, text: "Zeptal jsem se srdce" };
+  if (action.type === "heart_question_close") return { ok: true, text: "Uzavřel otázku" };
+  if (action.type === "heart_escalation_answer") return { ok: true, text: "Předal jsem odpověď srdci" };
   return { ok: true, text: action.text || action.type };
 }
 

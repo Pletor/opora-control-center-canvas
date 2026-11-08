@@ -22,6 +22,6 @@ export function overviewCards(state: PletorState | null, voice: string): Overvie
     { id: "eskalace", title: "Eskalace", value: state ? escalationText(state.escalations.length) : "—", note: "čeká na člověka" },
     { id: "hlas", title: "Hlas", value: voice, note: "čte odpovědi nahlas" },
     { id: "zprava", title: "Poslední zpráva", value: last ? clip(last.text) : state ? "Zatím bez rozhovoru" : "—",
-      note: last ? (last.role === "human" ? "člověk" : "Pletor") : "rozhovor" },
+      note: last ? (last.role === "human" ? "člověk" : last.role === "heart" ? "srdce" : "Pletor") : "rozhovor" },
   ];
 }

@@ -20,6 +20,7 @@ from pathlib import Path
 from backend.agi_pletor.pletor_opora_settings import skills_store
 from backend.brain import registry
 from backend.brain.store import Store
+from backend.brain_opora.heart.opora_research_map import RUNTIME_GUIDANCE
 
 HEART_DIR = Path(__file__).resolve().parent
 PROMPT_NAME = "heart-prompt.md"  # aktivní verze skillu `heart` z Brainu, v `brain/` projektu
@@ -31,10 +32,10 @@ RLM_FILE = HEART_DIR / "rlm.py"
 # srdce je čte jen na vyžádání (`opora_heart.py skill NAME`), do systémového promptu se nevkládají.
 SKILLS_NAME = "skills"
 MODE_SKILLS = {"vyslech": "opora:brain:skill:vyslech", "proces-na-platne": "opora:brain:skill:proces-na-platne"}
-# Moduly vedle nástroje: výzkum a duel (§3c, §3d: příkaz, stůl, digest, stažení a ověření, duel), záměr stránky, design systém webu a knihovna pláten toku.
-RESEARCH_NAMES = ("opora_research.py", "research_desk.py", "research_digest.py", "research_fetch.py",
-                  "research_verify.py", "research_browser.py", "opora_duel.py", "opora_intent.py", "opora_site.py",
-                  "opora_library.py", "opora_library_nodes.py")
+# Moduly vedle nástroje: výzkum a duel (§3c, §3d: příkaz, stůl, digest, stažení a ověření, přepis videa, duel), záměr stránky, design systém webu a knihovna pláten toku.
+RESEARCH_NAMES = ("opora_research.py", "opora_research_map.py", "research_alternatives.py", "research_actions.py", "research_desk.py", "research_digest.py", "research_fetch.py",
+                  "research_verify.py", "research_browser.py", "research_youtube.py", "opora_duel.py", "opora_intent.py",
+                  "opora_site.py", "opora_library.py", "opora_library_nodes.py")
 DILNA, RLM_NAME, DILNA_DIRS = "dilna", "rlm.py", ("data", "scripts", "out")
 WRITABLE = ("scripts", "out")  # jediné složky, kam srdce smí Write/Edit
 MODEL, ADVISOR = "haiku", "opus"
@@ -149,7 +150,7 @@ def write_config(brain, skills, source_root=None):
         shutil.copyfile(HEART_DIR / name, brain / name)
     shutil.copyfile(RLM_FILE, brain / DILNA / RLM_NAME)
     prompt_path = brain / PROMPT_NAME
-    prompt_path.write_bytes(skills.prompt.encode("utf-8"))
+    prompt_path.write_bytes((skills.prompt + RUNTIME_GUIDANCE).encode("utf-8"))
     (brain / SKILLS_NAME).mkdir(exist_ok=True)
     for name, text in skills.modes.items():
         (brain / SKILLS_NAME / f"{name}.md").write_bytes(text.encode("utf-8"))
@@ -165,7 +166,7 @@ def allowed_tools(subcommands=None):
 
 
 def build_command(claude, *, session_id, resume, settings_path, mcp_path, prompt_file, source_root=None,
-                  max_turns=MAX_TURNS, advisor=True, model=MODEL, advisor_model=ADVISOR, subcommands=None):
+                  max_turns=MAX_TURNS, advisor=True, model=MODEL, advisor_model=ADVISOR, subcommands=None, effort=None):
     """Řádka §2. Zpráva dávky jde na stdin (`-p` bez pozičního argumentu), ne do řádky (limit délky Windows).
     `model`, `advisor_model` a `subcommands` nastavuje uzel `agent.claude` enginu toků; výchozí = dnešní srdce."""
     if not session_id:
@@ -173,7 +174,7 @@ def build_command(claude, *, session_id, resume, settings_path, mcp_path, prompt
     uuid.UUID(str(session_id))  # --session-id i --resume berou UUID
     # `stream-json` (s `--verbose`) nese `usage` každého tahu: rotace relace měří kontext posledního tahu
     # (`session.context_tokens`); poslední řádek proudu je tentýž objekt výsledku jako u `json`.
-    command = [claude, "-p", "--output-format", "stream-json", "--verbose", "--model", model, *(["--advisor", advisor_model] if advisor else []),
+    command = [claude, "-p", "--output-format", "stream-json", "--verbose", "--model", model, *(["--effort", effort] if effort else []), *(["--advisor", advisor_model] if advisor else []),
                *(["--resume", session_id] if resume else ["--session-id", session_id]),
                "--setting-sources", "project", "--settings", str(settings_path),
                "--strict-mcp-config", "--mcp-config", str(mcp_path),

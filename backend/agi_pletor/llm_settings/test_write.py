@@ -45,3 +45,30 @@ def test_rejects_bad_model(home, model):
 def test_rejects_bad_reasoning(home):
     with pytest.raises(ValueError):
         write.codex_model("gpt-6", "extreme")
+
+
+def test_claude_effort_written_and_removed_with_backup(home):
+    path = home / ".claude" / "settings.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps({"model": "opus", "env": {"A": "1"}}), encoding="utf-8")
+    out = write.claude_model("opus", "xhigh")
+    assert json.loads(path.read_text(encoding="utf-8")) == {"model": "opus", "env": {"A": "1"}, "effortLevel": "xhigh"}
+    assert out["backup"].startswith("settings.json.bak-")
+    write.claude_model("opus")  # výchozí = effortLevel pryč
+    assert "effortLevel" not in json.loads(path.read_text(encoding="utf-8"))
+    with pytest.raises(ValueError):
+        write.claude_model("opus", "extreme")
+
+
+def test_codex_reasoning_follows_cache_and_default_removes_key(home, monkeypatch):
+    path = home / ".codex" / "config.toml"
+    path.parent.mkdir()
+    path.write_text('model = "gpt-5"\nmodel_reasoning_effort = "high"\n[mcp_servers.x]\ncommand = "c"\n', encoding="utf-8")
+    monkeypatch.setattr(write.codex, "models", lambda: [{"id": "gpt-6", "label": "6", "reasoning": ["low", "xhigh"]}])
+    write.codex_model("gpt-6", "xhigh")
+    assert tomllib.loads(path.read_text(encoding="utf-8"))["model_reasoning_effort"] == "xhigh"
+    with pytest.raises(ValueError):
+        write.codex_model("gpt-6", "medium")  # cache tento model nezná
+    write.codex_model("gpt-6")
+    config = tomllib.loads(path.read_text(encoding="utf-8"))
+    assert "model_reasoning_effort" not in config and config["mcp_servers"]["x"] == {"command": "c"}

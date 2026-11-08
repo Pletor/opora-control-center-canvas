@@ -1,5 +1,77 @@
 # heart: layer 3 of the brain
 
+## Research map (Rešerše)
+
+`opora_research_map.py` is copied next to the standalone command. `command.write_config` appends runtime
+guidance to the active heart skill, so existing custom Brain skill versions also learn these commands:
+
+```text
+python opora_heart.py research-map ls [--archived] [--workspace W]
+python opora_heart.py research-map show ID [--entity card|edge] [--revision N] [--workspace W]
+python opora_heart.py research-map save --file dilna/out/map.json [--workspace W]
+python opora_heart.py research-map import --file dilna/out/research/FRAGMENT.json [--workspace W]
+python opora_heart.py research-map attach --file dilna/out/login.png [--workspace W]
+python opora_heart.py research --question Q --title T --topic Login --topic Logic --node NODE --question-id QUESTION --ticket TICKET --session SESSION --attachment FILE
+```
+
+All context flags on `research` are repeatable. Existing workspace resolution is preserved: in `main`, use the
+last active workspace. The server authenticates the heart and checks scope; JSON files cannot override it.
+Headers and semantic edges are returned by `ls`; `show` includes unabridged content, sources and revision history.
+Use `show EDGE --entity edge --revision N` to inspect how a progression's reason and knowledge gap changed.
+`research` stores every desk fact, including failed verification and multiple findings sharing one URL. It retains
+the full digest, options and original fact objects. Citation verification is not proof that an inferred claim is true.
+Schránka keeps its existing short summary; this no longer limits what the research map retains.
+
+Before network persistence, the complete result and immutable `researchBatch` are written to the research output
+file. `research-map import` replays that exact batch with its original key; repeated imports cannot create duplicate
+facts, and a foreign scope is refused. Paid research cost is recorded even if subsequent persistence fails.
+The output includes `researchIds`: use these in `pletor-answer --ref CARD` and ticket-answer text.
+
+`save` expects exactly `{"key":"unique-request-key","operations":[...]}`. Every operation is full replacement of
+its entity, with `expectedRevision:0` for creation or the current revision from a fresh read for an update.
+Use a new key for changed operations; reuse the same key only to retry unchanged payloads. Example:
+
+```json
+{
+  "key": "login-visual-1",
+  "operations": [{
+    "op": "card", "id": "rc_login_visual", "expectedRevision": 0,
+    "kind": "visual", "title": "Login form observation", "summary": "Form layout and visible error state",
+    "topicPath": ["Login", "UX/UI"], "content": "Full observed behavior and analysis belong here.",
+    "status": "open", "verification": {"status": "observed", "method": "REA browser observation", "at": "2026-11-08T12:00:00Z"},
+    "sources": [{"ref": "https://example.com/login", "platform": "rea", "quote": "Exact observed text",
+      "title": "Login page", "accessedAt": "2026-11-08T12:00:00Z"}],
+    "refs": {"nodeIds": ["login_node"], "questionIds": [], "ticketIds": [], "sessionIds": [],
+      "fragmentIds": [], "attachmentIds": ["research_REPLACE_WITH_UPLOADED_ID"]}
+  }]
+}
+```
+
+Use actual observations and source metadata, not this illustrative citation. `attach` uploads raster images to
+the existing drawing store via `POST /api/drawing-file`; returned `attachmentId` goes into `refs.attachmentIds`.
+`GET /api/drawing-files` reads that asset. Uploading does not place an element in a drawing scene; `refs.nodeIds`
+may reference the relevant existing drawing layer/node. PNG/JPEG/WebP/GIF up to 10 MB use content-derived IDs.
+
+Connect existing cards with an edge operation such as:
+
+```json
+{"op":"edge","id":"re_ux_logic","expectedRevision":0,"fromId":"rc_login_visual","toId":"rc_login_logic",
+ "relation":"continues_to","reason":"Screen interaction does not determine identity validation or session lifetime.",
+ "resolved":"Form layout and visible states are described.","missing":"Verify authentication choices and post-login behavior.",
+ "evidenceIds":["rc_login_visual"]}
+```
+
+Allowed relations: `supports`, `contradicts`, `elaborates`, `option_for`, `supersedes`, `resolves`, `continues_to`.
+All require a reason; progression also requires resolved/missing context. All endpoints/evidence IDs must exist
+in this scope (they can be created in the same atomic batch). Archive without erasing history using
+`{"op":"archive","entity":"card","id":"rc_login_visual","expectedRevision":1,"archived":true}`.
+
+Research does not grant planning or approval authority. After an approved route, create tasks through the existing
+`plan`/`task` path and cite research IDs in the task specification. After task creation, update the related cards'
+`refs.nodeIds` with the actual returned task IDs. Save cards, edges, ticket/session/question references **before**
+replying through question/ticket APIs; only report IDs whose persistence was confirmed. Return an office answer through
+`ticket-answer --ticket TICKET --feedback FEEDBACK --text "Instructions, research CARD…"`. Existing plan gates remain.
+
 This is the third layer of the brain, the resident model of a project. It is Claude Code under the subscription, with
 Haiku as the main model and Opus as the advisor. While OPORA runs on localhost it sleeps, and no process runs. A batch
 of events or a human message wakes it up. It turns intent into tasks for workers and answers their tickets. It never

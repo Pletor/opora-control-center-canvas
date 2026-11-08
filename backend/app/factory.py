@@ -21,6 +21,10 @@ from backend.api.editor.activity_log_routes import create_activity_log_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
 from backend.api.editor.brief_vault_check_routes import create_brief_vault_check_router
 from backend.api.editor.brief_vault_routes import create_brief_vault_router
+from backend.api.editor.research_routes import create_research_router
+from backend.api.editor.research_ticket_routes import create_research_ticket_router
+from backend.api.editor.research_decision_routes import create_research_decision_router
+from backend.api.editor.research_read_routes import create_research_read_router
 from backend.api.editor.canvas_routes import create_canvas_router
 from backend.api.editor.canvas_version_routes import create_canvas_version_router
 from backend.api.editor.card_trail_routes import create_card_trail_router
@@ -78,6 +82,7 @@ from backend.api.agi_pletor.dashboard_routes import create_dashboard_router
 from backend.api.agi_pletor.linie_routes import create_linie_router
 from backend.api.agi_pletor.linie_work_routes import create_linie_work_router
 from backend.api.agi_pletor.pletor_requests_routes import create_pletor_requests_router
+from backend.api.agi_pletor.pletor_questions_routes import create_pletor_questions_router
 from backend.api.agi_pletor.workshop_routes import create_workshop_router
 from backend.api.project.design_system_routes import create_design_system_router
 from backend.api.project.graphify_routes import create_graphify_router
@@ -232,6 +237,8 @@ def create_app(data_root=None):
     app.state.reconciliation = reconciliation
     app.state.heart = heart
     app.state.pletor = Pletor(service, heart)  # Jarvis nad srdcem (docs/navrhy/2026-11-04-pletor-jarvis.md)
+    if heart_enabled():  # eskalace srdce jde do rozhovoru s Pletorem (…-pletor-otazky-srdci.md M1c); testy bez háku
+        service.heart_escalation_hook = app.state.pletor.escalation
     app.state.flow = flow
 
     # Vzdálený přístup přes tunel; bez obou proměnných prostředí je hranice přesně dnešní.
@@ -430,6 +437,10 @@ def create_app(data_root=None):
     app.include_router(create_node_router(service))
     # Schránka zadání: doslovné verzované fragmenty a odkazy karet (docs/navrh-schranka-zadani.md)
     app.include_router(create_brief_vault_router(service, desktop_state))
+    app.include_router(create_research_router(service))
+    app.include_router(create_research_ticket_router(service))
+    app.include_router(create_research_decision_router(service))
+    app.include_router(create_research_read_router(service))
     # Poradní kontrola brány přes Jev; jen s povolením člověka pro projekt a poskytovatele (§9 bod 10)
     app.include_router(create_brief_vault_check_router(service, settings=app_settings, provider=jev_provider))
     app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, node_briefs, agent_output, block_access, agent_workspace, memory_service=memory_service))
@@ -495,6 +506,7 @@ def create_app(data_root=None):
     app.include_router(create_linie_router(service, app.state.pletor))  # Linie velínu (docs/navrhy/2026-11-06-velin-git-linie.md)
     app.include_router(create_linie_work_router(service, app.state.pletor))  # editor a vynucení (…-linie-editor-a-vynuceni.md)
     app.include_router(create_pletor_requests_router(service))  # žádosti srdci (…-linie-rebrand.md §4a)
+    app.include_router(create_pletor_questions_router(service, app.state.pletor))  # otázky Pletora srdci (…-pletor-otazky-srdci.md)
     app.include_router(create_intake_router(service))  # vstupní brána (docs/navrhy/2026-10-30-vstupni-brana.md)
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)

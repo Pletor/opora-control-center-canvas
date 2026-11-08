@@ -29,10 +29,15 @@ def seed(home):
     (home / ".claude.json").write_text('{"oauthAccount": "SECRET-ACCOUNT"}', encoding="utf-8")
 
 
+def test_models_are_the_static_aliases():
+    assert [item["id"] for item in claude.MODELS] == ["fable", "opus", "sonnet", "haiku"]
+
+
 def test_reads_only_safe_fields(home):
     seed(home)
     out = claude.read(find=lambda: "claude", run=fake_run({"--version": "2.1.0 (Claude Code)\n"}))
-    assert out == {"available": True, "reason": None, "version": "2.1.0 (Claude Code)", "model": "opus", "hooks": 3,
+    assert out == {"available": True, "reason": None, "version": "2.1.0 (Claude Code)", "model": "opus", "effort": None, "models": claude.MODELS,
+                   "hooks": 3,
                    "mcp": ["alfa", "zeta"], "permissionsMode": "acceptEdits", "loggedIn": True, "claudeMd": True,
                    "skills": 2}
     assert "SECRET" not in json.dumps(out)

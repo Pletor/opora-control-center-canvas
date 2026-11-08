@@ -93,6 +93,7 @@ import type { WireframeKind } from "@/editor/canvas/wireframes/logic/wireframe-m
 import DrawingTools from "@/editor/canvas/drawing/components/DrawingTools";
 import { discardDrawingDrafts, type DrawingTool } from "@/editor/canvas/drawing/logic/drawing-state";
 const DrawingWorkspace = lazy(() => import("@/editor/canvas/drawing/components/DrawingWorkspace"));
+import ResearchWorkspace from "@/editor/research/components/ResearchWorkspace";
 import ControlTower from "@/editor/control-tower/components/ControlTower";
 import AddMenu from "@/editor/canvas/add-menu/components/AddMenu";
 import LiveStrip from "@/editor/live-strip/components/LiveStrip";
@@ -207,7 +208,8 @@ export default function App() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   // Pletor startuje s OPOROU vždy v kokpitu (HUD) přes celou obrazovku; režim se neukládá.
   // Přímý start ve velínu (`?screen=pletor`) ho složí do okna, jinak by kokpit velín překryl.
-  const [pletorMode, setPletorMode] = useState<PletorMode>(() => (initial.get("screen") === "pletor" ? "window" : "hud"));
+  const [pletorMode, setPletorMode] = useState<PletorMode>(() => initial.get("screen") === "pletor" ? "window"
+    : initial.has("mode") || initial.get("screen") === "canvas" ? "closed" : "hud");
   // Poslech Pletora: po startu vždy vypnutý (mikrofon se nezapne sám), neukládá se; chyba mikrofonu jde do tooltipu přepínače.
   const [pletorListen, setPletorListen] = useState({ on: false, error: "" });
   const onPletorListen = (on: boolean, error = "") => setPletorListen({ on, error });
@@ -1083,7 +1085,7 @@ export default function App() {
       />
     ) : undefined;
   // Kreslení má vlastní inspektor (nástroje plátna) mimo model výběru; ostatní režimy jdou přes panelsFor.
-  const panels: Panels = mode === "drawing" ? { drawer: null, inspector: "scope" } : panelsFor(selection, mode, !!layer, node?.kind);
+  const panels: Panels = mode === "drawing" ? { drawer: null, inspector: "scope" } : mode === "research" ? { drawer: null, inspector: null } : panelsFor(selection, mode, !!layer, node?.kind);
   const inspectorShown = panels.inspector !== null;
   const structureSection = <StructurePanel
     state={structurePanel.state} nodes={graph.nodes} closed={closedNodeIds} matches={pageMatches}
@@ -1214,6 +1216,8 @@ export default function App() {
                 <TextWorkspace project={project} workspace={workspace} layer={layer} children={visible} targets={linkTargets} subtab={textSubtab} onSubtab={setTextSubtab} isClosed={(id) => !!nodeWorkflowOf(desktop.state, id).done.confirmed} onEnter={enter} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onAgentTask={requestAgentTask} onTextSaved={() => setTextRevision((value) => value + 1)} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} />
               ) : mode === "map" ? (
                 <ControlTower key={project} project={project} workspace={workspace} graph={graph} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpen={(id) => { openCardDrawer(id); }} onOpenMap={() => openDomainMap(null)} onOpenVault={openVault} worktreeLive={capabilities.worktreeLive} autonomy={agentAutonomy.autonomy} />
+              ) : mode === "research" ? (
+                <ResearchWorkspace key={JSON.stringify([project, workspace])} project={project} workspace={workspace} nodes={graph.nodes} readOnly={!!view?.readOnly} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onDraw={(id) => { enter(id); setMode("drawing"); }} />
               ) : mode === "office" ? (
                 <OfficeWorkspace key={`${project}:${workspace}`} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }}
                   onAskHeart={askHeart} />

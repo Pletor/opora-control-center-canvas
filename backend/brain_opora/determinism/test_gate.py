@@ -162,3 +162,23 @@ def test_withdraw_refuses_unknown_foreign_closed_and_empty_reason(service):
         assert (caught.value.status, caught.value.code) == (status, code), ticket_id
     assert gate.get_ticket(service, "draft", worker_ticket["ticketId"])["status"] == "queued"
     assert gate.get_ticket(service, "draft", answered["ticketId"])["answer"] == {"text": "Modrá"}
+
+
+def test_escalation_hook_hears_new_and_withdrawn_and_its_failure_keeps_the_ticket(service):
+    """M1c (…-pletor-otazky-srdci.md): nová i stažená eskalace zavolá hák Pletora; chyba háku lístek nevrátí."""
+    _, token = gate.tokens.issue_heart(service, "draft", "draft")
+    heart = gate.authenticate(service, token, roles=("heart",))
+    gate.escalate(service, heart, "Bez háku.")  # bez háku (testy, srdce vypnuté) nic
+    heard = []
+    service.heart_escalation_hook = lambda *args: heard.append(args)
+    asked = gate.escalate(service, heart, "Barva?")
+    gate.withdraw(service, heart, asked["ticketId"], "Barva je v plánu.")
+    assert heard == [("draft", "draft", asked["ticketId"], "Barva?", False),
+                     ("draft", "draft", asked["ticketId"], "Barva je v plánu.", True)]
+
+    def broken(*args):
+        raise RuntimeError("Pletor spadl")
+
+    service.heart_escalation_hook = broken
+    kept = gate.escalate(service, heart, "Font?")
+    assert gate.get_ticket(service, "draft", kept["ticketId"])["status"] == "queued"

@@ -1,5 +1,6 @@
 // Vazba hlasu Pletora (P3) na React: mikrofon → průběžný přepis → automatické odeslání stejnou cestou jako Enter,
-// odpověď nahlas (když zpráva vznikla hlasem, nebo je zapnutý Hlas), v režimu Konverzace pak znovu poslech.
+// odpověď nahlas (když zpráva vznikla hlasem, nebo je zapnutý Hlas), proaktivní zpráva Pletora vždy (proactive-reply.ts),
+// v režimu Konverzace pak znovu poslech.
 // Barge-in: mikrofon, Esc nebo začátek řeči čtení okamžitě utne. Volá ho jen PletorWindow, takže hlas přežije HUD ↔ okno.
 // Přepínač Poslech (`listenSwitch.on`) přidá trvalý poslech (usePletorListen) nad tímtéž vstupem: při čtení odpovědi je
 // pozastavený a čtení utne jen klik, Esc nebo vypnutí; vypnutí zastaví vše a uvolní mikrofon.
@@ -13,9 +14,10 @@ import { createVoiceOutput, speechLevel } from "./voice-output";
 import { readVoicePrefs, writeVoicePrefs, type VoicePrefs } from "./voice-prefs";
 import { usePletorListen } from "./use-pletor-listen";
 import { useBargeIn } from "./barge-in";
+import { proactiveReply } from "./proactive-reply";
 
 type Talk = {
-  messages: PletorMessage[]; repliedAt: number | null;
+  messages: PletorMessage[]; repliedAt: number | null; loaded?: boolean;
   send: (text: string, voice?: boolean, onDelta?: (text: string) => void) => Promise<boolean>;
 };
 type Listen = { on: boolean; onFail: (message: string) => void };
@@ -159,6 +161,21 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
       if (!ok) { voiceTurn.current = false; streamed.current = false; loop.resume(); }
     });
   };
+
+  // Proaktivní zpráva Pletora (srdce odpovědělo nebo se ptá) přišla pollingem: čte se nahlas vždy, i s vypnutým
+  // mikrofonem (mikrofon je poslech, ne hlas); jen ne přes právě běžící čtení nebo poslech na tlačítko.
+  // OP-FB0522.m1d: Pletor si člověka sežene hlasem, ne jen textem v okně
+  const seen = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!talk.loaded) { seen.current = undefined; return; }
+    const { key, speak } = proactiveReply(talk.messages, seen.current);
+    seen.current = key;
+    if (!speak || !live.current.open || !output.supported || phaseRef.current === "speaking") return;
+    if (!loop.active() && phaseRef.current === "listening") return;
+    loop.pause();
+    setPhase("speaking");
+    output.speak(speak.text, { ...reads, onEnd: () => { setPhase("idle"); again(false); } });
+  }, [talk.messages, talk.loaded, output, loop, again]);
 
   // Odpověď přišla: nahlas jen po hlasové zprávě nebo se zapnutým Hlasem; Konverzace pak znovu poslouchá.
   // V Poslechu se mikrofon při čtení pozastaví (neslyší reproduktor) a po dohrání se obnoví.

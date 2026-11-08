@@ -964,3 +964,16 @@ def test_done_replaces_last_done_atomically(server, capsys, tmp_path, monkeypatc
     monkeypatch.setattr(opora_heart.os, "replace", replace)
     assert run(capsys, "done", "--summary", "nové") == (0, '{"done": true}')
     assert json.loads(target.read_text(encoding="utf-8"))["summary"] == "nové"
+
+
+def test_pletor_answer_posts_text_refs_and_unknown_with_reason(server, capsys):
+    assert run(capsys, "pletor-answer", "--question", "pq_1", "--text", "Jen e-mail.", "--ref", "vf_1", "--ref",
+               "src/login.ts")[0] == 0
+    call = Handler.calls[-1]
+    assert (call["path"], call["query"], call["body"]) == ("/api/pletor/questions/pq_1/answer", {"project": ["p1"]}, {
+        "text": "Jen e-mail.", "refs": ["vf_1", "src/login.ts"], "unknown": False})
+    assert call["headers"]["X-Opora-Gate-Token"] == "tok-heart"
+    assert run(capsys, "pletor-answer", "--question", "pq_1", "--text", "Nevím.", "--unknown", "--reason", "Chybí účet.")[0] == 0
+    assert Handler.calls[-1]["body"] == {"text": "Nevím.", "refs": [], "unknown": True, "reason": "Chybí účet."}
+    with pytest.raises(SystemExit):
+        opora_heart.main(["pletor-answer", "--question", "pq_1", "--text", "Nevím.", "--unknown"])

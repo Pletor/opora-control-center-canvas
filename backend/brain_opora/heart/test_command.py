@@ -31,8 +31,8 @@ def test_heart_reads_prompt_and_modes_from_the_active_brain_version(tmp_path):
     source = seed.SEED_DIR / "opora-heart" / "skills"
     assert skills.prompt == command.skill_body((source / "heart" / "SKILL.md").read_text(encoding="utf-8"))
     assert skills.prompt.startswith("# Srdce projektu OPORA") and "name: heart" not in skills.prompt
-    assert list(skills.modes) == ["vyslech", "proces-na-platne", "zadani-na-kanvas"] and skills.modes["vyslech"].startswith("# Výslech")
-    assert list(skills.extras) == ["zadani-na-kanvas"] and "plátna" in skills.extras["zadani-na-kanvas"]
+    assert list(skills.modes) == ["vyslech", "proces-na-platne", "git-linie-srdce", "zadani-na-kanvas"] and skills.modes["vyslech"].startswith("# Výslech")
+    assert list(skills.extras) == ["git-linie-srdce", "zadani-na-kanvas"] and "plátna" in skills.extras["zadani-na-kanvas"]
     only_brain = command.heart_skills(db, tmp_path, dilna={"vyslech": {"description": "x", "body": "y"}})
     assert only_brain.modes["vyslech"].startswith("# Výslech") and only_brain.extras == {}
     sha = Store(tmp_path).version("opora-heart")
@@ -93,7 +93,7 @@ def test_settings_deny_writes_into_the_source_and_disable_hooks(tmp_path):
     assert {f"Edit({root}/**)", f"Write({root}/**)", "NotebookEdit", "Read(**/.env)"} <= set(value["permissions"]["deny"])
     assert value["permissions"]["allow"] == []
     settings_path, mcp_path, prompt_path = command.write_config(tmp_path / "brain", SKILLS, tmp_path / "src")
-    assert prompt_path == tmp_path / "brain" / command.PROMPT_NAME and prompt_path.read_text(encoding="utf-8") == "P\n"
+    assert prompt_path == tmp_path / "brain" / command.PROMPT_NAME and prompt_path.read_text(encoding="utf-8") == "P\n" + command.RUNTIME_GUIDANCE
     assert json.loads(settings_path.read_text(encoding="utf-8")) == command.settings(tmp_path / "src", tmp_path / "brain")
     assert json.loads(mcp_path.read_text(encoding="utf-8")) == {"mcpServers": {}}
     assert (tmp_path / "brain" / "opora_heart.py").read_bytes() == command.TOOL_FILE.read_bytes()
@@ -186,3 +186,13 @@ def test_process_skill_lands_in_brain_and_is_printed_by_the_tool(tmp_path):
     done = subprocess.run([sys.executable, "-I", "opora_heart.py", "skill", "proces-na-platne"], cwd=tmp_path / "brain",
                           capture_output=True, check=True, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     assert done.stdout.decode("utf-8").replace("\r\n", "\n").strip() == text.strip()
+
+
+def test_effort_only_when_set():
+    def line(**extra):
+        return command.build_command("claude", session_id=SID, resume=False, settings_path="s", mcp_path="m",
+                                     prompt_file="p", **extra)
+
+    assert "--effort" not in line()
+    built = line(effort="max")
+    assert built[built.index("--effort") + 1] == "max" and built[built.index("--model") + 2] == "--effort"

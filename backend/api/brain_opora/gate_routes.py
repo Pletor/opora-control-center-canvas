@@ -13,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.api.brain_opora import models
 from backend.api.brain_opora.writer import heart_project
-from backend.brain_opora.determinism import gate, gate_setting, kinds, tokens
+from backend.brain_opora.determinism import gate, kinds, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError, inbox_query, parse_body
 from backend.canvas.activity_log import note_scope
 
@@ -32,16 +32,6 @@ def _human_project(service, request):
         raise GateError(404, "project_not_found", "Projekt neexistuje nebo chybí ?project=.",
                         "Přidejte ?project=<id projektu>.")
     return project
-
-
-def _wake_heart(service, heart, project, ticket):
-    """Odpověď člověka na eskalaci srdce = zpráva člověka srdci (obchází hodinový strop, #149)."""
-    workspace = gate.heart_escalation_workspace(service, project, ticket["ticketId"])
-    if heart is None or workspace is None or not gate_setting.is_on(service, project):
-        return
-    heart.message(project, workspace,
-                  f"ODPOVĚĎ ČLOVĚKA na {ticket['ticketId']}: {gate.answer_text(ticket['answer'])}",
-                  record_intake=False)  # odpověď na otázku srdce není nový požadavek pro vstupní bránu
 
 
 def create_gate_router(service, heart=None):
@@ -120,7 +110,7 @@ def create_gate_router(service, heart=None):
             payload = parse_body(await request.body())
             ticket = await run_in_threadpool(gate.answer, service, project, ticket_id, payload, by)
             if by == "human":
-                await run_in_threadpool(_wake_heart, service, heart, project, ticket)
+                await run_in_threadpool(gate.wake_heart, service, heart, project, ticket)
             return ticket
         except GateError as error:
             return _refused(error)

@@ -2,12 +2,12 @@ import { list, rec, str } from "./view-common";
 
 export type MessagesView = { messages: { role: string; at: string; text: string }[]; total: number };
 
-/** Odpověď `GET /api/pletor/messages` → řádky se štítkem role (Člověk / Pletor); pořadí ze serveru, nejnovější poslední. */
+/** Odpověď `GET /api/pletor/messages` → řádky se štítkem role (Člověk / Srdce / Pletor); pořadí ze serveru, nejnovější poslední. */
 export function messagesView(raw: unknown): MessagesView {
   const root = rec(raw);
   const messages = list(root.messages).map((item) => {
     const message = rec(item);
-    return { role: message.role === "human" ? "Člověk" : "Pletor", at: str(message.at), text: str(message.text) };
+    return { role: message.role === "human" ? "Člověk" : message.role === "heart" ? "Srdce" : "Pletor", at: str(message.at), text: str(message.text) };
   });
   return { messages, total: typeof root.total === "number" ? root.total : messages.length };
 }

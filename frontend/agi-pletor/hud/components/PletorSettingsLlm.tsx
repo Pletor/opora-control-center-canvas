@@ -1,9 +1,12 @@
 import "../styles/pletor-llm.css";
-import { Fragment, type ReactNode } from "react";
-import type { PletorLlm } from "../logic/llm-settings";
-import PletorLlmAccounts from "./PletorLlmAccounts";
+import { Fragment, useState, type ReactNode } from "react";
+import { CLAUDE_EFFORTS, codexEfforts, keepEffort, type LlmModel, type PletorLlm } from "../logic/llm-settings";
+import { putPletorLlm } from "../logic/pletor-client";
+import PletorLlmAccountCard from "./PletorLlmAccountCard";
+import PletorEffortSelect from "./PletorEffortSelect";
+import PletorLlmModelSelect from "./PletorLlmModelSelect";
 
-type Fact = [string, string | number | null];
+type Fact = [string, ReactNode];
 type Props = { llm: PletorLlm | null; loading: boolean; error: string | null; onRefresh: () => void };
 
 const yes = (on: boolean) => (on ? "ano" : "ne");
@@ -35,29 +38,45 @@ function Card({ title, available, reason, hint, facts, children }: {
 }
 
 /**
- * Záložka LLM v nastavení Pletora jen ke čtení (M1): Claude Code, Codex, Ollama a účty z přepínače cswap.
- * Data dodává panel (`llm`), „Obnovit“ hlásí nahoru; nic se tu nemění ani neukládá.
+ * Záložka LLM v nastavení Pletora: Claude Code, Codex, Ollama jen ke čtení (M1) a účty z přepínačů cswap a codex-swap,
+ * kde člověk přepíná a přidává účty přihlášením (M2a, M2b). Data dodává panel (`llm`); po každé změně účtu se znovu načtou (`onRefresh`).
  */
 export default function PletorSettingsLlm({ llm, loading, error, onRefresh }: Props) {
-  const { claude, codex, ollama, cswap } = llm ?? {};
+  const { claude, codex, ollama, cswap, codexswap } = llm ?? {};
+  const [writeError, setWriteError] = useState<string | null>(null);
+  // Jediný zapisovač modelu v kartě: PUT a znovunačtení, aby výběr ukázal to, co je opravdu v souboru.
+  const save = (target: "claude" | "codex", model: string, effort: string) => {
+    setWriteError(null);
+    putPletorLlm(target, { model, ...(target === "claude" ? { effort } : { reasoning: effort }) }).then(onRefresh, (e: unknown) => setWriteError(e instanceof Error ? e.message : "Uložení modelu selhalo."));
+  };
+  const levelsOf = (target: "claude" | "codex", models: (LlmModel & { reasoning?: string[] })[], model: string | null) => (target === "claude" ? CLAUDE_EFFORTS : codexEfforts(models, model));
+  const pick = (target: "claude" | "codex", models: (LlmModel & { reasoning?: string[] })[], model: string | null, effort: string | null) =>
+    <PletorLlmModelSelect models={models} value={model ?? ""} label={`Model ${target === "claude" ? "Claude Code" : "Codexu"}`}
+      onChange={(id) => save(target, id, keepEffort(levelsOf(target, models, id), effort))} />;
+  const pickEffort = (target: "claude" | "codex", models: (LlmModel & { reasoning?: string[] })[], model: string | null, effort: string | null) =>
+    <PletorEffortSelect levels={levelsOf(target, models, model)} value={effort ?? ""} label={`Effort ${target === "claude" ? "Claude Code" : "Codexu"}`}
+      onChange={(level) => save(target, model ?? "", level)} />;
+  const accountNote = (text: string) => <p className="pletor-llm__note">{text}</p>;
   return (
     <div className="pletor-llm" aria-busy={loading}>
       <div className="pletor-llm__head">
-        <span className="pletor-llm__note">{loading ? "Čtu nastavení počítače…" : error ?? "Jen ke čtení: co na tomto počítači běží."}</span>
+        <span className="pletor-llm__note">{loading ? "Čtu nastavení počítače…" : writeError ?? error ?? "Co na tomto počítači běží; účty Claude Code a Codexu se dají přepnout a přidat."}</span>
         <button type="button" className="pletor-llm__refresh" onClick={onRefresh} disabled={loading}>Obnovit</button>
       </div>
       {claude && (
         <Card title="Claude Code" available={claude.available} reason={claude.reason} facts={claude.available ? [
-          ["verze", claude.version], ["model", claude.model ?? "výchozí"], ["oprávnění", claude.permissionsMode],
+          ["verze", claude.version], ["model", pick("claude", claude.models, claude.model, claude.effort)],
+          ["effort", pickEffort("claude", [], claude.model, claude.effort)], ["oprávnění", claude.permissionsMode],
           ["háčky", claude.hooks], ["MCP", names(claude.mcp)], ["CLAUDE.md", yes(claude.claudeMd)], ["skills", claude.skills],
           ["přihlášení", yes(claude.loggedIn)],
-        ] : []} />
+        ] : []}>{claude.available && accountNote("výchozí model terminálu (modely aktivního účtu); Pletor a Srdce mají vlastní")}</Card>
       )}
       {codex && (
         <Card title="Codex" available={codex.available} reason={codex.reason} facts={codex.available ? [
-          ["verze", codex.version], ["model", codex.model ?? "výchozí"], ["uvažování", codex.reasoning], ["schvalování", codex.approval],
+          ["verze", codex.version], ["model", pick("codex", codex.models, codex.model, codex.reasoning)],
+          ["effort", pickEffort("codex", codex.models, codex.model, codex.reasoning)], ["schvalování", codex.approval],
           ["sandbox", codex.sandbox], ["MCP", names(codex.mcp)], ["přihlášení", yes(codex.loggedIn)],
-        ] : []} />
+        ] : []}>{codex.available && accountNote("výchozí model Codexu v terminálu (modely aktivního účtu)")}</Card>
       )}
       {ollama && (
         <Card title="Ollama" available={ollama.available} reason={ollama.reason} facts={[
@@ -68,7 +87,12 @@ export default function PletorSettingsLlm({ llm, loading, error, onRefresh }: Pr
       )}
       {cswap && (
         <Card title="Přepínač účtů (cswap)" available={cswap.available} reason={cswap.reason} hint={cswap.installHint} facts={[]}>
-          {cswap.available && <PletorLlmAccounts accounts={cswap.accounts} />}
+          {cswap.available && <PletorLlmAccountCard tool="cswap" accounts={cswap} onChanged={onRefresh} />}
+        </Card>
+      )}
+      {codexswap && (
+        <Card title="Účty Codex (codex-swap)" available={codexswap.available} reason={codexswap.reason} hint={codexswap.installHint} facts={[]}>
+          {codexswap.available && <PletorLlmAccountCard tool="codex" accounts={codexswap} onChanged={onRefresh} />}
         </Card>
       )}
     </div>

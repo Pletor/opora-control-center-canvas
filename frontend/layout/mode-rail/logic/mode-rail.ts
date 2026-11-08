@@ -9,6 +9,7 @@ import type { IconName } from "@/ui-kit/icon/logic/icon-paths";
 export const MODE_ICONS: Record<string, IconName> = {
   structure: "layout-grid",
   text: "type",
+  research: "library",
   drawing: "pencil",
   map: "map",
   office: "users",
@@ -20,7 +21,5 @@ export function modeIcon(id: string): IconName {
   return MODE_ICONS[id] ?? "layout-grid";
 }
 
-/** Lean lišta (návrh „Opora Editor — lean“, 1a): tři hlavní pohledy, ostatní v nabídce ⋯. */
-export const PRIMARY_MODES = ["structure", "map", "text"] as const;
-export const OVERFLOW_MODES = ["drawing", "office", "storyboard"] as const;
-export const isOverflowMode = (mode: string): boolean => (OVERFLOW_MODES as readonly string[]).includes(mode);
+/** Všechny pohledy přímo v jednom řádku. */
+export const EDITOR_MODES = ["structure", "map", "research", "text", "drawing", "office", "storyboard"] as const;

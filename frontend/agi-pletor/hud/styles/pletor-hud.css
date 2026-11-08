@@ -220,6 +220,16 @@
 .pletor-hud .pletor__message--pletor {
   border-left: 2px solid var(--hud-accent);
 }
+/* V kokpitu má odpověď srdce čárkovanou linku místo plné: fakta od srdce, ne hlas Pletora; otázka pro srdce
+   visí tichou řádkou nad přepisem. */
+.pletor-hud .pletor__message--heart {
+  border-left: 2px dashed var(--hud-accent);
+}
+.pletor-hud .pletor__question {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--hud-line);
+  color: var(--hud-dim);
+}
 
 /* Pod jádrem čeká velký kulatý mikrofon: hlavní ovladač kokpitu, trefí se do něj bez míření. Klik = mluvit,
    druhý klik nebo Esc = stop; při poslechu se rozsvítí a dýchá kruhem jako v okně. */

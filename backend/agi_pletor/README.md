@@ -1,5 +1,16 @@
 # AGI_Pletor – Jarvis nad srdcem (P1, textové jádro)
 
+Rešerše se načítá přes společnou smyčku `research_turn` pro Claude, Codex i Ollamu. Přehled je jen orientační;
+akce `research_read` čte kartičky, významové vazby a historii po označených částech. Pokračování nese `nextOffset`
+v poli `offset` a původní `snapshot`, takže změna dat během čtení nezamíchá dvě revize. Interní řeč a zapisovací
+akce čtecích mezitahů se zahodí. Jeden tah člověka dovoluje nejvýš 12 čtení; limit vrátí přiznané omezení bez
+zapisovacích akcí. Další tah automaticky neobnovuje kurzor ani nasbírané části: velké téma je nutné zúžit.
+
+Ollama při Rešerši dostává `num_ctx=32768`, `num_predict=1024`; celé zprávy včetně persony a historie musí projít
+konzervativním limitem UTF-8 bajtů s rezervou na odpověď a rámování. Překročení odmítne před voláním modelu,
+namísto tichého ořezu důkazů. Běžné tahy bez Rešerše zachovávají `num_ctx=8192`. Toto není neomezený kontext;
+delší podklady je třeba rozdělit podle problému nebo použít jiný model.
+
 **AGI_Pletor: modul se vším o Pletorovi a srdci.** Routy jsou vedle v `backend/api/agi_pletor/` (URL zůstávají `/api/pletor/*`,
 data na disku `<data>/pletor/`). Mapa podsložek:
 
@@ -22,8 +33,23 @@ a nevolá bránu `/api/gate`. Je jeden na aplikaci, projekt z požadavku je jen 
   `{"type": "stream_event", "event": {"type": "content_block_delta", "delta": {"type": "text_delta", "text"}}}`;
   `ReplyStream` z nich průběžně dekóduje hodnotu pole `"reply"` (escape i rozdělený mezi kousky) do `on_delta`.
   Prostý text bez JSON i odpověď Ollamy doplní `Pletor.message` po tahu jedním kouskem, takže složené kousky = `reply`.
-- `actions.py` deterministická kontrola akcí: jen `heart_message` a `vault_note`, neprázdný text do 8000 znaků,
-  nejvýš 3; zbytek `ok: false` s důvodem.
+- `actions.py` deterministická kontrola akcí: jen `heart_message`, `vault_note`, `heart_question`,
+  `heart_question_close` a `heart_escalation_answer` (+ neprázdné `ticketId`), neprázdný text do 8000 znaků, nejvýš 3;
+  zbytek `ok: false` s důvodem.
+- Jeden rozhovor (M1c kontraktu otázek): otázka, upřesnění, odpověď srdce i eskalace srdce jsou řádky role `heart`
+  v rozhovoru s ID a místem uložení. Nová eskalace (`gate.escalate` → hák `service.heart_escalation_hook`, registruje
+  `factory.py` jen se zapnutým srdcem) spustí `Pletor.escalation`: řádek a jeden proaktivní tah bez akcí; stažení jen
+  řádek. `heart_escalation_answer` (jen v tahu člověka, se zapnutou bránou) jde jako odpověď v panelu: `gate.answer`
+  za člověka + `gate.wake_heart` (`ODPOVĚĎ ČLOVĚKA na gt_…`). Podklady ukážou nejstarší eskalaci celou (900).
+- `questions.py` otázky Pletora srdci (`docs/navrhy/2026-11-08-pletor-otazky-srdci.md`) v
+  `<data>/projects/<id>/brain/pletor_questions.json`: jedna otevřená na projekt (`asked` → `answered` → `closed`),
+  další `heart_question` ji upřesní a vrátí do fronty; srdce budí `OTÁZKA PLETORA pq_…:` / `UPŘESNĚNÍ OTÁZKY PLETORA
+  pq_…:` (jen se zapnutou bránou). Srdce odpovídá `opora_heart.py pletor-answer` → `POST /api/pletor/questions/{id}/answer`
+  (jen agent; `unknown` s povinným `reason`), stejná odpověď se nezdvojí. Nová odpověď zahodí cache podkladů a
+  `Pletor.present` na pozadí zapíše deterministické oznámení role `heart` (ukazatel na sekci podkladů, ne celou
+  odpověď) a krátký tah, kde Pletor jen ověří, že je člověk připravený (akce z tohoto tahu se nevykonají); výklad
+  přijde až v dalším tahu člověka. Uzavírá člověk akcí `heart_question_close` v běžném tahu = schválení varianty:
+  srdce dostane `SCHVÁLENO pq_…: <text>. Původní otázka: … Poslední odpověď: …` (jen se zapnutou bránou). Podklady mají sekci OTÁZKA PRO SRDCE (strop 900).
 - `context.py` `build_context` blok PODKLADY do 6000 znaků, pevný strop po sekcích (ořez „…“): stav srdce
   (`heart.status`), snímek srdce (`snapshot.snapshot`), tickety prostoru podle stavu (`ticket.list_tickets`, nejvýš 15,
   titulek + kdo drží), otevřené eskalace (`gate.escalations`), posledních 10 rozhodnutí z `pletor_decisions.jsonl`,

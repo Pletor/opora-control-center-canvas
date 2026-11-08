@@ -1,12 +1,13 @@
 """Nastavení LLM na tomto počítači jen ke čtení (docs/navrhy/2026-11-04-pletor-nastaveni-llm.md, M1).
 
-`read_all()` → `{claude, codex, ollama, cswap}`; sekce běží souběžně a selže izolovaně (`{available: false, reason}`).
+`read_all()` → `{claude, codex, ollama, cswap, codexswap}` (účty Claude Code a Codexu); sekce běží souběžně a selže izolovaně (`{available: false, reason}`).
 """
 from concurrent.futures import ThreadPoolExecutor
 
-from backend.agi_pletor.llm_settings import claude, codex, cswap, ollama
+from backend.agi_pletor.llm_settings import claude, codex, codex_accounts, cswap, ollama
 
-SECTIONS = {"claude": claude.read, "codex": codex.read, "ollama": ollama.read, "cswap": cswap.read}
+SECTIONS = {"claude": claude.read, "codex": codex.read, "ollama": ollama.read, "cswap": cswap.read,
+            "codexswap": codex_accounts.read}
 
 
 def _safe(read):

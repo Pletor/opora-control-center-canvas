@@ -143,7 +143,7 @@ def test_ok_batch_is_journaled_with_costs_and_summary(tmp_path):
     assert entry["brainPins"] == SKILLS.pins  # s jakou verzí skillů srdce dávka běžela
     prompt_file = tmp_path / "brain" / command.PROMPT_NAME
     assert call["line"][call["line"].index("--system-prompt-file") + 1] == str(prompt_file)
-    assert prompt_file.read_text(encoding="utf-8") == SKILLS.prompt
+    assert prompt_file.read_text(encoding="utf-8") == SKILLS.prompt + command.RUNTIME_GUIDANCE
     # bez událostí tahů odhad konce dávky: 900 čerstvých + 20 000 čtení / 7 tahů
     assert stored == {"sessionId": RESULT["session_id"], "batches": 1, "lastInputTokens": 3_757}
     assert entry["inputTokens"] == 20_900 and entry["contextTokens"] == 3_757

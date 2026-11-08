@@ -21,12 +21,19 @@ import time
 from pathlib import Path
 
 try:
+    import opora_research_map
     import research_browser
     import research_desk
     import research_fetch
     import research_verify
 except ImportError:  # v testech moduly balíčku
-    from backend.brain_opora.heart import research_browser, research_desk, research_fetch, research_verify
+    from backend.brain_opora.heart import (
+        opora_research_map,
+        research_browser,
+        research_desk,
+        research_fetch,
+        research_verify,
+    )
 
 ROOT_TITLE = "Výzkum srdce"
 ROOT_TEXT = "Kořen výzkumů a duelů srdce (docs/brain-heart.md §3c). Není to zadání ke stavbě."
@@ -140,17 +147,31 @@ def research(args, tool):
                                     data_dir=dilna / RESEARCH_DATA / fragment["id"],
                                     deep=args.deep, layers=getattr(args, "layer", None) or (), browser=browser,
                                     mcp_path=mcp, budget=BUDGET, chrome=research_browser.enabled())
-    fields, digest = vault_fields(result, tool.now())
+    at = tool.now()
+    fields, digest = vault_fields(result, at)
+    research_batch = opora_research_map.batch(result, fragment["id"], args, at)
+    out = dilna / RESEARCH_OUT / f"{fragment['id']}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    # Save before either network write. The immutable batch is replayable without paying for another research run.
+    out.write_text(json.dumps({"fragmentId": fragment["id"], "question": args.question, "targets": targets,
+                               **result, "scope": scope, "researchBatch": research_batch},
+                              ensure_ascii=False, indent=1), encoding="utf-8")
+    stats = result["stats"]
+    # The research already incurred cost, even if later persistence fails.
+    tool.log_run("research", [fragment["id"]], 0, int((time.time() - started) * 1000), stats["calls"], stats["costUsd"])
+    spent = spend(tool, requirement, fragment["id"], digest, fields, stats["costUsd"]) if requirement else None
+    try:
+        imported = tool.call("POST", opora_research_map.API, {**scope, **research_batch})
+    except tool.Failure as failure:
+        raise tool.Failure({**failure.payload, "out": str(out), "scope": scope,
+                            "hint": f"Výzkum je uložen. Opakujte research-map import --file {out}; "
+                                    "výzkum znovu nespouštějte."}) from failure
     tool.call("POST", "/api/brief-vault", {**scope, "op": "research-update", "fragmentId": fragment["id"],
                                            "expectedRevision": fragment["revision"],
                                            "note": "Výsledek výzkumného stolu srdce.", **fields})
-    out = dilna / RESEARCH_OUT / f"{fragment['id']}.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"fragmentId": fragment["id"], "question": args.question, "targets": targets,
-                               **result, "digest": digest}, ensure_ascii=False, indent=1), encoding="utf-8")
-    stats = result["stats"]
-    tool.log_run("research", [fragment["id"]], 0, int((time.time() - started) * 1000), stats["calls"], stats["costUsd"])
     result = summary(fragment["id"], digest, stats, (Path(tool.DILNA.name) / RESEARCH_OUT / out.name).as_posix())
+    result["researchIds"] = [card["id"] for card in imported["cards"]]
+    result["scope"] = scope
     if requirement:
-        result["brief"] = spend(tool, requirement, fragment["id"], digest, fields, stats["costUsd"])
+        result["brief"] = spent
     return result

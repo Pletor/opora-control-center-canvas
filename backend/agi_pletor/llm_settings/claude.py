@@ -9,6 +9,12 @@ from pathlib import Path
 from backend.brain_opora.heart.command import find_claude
 from backend.agi_pletor.llm_settings import cli
 
+# shortcut: Claude Code nemá výpis modelů, při novém modelu doplnit
+MODELS = [{"id": "fable", "label": "Claude Fable 5.1"}, {"id": "opus", "label": "Claude Opus 5.5"},
+          {"id": "sonnet", "label": "Claude Sonnet 5.5"}, {"id": "haiku", "label": "Claude Haiku 5.5"}]
+
+EFFORTS = ("low", "medium", "high", "xhigh", "max")  # `claude --help`, `--effort`; v settings.json `effortLevel`
+
 
 def _hooks(hooks):
     """Počet příkazů háčků: `{událost: [{matcher, hooks: [...]}, ...]}`."""
@@ -34,6 +40,8 @@ def read(find=find_claude, run=subprocess.run):
         "reason": None if available else "Claude Code není nainstalovaný (chybí CLI i složka v domově).",
         "version": cli.version(binary, run),
         "model": settings.get("model") if isinstance(settings.get("model"), str) else None,
+        "models": MODELS,
+        "effort": settings.get("effortLevel") if settings.get("effortLevel") in EFFORTS else None,
         "hooks": _hooks(settings.get("hooks")),
         "mcp": sorted(mcp) if isinstance(mcp, dict) else [],
         "permissionsMode": permissions.get("defaultMode") if isinstance(permissions, dict) else None,

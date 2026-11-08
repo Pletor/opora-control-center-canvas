@@ -126,3 +126,134 @@ a agent ho nikdy nečte ani nezapisuje.
 |---|---|---|
 | POST `/api/oporahub/executions/start` | `{project, workspace, nodeId, ttlSeconds?}` → kontext v2, hlavy z čerstvého stavu, claim a zadání jedním voláním: `{executionId, token, epoch, expiresAt, acceptedRevision, contextVersion, resumed, assignment, steps: [{id, title, dod, status}], next}`; týž aktér s živým převzetím dostane stávající běh (`resumed: true`); cizí převzetí 409 `card_leased`, bez přijatého grafu 409 `graph_acceptance_required` (`hint`); jen `opora_hub.py start --node N` (token) | agent i člověk |
 | POST `/api/oporahub/executions/{identifier}/deliver` | hlavička `X-Opora-Execution-Token`; `{project, workspace, summary, steps?: [{stepId, status, notes?}], commit?, checks?: [{name, status: green\|red, output?}], decisions?, close?}` → kroky (bez `notes` z commitů karty s `Opora-Node`, jinak `summary`), výsledek se `selfChecks`, lokální sloučení (bez GitHubu, výchozí commit = HEAD), běhy kontrol a při plné autonomii uzavření stejnou bránou: `{delivered, merged, checks, closed, missing, leaseRenewed, next}`; červená kontrola uzavření zastaví; vypršelé převzetí přijme, když kartu nikdo nepřevzal (`lease_renewed_on_deliver`), jinak 409 `execution_superseded`; cizí změna kontextu 409 `execution_context_changed` („spusť start znovu“); vlastní `canvas-plan` kontext přepne (`rePinned` v odpovědi dávky); jen `opora_hub.py deliver` | agent i člověk |
+
+## Rešerše: ověřené podklady a návaznost zadání
+
+Všechna volání nesou `project` a `workspace`; `main` se překládá na aktivní pracovní prostor. Čtení dovoluje
+člověk nebo token Srdce/dělníka ve stejném prostoru, zápisy člověk nebo token Srdce. Samotné vyřešení karty,
+vazba ani přezkum rozhodnutí nejsou přijetím zadání v OporaHubu.
+
+| Cesta | K čemu, kdy | Kdo |
+|---|---|---|
+| GET `/api/research` | hlavičky karet a směrované významové vazby; `archived` zahrne archiv | člověk, Srdce, dělník |
+| POST `/api/research` | `{project, workspace, key, operations}`: verzované karty, vazby a archivace; `expectedRevision` hlídá souběh, opakovaný `key` se stejným obsahem vrátí původní výsledek | člověk, Srdce |
+| GET `/api/research/cards/{id}` | úplná karta, zdroje, historie a vazby; `revision` připne historickou revizi | člověk, Srdce, dělník |
+| GET `/api/research/edges/{id}` | význam a historie konkrétní vazby, volitelná `revision` | člověk, Srdce, dělník |
+| GET `/api/research/topics` | hierarchie témat; `archived` zahrne archivované karty | člověk, Srdce, dělník |
+| GET `/api/research/cards/{id}/parts` | úplné podklady po označených částech: `revision`, `offset`, `size`, `snapshot`; obsah se tiše nezkracuje | člověk, Srdce, dělník |
+| GET `/api/research/events` | synchronizační události prostoru po kurzoru `after`, dávka `limit` | člověk, Srdce, dělník |
+| GET `/api/research/decision-reviews` | historie neměnných lidských přezkumů karty `decisionId` | člověk, Srdce, dělník |
+| POST `/api/research/decision-reviews` | `{project, workspace, review}`; přezkum připne `decisionId`, kladnou celočíselnou `decisionRevision`, `problemId`, `evidence: [{id, revision}]`, `rationale`, `assumptions`, `constraints` | pouze člověk |
+| GET `/api/research/decision-reviews/{id}` | úplný přezkum s původním problémem, rozhodnutím a podklady, zachovaný i po změně zadání | člověk, Srdce, dělník |
+| POST `/api/research/decision-reviews/{id}/tasks` | `{project, workspace, tasks}` vytvoří nativní návrh OporaHubu; úkol: `ref` ([a-z0-9-], nejvýše 80 znaků), `title`, `goal`, `acceptance`, `dependsOn`, volitelně `parentId` či existující `nodeId`. Existující úkoly mají prázdné `dependsOn`; změny pořadí patří do návrhu grafu. Nové a existující úkoly jsou oddělené návrhy. Přijetí zůstává v OporaHubu | člověk, Srdce |
+| GET `/api/research/decision-reviews/{id}/tasks` | receipt s `proposalId`, skutečnými `nodeIds`, stavem `accepted` a `acceptedRevision` odvozeným z nativní historie | člověk, Srdce, dělník |
+| POST `/api/research/decision-reviews/{id}/reconcile` | `{project, workspace}` po skutečném přijetí návrhu doplní zpětné vazby do Rešerše; bezpečné opakování, před přijetím 409 | člověk, Srdce |
+| POST `/api/research/tickets/branch` | `{project, workspace, ticketId, feedbackId}` otevře větev z existující zpětné vazby Kanceláře; identitu relace, úkolu a jeho verze převezme server | člověk, Srdce |
+| POST `/api/research/tickets/answer` | `{project, workspace, ticketId, feedbackId, cardId, revision, text}` připne rešeršní odpověď a přes existující ticket ji doručí původní relaci; vyžaduje vazbu `resolves`, opakovaná stejná odpověď je replay | člověk, Srdce |
+
+## Pletor: rozhovor, přehled a nastavení
+
+Celý prefix `/api/pletor` je omezen na tento počítač (loopback). Následující rozhovor, přehled, nastavení
+modelů a hlasu vyžadují člověka v UI; agent si těmito cestami nemění účet ani oprávnění. Parametry
+`project` a `workspace` jsou v query u čtení a v těle zprávy. Každá sekce přehledu může vrátit vlastní chybu.
+
+| Cesta | K čemu, kdy | Kdo |
+|---|---|---|
+| POST `/api/pletor/messages` | `{project, workspace, text, voice?}` → odpověď a provedené akce | člověk |
+| GET `/api/pletor/messages` | `project`, `workspace`, `limit` 1–500, `q` → filtrovaná historie a celkový počet | člověk |
+| POST `/api/pletor/messages/stream` | stejné tělo jako zpráva; NDJSON události `delta` a konečné `done` s odpovědí a akcemi | člověk |
+| GET `/api/pletor/state` | `project`, `workspace` → rozhovor, Srdce, eskalace a zvolený mozek | člověk |
+| POST `/api/pletor/brain` | `{brain: claude/codex/ollama, model?, effort?}` přepne mozek Pletora; výsledek obsahuje `ok`, `reply`, `brain` | člověk |
+| GET `/api/pletor/heart` | `project`, `workspace` → stav Srdce, fronta, dávky, brána a mozek | člověk |
+| GET `/api/pletor/context` | `project`, `workspace` → kontext a přehled sekcí s počty znaků, limity a příznaky zkrácení | člověk |
+| GET `/api/pletor/monitoring` | `project` → hostitelé, události a příznak zapnutí sledování | člověk |
+| GET/PUT `/api/pletor/heart/model` | čtení modelu a poradce Srdce; PUT `{model, advisor, effort?}` vytvoří novou verzi jeho toku | člověk |
+| GET `/api/pletor/voices` | hlasy, dostupnost a případná kvóta; `warm` přednačte zvolený hlas | člověk |
+| POST `/api/pletor/tts` | `{text, voice?}` → zvuk podle enginu, případně stream; nedostupný hlas/engine vrací chybu | člověk |
+| GET `/api/pletor/llm` | dostupnost a nastavení lokálních Claude Code, Codex, Ollama a přepínačů účtů | člověk |
+| PUT `/api/pletor/llm/claude` | `{model, effort?}` zapíše nastavení Claude Code se zálohou | člověk |
+| PUT `/api/pletor/llm/codex` | `{model, reasoning?}` zapíše nastavení Codexu se zálohou | člověk |
+| POST/DELETE `/api/pletor/llm/{tool}/login` | `tool` je `cswap` nebo `codex`; POST zahájí přihlášení a vrátí URL, DELETE zruší probíhající přihlášení | člověk |
+| POST `/api/pletor/llm/{tool}/login/code` | `{code?}` dokončí přihlášení nebo uloží již přihlášený účet | člověk |
+| POST `/api/pletor/llm/{tool}/switch` | `{slot}` přepne uložený účet příslušného nástroje | člověk |
+
+### Žádosti a odpovědi Srdce
+
+Všude query `project`. Identita původce je člověk v UI, hlavička `X-Opora-Actor: agent; name=…` nebo token
+brány `X-Opora-Gate-Token`; token musí patřit projektu. Čtení žádostí níže nevyžaduje zvláštní identitu původce,
+ale stále platí přístupová hranice aplikace a loopback. Odpověď na otázku se nepovažuje za přijetí plánu.
+
+| Cesta | K čemu, kdy | Kdo |
+|---|---|---|
+| POST `/api/pletor/requests` | `{text, idempotencyKey}` založí žádost; stejný klíč a text vrátí tutéž žádost, změněný text 409 | člověk nebo agent |
+| GET `/api/pletor/requests` | `open=1` omezí výpis na otevřené žádosti; vrací i počet otevřených | čtení v aplikaci |
+| GET `/api/pletor/requests/{request_id}` | detail žádosti a potvrzených kroků | čtení v aplikaci |
+| POST `/api/pletor/requests/{request_id}/steps` | `{k: plan/ticket/attempt/commit, evidence}` nebo `{k, failed:true, why}`; služba ověří důkaz kroku | pouze agent/služba |
+| GET `/api/pletor/questions` | seznam otázek a právě otevřená otázka pro panel | člověk |
+| POST `/api/pletor/questions/{question_id}/answer` | `{text, refs?, unknown?, reason?}`; stejná odpověď je replay, nová vyvolá výklad Pletora; `unknown` vyžaduje důvod | pouze agent/Srdce |
+
+## Linie: větve a práce Kanceláře
+
+Přehled větví, náhledy a jednoduchý záznam nasazení ovládá jen člověk v UI. Následující cesty používají
+repozitář služby; `project` přidává přijaté práce konkrétního projektu. Nepřijímají libovolný kořen repozitáře.
+
+| Cesta | K čemu, kdy | Kdo |
+|---|---|---|
+| GET `/api/pletor/linie/` | `project?` → main, develop, server, nasazená revize, větve, náhledy a vynucení pravidel | člověk |
+| GET `/api/pletor/linie/graph` | `project?` → větve a jejich návaznosti, aktivní práce, server a nasazená revize | člověk |
+| GET `/api/pletor/linie/diff` | `branch`, `target` → commity, statistika a změněné soubory | člověk |
+| POST `/api/pletor/linie/previews` | `{branch, project}` spustí sestavení náhledu nad kopií dat projektu | člověk |
+| DELETE `/api/pletor/linie/previews/{slug}` | zastaví daný náhled | člověk |
+| GET `/api/pletor/linie/previews/{slug}/log` | výstup sestavení a serveru náhledu | člověk |
+| POST `/api/pletor/linie/deployed` | `{sha}` uloží revizi označenou jako nasazenou; samo aplikaci nenasazuje | člověk |
+
+### Editor a životní cyklus práce
+
+Všude query `project`; přehled a založení práce navíc `workspace` (výchozí `main`). „Člověk/agent“ vyžaduje
+identitu původce popsanou výše; token pracovníka musí patřit prostoru ticketu, Srdce pracuje v projektu.
+Přijetí a povolení sloučení zůstávají lidské kroky. Služba odmítne přechod nedovolený aktuálním stavem 409
+`action_not_allowed`; shodný idempotentní klíč či `op` neprovádí operaci znovu.
+
+| Cesta | K čemu, kdy | Kdo |
+|---|---|---|
+| GET `/api/pletor/linie/board` | `workspace`, `group=branch/plan`, `snapshot?` → osy, práce a důkazy; snapshot dovoluje stejné údaje přeskupit | člověk |
+| GET `/api/pletor/linie/board.txt` | textový snímek; `workspace`, `mine=1` jen práce volajícího agenta, `all=1` i uzavřené řádky | člověk/agent; `mine` jen agent |
+| POST `/api/pletor/linie/rows` | `{name, type:items/work/experiment/fix, base?, target?}` založí řádek | člověk |
+| PATCH/DELETE `/api/pletor/linie/rows/{row_id}` | PATCH mění `name`, `branch`, `target`, `collapsed`; DELETE odmítne řádek používaný prací | člověk |
+| POST `/api/pletor/linie/work` | `{title, branch, essence, build, doneCriteria, rowId?, baseBranch?, target?, requestId?, idempotencyKey?}` založí ticket práce a vazbu na řádek | člověk |
+| POST `/api/pletor/linie/work/{ticket_id}/attach` | `{rowId, branch, baseBranch?, target?, title?, requestId?}` připojí existující ticket do Linie | člověk |
+| GET `/api/pletor/linie/work/{ticket_id}` | ticket, stav práce, povolené akce, osy a důkazy | člověk/agent |
+| GET `/api/pletor/linie/commit/{sha}` | `workspace?` → detail commitu s plánem, kartou, Kanceláří, PR a náhledem | čtení v aplikaci |
+| GET `/api/pletor/linie/trace/{mark}` | `workspace?` → cesta práce podle značky OP-XXXXXX; neznámá značka 404 | čtení v aplikaci |
+| GET `/api/pletor/linie/journal` | `workspace?`, `after`, `limit` → deník událostí Linie a `lastId` | čtení v aplikaci |
+| POST `/api/pletor/linie/work/{ticket_id}/run` | `{sessionId, agent?, transcriptPath?, worktree?}` eviduje relaci LLM; stejné ID aktualizuje heartbeat | člověk/agent |
+| POST `/api/pletor/linie/work/{ticket_id}/report` | `{sha, checks:[{name,status:green/red/pending}], worktree?}` hlásí hlavu a kontroly, publikuje pokus a naváže krok žádosti | člověk/agent |
+| POST `/api/pletor/linie/work/{ticket_id}/attempt` | `{branch, baseRef?, baseSha?, repo?, agent?, requestId?, idempotencyKey?}` eviduje pokus práce; větev vytváří agent | člověk/agent |
+| POST `/api/pletor/linie/work/{ticket_id}/preview` | spustí náhled větve ticketu a připne jeho revizi | člověk |
+| POST/DELETE `/api/pletor/linie/work/{ticket_id}/accept` | POST `{sha, note?}` přijme konkrétní aktuální hlavu; DELETE toto přijetí odvolá | člověk |
+| POST `/api/pletor/linie/work/{ticket_id}/allow-merge` | `{target?}` povolí sloučení přijaté hlavy do konkrétního cíle a jeho aktuální revize | člověk |
+| POST `/api/pletor/linie/work/{ticket_id}/accept-merge` | `{sha, op?, note?}` provede přijetí, povolení a sloučení, zastaví se na první zavřené bráně | člověk |
+| POST `/api/pletor/linie/work/{ticket_id}/merge` | volitelné `{op}` provede pouze již povolené sloučení; stejné `op` je replay | člověk/agent |
+| POST `/api/pletor/linie/work/{ticket_id}/revert` | `{sha, expectedHead, op?}` vytvoří revert na větvi úkolu s kontrolou očekávané hlavy | člověk/agent |
+| POST `/api/pletor/linie/work/{ticket_id}/rebase-note` | `{from, to}` uloží doklad rebase; samo Git nepřepisuje | člověk/agent |
+| POST `/api/pletor/linie/work/{ticket_id}/abandon` | `{sha, why}` eviduje opuštěnou práci; HEAD ani Git nemění | člověk/agent |
+| POST `/api/pletor/linie/work/{ticket_id}/block` | `{reason}` označí překážku práce | člověk/agent |
+| POST `/api/pletor/linie/work/{ticket_id}/defer` | odloží práci, bez změny Gitu | člověk/agent |
+| POST `/api/pletor/linie/work/{ticket_id}/unblock` | odstraní označení překážky | člověk/agent |
+| POST `/api/pletor/linie/work/{ticket_id}/resume` | zruší odložení i překážku a obnoví práci | člověk/agent |
+| POST `/api/pletor/linie/work/{ticket_id}/forget` | odstraní jen blokovaný ticket, jehož kód už je v cíli nebo nemá vlastní commity; zachová událost v deníku, živý kód vrací 409 | člověk/agent |
+| POST `/api/pletor/linie/deploy` | `{env, sha, repo?}` zaznamená nasazení existující revize, samo nenasazuje; `repo` smí být jen repozitář služby, oprávnění cíle určuje `[linie.deploy]` v `opora.local.toml` | povolený člověk/agent |
+
+## Dílna funkcí a skillů
+
+Cesty `/api/pletor/workshop` jsou jen pro člověka v lokálním UI. Názvy, cesty a obsah ověřuje úložiště:
+chybný vstup 422, neznámý záznam 404, již existující název 409. Generování používá aktuální mozek Pletora.
+
+| Cesta | K čemu, kdy | Kdo |
+|---|---|---|
+| GET/POST `/api/pletor/workshop/tools` | GET seznam funkcí; POST `{name}` vytvoří šablonu s případem | člověk |
+| GET/PUT `/api/pletor/workshop/tools/{name}` | GET zdrojový kód a případy; PUT `{code, cases}` je uloží jako text | člověk |
+| POST `/api/pletor/workshop/tools/generate` | `{name, intent}` vygeneruje novou funkci a případy, uloží je a změří; existující název nepřepíše | člověk |
+| POST `/api/pletor/workshop/tools/{name}/measure` | změří uložené případy; vrací počty, chyby, dobu a determinismus | člověk |
+| GET/POST `/api/pletor/workshop/skills` | GET seznam skillů a souborů; POST `{name}` vytvoří skill | člověk |
+| GET/PUT `/api/pletor/workshop/skills/{name}/file` | GET `path=SKILL.md` vrátí soubor; PUT `{path, content}` uloží jeho obsah v mezích úložiště | člověk |

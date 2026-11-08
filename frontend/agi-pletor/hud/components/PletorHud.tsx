@@ -4,11 +4,13 @@ import type { usePletor } from "../logic/pletor-poll";
 import type { usePletorVoice } from "../logic/use-pletor-voice";
 import { brainLabel, escalationText, heartText } from "../logic/pletor-client";
 import type { HudState } from "../logic/hud-state";
+import PletorHeartPanel from "@/agi-pletor/hud-heart/components/PletorHeartPanel";
 import PletorActions from "./PletorActions";
 import PletorHudBar from "./PletorHudBar";
 import PletorHudCanvas from "./PletorHudCanvas";
 import PletorHudCorners from "./PletorHudCorners";
 import PletorMessages from "./PletorMessages";
+import PletorQuestionLine from "./PletorQuestionLine";
 
 type Props = {
   pletor: ReturnType<typeof usePletor>; state: HudState; label: string; voice: ReturnType<typeof usePletorVoice>;
@@ -47,9 +49,11 @@ export default function PletorHud({ pletor, state, label, voice, mic, voiceError
         <section className="pletor-hud__stage">
           <PletorHudCanvas state={state} level={voice.level} onFps={setFps} />
           <PletorHudCorners project={project} brain={brainLabel(pletor.brain)} state={state} label={label} escalations={pletor.escalations.length} fps={fps} />
+          <PletorHeartPanel status={pletor.heartStatus} answered={pletor.answered} place="hud" />
         </section>
         <aside className="pletor-hud__console" aria-label="Přepis rozhovoru">
           <div className="pletor-hud__console-head">Přepis · {escalationText(pletor.escalations.length)}</div>
+          <PletorQuestionLine text={pletor.question} />
           <PletorMessages messages={pletor.messages} sending={pletor.sending} />
           <PletorActions actions={pletor.actions} />
           {pletor.failure && <p className="pletor__failure" role="alert">{pletor.failure}</p>}

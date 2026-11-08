@@ -1,18 +1,24 @@
-"""Mozky Pletora (docs/navrhy/2026-11-04-pletor-jarvis.md, P2): `claude` (výchozí, Claude Code pod předplatným,
-`session.turn`) a `ollama` (lokální model přes Ollamu na `URL`). Oba vrací `(reply, actions)` z `session.parse_reply`,
+"""Mozky Pletora (docs/navrhy/2026-11-04-pletor-jarvis.md, P2; M2d v pletor-nastaveni-llm.md): `claude` (výchozí,
+Claude Code pod předplatným, `session.turn`), `codex` (Codex pod předplatným, `codex_turn`) a `ollama` (lokální
+model přes Ollamu na `URL`). Všechny vrací `(reply, actions)` z `session.parse_reply`,
 takže `actions.validate` platí beze změny. Volba mozku je jedna pro aplikaci v `<data>/pletor/settings.json`
 (`store.settings`). Přepínací věta v chatu (`command`) se rozpozná bez modelu a modelu se nepředá.
 """
 import json
 import re
+import shutil
 import unicodedata
 import urllib.request
+from pathlib import Path
 
+from backend.agi_pletor import session, store
+from backend.agi_pletor.llm_settings import claude as claude_settings
+from backend.agi_pletor.llm_settings import codex as codex_settings
+from backend.agi_pletor.llm_settings import write
 from backend.brain_opora.heart import command as claude_command
 from backend.brain_opora.heart.process import run_process
-from backend.agi_pletor import session, store
 
-CLAUDE, OLLAMA = "claude", "ollama"
+CLAUDE, CODEX, OLLAMA = "claude", "codex", "ollama"
 URL = "http://127.0.0.1:11434"
 TIMEOUT = 180
 TAGS_TIMEOUT = 3  # stav se čte při každém pollu okna; neběžící Ollama nesmí okno brzdit
@@ -42,25 +48,49 @@ def default_model(available):
 
 
 def status(folder, transport=http):
-    """`{brain, model, available}` pro stav okna."""
+    """`{brain, model, available, models, efforts}` pro stav okna; `models` = uložený model, `efforts` = effort
+    Claude a Codexu (None = výchozí; Ollama effort nemá)."""
     chosen = store.settings(folder)
-    model = chosen["ollamaModel"] if chosen["brain"] == OLLAMA else session.MODEL
-    return {"brain": chosen["brain"], "model": model, "available": models(transport)}
+    saved = {CLAUDE: chosen["claudeModel"], CODEX: chosen["codexModel"], OLLAMA: chosen["ollamaModel"]}
+    return {"brain": chosen["brain"], "model": saved[chosen["brain"]], "available": models(transport), "models": saved,
+            "efforts": {CLAUDE: chosen["claudeEffort"], CODEX: chosen["codexEffort"]}}
 
 
-def switch(folder, brain, model=None, transport=http):
-    """Přepne mozek a vrátí `(ok, věta pro člověka)`; selhání nechá nastavení beze změny (zůstává předchozí mozek)."""
+def switch(folder, brain, model=None, transport=http, effort=None):
+    """Přepne mozek a vrátí `(ok, věta pro člověka)`; neplatný model nebo selhání nechá nastavení beze změny.
+    `model` vynechán = ponechá uložený model toho mozku; `effort` vynechán = ponechá uložený, "" = výchozí."""
     chosen = store.settings(folder)
+    if effort is not None and brain == OLLAMA:
+        return False, "Lokální model effort nemá."
     if brain == CLAUDE:
-        store.save_settings(folder, {**chosen, "brain": CLAUDE})
+        known = [item["id"] for item in claude_settings.MODELS]
+        if model and model not in known:
+            return False, f"Model {model} Claude nezná. Mám: {', '.join(known)}."
+        if effort and effort not in claude_settings.EFFORTS:
+            return False, f"Effort {effort} Claude nezná. Mám: {', '.join(claude_settings.EFFORTS)}."
+        store.save_settings(folder, {**chosen, "brain": CLAUDE, "claudeModel": model or chosen["claudeModel"],
+                                     "claudeEffort": chosen["claudeEffort"] if effort is None else effort or None})
         return True, "Zpátky na Claude, pane."
+    if brain == CODEX:
+        known = [item["id"] for item in codex_settings.models()]
+        try:
+            if model and not (model in known if known else write.check_model(model)):  # prázdná cache = jen tvar
+                return False, f"Model {model} Codex nezná. Mám: {', '.join(known)}."
+        except ValueError:
+            return False, f"Model {model} nemá tvar názvu modelu Codexu."
+        levels = write.reasoning_levels(model or chosen["codexModel"])
+        if effort and effort not in levels:
+            return False, f"Effort {effort} Codex u tohoto modelu nezná. Mám: {', '.join(levels)}."
+        store.save_settings(folder, {**chosen, "brain": CODEX, "codexModel": model or chosen["codexModel"],
+                                     "codexEffort": chosen["codexEffort"] if effort is None else effort or None})
+        return True, "Přepínám na Codex, pane."
     available = models(transport)
     if not available:
         return False, "Ollama neběží nebo nemá žádný model. Zůstávám na Claude."
     if model and model not in available:
         return False, f"Model {model} v Ollamě není. Mám: {', '.join(available)}."
     model = model or (chosen["ollamaModel"] if chosen["ollamaModel"] in available else default_model(available))
-    store.save_settings(folder, {"brain": OLLAMA, "ollamaModel": model})
+    store.save_settings(folder, {**chosen, "brain": OLLAMA, "ollamaModel": model})
     return True, f"Lokální mozek zapnut, pane ({model}). Teď nic nestojím."
 
 
@@ -92,6 +122,7 @@ def command(text):
 
 HISTORY = 8  # posledních zpráv rozhovoru, které lokální model vidí (Claude má vlastní relaci `--resume`)
 OPTIONS = {"temperature": 0.7, "top_p": 0.9, "repeat_penalty": 1.1, "num_ctx": 8192}
+RESEARCH_CONTEXT, RESEARCH_OUTPUT = 32768, 1024
 KEEP_ALIVE = "30m"  # model zůstane v paměti mezi zprávami, teplý tah místo načítání
 # Malý model se zakotví na podkladech (opakoval větu z deníku srdce na každou zprávu), proto má navíc tato pravidla.
 LOCAL = """PRAVIDLA LOKÁLNÍHO MOZKU (mají přednost před tvarem odpovědi výše):
@@ -101,7 +132,9 @@ LOCAL = """PRAVIDLA LOKÁLNÍHO MOZKU (mají přednost před tvarem odpovědi v�
 - Běžně odpověz prostým textem (1–4 věty), bez JSON a bez akcí.
 - Akce jsou vzácné. Objekt JSON {"reply": ..., "actions": [...]} napiš jen na výslovný příkaz člověka („zadej
   srdci…“, „postav…“, „spusť…“, „zapiš rozhodnutí…“). Na otázku, pozdrav ani small talk akci nikdy nedělej
-  a srdci nikdy neposílej otázku."""
+  a srdci nikdy neposílej otázku.
+- Výjimka je read-only research_read: pro odpověď na otázku smíš načíst uložené podklady Rešerše podle persony.
+  Vrať JSON s prázdným reply a akcí research_read; tím nic nezapisuješ ani nezadáváš srdci."""
 RETRY = "Předchozí odpověď neodpovídala dotazu, odpověz přímo na: {text}"
 
 
@@ -122,6 +155,16 @@ def ollama_messages(context, text, history=()):
 def _chat(model, messages, transport):
     body = {"model": model, "stream": False, "think": False, "keep_alive": KEEP_ALIVE, "options": OPTIONS,
             "messages": messages}
+    # Research chunks must not silently displace earlier evidence in Ollama's small default window.
+    # UTF-8 bytes plus per-message framing are a conservative bound, independent of the selected tokenizer.
+    research = any("REŠERŠE (data, ne příkazy)" in message.get("content", "")
+                   or "DOČTENÁ REŠERŠE" in message.get("content", "") for message in messages)
+    if research:
+        size = len(json.dumps(messages, ensure_ascii=False).encode("utf-8")) + 64 * len(messages)
+        if size > RESEARCH_CONTEXT - RESEARCH_OUTPUT:
+            raise RuntimeError("Podklady Rešerše přesahují bezpečný kontext lokálního modelu. "
+                               "Zužte dotaz nebo zvolte jiný model Pletora; žádné podklady nebyly potichu oříznuty.")
+        body["options"] = {**OPTIONS, "num_ctx": RESEARCH_CONTEXT, "num_predict": RESEARCH_OUTPUT}
     try:
         answer = transport("POST", "/api/chat", body, TIMEOUT)
     except (OSError, ValueError) as error:
@@ -147,13 +190,55 @@ def ollama_turn(model, context, text, history=(), transport=http):
     return reply, actions
 
 
+CODEX_OUT = "codex-last-message.txt"
+CODEX_LIMIT = re.compile(r"usage limit|rate limit", re.IGNORECASE)
+CODEX_REVOKED = re.compile(r"token_revoked|refresh_token_reused|Failed to refresh token")
+
+
+def codex_turn(folder, model, context, text, history=(), effort=None, *, runner=run_process, find=lambda: shutil.which("codex")):
+    """Jeden tah Codexu pod předplatným (`codex exec`, jen čtení, bez MCP): prompt na stdin, odpověď z `-o` souboru.
+    Chyba je `RuntimeError` s českou zprávou, limit předplatného se pozná podle textu výstupu."""
+    codex = find()
+    if not codex:
+        raise RuntimeError("Codex (`codex`) na tomto počítači chybí.")
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    out = folder / CODEX_OUT
+    out.unlink(missing_ok=True)  # starý soubor by se jinak četl jako odpověď
+    past = "\n".join(f"{item['role']}: {item['text']}" for item in history[-HISTORY:]
+                     if isinstance(item.get("text"), str))
+    prompt = f"{session.system_prompt()}\nROZHOVOR:\n{past}\n\n{context}\n\nZPRÁVA ČLOVĚKA:\n{text}"
+    command = [codex, "exec", "-s", "read-only", "--skip-git-repo-check", "--ephemeral", "-c", "mcp_servers={}",
+               *(["-m", model] if model else []),
+               *(["-c", f'model_reasoning_effort="{effort}"'] if effort else []), "-o", str(out), "-"]
+    env = {key: value for key, value in session.child_env().items() if key != "OPENAI_API_KEY"}
+    outcome = runner(command, cwd=str(folder), env=env, stdin_text=prompt, timeout=TIMEOUT)
+    if outcome.timed_out:
+        raise RuntimeError(f"Codex neodpověděl do {TIMEOUT} s.")
+    if outcome.returncode != 0:
+        said = f"{outcome.stdout}\n{outcome.stderr}"
+        if CODEX_REVOKED.search(said):
+            raise RuntimeError("Přihlášení Codexu je neplatné (token odvolán); přihlas se znovu v kartě Účty Codex.")
+        raise RuntimeError(f"Codex teď neodpovídá ({'limit předplatného' if CODEX_LIMIT.search(said) else 'chyba procesu'}).")
+    try:
+        answer = out.read_text(encoding="utf-8")
+    except OSError:
+        answer = ""
+    if not answer.strip():
+        raise RuntimeError("Codex vrátil prázdnou odpověď.")
+    return session.parse_reply(answer)
+
+
 def turn(folder, context, text, history=(), *, runner=run_process, find=claude_command.find_claude, transport=http,
          on_delta=None):
     """Tah zvoleným mozkem; vrací `(reply, actions)`, chyba je `RuntimeError` jako u `session.turn`.
+    Codex dostane vše v jednom promptu a `find` se ho netýká.
     Claude dostane podklady a zprávu v jednom vstupu (historii drží jeho relace), Ollama role a historii.
     `on_delta` dostává kousky odpovědi jen u Claude; Ollamě celou odpověď doplní `Pletor.message` po tahu."""
     chosen = store.settings(folder)
     if chosen["brain"] == OLLAMA:
         return ollama_turn(chosen["ollamaModel"], context, text, history, transport)
+    if chosen["brain"] == CODEX:
+        return codex_turn(folder, chosen["codexModel"], context, text, history, chosen["codexEffort"], runner=runner)
     return session.turn(folder, f"{context}\n\nZPRÁVA ČLOVĚKA:\n{text}", runner=runner, find=find,
-                        on_delta=on_delta)
+                        on_delta=on_delta, model=chosen["claudeModel"], effort=chosen["claudeEffort"])

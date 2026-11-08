@@ -83,14 +83,23 @@ def test_prompt_acts_by_next_and_never_prefixes_rules():
     assert "--layer" in prompt
 
 
-def test_rea_config_and_research_modules_land_in_brain(tmp_path):
-    repo = command.HEART_DIR.parents[2] / ".agent-office" / "rea-mcp.json"
-    assert command.REA_MCP == json.loads(repo.read_text(encoding="utf-8"))
+@pytest.fixture
+def rea_mcp_config(tmp_path):
+    """The expected provider contract is local to the test, not an untracked developer config."""
+    config = tmp_path / ".agent-office" / "rea-mcp.json"
+    config.parent.mkdir()
+    config.write_text(json.dumps({"mcpServers": {"rea": {"type": "stdio", "command": "cmd",
+                                      "args": ["/c", "npx", "-y", "rea-agents@6.7.0", "mcp"]}}}), encoding="utf-8")
+    return config
+
+
+def test_rea_config_and_research_modules_land_in_brain(tmp_path, rea_mcp_config):
+    assert command.REA_MCP == json.loads(rea_mcp_config.read_text(encoding="utf-8"))
     command.write_config(tmp_path / "brain", command.HeartSkills("P\n", {}, {}))
     written = json.loads((tmp_path / "brain" / "dilna" / "rea-mcp.json").read_text(encoding="utf-8"))
     assert written == command.REA_MCP and list(written["mcpServers"]) == ["rea"]
-    assert set(command.RESEARCH_NAMES) == {"opora_research.py", "research_desk.py", "research_digest.py",
-                                           "research_fetch.py", "research_verify.py", "research_browser.py",
+    assert set(command.RESEARCH_NAMES) == {"opora_research.py", "opora_research_map.py", "research_alternatives.py", "research_actions.py", "research_desk.py", "research_digest.py",
+                                           "research_fetch.py", "research_verify.py", "research_browser.py", "research_youtube.py",
                                            "opora_duel.py", "opora_intent.py", "opora_site.py",
                                            "opora_library.py", "opora_library_nodes.py"}
     assert all((tmp_path / "brain" / name).is_file() for name in command.RESEARCH_NAMES)

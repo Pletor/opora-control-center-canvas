@@ -1,6 +1,7 @@
-"""Účty Claude Code z přepínače claude-swap (`cswap list --json`, schéma v1), jen ke čtení.
+"""Účty Claude Code z přepínače claude-swap (`cswap list --json`, schéma v1) a přepnutí po vyčerpaném limitu.
 
-Pletor `cswap` neinstaluje a nespouští nic jiného než `list --json` (žádné add/switch/auto/run/remove).
+Pletor `cswap` neinstaluje. Tady spouští `list --json` (čtení) a `switch --strategy next-available --json` (po limitu
+předplatného); přidání a ruční přepnutí z UI je v `accounts.py` (`add`, `switch N`). Nikdy auto/run/remove.
 Výstup nese úplné e-maily; ven jde jen maskovaný štítek, tokeny `list --json` nevypisuje vůbec.
 """
 import json
@@ -54,4 +55,19 @@ def read(which=shutil.which, run=subprocess.run):
         return {"available": False, "reason": f"cswap list skončil kódem {done.returncode}."}
     payload = json.loads(done.stdout)
     rows = payload.get("accounts") if isinstance(payload, dict) else None
-    return {"available": True, "accounts": [account(row) for row in rows or [] if isinstance(row, dict)]}
+    # `activeAccountNumber: null` = přihlášený účet Claude Code není mezi uloženými (UI nabídne Uložit)
+    return {"available": True, "managed": payload.get("activeAccountNumber") is not None,
+            "accounts": [account(row) for row in rows or [] if isinstance(row, dict)]}
+
+
+def switch(which=shutil.which, run=subprocess.run):
+    """Přepne na další účet s volnou kvótou; True jen když `cswap` opravdu přepnul (jeden účet nebo chyba = False)."""
+    binary = which("cswap")
+    if not binary:
+        return False
+    try:
+        done = run([binary, "switch", "--strategy", "next-available", "--json"], capture_output=True, text=True,
+                   encoding="utf-8", errors="replace", timeout=TIMEOUT)
+        return done.returncode == 0 and json.loads(done.stdout).get("switched") is True
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return False

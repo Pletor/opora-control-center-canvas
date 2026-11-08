@@ -106,6 +106,30 @@ def run(fake, monkeypatch, argv):
     return opora_heart.run(opora_heart.parser().parse_args(argv))
 
 
+def test_research_map_keeps_all_facts_and_replay_does_not_duplicate(heart):
+    _client, call, _brain = heart
+    args = opora_heart.parser().parse_args(["research", "--question", "Login behavior?", "--title", "Login",
+                                          "--topic", "Login", "--topic", "Logic", "--question-id", "pq_1"])
+    facts = [{"id": f"f{i}", "claim": f"Finding {i}", "layer": "be", "source": "https://example.org/login",
+              "quote": "exact quoted source " * 300, "verified": "verified"} for i in range(12)]
+    payload = opora_research.opora_research_map.batch({"digest": DIGEST, "facts": facts}, "vf_import", args,
+                                                    "2026-11-08T12:00:00Z")
+    saved = call("POST", "/api/research", {**SCOPE, **payload})
+    assert call("POST", "/api/research", {**SCOPE, **payload}) == saved
+    headers = call("GET", "/api/research", query=SCOPE)
+    assert len(headers["cards"]) == 14 and len(headers["edges"]) == 14
+    assert all("content" not in card and "sources" not in card for card in headers["cards"])
+    [option] = [card for card in saved["cards"] if card["kind"] == "option"]
+    assert option["verification"]["status"] == "inference" and option["title"] == "Statická stránka"
+    assert any(edge["toId"] == option["id"] and edge["relation"] == "supports" for edge in headers["edges"])
+    for card, fact in zip((card for card in saved["cards"] if card["kind"] == "finding"), facts, strict=True):
+        detail = call("GET", f"/api/research/cards/{card['id']}", query=SCOPE)
+        assert json.loads(detail["card"]["content"]) == fact
+        assert detail["card"]["sources"][0]["quote"] == fact["quote"]
+        assert detail["card"]["refs"]["questionIds"] == ["pq_1"]
+        assert len(detail["history"]) == 1
+
+
 def test_research_writes_the_vault_and_a_duel_reaches_a_decision(heart, monkeypatch, site):
     client, call, brain = heart
     findings = [{"claim": "Hero má nadpis a tlačítko", "kind": "fact", "source": f"{site}/hero",

@@ -3,9 +3,10 @@
  * rozhraním `VoiceOutput` jako prohlížečová syntéza, která je poslední zálohou.
  * Rychlost: věty se syntetizují souběžně (nejvýš 2 v letu), první hraje hned a další navazují bez pauzy
  * v AudioContextu. MP3 (Edge) a WAV (Piper) se dekódují celé, PCM z XTTS hraje po kouscích, jak ho GPU vyrábí.
- * Plynulost: selže-li engine, tutéž větu přečte další hlas z řetězce (`voiceChain`), až nakonec prohlížeč.
+ * Plynulost: selže-li engine u první věty, přečte ji další hlas z řetězce (`voiceChain`). Jedna odpověď = jeden hlas:
+ * další věty čtou jen hlasem první věty (selhání zkusí ještě jednou), až pak zbytek dočte prohlížeč.
  */
-import { audioBuffers, browserAudio, fetchSpeech, type Speech } from "./tts-audio";
+import { audioBuffers, browserAudio, fetchSpeech, type Sound, type Speech } from "./tts-audio";
 import { splitSentences, type VoiceOutput, type VoiceOutputEvents } from "./voice-output";
 
 /** Rozpracované čtení: `push` přidá text, `end` dočte zbytek a po dohrání zavolá `onEnd`; `stop` výstupu ho utne. */
@@ -73,24 +74,31 @@ export function createServerOutput(fallback: VoiceOutput, chain: () => string[],
     };
     const controller = new AbortController();
     abort = controller;
-    const failed = new Set<string>(); // engine, který v této odpovědi selhal, se u dalších vět přeskočí
-    const load = async (sentence: string) => {
-      for (const id of voices) {
-        if (failed.has(id)) continue;
-        try {
-          return { id, sound: await speech(sentence, id, controller.signal) };
-        } catch (error) {
-          if (controller.signal.aborted) throw error;
-          failed.add(id);
+    type Loaded = { id: string; sound: Sound };
+    // OP-FB0522.m1d: hlas se uprostřed odpovědi nestřídá; řetězec záloh platí jen pro první větu
+    const load = async (sentence: string, first?: Promise<Loaded>): Promise<Loaded> => {
+      if (!first) {
+        for (const id of voices) {
+          try {
+            return { id, sound: await speech(sentence, id, controller.signal) };
+          } catch (error) {
+            if (controller.signal.aborted) throw error;
+          }
         }
+        throw new Error("Žádný hlas serveru nečte");
       }
-      throw new Error("Žádný hlas serveru nečte");
+      // Souběžně s první větou zkusí hlavní hlas; hraje jen, když první větu přečetl týž hlas. Jinak (i po chybě)
+      // větu přečte ještě jednou hlas první věty.
+      const early = speech(sentence, voices[0], controller.signal).catch(() => null);
+      const { id } = await first;
+      const sound = id === voices[0] ? await early : null;
+      return { id, sound: sound ?? await speech(sentence, id, controller.signal) };
     };
-    const queue: ReturnType<typeof load>[] = [];
+    const queue: Promise<Loaded>[] = [];
     let taken = 0; // věty, které přehrávač už převzal
     const fill = () => {
       while (server && queue.length < sentences.length && queue.length < taken + IN_FLIGHT) {
-        const loaded = load(sentences[queue.length]);
+        const loaded = load(sentences[queue.length], queue[0]);
         loaded.catch(() => undefined); // zrušené dopředu stažené věty nejsou chyba
         queue.push(loaded);
       }
@@ -120,7 +128,7 @@ export function createServerOutput(fallback: VoiceOutput, chain: () => string[],
           if (mine !== token) return;
         }
         if (i >= sentences.length) break;
-        let loaded: Awaited<ReturnType<typeof load>>;
+        let loaded: Loaded;
         try {
           loaded = await queue[i];
           if (ctx.state === "suspended") throw new Error("AudioContext nesmí hrát");

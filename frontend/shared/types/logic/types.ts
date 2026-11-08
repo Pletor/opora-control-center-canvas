@@ -203,9 +203,11 @@ function send(url: string, body?: object, conditional = true, method: WriteMetho
  *  technický model Studia `PUT /api/studio/model`, linie velínu `DELETE /api/pletor/linie/...`). */
 export type WriteMethod = "POST" | "PATCH" | "PUT" | "DELETE";
 export async function api<T>(url: string, body?: object, method: WriteMethod = "POST"): Promise<T> {
-  if (body) await ensureHumanSession();
+  // Research reads are scoped to a human or agent, including a fresh canvas deep link.
+  const researchRead = !body && /^\/api\/research(?:[/?]|$)/.test(url);
+  if (body || researchRead) await ensureHumanSession();
   let response = await send(url, body, true, method);
-  if (response.status === 428) {
+  if (response.status === 428 || (researchRead && response.status === 401)) {
     await ensureHumanSession(true);
     response = await send(url, body, Boolean(body), method);
   }

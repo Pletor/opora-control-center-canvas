@@ -55,6 +55,12 @@ from database.schema.opora_review_job_schema import TABLES as REVIEW_JOB_TABLES
 from database.schema.opora_review_policy_schema import SCHEMA as REVIEW_POLICY_SCHEMA
 from database.schema.opora_verification_schema import SCHEMA as VERIFICATION_SCHEMA
 from database.schema.opora_verification_schema import TABLES as VERIFICATION_TABLES
+from database.schema.research_schema import SCHEMA as RESEARCH_SCHEMA
+from database.schema.research_schema import TABLES as RESEARCH_TABLES
+from database.schema.research_decisions_schema import SCHEMA as RESEARCH_DECISIONS_SCHEMA
+from database.schema.research_decisions_schema import TABLES as RESEARCH_DECISIONS_TABLES
+from database.schema.research_events_schema import SCHEMA as RESEARCH_EVENTS_SCHEMA
+from database.schema.research_events_schema import TABLES as RESEARCH_EVENTS_TABLES
 from database.schema.studio_model_schema import SCHEMA as STUDIO_MODEL_SCHEMA
 from database.schema.studio_model_schema import TABLES as STUDIO_MODEL_TABLES
 from database.schema.workspace_graph_authority_schema import SCHEMA as GRAPH_AUTHORITY_SCHEMA
@@ -351,10 +357,13 @@ CREATE TABLE IF NOT EXISTS ticket_feedback(
     session_id TEXT NOT NULL, answer TEXT, answered_at TEXT, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS ticket_feedback_ticket ON ticket_feedback(ticket_id, seq);
 """
-PROJECT_SCHEMA += GATE_SCHEMA
+PROJECT_SCHEMA += GATE_SCHEMA + RESEARCH_SCHEMA + RESEARCH_DECISIONS_SCHEMA + RESEARCH_EVENTS_SCHEMA
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
+    **{table: "project_id" for table in RESEARCH_TABLES},
+    **{table: "project_id" for table in RESEARCH_DECISIONS_TABLES},
+    **{table: "project_id" for table in RESEARCH_EVENTS_TABLES},
     "opora_graph_proposals": "project_id",
     "opora_graph_manifests": "project_id",
     "workspace_graph_authority": "project_id",

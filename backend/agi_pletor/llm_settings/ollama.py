@@ -4,7 +4,6 @@ VRAM je vedle Ollamy proto, že o GPU se s ní dělí XTTS (hlas Pletora, ~2,3 G
 """
 import subprocess
 
-from backend.agi_pletor import brains
 
 TIMEOUT = 3
 GB = 1024 ** 3
@@ -21,7 +20,10 @@ def vram(run=subprocess.run):
     return {"totalGb": round(total / 1024, 1), "usedGb": round(used / 1024, 1), "freeGb": round((total - used) / 1024, 1)}
 
 
-def read(transport=brains.http, run=subprocess.run):
+def read(transport=None, run=subprocess.run):
+    from backend.agi_pletor import brains  # líně: brains → session → llm_settings by při importu kroužilo
+
+    transport = transport or brains.http
     gpu = vram(run)
     try:
         tags = transport("GET", "/api/tags", None, TIMEOUT).get("models") or []

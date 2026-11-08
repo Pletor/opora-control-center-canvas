@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseLlm, usageTone } from "./llm-settings";
+import { codexEfforts, keepEffort, parseLlm, usageTone } from "./llm-settings";
 
 describe("nastavení LLM", () => {
   it("prázdná nebo cizí odpověď = čtyři nedostupné sekce s důvodem", () => {
@@ -37,5 +37,38 @@ describe("nastavení LLM", () => {
 
   it("barva pruhu: zelená → jantarová → červená", () => {
     expect([usageTone(0), usageTone(69.9), usageTone(70), usageTone(89), usageTone(90), usageTone(null)]).toEqual(["ok", "ok", "warn", "warn", "high", "unknown"]);
+  });
+  it("účty: managed chybí = true, false jen výslovně", () => {
+    expect(parseLlm({ cswap: { available: true } }).cswap.managed).toBe(true);
+    expect(parseLlm({ cswap: { available: true, managed: false } }).cswap.managed).toBe(false);
+    expect(parseLlm({ codexswap: { available: true, accounts: [{ slot: 1, label: "j***", alias: "pro" }] } }).codexswap.accounts[0].alias).toBe("pro");
+  });
+
+  it("modely: špatné položky se zahodí, label doplní id, reasoning jen řetězce", () => {
+    const llm = parseLlm({
+      claude: { models: [{ id: "opus", label: "Opus" }, { label: "bez id" }, 7, { id: "haiku" }] },
+      codex: { models: [{ id: "gpt-6.1-sol", label: "GPT 6.1 Sol", reasoning: ["low", 2, "high"] }, { id: "" }] },
+    });
+    expect(llm.claude.models).toEqual([{ id: "opus", label: "Opus" }, { id: "haiku", label: "haiku" }]);
+    expect(llm.codex.models).toEqual([{ id: "gpt-6.1-sol", label: "GPT 6.1 Sol", reasoning: ["low", "high"] }]);
+    expect(parseLlm(null).codex.models).toEqual([]);
+  });
+});
+
+describe("effort", () => {
+  it("Claude nese effort z nastavení, neznámý je null", () => {
+    expect(parseLlm({ claude: { available: true, effort: "xhigh" } }).claude.effort).toBe("xhigh");
+    expect(parseLlm({ claude: { available: true } }).claude.effort).toBeNull();
+  });
+  it("úrovně Codexu z cache modelu, jinak low/medium/high", () => {
+    const models = [{ id: "a", label: "A", reasoning: ["low", "xhigh"] }, { id: "b", label: "B", reasoning: [] }];
+    expect(codexEfforts(models, "a")).toEqual(["low", "xhigh"]);
+    expect(codexEfforts(models, "b")).toEqual(["low", "medium", "high"]);
+    expect(codexEfforts(models, null)).toEqual(["low", "medium", "high"]);
+  });
+  it("změna modelu ponechá effort jen když ho model umí", () => {
+    expect(keepEffort(["low", "high"], "high")).toBe("high");
+    expect(keepEffort(["low"], "high")).toBe("");
+    expect(keepEffort(["low"], null)).toBe("");
   });
 });

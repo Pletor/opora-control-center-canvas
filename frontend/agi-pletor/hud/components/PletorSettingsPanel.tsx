@@ -1,9 +1,10 @@
 import "../styles/pletor-settings.css";
 import { useEffect, useRef, useState } from "react";
-import { fetchPletorLlm, type PletorBrain } from "../logic/pletor-client";
+import { fetchPletorLlm, type PletorBrain, type PletorBrainKind } from "../logic/pletor-client";
 import type { PletorLlm } from "../logic/llm-settings";
 import { readListenPrefs, writeListenPrefs } from "../logic/listen-prefs";
 import type { usePletorVoice } from "../logic/use-pletor-voice";
+import PletorBrainPicker from "./PletorBrainPicker";
 import PletorListenSwitch from "./PletorListenSwitch";
 import PletorSettingsLlm from "./PletorSettingsLlm";
 import PletorSettingsVoices from "./PletorSettingsVoices";
@@ -13,11 +14,11 @@ type Tab = "brain" | "voice" | "llm" | "workshop";
 const TABS: [Tab, string][] = [["brain", "Mozek a čtení"], ["voice", "Hlas"], ["llm", "LLM"], ["workshop", "Dílna"]];
 
 type Props = {
-  voice: ReturnType<typeof usePletorVoice>; brain: PletorBrain; onBrain: (brain: PletorBrain["brain"]) => void; onClose: () => void;
+  voice: ReturnType<typeof usePletorVoice>; brain: PletorBrain; onBrain: (brain: PletorBrainKind, model?: string, effort?: string) => void; onClose: () => void;
 };
 
 /**
- * Nastavení Pletora za ozubeným kolem ve čtyřech záložkách: mozek (Claude / Ollama) s přepínači čtení a poslechu, hlas
+ * Nastavení Pletora za ozubeným kolem ve čtyřech záložkách: mozek (Claude / Codex / Ollama) s přepínači čtení a poslechu, hlas
  * (tabulka hlasů), LLM na tomto počítači jen ke čtení (`GET /api/pletor/llm`, načte se při prvním otevření záložky)
  * a Dílna, která se otevře jako celoobrazovková vrstva (`PletorWorkshop`) a po zavření vrátí focus na „Otevřít dílnu“.
  * Volby se ukládají jako dosud jednou pro aplikaci (voice-prefs, listen-prefs); mozek přepíná server (`onBrain`).
@@ -44,11 +45,12 @@ export default function PletorSettingsPanel({ voice, brain, onBrain, onClose }: 
   const closeWorkshop = () => { setWorkshop(false); requestAnimationFrame(() => workshopButton.current?.focus()); };
   const openTab = (next: Tab) => {
     setTab(next);
-    if (next === "llm" && !llm.data && !llm.loading) loadLlm();
+    if ((next === "llm" || next === "brain") && !llm.data && !llm.loading) loadLlm();
     if (next === "workshop") setWorkshop(true);
   };
 
   useEffect(() => {
+    loadLlm(); // záložka Mozek je první a modely Codexu potřebuje hned; jednou při otevření
     ref.current?.focus();
     // Otevřená Dílna si Esc bere sama (zavře jen sebe).
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape" && !workshopOpen.current) { event.preventDefault(); close.current(); } };
@@ -63,7 +65,6 @@ export default function PletorSettingsPanel({ voice, brain, onBrain, onClose }: 
 
   // Poloha popupu se ukládá zvlášť (PletorListener); tady se mění jen „jen na oslovení“.
   const saveWake = (on: boolean) => { setWakeOnly(on); writeListenPrefs({ ...readListenPrefs(), wakeOnly: on }); };
-  const local = brain.brain === "ollama" ? brain.model : brain.available[0] ?? null;
 
   return (
     <section ref={ref} className="pletor-settings" role="dialog" aria-label="Nastavení Pletora" tabIndex={-1}>
@@ -80,15 +81,7 @@ export default function PletorSettingsPanel({ voice, brain, onBrain, onClose }: 
 
       {tab === "brain" && <div className="pletor-settings__pane" role="tabpanel" aria-label="Mozek a čtení">
         <h3 className="pletor-settings__section">Mozek</h3>
-        <div className="pletor-settings__brains" role="group" aria-label="Mozek Pletora">
-          <button type="button" className="pletor-settings__brain" aria-pressed={brain.brain === "claude"} onClick={() => onBrain("claude")}>
-            Claude (předplatné)
-          </button>
-          <button type="button" className="pletor-settings__brain" aria-pressed={brain.brain === "ollama"} disabled={!local}
-            title={local ? undefined : "Ollama nenabízí žádný model"} onClick={() => onBrain("ollama")}>
-            Lokální (Ollama · {local ?? "bez modelu"})
-          </button>
-        </div>
+        <PletorBrainPicker brain={brain} claude={llm.data?.claude.models ?? []} codex={llm.data?.codex.models ?? []} onChoose={onBrain} />
 
         <h3 className="pletor-settings__section">Čtení a poslech</h3>
         <div className="pletor-settings__switches">

@@ -21,6 +21,12 @@ def check_model(model):
     return model
 
 
+def reasoning_levels(model):
+    """Úrovně reasoning modelu z cache Codexu; model bez nich (nebo prázdná cache) = `REASONING`."""
+    found = next((item["reasoning"] for item in codex.models() if item["id"] == model), None)
+    return tuple(found) if found else REASONING
+
+
 def _backup(path: Path):
     """Záloha existujícího souboru vedle něj; vrací její název (nebo None, když soubor ještě nebyl)."""
     if not path.is_file():
@@ -30,15 +36,20 @@ def _backup(path: Path):
     return copy.name
 
 
-def claude_model(model):
+def claude_model(model, effort=None):
+    """`effort` None = výchozí (klíč `effortLevel` se odstraní)."""
     check_model(model)
+    if effort is not None and effort not in claude.EFFORTS:
+        raise ValueError(f"effort je {', '.join(claude.EFFORTS)}.")
     path = Path.home() / ".claude" / "settings.json"
     settings = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
     if not isinstance(settings, dict):
         raise ValueError("settings.json není objekt, nepřepisuji ho.")
     backup = _backup(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({**settings, "model": model}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    settings = {key: value for key, value in settings.items() if key != "effortLevel"}
+    settings.update(model=model, **({"effortLevel": effort} if effort else {}))
+    path.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return {**claude.read(), "backup": backup}
 
 
@@ -49,7 +60,11 @@ def _set_top_level(text: str, values: dict) -> str:
     for key, value in values.items():
         row = f"{key} = {json.dumps(value)}"
         at = next((i for i in range(end) if re.match(rf"\s*{key}\s*=", lines[i])), None)
-        if at is None:
+        if value is None:  # None = klíč pryč (výchozí)
+            if at is not None:
+                del lines[at]
+                end -= 1
+        elif at is None:
             lines.insert(end, row)
             end += 1
         else:
@@ -59,12 +74,13 @@ def _set_top_level(text: str, values: dict) -> str:
 
 def codex_model(model, reasoning=None):
     check_model(model)
-    if reasoning is not None and reasoning not in REASONING:
-        raise ValueError("reasoning je low, medium nebo high.")
+    levels = reasoning_levels(model)
+    if reasoning is not None and reasoning not in levels:
+        raise ValueError(f"reasoning je {', '.join(levels)}.")
     path = Path.home() / ".codex" / "config.toml"
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
     backup = _backup(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    values = {"model": model, **({"model_reasoning_effort": reasoning} if reasoning else {})}
+    values = {"model": model, "model_reasoning_effort": reasoning or None}
     path.write_text(_set_top_level(text, values), encoding="utf-8")
     return {**codex.read(), "backup": backup}

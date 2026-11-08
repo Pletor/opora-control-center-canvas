@@ -20,3 +20,15 @@ def test_decision_is_one_json_line(tmp_path):
     store.append_decision(tmp_path / "brain", "t1", "draft", "Web má dvě stránky.")
     line = (tmp_path / "brain" / store.DECISIONS).read_text(encoding="utf-8").strip()
     assert json.loads(line) == {"at": "t1", "workspace": "draft", "text": "Web má dvě stránky.", "by": "pletor"}
+
+
+def test_settings_old_file_and_codex(tmp_path):
+    base = {"brain": "claude", "claudeModel": "sonnet", "codexModel": None, "ollamaModel": None,
+            "claudeEffort": None, "codexEffort": None}
+    assert store.settings(tmp_path) == base
+    store.save_settings(tmp_path, {"brain": "ollama", "ollamaModel": "qwen3:14b"})  # starý tvar souboru
+    assert store.settings(tmp_path) == {**base, "brain": "ollama", "ollamaModel": "qwen3:14b"}
+    store.save_settings(tmp_path, {"brain": "ollama"})  # ollama bez modelu = claude
+    assert store.settings(tmp_path)["brain"] == "claude"
+    store.save_settings(tmp_path, {"brain": "codex", "codexModel": "gpt-a", "claudeModel": "haiku"})
+    assert store.settings(tmp_path) == {**base, "brain": "codex", "codexModel": "gpt-a", "claudeModel": "haiku"}

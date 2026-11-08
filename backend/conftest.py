@@ -48,6 +48,13 @@ def pytest_configure(config):
 
 
 @pytest.fixture(autouse=True)
+def _no_real_account_switch(monkeypatch):
+    """Testy nikdy nepřepnou skutečný účet Claude Code (`cswap switch` mění přihlášení celého počítače)."""
+    from backend.agi_pletor.llm_settings import cswap
+    monkeypatch.setattr(cswap, "switch", lambda **kwargs: False)
+
+
+@pytest.fixture(autouse=True)
 def _legacy_claims_without_plan_steps(request, monkeypatch):
     """Execution suites written before plan steps claim cards whose accepted spec has no steps.
 

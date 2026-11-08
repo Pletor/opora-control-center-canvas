@@ -68,18 +68,9 @@
   border-bottom-color: var(--accent);
   color: var(--accent);
 }
-/* Úzké okno (pod 1100 px): popisky zmizí, zůstanou ikony, aby se módy i přepínače panelů vešly
-   do jedné řady. Popisek je skrytý jen pro oko — odečítač ho dál přečte a jméno nese i `title`. */
-@media (max-width: 1100px) {
-  .mode-rail__label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-}
+/* Názvy zůstávají dostupné i v úzkém okně vodorovným posunem. */
+.mode-rail { min-width: 0; flex-shrink: 1; overflow-x: auto; flex-wrap: nowrap; }
+.mode-rail__button { flex-shrink: 0; }
 .drawing-tools {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

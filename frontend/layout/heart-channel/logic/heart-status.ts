@@ -10,7 +10,8 @@ export function clock(iso: string | null): string {
   return `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}`;
 }
 
-function inputs(count: number): string {
+/** „1 vstup“, „3 vstupy“, „5 vstupů“. */
+export function inputs(count: number): string {
   if (count === 1) return "1 vstup";
   return count < 5 ? `${count} vstupy` : `${count} vstupů`;
 }

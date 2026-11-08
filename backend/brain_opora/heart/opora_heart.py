@@ -13,6 +13,7 @@
     python opora_heart.py ticket-answer --ticket ID --text T [--feedback FEEDBACK_ID]   (druh brány ticket.answer)
     python opora_heart.py cancel --task TICKET_ID   (zruší ticket práce, druh brány ticket.cancel)
     python opora_heart.py escalate --text T
+    python opora_heart.py pletor-answer --question pq_… (--text T | --file F) [--ref R]… [--unknown --reason R]
     python opora_heart.py escalate --withdraw TICKET_ID --reason R   (stáhne zastaralou otázku)
     python opora_heart.py intake --entry ie_… --verdict V [--reason R] [--requirement rq_…|new [--title T]
                                  [--open-condition ms_…]]
@@ -1352,8 +1353,8 @@ def run(args):
         return read_skill(args.name)
     project = env("OPORA_PROJECT")
     # `--workspace` jen u plan, task a decide; u ctx je to prostor cizího plánu (plan-of), ne přepis prostoru srdce
-    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "prune", "member", "order", "research", "duel", "vault") else None
-    if args.command in ("research", "duel", "vault") and not _override["workspace"] and os.environ.get("OPORA_WORKSPACE") == "main":
+    _override["workspace"] = getattr(args, "workspace", None) if args.command in ("plan", "task", "decide", "unlink", "prune", "member", "order", "research", "research-map", "duel", "vault") else None
+    if args.command in ("research", "research-map", "duel", "vault") and not _override["workspace"] and os.environ.get("OPORA_WORKSPACE") == "main":
         _override["workspace"] = active_workspace()  # schránka v main neexistuje (read-only): výzkum jde do prostoru posledního plánu
     if args.command == "ctx":
         return load_context(args.name, args.project, args.workspace, args.node, args.full)
@@ -1364,6 +1365,8 @@ def run(args):
     if args.command in ("research", "duel"):
         module = research_module("opora_research" if args.command == "research" else "opora_duel")
         return getattr(module, args.command)(args, sys.modules[__name__])
+    if args.command == "research-map":
+        return research_module("opora_research_map").run(args, sys.modules[__name__])
     if args.command == "snapshot":
         return call("GET", "/api/brain/heart/snapshot", query=scope())["snapshot"]
     if args.command == "plan":
@@ -1401,6 +1404,23 @@ def run(args):
         return gate_ticket(args)
     if args.command == "cancel":
         return cancel_work(args.task)
+    if args.command == "pletor-answer":
+        if args.unknown and not args.reason:
+            raise SystemExit("pletor-answer --unknown potřebuje --reason (proč nevíme a co by to rozhodlo).")
+        text = args.text
+        if args.file:
+            try:
+                with Path(args.file).open("r", encoding="utf-8", newline="") as source:
+                    text = source.read(8001)
+            except (OSError, UnicodeError, ValueError) as error:
+                raise Failure({"code": "pletor_answer_file", "error": f"Odpověď nejde načíst jako UTF-8: {error}",
+                               "hint": "Použijte čitelný textový soubor UTF-8, například dilna/out/answer.txt."}) from error
+        if not text or not text.strip() or len(text) > 8000 or "\0" in text:
+            raise Failure({"code": "pletor_answer_text", "error": "Odpověď musí mít 1 až 8000 znaků a nesmí obsahovat NUL.",
+                           "hint": "Upravte odpověď; obsah se nikdy automaticky nezkracuje."})
+        body = {"text": text, "refs": args.ref, "unknown": args.unknown}
+        return call("POST", f"/api/pletor/questions/{quote(args.question, safe='')}/answer",
+                    body | ({"reason": args.reason} if args.reason else {}), {"project": project})
     if args.command == "escalate" and args.withdraw:
         if not args.reason:
             raise SystemExit("escalate --withdraw potřebuje --reason (jedna věta, proč otázka padla).")
@@ -1506,6 +1526,14 @@ def parser():
     work.add_argument("--text", required=True)
     work.add_argument("--feedback", help="ID položky zpětné vazby ticketu práce (tf_…)")
     commands.add_parser("cancel").add_argument("--task", required=True)
+    told = commands.add_parser("pletor-answer")  # odpověď na otázku Pletora (docs/navrhy/2026-11-08-pletor-otazky-srdci.md)
+    told.add_argument("--question", required=True)
+    answer_input = told.add_mutually_exclusive_group(required=True)
+    answer_input.add_argument("--text")
+    answer_input.add_argument("--file", help="UTF-8 text odpovědi (nejvýše 8000 znaků), například dilna/out/answer.txt")
+    told.add_argument("--ref", action="append", default=[], help="ID fragmentu, výzkumu nebo cesta k souboru")
+    told.add_argument("--unknown", action="store_true")
+    told.add_argument("--reason")
     escalation = commands.add_parser("escalate")  # otázka pro člověka, nebo stažení zastaralé (§6 kanálu)
     asked = escalation.add_mutually_exclusive_group(required=True)
     asked.add_argument("--text")
@@ -1548,7 +1576,38 @@ def parser():
     script = commands.add_parser("run")
     script.add_argument("script")
     script.add_argument("script_args", nargs=argparse.REMAINDER)
+    research_map = commands.add_parser("research-map", help="Research headers, detail, batch write and retry")
+    research_actions = research_map.add_subparsers(dest="action", required=True)
+    for action_name in ("reviews", "tasks", "task-status", "reconcile", "ticket-branch", "ticket-answer"):
+        action = research_actions.add_parser(action_name)
+        action.add_argument("--workspace")
+        if action_name == "reviews":
+            action.add_argument("--decision", required=True)
+        elif action_name in ("tasks", "task-status", "reconcile"):
+            action.add_argument("--review", required=True)
+            if action_name == "tasks":
+                action.add_argument("--file", required=True)
+        else:
+            action.add_argument("--ticket", required=True)
+            action.add_argument("--feedback", required=True)
+            if action_name == "ticket-answer":
+                action.add_argument("--card", required=True)
+                action.add_argument("--revision", required=True, type=int)
+                action.add_argument("--text", required=True)
+    for action_name in ("ls", "show", "save", "import", "attach"):
+        action = research_actions.add_parser(action_name)
+        action.add_argument("--workspace")
+        if action_name == "ls":
+            action.add_argument("--archived", action="store_true")
+        elif action_name == "show":
+            action.add_argument("id")
+            action.add_argument("--revision", type=int)
+            action.add_argument("--entity", choices=("card", "edge"), default="card")
+        else:
+            action.add_argument("--file", required=True)
     research = commands.add_parser("research")
+    for name in ("topic", "node", "question-id", "ticket", "session", "attachment"):
+        research.add_argument("--" + name, action="append", default=[])
     research.add_argument("--question", required=True)
     research.add_argument("--title", required=True)
     research.add_argument("--target", action="append", default=[])

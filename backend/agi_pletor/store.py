@@ -1,8 +1,8 @@
 """Rozhovor s Pletorem a jeho rozhodnutí na disku (jen text, žádná tajemství).
 
-- `<data>/pletor/messages.jsonl`: řádek `{at, project, workspace, role: human | pletor, text}` za každou zprávu.
+- `<data>/pletor/messages.jsonl`: řádek `{at, project, workspace, role: human | pletor | heart, text}` za každou zprávu (heart = odpověď srdce na otázku Pletora).
 - `<data>/projects/<id>/brain/pletor_decisions.jsonl`: rozhodnutí z akce `vault_note` (shortcut, viz README).
-- `<data>/pletor/settings.json`: zvolený mozek `{brain, ollamaModel}`, jeden pro aplikaci (P2).
+- `<data>/pletor/settings.json`: zvolený mozek a model každého mozku `{brain, claudeModel, codexModel, ollamaModel}`, jeden pro aplikaci (P2).
 """
 import json
 from pathlib import Path
@@ -47,15 +47,19 @@ def append_decision(brain, at, workspace, text):
 
 
 def settings(folder):
-    """Volba mozku pro celou aplikaci `{brain: claude | ollama, ollamaModel}`; chybějící nebo vadný soubor = claude."""
+    """Volba mozku pro celou aplikaci `{brain: claude | codex | ollama, claudeModel, codexModel, ollamaModel}`;
+    chybějící nebo vadný soubor = claude, starý soubor bez modelů Claude a Codexu se čte dál;
+    `claudeEffort` a `codexEffort` None = výchozí."""
     try:
         value = json.loads((Path(folder) / SETTINGS).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         value = {}
     value = value if isinstance(value, dict) else {}
-    model = value.get("ollamaModel")
-    brain = value.get("brain") if value.get("brain") == "ollama" and isinstance(model, str) and model else "claude"
-    return {"brain": brain, "ollamaModel": model if isinstance(model, str) else None}
+    models = {key: value.get(key) if isinstance(value.get(key), str) and value.get(key) else None
+              for key in ("claudeModel", "codexModel", "ollamaModel", "claudeEffort", "codexEffort")}
+    brain = value.get("brain")
+    brain = "codex" if brain == "codex" else "ollama" if brain == "ollama" and models["ollamaModel"] else "claude"
+    return {"brain": brain, **models, "claudeModel": models["claudeModel"] or "sonnet"}
 
 
 def save_settings(folder, value):
