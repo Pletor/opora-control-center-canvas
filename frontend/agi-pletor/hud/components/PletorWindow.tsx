@@ -6,10 +6,12 @@ import { HANDOFF_MS, REPLY_MS, hudLabel, hudState, hudWork } from "../logic/hud-
 import { usePletorVoice } from "../logic/use-pletor-voice";
 import PletorActions from "./PletorActions";
 import PletorHeartLine from "./PletorHeartLine";
+import PletorHeartPanel from "@/agi-pletor/hud-heart/components/PletorHeartPanel";
 import PletorHud from "./PletorHud";
 import PletorMessages from "./PletorMessages";
 import PletorMicButton from "./PletorMicButton";
 import PletorOrb from "./PletorOrb";
+import PletorQuestionLine from "./PletorQuestionLine";
 import PletorListener from "./PletorListener";
 import PletorListenSwitch from "./PletorListenSwitch";
 import PletorSettingsButton from "./PletorSettingsButton";
@@ -31,7 +33,7 @@ type Props = {
  */
 export default function PletorWindow({ mode, project, projectName, workspace, onMode, onDashboard, listening, onListening, settings, onSettings }: Props) {
   const active = mode !== "closed" || listening || settings;
-  const pletor = usePletor(active, project, workspace);
+  const pletor = usePletor(active, project, workspace, mode !== "closed");
   const voice = usePletorVoice(pletor, active, { on: listening, onFail: (message) => onListening(false, message) });
   const [now, setNow] = useState(() => Date.now());
   const [log, setLog] = useState(true);
@@ -85,6 +87,8 @@ export default function PletorWindow({ mode, project, projectName, workspace, on
         </div>
         {pletor.failure && <p className="pletor__failure" role="alert">{pletor.failure}</p>}
         {voiceError}
+        <PletorHeartPanel status={pletor.heartStatus} answered={pletor.answered} place="window" />
+        <PletorQuestionLine text={pletor.question} />
         {log && <PletorMessages messages={pletor.messages} sending={pletor.sending} />}
         <PletorActions actions={pletor.actions} />
       </aside>

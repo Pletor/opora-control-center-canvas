@@ -78,6 +78,7 @@ from backend.api.agi_pletor.dashboard_routes import create_dashboard_router
 from backend.api.agi_pletor.linie_routes import create_linie_router
 from backend.api.agi_pletor.linie_work_routes import create_linie_work_router
 from backend.api.agi_pletor.pletor_requests_routes import create_pletor_requests_router
+from backend.api.agi_pletor.pletor_questions_routes import create_pletor_questions_router
 from backend.api.agi_pletor.workshop_routes import create_workshop_router
 from backend.api.project.design_system_routes import create_design_system_router
 from backend.api.project.graphify_routes import create_graphify_router
@@ -232,6 +233,8 @@ def create_app(data_root=None):
     app.state.reconciliation = reconciliation
     app.state.heart = heart
     app.state.pletor = Pletor(service, heart)  # Jarvis nad srdcem (docs/navrhy/2026-11-04-pletor-jarvis.md)
+    if heart_enabled():  # eskalace srdce jde do rozhovoru s Pletorem (…-pletor-otazky-srdci.md M1c); testy bez háku
+        service.heart_escalation_hook = app.state.pletor.escalation
     app.state.flow = flow
 
     # Vzdálený přístup přes tunel; bez obou proměnných prostředí je hranice přesně dnešní.
@@ -295,7 +298,7 @@ def create_app(data_root=None):
         expected_origin = ("http://" + host if loopback
                            else remote.origin_for(host, request.headers.get("x-forwarded-proto")))
         origin = request.headers.get("origin")
-        request.state.actor, request.state.agent = human.actor(request.headers, request.cookies)
+        request.state.actor, request.state.agent = human.actor(request.headers, request.cookies, request.url.port)
         if origin and origin != expected_origin:
             return JSONResponse({"error": "Nepovolený Origin."}, status_code=403)
         if public:
@@ -495,6 +498,7 @@ def create_app(data_root=None):
     app.include_router(create_linie_router(service, app.state.pletor))  # Linie velínu (docs/navrhy/2026-11-06-velin-git-linie.md)
     app.include_router(create_linie_work_router(service, app.state.pletor))  # editor a vynucení (…-linie-editor-a-vynuceni.md)
     app.include_router(create_pletor_requests_router(service))  # žádosti srdci (…-linie-rebrand.md §4a)
+    app.include_router(create_pletor_questions_router(service, app.state.pletor))  # otázky Pletora srdci (…-pletor-otazky-srdci.md)
     app.include_router(create_intake_router(service))  # vstupní brána (docs/navrhy/2026-10-30-vstupni-brana.md)
     # LSP-first navigace v kódu; sémantika je lokální fallback, nikdy model spouštěný aplikací
     workspace_sources = WorkspaceSources(service)

@@ -5,9 +5,10 @@ import { parseCswap, parseLlm, type CswapLlm, type PletorLlm } from "./llm-setti
 
 /** Síťová volání okna Pletor (docs/navrhy/2026-11-04-pletor-jarvis.md, P1) a mapování odpovědí na to, co okno ukáže. */
 
-export type PletorRole = "human" | "pletor";
+/** `heart` = odpověď srdce na otázku Pletora, zapsaná do rozhovoru serverem (docs/navrhy/2026-11-08-pletor-otazky-srdci.md). */
+export type PletorRole = "human" | "pletor" | "heart";
 export type PletorMessage = { role: PletorRole; text: string; at: string };
-export type PletorActionType = "heart_message" | "vault_note";
+export type PletorActionType = "heart_message" | "vault_note" | "heart_question" | "heart_question_close" | "heart_escalation_answer";
 export type PletorAction = { type: PletorActionType; text: string; ok: boolean; detail?: string };
 export type PletorReply = { reply: string; actions: PletorAction[] };
 /** Zvolený mozek Pletora: Claude nebo Codex pod předplatným, nebo lokální model v Ollamě; přepíná se větou nebo v nastavení.
@@ -71,7 +72,7 @@ export function parseState(value: unknown): PletorState {
   const messages = Array.isArray(raw.messages) ? raw.messages : [];
   return {
     messages: messages.filter((m): m is PletorMessage =>
-      !!m && (m.role === "human" || m.role === "pletor") && typeof m.text === "string"),
+      !!m && (m.role === "human" || m.role === "pletor" || m.role === "heart") && typeof m.text === "string"),
     heart: raw.heart ?? null,
     escalations: Array.isArray(raw.escalations) ? raw.escalations : [],
     brain: parseBrain(raw.brain),
@@ -155,6 +156,25 @@ export function heartText(heart: unknown): string {
   return "Stav srdce neznámý";
 }
 
+/** Otevřená otázka Pletora pro srdce jednou řádkou: „ve frontě“ není „zodpovězeno“; bez otevřené otázky prázdný řetězec. */
+export function questionText(value: unknown): string {
+  const open = (value && typeof value === "object" ? (value as { open?: unknown }).open : null) as Record<string, unknown> | null;
+  if (!open || typeof open !== "object" || typeof open.id !== "string") return "";
+  const state = open.status === "answered" ? "srdce odpovědělo" : "ve frontě srdce";
+  return `Otázka pro srdce: ${typeof open.text === "string" ? open.text : open.id} · ${state}`;
+}
+
+/** Srdce na otevřenou otázku odpovědělo a člověk ji ještě neuzavřel (uzavřená už není `open`). */
+export function questionAnswered(value: unknown): boolean {
+  const open = value && typeof value === "object" ? (value as { open?: unknown }).open : null;
+  return !!open && typeof open === "object" && (open as { status?: unknown }).status === "answered";
+}
+
+/** Řádek otázky pro srdce a zda už má odpověď (`GET /api/pletor/questions?project=`). */
+export const fetchPletorQuestion = (project: string) =>
+  api<unknown>(`/api/pletor/questions?project=${encodeURIComponent(project)}`)
+    .then((raw) => ({ text: questionText(raw), answered: questionAnswered(raw) }));
+
 export function escalationText(count: number): string {
   if (count === 0) return "žádná eskalace";
   if (count === 1) return "1 čekající eskalace";
@@ -166,6 +186,9 @@ export function actionLabel(action: PletorAction): { ok: boolean; text: string }
   if (!action.ok) return { ok: false, text: `Selhalo: ${action.detail || action.text || action.type}` };
   if (action.type === "heart_message") return { ok: true, text: "Poslal jsem srdci" };
   if (action.type === "vault_note") return { ok: true, text: "Zapsal do Schránky" };
+  if (action.type === "heart_question") return { ok: true, text: "Zeptal jsem se srdce" };
+  if (action.type === "heart_question_close") return { ok: true, text: "Uzavřel otázku" };
+  if (action.type === "heart_escalation_answer") return { ok: true, text: "Předal jsem odpověď srdci" };
   return { ok: true, text: action.text || action.type };
 }
 

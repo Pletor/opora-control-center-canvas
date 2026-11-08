@@ -34,7 +34,16 @@ def test_ui_session_is_issued_only_to_browser_fetch(tmp_path):
         issued = client.get("/api/access/ui-session", headers=BROWSER)
         assert issued.status_code == 200
         cookie = issued.headers["set-cookie"].lower()
-        assert "opora_ui=" in cookie and "httponly" in cookie and "samesite=strict" in cookie
+        assert "opora_ui_8740=" in cookie and "httponly" in cookie and "samesite=strict" in cookie
+
+
+def test_preview_on_other_port_does_not_overwrite_human_cookie(tmp_path):
+    # Náhled větve na jiném portu téhož hostu nastaví cizí `opora_ui`; doklad tohoto portu dál platí (8. 11.).
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        client.cookies.clear()
+        client.get("/api/access/ui-session", headers=BROWSER)
+        client.cookies.set("opora_ui", "tajemstvi-jineho-serveru", path="/api")
+        assert client.get("/api/pletor/questions", params={"project": SCOPE["project"]}).status_code != 428
 
 
 def test_missing_actor_header_is_unknown_not_human(tmp_path):

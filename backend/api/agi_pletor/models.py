@@ -28,7 +28,7 @@ class PletorReplyOut(BaseModel):
 
 
 class PletorMessage(BaseModel):
-    role: Literal["human", "pletor"]
+    role: Literal["human", "pletor", "heart"]  # heart = odpověď srdce na otázku Pletora
     text: str
     at: str
 
@@ -219,6 +219,15 @@ class PletorRequestIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     text: str = Field(min_length=1, max_length=TEXT_LIMIT)
     idempotencyKey: str = Field(min_length=1, max_length=200)
+
+
+class PletorQuestionAnswerIn(BaseModel):
+    """Odpověď srdce na otázku Pletora; obsah (prázdný text, refs ≤ 10, `unknown` s `reason`) hlídá `questions.answer`."""
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(max_length=TEXT_LIMIT)
+    refs: list[str] = []
+    unknown: bool = False
+    reason: str | None = Field(default=None, max_length=2000)
 
 
 class PletorRequestStepIn(BaseModel):

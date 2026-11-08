@@ -37,7 +37,7 @@ export function hudState({ sending, voice, error, work, repliedAt, now }: HudInp
 /** Práce mimo Pletora: srdce běží (`heart.running`), jinak čerstvě předaný záměr (akce `heart_message` do HANDOFF_MS). */
 export function hudWork(heart: unknown, actions: PletorAction[], repliedAt: number | null, now: number): HudWork {
   if (heart && typeof heart === "object" && (heart as { running?: unknown }).running === true) return "heart";
-  const handed = actions.some((action) => action.type === "heart_message" && action.ok);
+  const handed = actions.some((action) => (action.type === "heart_message" || action.type === "heart_question") && action.ok);
   return handed && repliedAt !== null && now >= repliedAt && now - repliedAt < HANDOFF_MS ? "handoff" : null;
 }
 

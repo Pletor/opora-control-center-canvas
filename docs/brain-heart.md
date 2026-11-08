@@ -258,7 +258,10 @@ question ─▶ project facts (code) ─▶ RESEARCHER (web + source) ─▶ VER
    security, data, ops`, narrows it) and answers ≤ 12 findings
    `{claim, layer, kind: fact|practice|option|risk|version, source, quote}` + ≤ 4 options. `source` is a URL or
    `path:line` (text around a URL is cut off by code), `quote` verbatim ≤ 300 chars. Source order: official docs and
-   specs, the project source, maintainers' repositories and release notes, the rest. Raw answer:
+   specs, the project source, maintainers' repositories and release notes, video, the rest. A YouTube video is a
+   source only through its transcript: the researcher may run exactly `Bash(python yt_transcript.py:*)` (a copy of
+   `research_youtube.py` in its cwd, the research folder) and quotes verbatim from it; `unavailable` = the video is not
+   evidence. Raw answer:
    `dilna/data/research/<fragmentId>/gather/q1.json`.
 3. **Verify** (code, no model): a URL is downloaded once (stdlib, 10 s, ≤ 1 MB, ≤ 30 URLs, 6 threads, cache in the
    research folder), HTML reduced to text without `script`/`style`, both sides normalised. `verified` when the quote is
@@ -269,6 +272,10 @@ question ─▶ project facts (code) ─▶ RESEARCHER (web + source) ─▶ VER
    target is checked against the saved file (what the researcher read, even when short). A target's quote that is
    not in the static page but is in the output of a REA tool the researcher really called (behaviour in the browser,
    read from `--output-format stream-json`; WebFetch output does not count, it is a model's summary) is `observed`.
+   A YouTube source (`watch?v=`, `youtu.be/`, `shorts/`, one ID) is checked against its transcript, never the watch
+   page: `yt-dlp` as a process (two runs ≤ 50 s each: `-J`, then one track), a manual track in the video's language,
+   else its auto track (`xx-orig`), else a manual `cs`/`en`; machine-translated auto tracks never. Cleaned VTT in the
+   research cache (shared with the researcher); no `yt-dlp`, no track or a timeout = `unreachable`.
    Facts are `verified` and `observed` findings.
 4. **Distill** (one sub-call without tools, **Sonnet**): question, project facts and only the verified facts → digest
    ```
@@ -298,7 +305,8 @@ question ─▶ project facts (code) ─▶ RESEARCHER (web + source) ─▶ VER
   tell the human. Never plan on a `false` or unverified fact as if it held.
 - **Files**: `opora_research.py` (command, vault), `research_desk.py` (facts, researcher, orchestration),
   `research_digest.py` (distill, digest, verdict fix, shared sub-call helpers), `research_fetch.py` (prefetch, HTML to
-  text, quote check), `research_verify.py` (findings against sources, `observed`), `research_browser.py` (Chrome allowlist, server,
+  text, quote check), `research_verify.py` (findings against sources, `observed`), `research_youtube.py` (video transcript),
+  `research_browser.py` (Chrome allowlist, server,
   hook), `opora_duel.py` (§3c duel); stdlib,
   copied by the supervisor into `brain/`.
 

@@ -2,6 +2,7 @@
 → destilace na Sonnetu, stropy, rozpočet času, vrstvy, pravidlo verdiktu, fakta projektu a text pro schránku."""
 import io
 import json
+from pathlib import Path
 from urllib.error import URLError
 
 from backend.brain_opora.heart import research_desk, research_digest
@@ -83,7 +84,12 @@ def test_one_researcher_verifies_and_sonnet_distills(tmp_path, monkeypatch):
     assert result["options"] == [{"approach": "Pevné okno", "pros": "jednoduché", "cons": "špičky"}]
     line = gather["argv"]
     pairs = {line[i]: line[i + 1] for i in range(1, len(line) - 1) if line[i].startswith("--")}
-    assert pairs["--tools"] == pairs["--allowedTools"] == "WebSearch,WebFetch,Read,Grep,Glob"
+    assert pairs["--tools"] == "WebSearch,WebFetch,Read,Grep,Glob,Bash"
+    assert pairs["--allowedTools"] == "WebSearch,WebFetch,Read,Grep,Glob,Bash(python yt_transcript.py:*)"
+    # přepis videa: skript v cwd výzkumníka a pokyn v promptu (citace jen doslova z přepisu)
+    assert (tmp_path / "data" / "frag" / "yt_transcript.py").read_bytes() == (
+        Path(research_desk.__file__).with_name("research_youtube.py").read_bytes())
+    assert "python yt_transcript.py URL" in prompt and "video jako doklad nepoužij" in prompt
     assert pairs["--model"] == "haiku" and pairs["--permission-mode"] == "dontAsk" and line[-2:] == ["--max-turns", "12"]
     assert "--mcp-config" not in line and "--strict-mcp-config" in line and pairs["--setting-sources"] == ""
     assert [line[i + 1] for i, part in enumerate(line) if part == "--add-dir"] == [
@@ -139,7 +145,8 @@ def test_chrome_gives_the_researcher_a_read_only_browser_behind_a_hook(tmp_path)
     pairs = {line[i]: line[i + 1] for i in range(1, len(line) - 1) if line[i].startswith("--")}
     read = [f"mcp__chrome-devtools__{name}" for name in ("list_pages", "new_page", "navigate_page", "select_page",
                                                           "take_snapshot", "wait_for", "close_page")]
-    assert pairs["--allowedTools"] == pairs["--tools"] == ",".join(["WebSearch,WebFetch,Read,Grep,Glob", *read])
+    assert pairs["--tools"] == ",".join(["WebSearch,WebFetch,Read,Grep,Glob,Bash", *read])
+    assert pairs["--allowedTools"] == ",".join(["WebSearch,WebFetch,Read,Grep,Glob,Bash(python yt_transcript.py:*)", *read])
     for banned in ("click", "fill", "type_text", "press_key", "evaluate_script", "upload_file", "handle_dialog",
                    "drag", "emulate", "performance", "lighthouse", "heapsnapshot", "screenshot"):
         assert banned not in pairs["--allowedTools"]

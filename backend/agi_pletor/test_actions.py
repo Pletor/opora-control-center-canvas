@@ -1,4 +1,4 @@
-"""Akce Pletora: jen dva typy, neprázdný text, nejvýš tři; zbytek se nevykoná a nese důvod."""
+"""Akce Pletora: jen známé typy, neprázdný text, nejvýš tři; zbytek se nevykoná a nese důvod."""
 from backend.agi_pletor import actions
 
 
@@ -19,3 +19,18 @@ def test_over_the_limit_is_refused_and_non_list_means_none():
     assert all(problem is None for _, problem in checked[:3])
     assert actions.validate({"type": "vault_note"}) == [] and actions.validate(None) == []
     assert actions.validate([{"type": "vault_note", "text": "x" * (actions.TEXT_LIMIT + 1)}])[0][1]
+
+
+def test_question_actions_pass_like_the_others():
+    checked = actions.validate([{"type": "heart_question", "text": " Jak? "}, {"type": "heart_question_close", "text": "Platí."}])
+    assert checked == [({"type": "heart_question", "text": "Jak?"}, None), ({"type": "heart_question_close", "text": "Platí."}, None)]
+    assert actions.validate([{"type": "heart_question_close", "text": " "}])[0][1]
+
+
+def test_escalation_answer_needs_a_ticket_id():
+    checked = actions.validate([{"type": "heart_escalation_answer", "ticketId": " gt_1 ", "text": " Modrou. "},
+                                {"type": "heart_escalation_answer", "text": "Modrou."},
+                                {"type": "heart_escalation_answer", "ticketId": 7, "text": "Modrou."}])
+    assert checked[0] == ({"type": "heart_escalation_answer", "text": "Modrou.", "ticketId": "gt_1"}, None)
+    assert [problem is not None for _, problem in checked] == [False, True, True]
+    assert actions.validate([{"type": "heart_escalation_answer", "ticketId": "gt_1", "text": " "}])[0][1]

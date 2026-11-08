@@ -29,6 +29,7 @@ describe("contextView / messagesView / monitoringView", () => {
   });
   it("rozhovor", () => {
     expect(messagesView({ messages: [{ role: "human", text: "a", at: "t" }], total: 7 })).toMatchObject({ total: 7, messages: [{ role: "Člověk" }] });
+    expect(messagesView({ messages: [{ role: "heart", text: "b", at: "t" }] }).messages[0].role).toBe("Srdce");
     expect(messagesUrl("p", "w", 50, " ")).not.toContain("q=");
     expect(messagesUrl("p", "w", 50, "x")).toContain("q=x");
   });

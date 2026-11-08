@@ -101,6 +101,16 @@
   font-size: var(--fs-1);
 }
 
+/* Otevřená otázka pro srdce stojí jednou řádkou nad rozhovorem, stejně tichá jako řádek srdce:
+   připomíná, na co se čeká, a rozlišuje „ve frontě“ od „srdce odpovědělo“, aby čekání nevypadalo jako odpověď. */
+.pletor__question {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
+}
+
 /* Rozhovor teče shora dolů. Zprávy člověka stojí vpravo na jemném akcentním podkladu, Pletor
    odpovídá vlevo na šedém, takže je na první pohled jasné, kdo mluví, bez jmen a avatarů.
    Bublina má nejvýš čtyři pětiny šířky, aby se střídání stran dalo číst. */
@@ -132,6 +142,18 @@
 .pletor__message--pletor {
   align-self: flex-start;
   background: var(--surface-2);
+}
+/* Odpověď srdce mluví vlevo jako Pletor, ale s tenkou linkou a štítkem „Srdce“ nahoře: člověk pozná,
+   že jde o zjištěná fakta od srdce, ke kterým Pletor hned přidá svůj výklad. */
+.pletor__message--heart {
+  align-self: flex-start;
+  background: var(--surface-2);
+  border-left: 3px solid var(--pletor-accent);
+}
+.pletor__message-label {
+  display: block;
+  color: var(--ink-muted);
+  font-size: var(--fs-1);
 }
 .pletor__message--pending {
   color: var(--ink-muted);

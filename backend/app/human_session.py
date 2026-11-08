@@ -20,6 +20,12 @@ from backend.app.remote_access import tokens_equal
 from backend.canvas.activity_log import parse_actor
 
 UI_COOKIE = "opora_ui"
+
+
+def cookie_name(port):
+    """Cookie nese port: prohlížeč dělí cookies podle hostu, ne portu, a náhled větve (8790+) by jinak přepisoval
+    doklad hlavní aplikace 8740 a naopak. Bez portu (tunel) zůstává `opora_ui`."""
+    return f"{UI_COOKIE}_{port}" if port else UI_COOKIE
 # Jen pro testy: pevné tajemství, aby testovací klient mohl hrát lidské UI (backend/conftest.py).
 SECRET_ENV = "OPORA_UI_SECRET"
 
@@ -34,15 +40,16 @@ class HumanSession:
         return (headers.get("sec-fetch-site") == "same-origin"
                 and headers.get("sec-fetch-mode") in ("cors", "same-origin", "navigate"))
 
-    def issue(self, response, *, secure):
-        response.set_cookie(UI_COOKIE, self.secret, httponly=True, secure=secure,
+    def issue(self, response, *, secure, port=None):
+        response.set_cookie(cookie_name(port), self.secret, httponly=True, secure=secure,
                             samesite="strict", path="/api")
 
-    def actor(self, headers, cookies):
+    def actor(self, headers, cookies, port=None):
         """(`actor`, `agent`): agentní hlavička > platná cookie UI (člověk) > `unknown`."""
         actor, agent = parse_actor(headers.get("x-opora-actor"))
         if actor == "agent":
             return actor, agent
-        if tokens_equal(self.secret, cookies.get(UI_COOKIE)):
+        # `opora_ui` bez portu dál platí pro harness evalů a starší prohlížeč
+        if any(tokens_equal(self.secret, cookies.get(name)) for name in (cookie_name(port), UI_COOKIE)):
             return "human", ""
         return "unknown", ""

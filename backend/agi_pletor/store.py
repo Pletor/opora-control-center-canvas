@@ -1,6 +1,6 @@
 """Rozhovor s Pletorem a jeho rozhodnutí na disku (jen text, žádná tajemství).
 
-- `<data>/pletor/messages.jsonl`: řádek `{at, project, workspace, role: human | pletor, text}` za každou zprávu.
+- `<data>/pletor/messages.jsonl`: řádek `{at, project, workspace, role: human | pletor | heart, text}` za každou zprávu (heart = odpověď srdce na otázku Pletora).
 - `<data>/projects/<id>/brain/pletor_decisions.jsonl`: rozhodnutí z akce `vault_note` (shortcut, viz README).
 - `<data>/pletor/settings.json`: zvolený mozek a model každého mozku `{brain, claudeModel, codexModel, ollamaModel}`, jeden pro aplikaci (P2).
 """

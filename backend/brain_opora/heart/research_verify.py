@@ -3,6 +3,7 @@
 - `verify_findings`: každé zjištění proti jeho zdroji (URL jednou, ≤ 30 URL, 6 vláken, cache; stažený cíl proti
   uloženému souboru; `cesta:řádek` jen uvnitř kořene zdroje, ± 20 řádků). Fakt je `verified` nebo `observed`.
 - `prefetched_urls`: zdroj ukazující na stažený soubor nahradí původní URL.
+- Video YouTube se ověří proti přepisu (`research_youtube.transcript`, cache s výzkumníkem); bez přepisu `unreachable`.
 - `observed_text`: výstupy nástrojů REA ze `stream-json` výzkumníka (chování stránky v prohlížeči).
 Dávka srdce (`command.py`) soubor kopíruje do `brain/` vedle `opora_heart.py`.
 """
@@ -15,8 +16,9 @@ from urllib.request import urlopen
 
 try:
     import research_fetch
-except ImportError:  # v testech modul balíčku
-    from backend.brain_opora.heart import research_fetch
+    import research_youtube
+except ImportError:  # v testech moduly balíčku
+    from backend.brain_opora.heart import research_fetch, research_youtube
 
 (FETCH_MAX_BYTES, HTML_HINT, PATH_LINE, _fetch, check_quote, html_text, is_url) = (
     getattr(research_fetch, name) for name in ("FETCH_MAX_BYTES", "HTML_HINT", "PATH_LINE", "_fetch", "check_quote",
@@ -147,16 +149,23 @@ def verify_findings(findings, cache_dir, source_root, opener=None, data_dir=None
     fetched = urls[:VERIFY_MAX_URLS]
     seen = {target.rstrip("/") for target in observed_urls}
     saved = _saved_pages(data_dir)  # stažený cíl: ověří se proti tomu, co výzkumník četl (i krátká stránka)
+    videos = {url for url in fetched if research_youtube.video_id(url)}
+
+    def text(url):
+        # OP-FB0522.yt: video je doklad jen přes přepis, nikdy přes HTML stránky (i když ji prefetch uložil)
+        if url in videos:
+            return research_youtube.transcript(url, cache_dir).get("text")
+        return saved.get(url) or _page_text(url, cache_dir, opener)
+
     with ThreadPoolExecutor(max_workers=VERIFY_THREADS) as pool:
-        texts = dict(zip(fetched, pool.map(lambda url: saved.get(url) or _page_text(url, cache_dir, opener), fetched),
-                         strict=True))
+        texts = dict(zip(fetched, pool.map(text, fetched), strict=True))
     out = []
     for item in findings:
         source, quote = item.get("source") or "", item.get("quote") or ""
         if is_url(source):
             url = source.split("#")[0]
-            status = _check(quote, texts.get(url), 1 if url in saved else research_fetch.MIN_TEXT)
-            if status != "verified" and observed and url.rstrip("/") in seen and check_quote(quote, observed, 1) == "verified":
+            status = _check(quote, texts.get(url), 1 if url in saved or url in videos else research_fetch.MIN_TEXT)
+            if status != "verified" and observed and url not in videos and url.rstrip("/") in seen and check_quote(quote, observed, 1) == "verified":
                 status = "observed"  # chování cíle v prohlížeči (REA), ne statický text stránky
         else:
             status = check_quote(quote, _file_text(source, source_root) if source else None, min_text=1)

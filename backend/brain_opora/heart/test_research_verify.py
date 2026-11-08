@@ -94,3 +94,26 @@ def test_quote_from_markup_or_inline_script_of_a_saved_target_is_verified(tmp_pa
                 {"source": "http://ref.cz/", "quote": "validate on blur"}]
     out = research_verify.verify_findings(findings, tmp_path / "c", None, None, tmp_path)
     assert [item["verified"] for item in out] == ["verified", "verified", "false"]
+
+
+def test_youtube_quote_is_checked_against_the_transcript_not_the_page(tmp_path, monkeypatch):
+    asked = []
+
+    def transcript(url, cache_dir):
+        asked.append(url)
+        return {"status": "ok", "text": "so the event loop\npushes the callback onto the stack"} if "8aGh" in url else {
+            "status": "unavailable", "reason": "bez titulků"}
+    monkeypatch.setattr(research_verify.research_youtube, "transcript", transcript)
+    (tmp_path / "p.html").write_text("<html><body>the page says something else</body></html>", encoding="utf-8")
+    (tmp_path / "index.json").write_text(json.dumps({"files": [{"url": "https://youtu.be/8aGhZQkoFbQ", "file": "p.html"}]}),
+                                         encoding="utf-8")
+    never = lambda *a, **k: (_ for _ in ()).throw(AssertionError("video se nestahuje jako stránka"))
+    findings = [{"source": "https://youtu.be/8aGhZQkoFbQ", "quote": "the event loop pushes the callback onto the stack"},
+                {"source": "https://youtu.be/8aGhZQkoFbQ", "quote": "the page says something else"},
+                {"source": "https://www.youtube.com/watch?v=jNQXAC9IVRw", "quote": "elephants"}]
+    out = research_verify.verify_findings(findings, tmp_path / "c", None, never, tmp_path,
+                                         observed="the page says something else elephants",
+                                         observed_urls=["https://youtu.be/8aGhZQkoFbQ",
+                                                        "https://www.youtube.com/watch?v=jNQXAC9IVRw"])
+    assert [item["verified"] for item in out] == ["verified", "false", "unreachable"]  # stránka v REA video nedokládá
+    assert asked == ["https://youtu.be/8aGhZQkoFbQ", "https://www.youtube.com/watch?v=jNQXAC9IVRw"]

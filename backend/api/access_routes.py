@@ -42,7 +42,7 @@ def create_access_router(remote, *, port=8740, human=None):
         """Doklad člověka pro UI (upgrade-opora #29): cookie dostane jen fetch z prohlížeče."""
         if human is None or not human.from_browser(request.headers):
             return JSONResponse({"error": "Doklad člověka vydává jen prohlížeč s UI aplikace."}, status_code=403)
-        human.issue(response, secure=bool(public_host(request)))
+        human.issue(response, secure=bool(public_host(request)), port=request.url.port)
         return {"ok": True}
 
     @router.post("/logout")

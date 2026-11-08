@@ -90,7 +90,7 @@ def test_rea_config_and_research_modules_land_in_brain(tmp_path):
     written = json.loads((tmp_path / "brain" / "dilna" / "rea-mcp.json").read_text(encoding="utf-8"))
     assert written == command.REA_MCP and list(written["mcpServers"]) == ["rea"]
     assert set(command.RESEARCH_NAMES) == {"opora_research.py", "research_desk.py", "research_digest.py",
-                                           "research_fetch.py", "research_verify.py", "research_browser.py",
+                                           "research_fetch.py", "research_verify.py", "research_browser.py", "research_youtube.py",
                                            "opora_duel.py", "opora_intent.py", "opora_site.py",
                                            "opora_library.py", "opora_library_nodes.py"}
     assert all((tmp_path / "brain" / name).is_file() for name in command.RESEARCH_NAMES)

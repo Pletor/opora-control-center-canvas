@@ -2,14 +2,15 @@
 (zpráva srdci jen se zapnutou bránou, rozhodnutí do brain/), relace se navazuje a chyba modelu není výjimka.
 Žádný proces `claude` nevznikne."""
 import json
+import time
 
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
-from backend.brain_opora.determinism import brain_files
+from backend.brain_opora.determinism import brain_files, gate, tokens
 from backend.brain_opora.heart.process import Outcome
 from backend.canvas.test_canvas_plan import HEADERS, ORIGIN, seed
-from backend.agi_pletor import session, store
+from backend.agi_pletor import questions, session, store
 from backend.agi_pletor.service import VOICE, Pletor
 
 
@@ -170,3 +171,114 @@ def test_podklady_se_mezi_vetami_nectou_znovu_a_akce_je_zahodi(tmp_path):
         pletor.message("draft", "draft", "Tři.")  # po TTL znovu; akce vault_note cache zahodí
         pletor.message("draft", "draft", "Čtyři.")
         assert built == [True, False, True, True]
+
+
+def test_question_is_asked_refined_presented_without_actions_and_closed_only_by_human(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        service = client.app.state.service
+        ask = {"reply": "Ptám se.", "actions": [{"type": "heart_question", "text": "Jak je přihlášení?"}]}
+        runner = Runner(ask, ask, {"reply": "Upřesním.", "actions": [{"type": "heart_question", "text": "I Google?"}]},
+                        {"reply": "Srdce zjistilo e-mail. Uzavřít?", "actions": [
+                            {"type": "heart_question_close", "text": "Sám."}, {"type": "vault_note", "text": "Sám."}]},
+                        Outcome(None, "", "", timed_out=True),
+                        {"reply": "Uzavírám.", "actions": [{"type": "heart_question_close", "text": "Jen e-mail."}]},
+                        {"reply": "Nic.", "actions": [{"type": "heart_question_close", "text": "x"}]})
+        pletor = pletor_for(client, runner)
+        refused = pletor.message("draft", "draft", "Zjisti přihlášení.")["actions"][0]
+        assert refused["ok"] is False and "bránou" in refused["detail"] and questions.listing(service, "draft") == []
+        assert client.post("/api/brain/gate-setting", headers=HEADERS, json={"project": "draft", "enabled": True}
+                           ).status_code == 200
+        asked = pletor.message("draft", "draft", "Zjisti přihlášení.")["actions"][0]
+        qid = questions.listing(service, "draft")[0]["id"]
+        assert asked == {"type": "heart_question", "text": "Jak je přihlášení?", "ok": True,
+                         "detail": f"Otázka {qid} je ve frontě srdce."}
+        pletor.message("draft", "draft", "A Google?")
+        heart_inbox = (brain_files.brain_dir(service, "draft") / "messages.jsonl").read_text(encoding="utf-8")
+        assert f"OTÁZKA PLETORA {qid}: Jak je přihlášení?" in heart_inbox
+        assert f"UPŘESNĚNÍ OTÁZKY PLETORA {qid}: I Google?" in heart_inbox
+        sent = [item for _, item, _ in pletor.heart.pending.get("draft", []) if "PLETORA" in item.get("text", "")]
+        assert len(sent) == 2 and all("intake" not in item for item in sent)  # otázka není zadání pro výslech
+        question, _ = questions.answer(service, "draft", qid, "Jen e-mail.", ["vf_1"], False, None, "agent:heart", "t")
+        pletor.contexts.clear()  # jako routa odpovědi
+        assert pletor.present("draft", "draft", question) == "Srdce zjistilo e-mail. Uzavřít?"
+        stdin = runner.calls[-1]["stdin"]
+        assert f"Srdce má hotovou odpověď na {qid}. Odpověď zatím NEprezentuj." in stdin
+        assert f"{qid} [srdce odpovědělo" in stdin and "poslední odpověď srdce: Jen e-mail." in stdin
+        assert questions.current(questions.listing(service, "draft"))["status"] == "answered"  # akce tahu zahozeny
+        assert not (brain_files.brain_dir(service, "draft") / store.DECISIONS).exists()
+        assert pletor.present("draft", "draft", question).startswith("Pletor odpověď srdce nevyložil")
+        messages = pletor.state("draft", "draft")["messages"]
+        assert [m["role"] for m in messages][-4:] == ["heart", "pletor", "heart", "pletor"]
+        assert messages[-4]["text"] == (f"Srdce odpovědělo na {qid} (téma: Jak je přihlášení?) · uloženo: otázky "
+                                        f"Pletora ({qid}), v podkladech sekce OTÁZKA PRO SRDCE; odkazy: vf_1.")
+        journal = [m["text"] for m in messages if m["role"] == "heart"]
+        assert journal[:2] == [f"Pletor se ptá srdce {qid}: Jak je přihlášení?", f"Upřesnění {qid}: I Google?"]
+        closed = pletor.message("draft", "draft", "Uzavři to.")["actions"][0]
+        assert closed["ok"] is True and questions.listing(service, "draft")[0]["closedNote"] == "Jen e-mail."
+        heart_inbox = (brain_files.brain_dir(service, "draft") / "messages.jsonl").read_text(encoding="utf-8")
+        assert f"SCHVÁLENO {qid}: Jen e-mail. Původní otázka: Jak je přihlášení? Poslední odpověď: Jen e-mail." in heart_inbox
+        nothing = pletor.message("draft", "draft", "Uzavři to.")["actions"][0]
+        assert nothing["ok"] is False and nothing["detail"] == "Žádná otevřená otázka pro srdce."
+
+
+def test_escalation_is_journaled_announced_once_and_withdrawal_is_only_a_line(tmp_path):
+    """M1c: nová eskalace srdce = řádek deníku + jeden proaktivní tah bez akcí; podruhé nic, stažení jen řádek."""
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        service = client.app.state.service
+        runner = Runner({"reply": "Srdce se ptá na barvu. Máte chvilku?", "actions": [
+            {"type": "heart_escalation_answer", "ticketId": "gt_x", "text": "Modrou."}]})
+        pletor = pletor_for(client, runner)
+        service.heart_escalation_hook = pletor.escalation  # jako factory.py se zapnutým srdcem
+        _, token = tokens.issue_heart(service, "draft", "draft")
+        ticket = gate.escalate(service, tokens.verify(service, token), "Jakou barvu má mít tlačítko?")
+        tid = ticket["ticketId"]
+        assert pletor.escalation("draft", "draft", tid, "Jakou barvu má mít tlačítko?") is None  # nezdvojí
+        for _ in range(100):  # tah běží na pozadí
+            if [m["role"] for m in pletor.state("draft", "draft")["messages"]][-1:] == ["pletor"]:
+                break
+            time.sleep(0.05)
+        messages = pletor.state("draft", "draft")["messages"]
+        assert [(m["role"], m["text"]) for m in messages] == [
+            ("heart", f"Srdce se ptá člověka {tid}: Jakou barvu má mít tlačítko? · uloženo: eskalace {tid}"),
+            ("pletor", "Srdce se ptá na barvu. Máte chvilku?")]
+        assert len(runner.calls) == 1
+        stdin = runner.calls[0]["stdin"]
+        assert f"Srdce má na člověka otázku {tid}. Zatím ji NEprezentuj." in stdin
+        assert f"- {tid}: Jakou barvu má mít tlačítko?" in stdin  # podklady se po eskalaci čtou znovu
+        assert gate.get_ticket(service, "draft", tid)["status"] == "queued"  # akce proaktivního tahu zahozena
+        gate.withdraw(service, tokens.verify(service, token), tid, "Barva je v plánu.")
+        last = pletor.state("draft", "draft")["messages"][-1]
+        assert (last["role"], last["text"]) == ("heart", f"Srdce stáhlo otázku {tid}: Barva je v plánu.")
+        assert len(runner.calls) == 1
+
+
+def test_escalation_answer_goes_the_panel_way_only_from_a_human_turn_with_the_gate(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        service, heart = client.app.state.service, client.app.state.heart
+        _, token = tokens.issue_heart(service, "draft", "draft")
+        tid = gate.escalate(service, tokens.verify(service, token), "Jakou barvu?")["ticketId"]
+        answer = {"reply": "Předávám.", "actions": [{"type": "heart_escalation_answer", "ticketId": tid, "text": "Modrou."}]}
+        runner = Runner(answer, answer,
+                        {"reply": "Zkusím.", "actions": [{"type": "heart_escalation_answer", "ticketId": "gt_nikde",
+                                                          "text": "Modrou."}]}, answer)
+        pletor = pletor_for(client, runner)
+        refused = pletor.message("draft", "draft", "Modrou.")["actions"][0]
+        assert refused["ok"] is False and "bránou" in refused["detail"]
+        assert client.post("/api/brain/gate-setting", headers=HEADERS, json={"project": "draft", "enabled": True}
+                           ).status_code == 200
+        done = pletor.message("draft", "draft", "Modrou.")["actions"][0]
+        assert (done["ok"], done["ticketId"]) == (True, tid)
+        ticket = gate.get_ticket(service, "draft", tid)
+        assert (ticket["status"], ticket["answeredBy"], ticket["answer"]) == ("answered", "human", {"text": "Modrou."})
+        assert [item for _, item, _ in heart.pending["draft"]] == [
+            {"type": "message", "text": f"ODPOVĚĎ ČLOVĚKA na {tid}: Modrou."}]
+        messages = pletor.state("draft", "draft")["messages"]
+        assert (messages[-2]["role"], messages[-2]["text"]) == ("heart", f"Odpověď člověka na {tid} předána srdci.")
+        unknown = pletor.message("draft", "draft", "Modrou.")["actions"][0]
+        assert unknown["ok"] is False and "gt_nikde" in unknown["detail"]
+        again = pletor.message("draft", "draft", "Modrou.")["actions"][0]
+        assert again["ok"] is False and again["detail"] == "Lístek už má odpověď."
+        assert len(heart.pending["draft"]) == 1

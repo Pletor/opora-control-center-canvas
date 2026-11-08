@@ -13,6 +13,7 @@
     python opora_heart.py ticket-answer --ticket ID --text T [--feedback FEEDBACK_ID]   (druh brány ticket.answer)
     python opora_heart.py cancel --task TICKET_ID   (zruší ticket práce, druh brány ticket.cancel)
     python opora_heart.py escalate --text T
+    python opora_heart.py pletor-answer --question pq_… --text T [--ref R]… [--unknown --reason R]   (odpověď Pletorovi)
     python opora_heart.py escalate --withdraw TICKET_ID --reason R   (stáhne zastaralou otázku)
     python opora_heart.py intake --entry ie_… --verdict V [--reason R] [--requirement rq_…|new [--title T]
                                  [--open-condition ms_…]]
@@ -1401,6 +1402,12 @@ def run(args):
         return gate_ticket(args)
     if args.command == "cancel":
         return cancel_work(args.task)
+    if args.command == "pletor-answer":
+        if args.unknown and not args.reason:
+            raise SystemExit("pletor-answer --unknown potřebuje --reason (proč nevíme a co by to rozhodlo).")
+        body = {"text": args.text, "refs": args.ref, "unknown": args.unknown}
+        return call("POST", f"/api/pletor/questions/{quote(args.question, safe='')}/answer",
+                    body | ({"reason": args.reason} if args.reason else {}), {"project": project})
     if args.command == "escalate" and args.withdraw:
         if not args.reason:
             raise SystemExit("escalate --withdraw potřebuje --reason (jedna věta, proč otázka padla).")
@@ -1506,6 +1513,12 @@ def parser():
     work.add_argument("--text", required=True)
     work.add_argument("--feedback", help="ID položky zpětné vazby ticketu práce (tf_…)")
     commands.add_parser("cancel").add_argument("--task", required=True)
+    told = commands.add_parser("pletor-answer")  # odpověď na otázku Pletora (docs/navrhy/2026-11-08-pletor-otazky-srdci.md)
+    told.add_argument("--question", required=True)
+    told.add_argument("--text", required=True)
+    told.add_argument("--ref", action="append", default=[], help="ID fragmentu, výzkumu nebo cesta k souboru")
+    told.add_argument("--unknown", action="store_true")
+    told.add_argument("--reason")
     escalation = commands.add_parser("escalate")  # otázka pro člověka, nebo stažení zastaralé (§6 kanálu)
     asked = escalation.add_mutually_exclusive_group(required=True)
     asked.add_argument("--text")

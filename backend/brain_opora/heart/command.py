@@ -31,10 +31,10 @@ RLM_FILE = HEART_DIR / "rlm.py"
 # srdce je čte jen na vyžádání (`opora_heart.py skill NAME`), do systémového promptu se nevkládají.
 SKILLS_NAME = "skills"
 MODE_SKILLS = {"vyslech": "opora:brain:skill:vyslech", "proces-na-platne": "opora:brain:skill:proces-na-platne"}
-# Moduly vedle nástroje: výzkum a duel (§3c, §3d: příkaz, stůl, digest, stažení a ověření, duel), záměr stránky, design systém webu a knihovna pláten toku.
+# Moduly vedle nástroje: výzkum a duel (§3c, §3d: příkaz, stůl, digest, stažení a ověření, přepis videa, duel), záměr stránky, design systém webu a knihovna pláten toku.
 RESEARCH_NAMES = ("opora_research.py", "research_desk.py", "research_digest.py", "research_fetch.py",
-                  "research_verify.py", "research_browser.py", "opora_duel.py", "opora_intent.py", "opora_site.py",
-                  "opora_library.py", "opora_library_nodes.py")
+                  "research_verify.py", "research_browser.py", "research_youtube.py", "opora_duel.py", "opora_intent.py",
+                  "opora_site.py", "opora_library.py", "opora_library_nodes.py")
 DILNA, RLM_NAME, DILNA_DIRS = "dilna", "rlm.py", ("data", "scripts", "out")
 WRITABLE = ("scripts", "out")  # jediné složky, kam srdce smí Write/Edit
 MODEL, ADVISOR = "haiku", "opus"

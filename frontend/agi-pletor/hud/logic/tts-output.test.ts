@@ -110,22 +110,40 @@ describe("createServerOutput", () => {
     expect(onEnd).toHaveBeenCalledOnce();
   });
 
-  it("selže-li engine, tutéž větu přečte další hlas z řetězce a selhaný engine se už nezkouší", async () => {
+  it("selže-li engine u první věty, přečte ji další hlas z řetězce a celá odpověď pak jede jím", async () => {
     const server = fakeSpeech();
     const { context, sources } = fakeAudio();
     const fallback = fakeFallback();
     createServerOutput(fallback, () => [XTTS, EDGE, JIRKA], server.speech, () => context).speak("Jedna. Dvě. Tři.", { onEnd: vi.fn() });
     await flush();
-    expect(server.calls.map((call) => call.voice)).toEqual([XTTS, XTTS]);
+    expect(server.calls.map((call) => [call.text, call.voice])).toEqual([["Jedna.", XTTS], ["Dvě.", XTTS]]);
     server.fail(0);
     await flush();
-    expect(server.calls.map((call) => [call.text, call.voice])).toContainEqual(["Jedna.", EDGE]);
-    server.answer(2, 1);
+    expect(server.calls[2]).toMatchObject({ text: "Jedna.", voice: EDGE });
+    // vyřizuje jen věty Edge; XTTS pro další věty už nikdy nezazní
+    for (let round = 0; round < 4; round++) {
+      server.calls.forEach((call, index) => { if (call.voice === EDGE && !("done" in call)) server.answer(index, 1); });
+      await flush();
+    }
+    expect(server.calls.filter((call) => call.voice === EDGE).map((call) => call.text)).toEqual(["Jedna.", "Dvě.", "Tři."]);
+    expect(sources).toHaveLength(3);
+    expect(fallback.speak).not.toHaveBeenCalled();
+  });
+
+  it("jedna odpověď = jeden hlas: selhání pozdější věty zkusí týž hlas znovu, nepřejde na jiný", async () => {
+    const server = fakeSpeech();
+    const { context, sources } = fakeAudio();
+    const fallback = fakeFallback();
+    createServerOutput(fallback, () => [XTTS, EDGE], server.speech, () => context).speak("Jedna. Dvě.", { onEnd: vi.fn() });
+    await flush();
+    server.answer(0, 1);
+    await flush();
     server.fail(1);
     await flush();
-    expect(sources).toHaveLength(1);
-    const later = server.calls.slice(3).map((call) => [call.text, call.voice]);
-    expect(later).toEqual(expect.arrayContaining([["Dvě.", EDGE], ["Tři.", EDGE]]));
+    server.answer(2, 1);
+    await flush();
+    expect(server.calls.map((call) => [call.text, call.voice])).toEqual([["Jedna.", XTTS], ["Dvě.", XTTS], ["Dvě.", XTTS]]);
+    expect(sources).toHaveLength(2);
     expect(fallback.speak).not.toHaveBeenCalled();
   });
 

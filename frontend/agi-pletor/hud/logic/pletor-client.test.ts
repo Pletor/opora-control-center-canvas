@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  actionLabel, brainLabel, CLAUDE_BRAIN, brainText, cancelAccountLogin, escalationText, fetchPletorLlm, finishAccountLogin, fetchPletorState, heartText, parseBrain, sendPletorMessage, sendPletorMessageStream, setPletorBrain, startAccountLogin, switchAccount,
+  actionLabel, brainLabel, CLAUDE_BRAIN, brainText, cancelAccountLogin, escalationText, fetchPletorLlm, finishAccountLogin, fetchPletorState, heartText, fetchPletorQuestion, parseBrain, questionAnswered, questionText, sendPletorMessage, sendPletorMessageStream, setPletorBrain, startAccountLogin, switchAccount,
 } from "./pletor-client";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -56,12 +56,12 @@ describe("volání Pletora", () => {
 
   it("načte stav a zahodí zprávy s neznámou rolí", async () => {
     const calls = stubFetch({
-      messages: [{ role: "human", text: "a", at: "t" }, { role: "system", text: "x", at: "t" }, { role: "pletor", text: "b", at: "t" }],
+      messages: [{ role: "human", text: "a", at: "t" }, { role: "system", text: "x", at: "t" }, { role: "pletor", text: "b", at: "t" }, { role: "heart", text: "c", at: "t" }],
       heart: "Spí", escalations: [{}, {}],
     });
     const state = await fetchPletorState("p 1", "ws");
     expect(calls[0].url).toBe("/api/pletor/state?project=p%201&workspace=ws");
-    expect(state.messages.map((m) => m.role)).toEqual(["human", "pletor"]);
+    expect(state.messages.map((m) => m.role)).toEqual(["human", "pletor", "heart"]);
     expect(state.escalations).toHaveLength(2);
     expect(state.heart).toBe("Spí");
   });
@@ -168,5 +168,25 @@ describe("přepínače účtů", () => {
     await switchAccount("codex", 1);
     const write = sw.find((call) => call.url === "/api/pletor/llm/codex/switch")!;
     expect(JSON.parse(String(write.init?.body))).toEqual({ slot: 1 });
+  });
+});
+
+describe("otázka pro srdce", () => {
+  it("rozliší ve frontě od zodpovězeno a bez otevřené otázky nic", async () => {
+    expect(questionText({ open: { id: "pq_1", text: "Jak?", status: "asked" } })).toBe("Otázka pro srdce: Jak? · ve frontě srdce");
+    expect(questionText({ open: { id: "pq_1", status: "answered" } })).toBe("Otázka pro srdce: pq_1 · srdce odpovědělo");
+    expect(questionText({ open: null })).toBe("");
+    expect(questionText("x")).toBe("");
+    const calls = stubFetch({ questions: [], open: { id: "pq_2", text: "Kde?", status: "asked" } });
+    expect(await fetchPletorQuestion("p 1")).toEqual({ text: "Otázka pro srdce: Kde? · ve frontě srdce", answered: false });
+    expect(calls[0].url).toBe("/api/pletor/questions?project=p%201");
+    expect(actionLabel({ type: "heart_question", text: "Jak?", ok: true }).text).toBe("Zeptal jsem se srdce");
+    expect(actionLabel({ type: "heart_escalation_answer", text: "Modrou.", ok: true }).text).toBe("Předal jsem odpověď srdci");
+  });
+  it("odpověď připravená jen u otevřené zodpovězené otázky", () => {
+    expect(questionAnswered({ open: { id: "pq_1", status: "answered" } })).toBe(true);
+    expect(questionAnswered({ open: { id: "pq_1", status: "asked" } })).toBe(false);
+    expect(questionAnswered({ open: null })).toBe(false);
+    expect(questionAnswered(null)).toBe(false);
   });
 });
