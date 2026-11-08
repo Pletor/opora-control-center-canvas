@@ -11,6 +11,7 @@ import PletorHudCanvas from "./PletorHudCanvas";
 import PletorHudCorners from "./PletorHudCorners";
 import PletorMessages from "./PletorMessages";
 import PletorQuestionLine from "./PletorQuestionLine";
+import PletorVoiceDraft from "./PletorVoiceDraft";
 
 type Props = {
   pletor: ReturnType<typeof usePletor>; state: HudState; label: string; voice: ReturnType<typeof usePletorVoice>;
@@ -30,7 +31,7 @@ export default function PletorHud({ pletor, state, label, voice, mic, voiceError
   leave.current = onWindow;
   const keep = useRef(false);
   // Trvalý poslech (přepínač Poslech) Esc nebere; patří mu jen při čtení odpovědi.
-  keep.current = settingsOpen || voice.phase === "speaking" || (voice.phase === "listening" && !voice.ambient);
+  keep.current = settingsOpen || voice.phase === "speaking" || voice.phase === "listening";
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.isComposing || keep.current) return;
@@ -61,6 +62,7 @@ export default function PletorHud({ pletor, state, label, voice, mic, voiceError
       </div>
       <div className="pletor-hud__command">
         {mic}
+        <PletorVoiceDraft listening={voice.phase === "listening"} draft={voice.interim} manual={voice.prefs.endpointMs === 0} onFinish={voice.finish} />
         {voiceError}
       </div>
     </div>

@@ -9,15 +9,16 @@
  */
 export const VOICE_PREFS_KEY = "opora:pletor:voice:v1";
 
-export type VoicePrefs = { conversation: boolean; voice: boolean; ttsVoice: string | null; bargeIn: boolean };
-export const DEFAULT_VOICE_PREFS: VoicePrefs = { conversation: false, voice: false, ttsVoice: null, bargeIn: true };
+export type VoicePrefs = { conversation: boolean; voice: boolean; ttsVoice: string | null; bargeIn: boolean; endpointMs: 0 | 4000 | 8000 | 12000 };
+export const DEFAULT_VOICE_PREFS: VoicePrefs = { conversation: false, voice: false, ttsVoice: null, bargeIn: true, endpointMs: 8000 };
 
 export function parseVoicePrefs(raw: string | null): VoicePrefs {
   try {
     const value = JSON.parse(raw ?? "null");
     if (value && typeof value === "object")
       return { conversation: value.conversation === true, voice: value.voice === true,
-        ttsVoice: typeof value.ttsVoice === "string" ? value.ttsVoice : null, bargeIn: value.bargeIn !== false };
+        ttsVoice: typeof value.ttsVoice === "string" ? value.ttsVoice : null, bargeIn: value.bargeIn !== false,
+        endpointMs: [0, 4000, 8000, 12000].includes(value.endpointMs) ? value.endpointMs : 8000 };
   } catch {
     /* Poškozené preference nejsou data projektu. */
   }

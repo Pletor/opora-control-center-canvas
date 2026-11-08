@@ -14,7 +14,7 @@ import { createVoiceOutput, speechLevel } from "./voice-output";
 import { readVoicePrefs, writeVoicePrefs, type VoicePrefs } from "./voice-prefs";
 import { usePletorListen } from "./use-pletor-listen";
 import { useBargeIn } from "./barge-in";
-import { proactiveReply } from "./proactive-reply";
+import { createDeferredVoice } from "./deferred-voice";
 
 type Talk = {
   messages: PletorMessage[]; repliedAt: number | null; loaded?: boolean;
@@ -34,6 +34,10 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
   const [interim, setInterim] = useState("");
   const [error, setError] = useState("");
   const [blocked, setBlocked] = useState(false);
+  const draftPending = useRef(false);
+  const deferred = useMemo(createDeferredVoice, []);
+  const [speechVersion, setSpeechVersion] = useState(0);
+  const updateInterim = useCallback((text: string) => { draftPending.current = !!text.trim(); setInterim(text); }, []);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const live = useRef({ talk, prefs, open, chain, listenSwitch });
@@ -67,28 +71,37 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
 
   const stop = useCallback(() => {
     input.stop();
+    draftPending.current = false;
     hush();
     closeMic();
     setInterim("");
     setPhase("idle");
   }, [input, hush, closeMic]);
 
-  const loop = usePletorListen(input, listenSwitch.on, {
+  const loop = usePletorListen(input, listenSwitch.on && open, {
     onListening: (on) => setPhase((current) => (on ? "listening" : current === "listening" ? "idle" : current)),
-    onInterim: setInterim,
+    onInterim: updateInterim,
+    onSpeech: () => { draftPending.current = true; hush(); },
     onCommand: (text) => voiceSend.current(text),
     onFail: (message) => { setError(message); live.current.listenSwitch.onFail(message); },
-  });
+  }, prefs.endpointMs);
+  useEffect(() => { input.setEndpointMs(prefs.endpointMs); }, [input, prefs.endpointMs]);
+  const cancel = useCallback(() => {
+    loop.stop();
+    if (live.current.listenSwitch.on && live.current.open) {
+      hush(); updateInterim(""); setPhase("idle"); loop.start();
+    } else stop();
+  }, [loop, stop, hush, updateInterim]);
 
   // Poslech zapnutý: mikrofon pro hlasitost jádra drží otevřený celou dobu; vypnutí utne vše a uvolní ho.
   useEffect(() => {
-    if (!listenSwitch.on) return;
+    if (!listenSwitch.on || !open) return;
     setError("");
     closeMic();
     const run = micRun.current;
     void openMicLevel().then((level) => { if (level && micRun.current === run) mic.current = level; else level?.close(); });
     return () => { voiceTurn.current = false; stop(); };
-  }, [listenSwitch.on, stop, closeMic]);
+  }, [listenSwitch.on, open, stop, closeMic]);
 
   /** Utne čtení odpovědi; v Poslechu pak po krátké prodlevě znovu poslouchá. */
   const interrupt = useCallback(() => {
@@ -105,16 +118,16 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
     hush();
     closeMic();
     setError("");
-    setInterim("");
+    updateInterim("");
     setPhase("listening");
     const run = micRun.current;
     void openMicLevel().then((level) => { if (level && micRun.current === run) mic.current = level; else level?.close(); });
     input.start({
-      onSpeech: hush,
-      onInterim: setInterim,
+      onSpeech: () => { draftPending.current = true; hush(); },
+      onInterim: updateInterim,
       onFinal: (text) => {
         closeMic();
-        setInterim("");
+        updateInterim("");
         setPhase("idle");
         voiceSend.current(text);
       },
@@ -126,11 +139,11 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
       },
       onEnd: () => {
         closeMic();
-        setInterim("");
+        updateInterim("");
         setPhase((current) => (current === "listening" ? "idle" : current));
       },
-    });
-  }, [input, hush, closeMic]);
+    }, { endpointMs: live.current.prefs.endpointMs });
+  }, [input, hush, closeMic, updateInterim]);
 
   /** Po odpovědi: v Poslechu obnoví mikrofon, v Konverzaci po hlasové zprávě znovu poslouchá. */
   const again = useCallback((spoken: boolean) => {
@@ -145,8 +158,11 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
     streamed.current = false;
     const turn = ++streamTurn.current;
     let reading: VoiceStream | null = null;
+    let deferStream = false;
     const onDelta = (chunk: string) => {
       if (turn !== streamTurn.current) return; // utnuto (barge-in) nebo novější zpráva
+      if (draftPending.current || loop.pending()) deferStream = true;
+      if (deferStream) return; // the complete reply will enter the deferred queue on repliedAt
       if (!reading) {
         if (!live.current.open || !output.supported) return;
         streamed.current = true;
@@ -158,24 +174,17 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
     };
     void live.current.talk.send(text, true, onDelta).then((ok) => {
       if (turn === streamTurn.current) reading?.end();
-      if (!ok) { voiceTurn.current = false; streamed.current = false; loop.resume(); }
+      if (!ok) { voiceTurn.current = false; streamed.current = false; loop.resume(); setSpeechVersion(value => value + 1); }
     });
   };
 
   // Proaktivní zpráva Pletora (srdce odpovědělo nebo se ptá) přišla pollingem: čte se nahlas vždy, i s vypnutým
   // mikrofonem (mikrofon je poslech, ne hlas); jen ne přes právě běžící čtení nebo poslech na tlačítko.
   // OP-FB0522.m1d: Pletor si člověka sežene hlasem, ne jen textem v okně
-  const seen = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (!talk.loaded) { seen.current = undefined; return; }
-    const { key, speak } = proactiveReply(talk.messages, seen.current);
-    seen.current = key;
-    if (!speak || !live.current.open || !output.supported || phaseRef.current === "speaking") return;
-    if (!loop.active() && phaseRef.current === "listening") return;
-    loop.pause();
-    setPhase("speaking");
-    output.speak(speak.text, { ...reads, onEnd: () => { setPhase("idle"); again(false); } });
-  }, [talk.messages, talk.loaded, output, loop, again]);
+    deferred.observe(talk.messages, !!talk.loaded);
+    setSpeechVersion(value => value + 1);
+  }, [talk.messages, talk.loaded, deferred]);
 
   // Odpověď přišla: nahlas jen po hlasové zprávě nebo se zapnutým Hlasem; Konverzace pak znovu poslouchá.
   // V Poslechu se mikrofon při čtení pozastaví (neslyší reproduktor) a po dohrání se obnoví.
@@ -183,31 +192,41 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
   useEffect(() => {
     if (talk.repliedAt === null) return;
     if (streamed.current) { streamed.current = false; voiceTurn.current = false; return; }
-    if (!loop.active() && phaseRef.current === "listening") return;
     const spoken = voiceTurn.current;
     voiceTurn.current = false;
     const { prefs: chosen, open: visible, talk: now } = live.current;
     const reply = [...now.messages].reverse().find((message) => message.role === "pletor");
     if (!visible || !reply || !(spoken || chosen.voice) || !output.supported) { again(spoken); return; }
+    deferred.add({ text: reply.text, spoken });
+    setSpeechVersion(value => value + 1);
+  }, [talk.repliedAt, output, loop, again, deferred]);
+
+  useEffect(() => {
+    const waiting = draftPending.current || loop.pending() || voiceTurn.current || phase === "speaking"
+      || (!loop.active() && phase === "listening") || !open || !output.supported;
+    const next = deferred.next(waiting);
+    if (!next) return;
     loop.pause();
     setPhase("speaking");
-    output.speak(reply.text, { ...reads, onEnd: () => { setPhase("idle"); again(spoken); } });
-  }, [talk.repliedAt, output, loop, again]);
+    output.speak(next.text, { ...reads, onEnd: () => { setPhase("idle"); again(next.spoken); } });
+  }, [speechVersion, phase, interim, open, output, loop, again, deferred]);
 
   // Esc při poslechu nebo čtení jen utne hlas (HUD se kvůli tomu nezavře, viz `voiceBusy` v PletorHud).
   // V Poslechu Esc utne jen čtení; poslech vypíná přepínač.
   const ambient = listenSwitch.on;
   useEffect(() => {
-    if (phase === "idle" || (ambient && phase !== "speaking")) return;
+    if (phase === "idle") return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.isComposing) return;
       event.preventDefault();
       event.stopPropagation();
-      if (ambient) interrupt(); else stop();
+      if (ambient && phase === "speaking") interrupt();
+      else if (ambient) cancel();
+      else stop();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [phase, ambient, stop, interrupt]);
+  }, [phase, ambient, stop, interrupt, cancel]);
 
   useEffect(() => { if (!open) stop(); }, [open, stop]);
   useEffect(() => () => { input.stop(); output.stop(); preview.stop(); mic.current?.close(); }, [input, output, preview]);
@@ -231,17 +250,22 @@ export function usePletorVoice(talk: Talk, open: boolean, listenSwitch: Listen =
 
   /** „Vyzkoušet“ v nastavení: utne čtení a přečte krátkou větu daným hlasem. */
   const tryVoice = useCallback((id: string) => {
+    if (draftPending.current || loop.pending() || phaseRef.current === "listening") return;
     hush();
     sample.current = id === BROWSER_VOICE ? [] : [id];
     preview.speak(SAMPLE_TEXT, { onEnd: () => undefined });
-  }, [hush, preview]);
+  }, [hush, preview, loop]);
 
-  /** Mikrofon: při poslechu stop, jinak poslouchej (čtení odpovědi se tím utne). V Poslechu jen utne čtení. */
+  /** Mikrofon dokončí rozepsanou myšlenku; bez přepisu poslech zruší. Escape nikdy neodesílá. */
+  const finish = useCallback(() => {
+    if (loop.active()) loop.finish();
+    else if (phaseRef.current === "listening") input.finish();
+  }, [loop, input]);
   const toggle = useCallback(() => {
-    if (loop.active()) interrupt();
-    else if (phaseRef.current === "listening") stop();
+    if (phaseRef.current === "listening") { if (interim.trim()) finish(); else cancel(); }
+    else if (loop.active()) interrupt();
     else listen();
-  }, [loop, interrupt, stop, listen]);
+  }, [loop, interrupt, finish, listen, interim, cancel]);
 
-  return { supported: input.supported, phase, interim, error, blocked, prefs, setPrefs, toggle, interrupt, ambient, level, voices, chosen, tryVoice };
+  return { supported: input.supported, phase, interim, error, blocked, prefs, setPrefs, toggle, finish, stop: cancel, interrupt, ambient, level, voices, chosen, tryVoice };
 }

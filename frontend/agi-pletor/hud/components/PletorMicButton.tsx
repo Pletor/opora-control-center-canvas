@@ -3,7 +3,7 @@ import type { VoicePhase } from "../logic/hud-state";
 type Props = { phase: VoicePhase; supported: boolean; blocked: boolean; disabled: boolean; onToggle: () => void };
 
 /**
- * Mikrofon (v HUD velké kulaté tlačítko pod jádrem, v okně vedle ozubeného kola): klik = poslouchej, druhý klik (nebo Esc) = stop; při čtení odpovědi ji klik utne a poslouchá.
+ * Mikrofon: klik spustí poslech, druhý klik dokončí myšlenku; Esc ji zruší. Při čtení odpovědi ji klik utne a poslouchá.
  * Bez rozpoznávání řeči (Firefox) jen tichá značka s vysvětlením; zakázaný mikrofon tlačítko vypne.
  */
 export default function PletorMicButton({ phase, supported, blocked, disabled, onToggle }: Props) {
@@ -11,10 +11,10 @@ export default function PletorMicButton({ phase, supported, blocked, disabled, o
     return <span className="pletor-mic pletor-mic--none" title="Hlas tento prohlížeč neumí; použij Chrome nebo Edge.">bez hlasu</span>;
   }
   const listening = phase === "listening";
-  const title = blocked ? "Mikrofon není povolený v prohlížeči" : listening ? "Poslouchám (klik nebo Esc = stop)" : "Mluvit s Pletorem";
+  const title = blocked ? "Mikrofon není povolený v prohlížeči" : listening ? "Klik dokončí myšlenku. Esc zruší bez odeslání." : "Mluvit s Pletorem";
   return (
     <button type="button" className={"pletor-mic" + (listening ? " pletor-mic--listening" : "")} aria-pressed={listening}
-      aria-label={listening ? "Přestat poslouchat" : "Mluvit s Pletorem"} title={title}
+      aria-label={listening ? "Dokončit myšlenku" : "Mluvit s Pletorem"} title={title}
       disabled={blocked || (disabled && !listening)} onClick={onToggle}>
       <svg className="pletor-mic__icon" viewBox="0 0 24 24" aria-hidden="true">
         <rect x="9" y="3" width="6" height="11" rx="3" />

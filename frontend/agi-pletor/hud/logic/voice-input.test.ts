@@ -6,6 +6,7 @@ class FakeRecognition {
   static last: FakeRecognition;
   lang = ""; interimResults = false; continuous = true; maxAlternatives = 0;
   onspeechstart: (() => void) | null = null;
+  onspeechend: (() => void) | null = null;
   onresult: ((event: { results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null = null;
   onerror: ((event: { error: string }) => void) | null = null;
   onend: (() => void) | null = null;
@@ -20,149 +21,97 @@ function events(): VoiceInputEvents & Record<string, ReturnType<typeof vi.fn>> {
   return { onSpeech: vi.fn(), onInterim: vi.fn(), onFinal: vi.fn(), onError: vi.fn(), onEnd: vi.fn() };
 }
 
-describe("createVoiceInput", () => {
-  it("poslouchá česky jednu větu s průběžným přepisem", () => {
-    createVoiceInput(Ctor).start(events());
-    const rec = FakeRecognition.last;
-    expect([rec.lang, rec.interimResults, rec.continuous]).toEqual(["cs-CZ", true, false]);
-    expect(rec.start).toHaveBeenCalledOnce();
+describe("thought aggregation", () => {
+  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+  function begin(options = {}) {
+    vi.useFakeTimers(); const on = events(); const input = createVoiceInput(Ctor);
+    input.start(on, options); return { on, input, rec: FakeRecognition.last };
+  }
+  it("uses continuous Czech recognition even for a single manually started thought", () => {
+    const {rec} = begin(); expect([rec.lang,rec.interimResults,rec.continuous]).toEqual(["cs-CZ",true,true]);
   });
-
-  it("průběžný text hlásí, finální větu pošle právě jednou (auto-odeslání)", () => {
-    const on = events();
-    createVoiceInput(Ctor).start(on);
-    const rec = FakeRecognition.last;
-    rec.onspeechstart?.();
-    rec.say([["Postav", false]]);
-    rec.say([["Postav web ", true]]);
-    rec.say([["Postav web znovu", true]]);
-    rec.onend?.();
-    expect(on.onSpeech).toHaveBeenCalledOnce();
-    expect(on.onInterim).toHaveBeenCalledWith("Postav");
-    expect(on.onFinal).toHaveBeenCalledTimes(1);
-    expect(on.onFinal).toHaveBeenCalledWith("Postav web");
+  it("combines final segments and interim into one thought after eight seconds", () => {
+    const {on,rec} = begin(); rec.say([["First sentence.",true]]);
+    vi.advanceTimersByTime(7000); rec.say([["First sentence.",true],["Second",false]]);
+    expect(on.onInterim).toHaveBeenLastCalledWith("First sentence. Second");
+    rec.say([["First sentence.",true],["Second sentence.",true]]);
+    vi.advanceTimersByTime(7999); expect(on.onFinal).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1); expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("First sentence. Second sentence.");
     expect(on.onEnd).toHaveBeenCalledOnce();
   });
-
-  it("trvalý poslech pošle každou novou hotovou větu jednou", () => {
-    const on = events();
-    createVoiceInput(Ctor).start(on, { continuous: true });
-    const rec = FakeRecognition.last;
-    expect(rec.continuous).toBe(true);
-    rec.say([["první", true]]);
-    rec.say([["první", true], ["dru", false]]);
-    rec.say([["první", true], ["druhá věta", true]]);
-    expect(on.onFinal).toHaveBeenNthCalledWith(1, "první");
-    expect(on.onFinal).toHaveBeenNthCalledWith(2, "druhá věta");
-    expect(on.onFinal).toHaveBeenCalledTimes(2);
-    expect(on.onInterim).toHaveBeenCalledWith("dru");
+  it("speech start cancels silence; speech end rearms it", () => {
+    const {on,rec} = begin(); rec.say([["A thought",true]]); vi.advanceTimersByTime(7000);
+    rec.onspeechstart?.(); vi.advanceTimersByTime(9000); expect(on.onFinal).not.toHaveBeenCalled();
+    rec.onspeechend?.(); vi.advanceTimersByTime(8000); expect(on.onFinal).toHaveBeenCalledOnce();
   });
-
-  it("stop poslech utne a starý poslech už nic nehlásí", () => {
-    const on = events();
-    const input = createVoiceInput(Ctor);
-    input.start(on);
-    const rec = FakeRecognition.last;
-    input.stop();
-    rec.say([["pozdě", true]]);
-    expect(rec.abort).toHaveBeenCalledOnce();
-    expect(on.onFinal).not.toHaveBeenCalled();
-    expect(on.onEnd).not.toHaveBeenCalled();
+  it("manual mode never submits browser finals; finish submits once", () => {
+    const {input,on,rec} = begin({endpointMs:0}); rec.say([["First",true],["unfinished",false]]);
+    vi.advanceTimersByTime(60000); expect(on.onFinal).not.toHaveBeenCalled();
+    input.finish(); input.finish(); rec.say([["late",true]]);
+    expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("First unfinished");
   });
-
-  it("chybu předá kódem; start, který spadne, okno neshodí", () => {
-    const on = events();
-    createVoiceInput(Ctor).start(on);
-    FakeRecognition.last.onerror?.({ error: "not-allowed" });
-    expect(on.onError).toHaveBeenCalledWith("not-allowed");
-    class Broken extends FakeRecognition { start = vi.fn(() => { throw new Error("už běží"); }); }
-    const broken = events();
-    expect(() => createVoiceInput(Broken as unknown as RecognitionCtor).start(broken)).not.toThrow();
-    expect(broken.onError).toHaveBeenCalledWith("start");
-    expect(broken.onEnd).toHaveBeenCalledOnce();
+  it("stop discards, cancels restart and fences all late events", () => {
+    const {input,on,rec} = begin(); rec.say([["Discard",true]]); rec.onend?.(); input.stop();
+    rec.say([["late",true]]); rec.onerror?.({error:"network"}); rec.onend?.();
+    vi.advanceTimersByTime(20000); input.finish();
+    expect(on.onFinal).not.toHaveBeenCalled(); expect(on.onError).not.toHaveBeenCalled(); expect(on.onEnd).not.toHaveBeenCalled();
+    expect(FakeRecognition.last).toBe(rec);
   });
-
-  it("bez rozpoznávání řeči (Firefox) není podporováno", () => {
-    expect(recognitionCtor({})).toBeNull();
-    expect(recognitionCtor({ webkitSpeechRecognition: Ctor })).toBe(Ctor);
-    const input = createVoiceInput(null);
-    const on = events();
-    input.start(on);
-    expect(input.supported).toBe(false);
-    expect(on.onError).toHaveBeenCalledWith("not-supported");
+  it("natural end preserves the draft and original deadline", () => {
+    const {on,rec} = begin(); rec.say([["Retained",true]]); vi.advanceTimersByTime(5000); rec.onend?.();
+    vi.advanceTimersByTime(100); expect(FakeRecognition.last).not.toBe(rec);
+    expect(on.onEnd).not.toHaveBeenCalled(); vi.advanceTimersByTime(2899); expect(on.onFinal).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1); expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("Retained");
   });
-});
-
-describe("createVoiceInput: endpointing", () => {
-  afterEach(() => { vi.useRealTimers(); });
-
-  it("ustálený průběžný přepis pošle po 700 ms a pozdní finál (i opravený) už ne", () => {
-    vi.useFakeTimers();
-    const on = events();
-    createVoiceInput(Ctor).start(on);
-    const rec = FakeRecognition.last;
-    rec.say([["Postav web", false]]);
-    vi.advanceTimersByTime(699);
-    expect(on.onFinal).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
-    expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("Postav web");
-    rec.say([["Postav weby", true]]);
-    expect(on.onFinal).toHaveBeenCalledOnce();
+  it("combines transcripts across browser sessions and ignores old session events", () => {
+    const {on,input,rec} = begin({endpointMs:0}); rec.say([["Before restart",true]]); rec.onend?.();
+    vi.advanceTimersByTime(100); const next=FakeRecognition.last; next.say([["after restart",false]]);
+    rec.say([["obsolete",true]]); expect(on.onInterim).toHaveBeenLastCalledWith("Before restart after restart");
+    input.finish(); expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("Before restart after restart");
   });
-
-  it("měnící se přepis odpočet restartuje; krátký přepis se nepošle", () => {
-    vi.useFakeTimers();
-    const on = events();
-    createVoiceInput(Ctor).start(on);
-    const rec = FakeRecognition.last;
-    rec.say([["ahoj", false]]);
-    vi.advanceTimersByTime(1000);
-    expect(on.onFinal).not.toHaveBeenCalled();
-    rec.say([["ahoj Pletore", false]]);
-    vi.advanceTimersByTime(500);
-    rec.say([["ahoj Pletore jak", false]]);
-    vi.advanceTimersByTime(500);
-    expect(on.onFinal).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(200);
-    expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("ahoj Pletore jak");
+  it("continuous mode sends separate accumulated turns without replaying browser finals", () => {
+    const {on,input,rec} = begin({continuous:true,endpointMs:0}); rec.say([["One",false]]); input.finish();
+    rec.say([["One corrected",true]]); input.finish();
+    rec.say([["One corrected",true],["Two",true],["Three",false]]); input.finish();
+    expect(vi.mocked(on.onFinal).mock.calls).toEqual([["One"],["Two Three"]]); expect(on.onEnd).not.toHaveBeenCalled();
   });
-
-  it("stop odpočet zruší", () => {
-    vi.useFakeTimers();
-    const on = events();
-    const input = createVoiceInput(Ctor);
-    input.start(on);
-    FakeRecognition.last.say([["Postav web", false]]);
-    input.stop();
-    vi.advanceTimersByTime(1000);
-    expect(on.onFinal).not.toHaveBeenCalled();
+  it("changing to manual cancels pending submission without discarding", () => {
+    const {on,input,rec} = begin(); rec.say([["Keep this",true]]); vi.advanceTimersByTime(7000);
+    input.setEndpointMs(0); vi.advanceTimersByTime(60000); expect(on.onFinal).not.toHaveBeenCalled();
+    input.setEndpointMs(12000); vi.advanceTimersByTime(11999); expect(on.onFinal).not.toHaveBeenCalled();
+    input.finish(); expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("Keep this");
   });
-
-  it("endpointMs 0 čeká na finál prohlížeče jako dřív", () => {
-    vi.useFakeTimers();
-    const on = events();
-    createVoiceInput(Ctor).start(on, { endpointMs: 0 });
-    const rec = FakeRecognition.last;
-    rec.say([["Postav web", false]]);
-    vi.advanceTimersByTime(5000);
-    expect(on.onFinal).not.toHaveBeenCalled();
-    rec.say([["Postav web", true]]);
-    expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("Postav web");
+  it("errors never submit and fence late ends", () => {
+    const {on,rec} = begin(); rec.say([["Do not submit",true]]); rec.onerror?.({error:"network"});
+    rec.onend?.(); vi.advanceTimersByTime(20000); expect(on.onFinal).not.toHaveBeenCalled();
+    expect(on.onError).toHaveBeenCalledWith("network"); expect(on.onEnd).toHaveBeenCalledOnce();
   });
-
-  it("trvalý poslech: po předčasné větě přijde druhá věta jednou a pozdní finál první se přeskočí", () => {
-    vi.useFakeTimers();
-    const on = events();
-    createVoiceInput(Ctor).start(on, { continuous: true });
-    const rec = FakeRecognition.last;
-    rec.say([["první věta", false]]);
-    vi.advanceTimersByTime(700);
-    rec.say([["první věty", true]]);
-    rec.say([["první věty", true], ["druhá věta", false]]);
-    vi.advanceTimersByTime(700);
-    rec.say([["první věty", true], ["druhá věta", true]]);
-    rec.say([["první věty", true], ["druhá věta", true], ["třetí věta", true]]);
-    expect(vi.mocked(on.onFinal).mock.calls).toEqual([["první věta"], ["druhá věta"], ["třetí věta"]]);
+  it("no-speech rollover retains manual draft without error or automatic submission", () => {
+    const {on,input,rec}=begin({endpointMs:0}); rec.say([["Keep thinking",true]]);
+    rec.onerror?.({error:"no-speech"}); rec.onend?.(); vi.advanceTimersByTime(100);
+    const next=FakeRecognition.last; expect(next).not.toBe(rec);
+    next.say([["and continue",true]]); input.finish();
+    expect(on.onError).not.toHaveBeenCalled();
+    expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("Keep thinking and continue");
+  });
+  it("backs off repeated quiet recognition ends", () => {
+    const {rec}=begin({endpointMs:0}); rec.onend?.(); vi.advanceTimersByTime(100);
+    const next=FakeRecognition.last; next.onend?.(); vi.advanceTimersByTime(199);
+    expect(FakeRecognition.last).toBe(next); vi.advanceTimersByTime(1);
+    expect(FakeRecognition.last).not.toBe(next);
+  });
+  it("does not endpoint interim results while speech is still active", () => {
+    const {on,rec}=begin(); rec.onspeechstart?.(); rec.say([["A long thought",false]]);
+    vi.advanceTimersByTime(20000); expect(on.onFinal).not.toHaveBeenCalled();
+    rec.onspeechend?.(); vi.advanceTimersByTime(8000);
+    expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("A long thought");
+  });
+  it("handles unsupported and failed starts", () => {
+    const on=events(); createVoiceInput(null).start(on); expect(on.onError).toHaveBeenCalledWith("not-supported");
+    class Broken extends FakeRecognition { start=vi.fn(()=>{throw Error("failed");}); }
+    const broken=events(); createVoiceInput(Broken as unknown as RecognitionCtor).start(broken);
+    expect(broken.onError).toHaveBeenCalledWith("start"); expect(broken.onEnd).toHaveBeenCalledOnce();
+    expect(recognitionCtor({webkitSpeechRecognition:Ctor})).toBe(Ctor);
   });
 });
 

@@ -8,22 +8,22 @@ export type VoiceInputEvents = {
   onSpeech: () => void;
   /** Průběžný přepis do pole. */
   onInterim: (text: string) => void;
-  /** Hotová věta; přijde nejvýš jednou za start a rodič ji hned odešle. */
+  /** Dokončená myšlenka; samotný finál prohlížeče ji neodesílá. */
   onFinal: (text: string) => void;
   /** Kód chyby prohlížeče (`not-allowed`, `no-speech`, `network`, …); text dá `voiceError`. */
   onError: (code: string) => void;
-  /** Poslech skončil (věta, ticho, chyba nebo stop). */
+  /** Logický poslech skončil; interní restart ani stop callback nevyvolají. */
   onEnd: () => void;
 };
-/** `continuous` (přepínač Poslech): poslech neskončí první větou, každá hotová věta přijde zvlášť.
- *  `endpointMs` (výchozí 700, 0 = vypnuto): ustálený průběžný přepis se pošle jako věta dřív, než prohlížeč řekne „finální“. */
-export type VoiceInput = { supported: boolean; start: (events: VoiceInputEvents, options?: { continuous?: boolean; endpointMs?: number }) => void; stop: () => void };
+/** continuous allows multiple thoughts; endpointMs defaults to 8000, zero requires finish(). */
+export type VoiceInput = { supported: boolean; start: (events: VoiceInputEvents, options?: { continuous?: boolean; endpointMs?: number }) => void; stop: () => void; finish: () => void; setEndpointMs: (value: number) => void };
 
 type Alternative = { transcript: string };
 type Result = { isFinal: boolean; 0: Alternative };
 type Recognition = {
   lang: string; interimResults: boolean; continuous: boolean; maxAlternatives: number;
   onspeechstart: (() => void) | null;
+  onspeechend: (() => void) | null;
   onresult: ((event: { results: ArrayLike<Result> }) => void) | null;
   onerror: ((event: { error: string }) => void) | null;
   onend: (() => void) | null;
@@ -37,61 +37,86 @@ export function recognitionCtor(scope: object = globalThis): RecognitionCtor | n
   return value.SpeechRecognition ?? value.webkitSpeechRecognition ?? null;
 }
 
-/** Výchozí je jedna věta na start (`continuous: false`): prohlížeč sám pozná ticho a pošle finální přepis.
- *  Trvalý poslech posílá každou novou hotovou větu; výsledky už poslané se přeskočí. */
+/** OP-5AED6F: browser segments are not human turns; drafts survive recognition rollovers. */
 export function createVoiceInput(Ctor: RecognitionCtor | null = recognitionCtor()): VoiceInput {
   let current: Recognition | null = null;
-  let timer: ReturnType<typeof setTimeout> | undefined; // endpointing: odpočet ticha nad průběžným přepisem
+  let generation = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let restart: ReturnType<typeof setTimeout> | undefined;
+  let finish = () => {};
+  let setEndpointMs = (_value: number) => {};
   const stop = () => {
-    clearTimeout(timer);
-    const rec = current;
-    current = null;
-    try { rec?.abort(); } catch { /* už neběží */ }
+    generation++;
+    clearTimeout(timer); clearTimeout(restart);
+    finish = () => {}; setEndpointMs = () => {};
+    const rec = current; current = null;
+    try { rec?.abort(); } catch { /* already ended */ }
   };
-  const start = (events: VoiceInputEvents, { continuous = false, endpointMs = 700 } = {}) => {
+  const start: VoiceInput["start"] = (events, { continuous = false, endpointMs = 8000 } = {}) => {
     stop();
     if (!Ctor) { events.onError("not-supported"); events.onEnd(); return; }
-    const rec = new Ctor();
-    current = rec;
-    rec.lang = "cs-CZ";
-    rec.interimResults = true;
-    rec.continuous = continuous;
-    rec.maxAlternatives = 1;
-    let sent = false;
-    let done = 0; // trvalý poslech: výsledky před tímto indexem už odešly jako věty
-    rec.onspeechstart = () => { if (current === rec) events.onSpeech(); };
-    rec.onresult = (event) => {
-      if (current !== rec || sent) return;
-      clearTimeout(timer);
-      let final = "", interim = "";
-      const results = Array.from(event.results);
-      for (let i = done; i < results.length; i++) {
-        if (results[i].isFinal) { final += results[i][0].transcript; if (continuous) done = i + 1; } else interim += results[i][0].transcript;
-      }
-      const text = interim.trim();
-      if (final.trim()) { sent = !continuous; events.onFinal(final.trim()); return; }
-      if (!text) return;
-      events.onInterim(text);
-      // Chrome posílá finální výsledek až 1–2 s po konci řeči; ustálený přepis stačí. Pozdní finál týchž výsledků se zahodí.
-      if (endpointMs > 0 && (text.split(/\s+/).length >= 2 || text.length >= 8)) {
-        timer = setTimeout(() => {
-          if (current !== rec) return;
-          if (continuous) done = results.length; else sent = true;
-          events.onFinal(text);
-        }, endpointMs);
-      }
+    const run = generation;
+    let carried = "", segment = "";
+    let consumed = 0, resultCount = 0;
+    let deadlineArmed = false;
+    let speaking = false, quietRestarts = 0;
+    const alive = () => generation === run;
+    const draft = () => [carried, segment].filter(Boolean).join(" ").trim();
+    const fail = (code: string) => {
+      if (!alive()) return;
+      stop(); events.onError(code); events.onEnd();
     };
-    rec.onerror = (event) => { if (current === rec) events.onError(event.error); };
-    rec.onend = () => { if (current === rec) { clearTimeout(timer); current = null; events.onEnd(); } };
-    try {
-      rec.start();
-    } catch {
-      current = null;
-      events.onError("start");
-      events.onEnd();
-    }
+    finish = () => {
+      if (!alive()) return;
+      const text = draft();
+      if (!text) return;
+      clearTimeout(timer);
+      deadlineArmed = false;
+      carried = ""; segment = ""; consumed = resultCount;
+      if (!continuous) stop();
+      events.onFinal(text);
+      if (!continuous) events.onEnd();
+    };
+    const arm = () => {
+      clearTimeout(timer);
+      deadlineArmed = !speaking && endpointMs > 0 && !!draft();
+      if (deadlineArmed) timer = setTimeout(() => { if (alive()) finish(); }, endpointMs);
+    };
+    setEndpointMs = value => { endpointMs = Math.max(0, value); if (alive()) arm(); };
+    const listen = () => {
+      if (!alive()) return;
+      const rec = new Ctor(); current = rec;
+      consumed = 0; resultCount = 0; segment = "";
+      rec.lang = "cs-CZ"; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
+      const active = () => alive() && current === rec;
+      rec.onspeechstart = () => {
+        if (!active()) return;
+        speaking = true; quietRestarts = 0;
+        clearTimeout(timer); deadlineArmed = false; events.onSpeech();
+      };
+      rec.onspeechend = () => { if (active()) { speaking = false; arm(); } };
+      rec.onresult = event => {
+        if (!active()) return;
+        const results = Array.from(event.results); resultCount = results.length;
+        quietRestarts = 0;
+        segment = results.slice(consumed).map(r => r[0].transcript.trim()).filter(Boolean).join(" ");
+        events.onInterim(draft());
+        if (active()) arm();
+      };
+      // Browser no-speech is an idle rollover, not a failed human thought.
+      rec.onerror = event => { if (active() && event.error !== "no-speech") fail(event.error); };
+      rec.onend = () => {
+        if (!active()) return;
+        carried = draft(); segment = ""; current = null; speaking = false;
+        // Preserve an already running silence deadline across browser sessions.
+        if (!deadlineArmed) arm();
+        restart = setTimeout(listen, Math.min(4000, 100 * 2 ** Math.min(quietRestarts++, 6)));
+      };
+      try { rec.start(); } catch { fail("start"); }
+    };
+    listen();
   };
-  return { supported: !!Ctor, start, stop };
+  return { supported: !!Ctor, start, stop, finish: () => finish(), setEndpointMs: value => setEndpointMs(value) };
 }
 
 /** Kód chyby → česká hláška; `null` = nic neříkat (ticho, vlastní stop). `blocked` zakáže tlačítko. */

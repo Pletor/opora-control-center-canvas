@@ -1,0 +1,5 @@
+/* Celá myšlenka zůstává čitelná i v malém okně; dlouhý přepis lze posunout, žádná slova nemizí výpustkou. */
+.pletor-voice-draft { min-width: 0; width: 100%; max-width: 640px; color: inherit; text-align: left; padding: 8px 12px; box-sizing: border-box; }
+.pletor-voice-draft__cue { margin: 0 0 6px; font-size: 12px; line-height: 1.45; }
+.pletor-voice-draft__text { margin: 0 0 8px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.5; }
+.pletor-voice-draft__finish { color: inherit; background: transparent; border: 1px solid currentColor; border-radius: 6px; padding: 7px 12px; font: inherit; font-size: 12px; cursor: pointer; }

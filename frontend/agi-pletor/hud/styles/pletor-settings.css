@@ -252,3 +252,7 @@
   outline: 2px solid var(--pletor-accent);
   outline-offset: 1px;
 }
+
+/* D?lku pauzy si ?lov?k vol? p??mo, v?etn? dokon?en? tla??tkem bez odpo?tu. */
+.pletor-settings__endpoint { display: grid; gap: 7px; margin-top: 18px; font-size: 13px; }
+.pletor-settings__endpoint select { width: 100%; padding: 8px; font: inherit; border-radius: 6px; }

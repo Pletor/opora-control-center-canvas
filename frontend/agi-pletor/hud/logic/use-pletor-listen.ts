@@ -28,21 +28,27 @@ export type ListenLoopEvents = {
   /** Prohlížeč právě poslouchá (`true`), nebo je poslech pozastavený / vypnutý. */
   onListening: (on: boolean) => void;
   onInterim: (text: string) => void;
+  onSpeech?: () => void;
   /** Věta prošla sítem; smyčka je už pozastavená a obnoví ji `resume` (po odpovědi nebo selhání odeslání). */
   onCommand: (text: string) => void;
   /** Nepovolený mikrofon nebo vzdání; smyčka je vypnutá a rodič vrátí přepínač na false s touto hláškou. */
   onFail: (message: string) => void;
 };
-export type ListenLoop = { start: () => void; stop: () => void; pause: () => void; resume: () => void; active: () => boolean };
+export type ListenLoop = { start: () => void; stop: () => void; finish: () => void; pause: () => void; resume: () => void; active: () => boolean; pending: () => boolean };
 
-export function createListenLoop(input: VoiceInput, events: ListenLoopEvents, wakeOnly: () => boolean = () => readListenPrefs().wakeOnly): ListenLoop {
+export function createListenLoop(input: VoiceInput, events: ListenLoopEvents, wakeOnly: () => boolean = () => readListenPrefs().wakeOnly,
+  endpointMs: () => number = () => 8000): ListenLoop {
   let on = false;
   let paused = false;
   let attempt = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let last: Heard | null = null;
+  let pending = false;
+  let generation = 0;
 
   const halt = () => {
+    generation++;
+    pending = false;
     clearTimeout(timer);
     input.stop();
     events.onListening(false);
@@ -53,16 +59,18 @@ export function createListenLoop(input: VoiceInput, events: ListenLoopEvents, wa
   const run = () => {
     clearTimeout(timer);
     if (!on || paused) return;
+    const runId = ++generation;
     const startedAt = Date.now();
     let heardAny = false;
     let failed = false;
     let fatal = "";
     events.onListening(true);
     input.start({
-      onSpeech: () => { heardAny = true; },
-      onInterim: (text) => { heardAny = true; events.onInterim(text); },
+      onSpeech: () => { if (runId !== generation) return; heardAny = true; pending = true; events.onSpeech?.(); },
+      onInterim: (text) => { if (runId !== generation) return; heardAny = true; pending = !!text.trim(); events.onInterim(text); },
       onFinal: (text) => {
-        if (!on || paused) return;
+        if (!on || paused || runId !== generation) return;
+        pending = false;
         heardAny = true;
         const now = Date.now();
         const command = heardCommand(text, { wakeOnly: wakeOnly(), last, now });
@@ -74,11 +82,14 @@ export function createListenLoop(input: VoiceInput, events: ListenLoopEvents, wa
         events.onCommand(command);
       },
       onError: (code) => {
+        if (runId !== generation) return;
         const problem = voiceError(code);
         if (problem?.blocked) fatal = problem.text;
         else if (problem) failed = true;
       },
       onEnd: () => {
+        if (runId !== generation) return;
+        pending = false;
         events.onListening(false);
         events.onInterim("");
         if (!on || paused) return;
@@ -88,13 +99,14 @@ export function createListenLoop(input: VoiceInput, events: ListenLoopEvents, wa
         attempt = plan.attempt;
         timer = setTimeout(run, plan.delay);
       },
-    }, { continuous: true });
+    }, { continuous: true, endpointMs: endpointMs() });
   };
 
   return {
     start: () => { on = true; paused = false; attempt = 0; run(); },
     stop: () => { if (!on) return; on = false; paused = false; halt(); },
-    pause: () => { if (!on || paused) return; paused = true; halt(); },
+    finish: () => { if (on && !paused) input.finish(); },
+    pause: () => { if (!on || paused || pending) return; paused = true; halt(); },
     resume: () => {
       if (!on || !paused) return;
       paused = false;
@@ -102,19 +114,23 @@ export function createListenLoop(input: VoiceInput, events: ListenLoopEvents, wa
       timer = setTimeout(run, RESUME_MS);
     },
     active: () => on,
+    pending: () => pending,
   };
 }
 
 /** Smyčka pro React: zapne se a vypne podle přepínače, handlery čte vždy čerstvé. Volá ji jen usePletorVoice. */
-export function usePletorListen(input: VoiceInput, on: boolean, events: ListenLoopEvents): ListenLoop {
+export function usePletorListen(input: VoiceInput, on: boolean, events: ListenLoopEvents, endpointMs = 8000): ListenLoop {
   const live = useRef(events);
   live.current = events;
+  const endpoint = useRef(endpointMs);
+  endpoint.current = endpointMs;
   const loop = useMemo(() => createListenLoop(input, {
     onListening: (value) => live.current.onListening(value),
     onInterim: (text) => live.current.onInterim(text),
+    onSpeech: () => live.current.onSpeech?.(),
     onCommand: (text) => live.current.onCommand(text),
     onFail: (message) => live.current.onFail(message),
-  }), [input]);
+  }, undefined, () => endpoint.current), [input]);
   useEffect(() => {
     if (on) loop.start(); // bez rozpoznávání řeči skončí hned chybou not-supported → onFail
     else loop.stop();

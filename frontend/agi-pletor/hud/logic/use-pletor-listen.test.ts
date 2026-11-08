@@ -9,6 +9,7 @@ function fakeInput() {
     supported: true, runs,
     start: vi.fn((events: VoiceInputEvents, options?: { continuous?: boolean }) => { expect(options?.continuous).toBe(true); runs.push(events); }),
     stop: vi.fn(),
+    finish: vi.fn(), setEndpointMs: vi.fn(),
     last: () => runs[runs.length - 1],
   };
   return input;
@@ -29,6 +30,36 @@ describe("restartPlan", () => {
 });
 
 describe("createListenLoop", () => {
+  it("pending thought blocks external pause, explicit finish forwards once and stop discards", () => {
+    const input = fakeInput(); const on = handlers();
+    let endpoint = 0;
+    const loop = createListenLoop(input, on, () => false, () => endpoint);
+    loop.start();
+    expect(input.start).toHaveBeenLastCalledWith(expect.any(Object), { continuous: true, endpointMs: 0 });
+    input.last().onSpeech();
+    loop.pause();
+    expect(input.stop).not.toHaveBeenCalled();
+    input.last().onInterim("První věta a rozmyšlené pokračování");
+    expect(loop.pending()).toBe(true);
+    loop.finish(); expect(input.finish).toHaveBeenCalledTimes(1);
+    input.last().onFinal("První věta a rozmyšlené pokračování");
+    expect(on.onCommand).toHaveBeenCalledTimes(1);
+    expect(loop.pending()).toBe(false);
+    loop.finish(); expect(input.finish).toHaveBeenCalledTimes(1); // paused after submission
+    endpoint = 12000; loop.resume(); vi.advanceTimersByTime(RESUME_MS);
+    expect(input.start).toHaveBeenLastCalledWith(expect.any(Object), { continuous: true, endpointMs: 12000 });
+    const old = input.last(); loop.stop(); old.onFinal("Pozdní výsledek nesmí odejít");
+    expect(on.onCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("callbacks from a cancelled run cannot submit into a restarted loop", () => {
+    const input = fakeInput(); const on = handlers();
+    const loop = createListenLoop(input, on, () => false);
+    loop.start(); const cancelled = input.last(); loop.stop(); loop.start();
+    cancelled.onSpeech(); cancelled.onInterim("stará myšlenka"); cancelled.onFinal("stará myšlenka"); cancelled.onEnd();
+    expect(on.onCommand).not.toHaveBeenCalled(); expect(loop.pending()).toBe(false);
+    input.last().onFinal("nová myšlenka"); expect(on.onCommand).toHaveBeenCalledWith("nová myšlenka");
+  });
   it("věta projde sítem, smyčka se pozastaví a po resume poslouchá znovu až po prodlevě", () => {
     const input = fakeInput();
     const on = handlers();

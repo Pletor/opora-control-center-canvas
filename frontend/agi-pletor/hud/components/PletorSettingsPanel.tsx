@@ -8,6 +8,7 @@ import PletorBrainPicker from "./PletorBrainPicker";
 import PletorListenSwitch from "./PletorListenSwitch";
 import PletorSettingsLlm from "./PletorSettingsLlm";
 import PletorSettingsVoices from "./PletorSettingsVoices";
+import type { VoicePrefs } from "../logic/voice-prefs";
 import PletorWorkshop from "@/agi-pletor/workshop/components/PletorWorkshop";
 
 type Tab = "brain" | "voice" | "llm" | "workshop";
@@ -95,6 +96,14 @@ export default function PletorSettingsPanel({ voice, brain, onBrain, onClose }: 
             onChange={(on) => voice.setPrefs({ bargeIn: on })} />
           <PletorListenSwitch tone="small" label="Jen na oslovení" title="Reaguje jen věta s oslovením Pletore / Jarvisi" on={wakeOnly} onChange={saveWake} />
         </div>
+        <label className="pletor-settings__endpoint">Dokončení myšlenky
+          <select value={voice.prefs.endpointMs} onChange={event => voice.setPrefs({ endpointMs: Number(event.target.value) as VoicePrefs["endpointMs"] })}>
+            <option value={4000}>Po 4 sekundách ticha</option>
+            <option value={8000}>Po 8 sekundách ticha</option>
+            <option value={12000}>Po 12 sekundách ticha</option>
+            <option value={0}>Až stisknu Domluvil jsem</option>
+          </select>
+        </label>
       </div>}
 
       {tab === "voice" && <div className="pletor-settings__pane" role="tabpanel" aria-label="Hlas">

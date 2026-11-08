@@ -6,10 +6,12 @@ import { readListenPrefs, writeListenPrefs, type ListenPrefs } from "../logic/li
 import { clampPosition, defaultPosition, type Size } from "../logic/popup-position";
 import PletorListenerBody from "./PletorListenerBody";
 import PletorListenSwitch from "./PletorListenSwitch";
+import PletorVoiceDraft from "./PletorVoiceDraft";
 
 type Props = {
   state: HudState; label: string; level: () => number | null; interim: string; messages: PletorMessage[]; error: string;
   onListening: (on: boolean) => void; onInterrupt: () => void; onFullscreen: () => void; settings: ReactNode;
+  voiceListening: boolean; manual: boolean; onFinish: () => void;
 };
 
 const LOG_SIZE = 6;
@@ -22,7 +24,7 @@ const DRAG_PX = 4; // menší pohyb je klik (na jádro = přerušit řeč), ne p
  * pro aplikaci (listen-prefs); dvojklik na záhlaví ho vrátí do výchozího rohu. V záhlaví vedle přepínače Poslech
  * stojí ozubené kolo nastavení (`settings` od rodiče), kde je i volba „jen na oslovení“.
  */
-export default function PletorListener({ state, label, level, interim, messages, error, onListening, onInterrupt, onFullscreen, settings }: Props) {
+export default function PletorListener({ state, label, level, interim, messages, error, onListening, onInterrupt, onFullscreen, settings, voiceListening, manual, onFinish }: Props) {
   const ref = useRef<HTMLElement>(null);
   const [prefs, setPrefs] = useState<ListenPrefs>(readListenPrefs);
   const [size, setSize] = useState<Size>({ w: 0, h: 0 });
@@ -87,7 +89,8 @@ export default function PletorListener({ state, label, level, interim, messages,
         <PletorListenSwitch on onChange={onListening} />
         {settings}
       </header>
-      <PletorListenerBody state={state} label={label} level={level} interim={interim} reply={reply} onInterrupt={onInterrupt} />
+      <PletorListenerBody state={state} label={label} level={level} reply={reply} onInterrupt={onInterrupt} />
+      <PletorVoiceDraft listening={voiceListening} draft={interim} manual={manual} onFinish={onFinish} />
       {error && <p className="pletor-listener__error" role="alert">{error}</p>}
       <div className="pletor-listener__tools">
         <button type="button" className="pletor-listener__button" aria-expanded={log} onClick={() => setLog((open) => !open)}>Přepis</button>
