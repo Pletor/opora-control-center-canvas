@@ -33,3 +33,19 @@ def test_dashboard_refusals(tmp_path):
             gone = client.get(f"/api/pletor/{path}", headers=HEADERS, params={**SCOPE, "project": "nikde"})
             assert gone.status_code == 404
         assert client.get("/api/pletor/messages", headers=HEADERS, params={**SCOPE, "limit": 0}).status_code == 422
+
+
+def test_heart_model(tmp_path):
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        assert client.get("/api/pletor/heart/model", headers=HEADERS).json()["model"] == "haiku"
+        put = client.put("/api/pletor/heart/model", headers=HEADERS, json={"model": "sonnet", "advisor": "opus"})
+        assert put.status_code == 200 and put.json()["model"] == "sonnet"
+        assert client.get("/api/pletor/heart/model", headers=HEADERS).json()["model"] == "sonnet"
+        with_effort = client.put("/api/pletor/heart/model", headers=HEADERS, json={"model": "sonnet", "advisor": "opus", "effort": "high"})
+        assert with_effort.json()["effort"] == "high" and with_effort.json()["efforts"][0] == "low"
+        assert client.put("/api/pletor/heart/model", headers=HEADERS, json={"model": "sonnet", "advisor": "opus", "effort": "x"}).status_code == 422
+        assert client.get("/api/pletor/heart/model", headers=AGENT).status_code == 403
+        assert client.put("/api/pletor/heart/model", headers=AGENT, json={"model": "opus", "advisor": "opus"}).status_code == 403
+        bad = client.put("/api/pletor/heart/model", headers=HEADERS, json={"model": "gpt", "advisor": "opus"})
+        assert bad.status_code == 422

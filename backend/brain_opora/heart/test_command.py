@@ -186,3 +186,13 @@ def test_process_skill_lands_in_brain_and_is_printed_by_the_tool(tmp_path):
     done = subprocess.run([sys.executable, "-I", "opora_heart.py", "skill", "proces-na-platne"], cwd=tmp_path / "brain",
                           capture_output=True, check=True, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     assert done.stdout.decode("utf-8").replace("\r\n", "\n").strip() == text.strip()
+
+
+def test_effort_only_when_set():
+    def line(**extra):
+        return command.build_command("claude", session_id=SID, resume=False, settings_path="s", mcp_path="m",
+                                     prompt_file="p", **extra)
+
+    assert "--effort" not in line()
+    built = line(effort="max")
+    assert built[built.index("--effort") + 1] == "max" and built[built.index("--model") + 2] == "--effort"

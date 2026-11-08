@@ -388,3 +388,16 @@ def test_status_shows_the_running_batch_with_its_inputs_and_clears_it_after(setu
     assert heart.status("draft")["typicalMs"] is not None  # medián z jedné úspěšné dávky se zprávou
     assert heart.status("draft")["batches"][-1]["steps"][0]["text"] == "Čtu snímek."
     assert is_loopback_only("/api/brain/heart/status")  # kroky nejdou přes tunel
+
+
+def test_rate_limit_switches_account_and_does_not_sleep(setup):
+    service, heart, clock, runner, engine = setup
+    switches = []
+    heart.switch_account = lambda: switches.append(1) or True
+    runner.result = LIMITED
+    heart.message("draft", "draft", "Plán")
+    engine.run_once()
+    assert switches == [1] and heart.status("draft")["sleeping"] is False
+    runner.result = OK
+    clock.now += 1
+    assert engine.run_once() == ["draft"] and "Plán" in runner.calls[-1]

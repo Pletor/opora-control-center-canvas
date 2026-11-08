@@ -34,9 +34,11 @@ class PletorMessage(BaseModel):
 
 
 class PletorBrain(BaseModel):
-    brain: Literal["claude", "ollama"]
+    brain: Literal["claude", "codex", "ollama"]
     model: str | None
     available: list[str]
+    models: dict[str, str | None] = {}  # uložený model každého mozku
+    efforts: dict[str, str | None] = {}  # uložený effort Claude a Codexu, None = výchozí
 
 
 class PletorStateOut(BaseModel):
@@ -48,8 +50,9 @@ class PletorStateOut(BaseModel):
 
 class PletorBrainIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    brain: Literal["claude", "ollama"]
+    brain: Literal["claude", "codex", "ollama"]
     model: str | None = Field(default=None, min_length=1, max_length=200)
+    effort: str | None = Field(default=None, max_length=20)  # "" = výchozí
 
 
 class PletorBrainOut(BaseModel):
@@ -90,10 +93,12 @@ class PletorLlmOut(BaseModel):
     codex: dict[str, Any]
     ollama: dict[str, Any]
     cswap: dict[str, Any]
+    codexswap: dict[str, Any] = {}
 
 
 class PletorLlmClaudeIn(BaseModel):
     model: str
+    effort: str | None = None
 
 
 class PletorLlmCodexIn(BaseModel):
@@ -101,13 +106,12 @@ class PletorLlmCodexIn(BaseModel):
     reasoning: str | None = None
 
 
-class PletorLlmClaudeIn(BaseModel):
-    model: str
+class PletorLlmCodeIn(BaseModel):
+    code: str = Field(default="", max_length=400)  # prázdný = přihlášení skončilo samo / uložit přihlášený účet
 
 
-class PletorLlmCodexIn(BaseModel):
-    model: str
-    reasoning: str | None = None
+class PletorLlmSlotIn(BaseModel):
+    slot: int = Field(ge=1, le=99)
 
 
 class LiniePreviewIn(BaseModel):
@@ -269,3 +273,10 @@ class LinieBlockIn(BaseModel):
 class LinieDeployedIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     sha: str = Field(min_length=7, max_length=40)
+
+
+class HeartModelIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    model: str = Field(min_length=1, max_length=40)
+    advisor: str = Field(min_length=1, max_length=40)
+    effort: str | None = Field(default=None, max_length=20)  # "" nebo None = výchozí

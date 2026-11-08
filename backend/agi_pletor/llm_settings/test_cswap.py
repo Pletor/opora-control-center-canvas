@@ -1,8 +1,10 @@
-"""cswap: jen `list --json`, maskované e-maily, nenainstalovaný nástroj, selhání příkazu."""
+"""cswap: `list --json` a `switch`, maskované e-maily, nenainstalovaný nástroj, selhání příkazu."""
 import json
 
 from backend.agi_pletor.llm_settings import cswap
 from backend.agi_pletor.llm_settings.conftest import Done, fake_run
+
+REAL_SWITCH = cswap.switch  # backend/conftest.py ho v testech nahradí atrapou; tady se zkouší skutečný
 
 LIST = {"schemaVersion": 1, "activeAccountNumber": 2, "accounts": [
     {"number": 1, "email": "jan.novak@domena.cz", "organizationName": "", "organizationUuid": "", "active": False,
@@ -24,7 +26,7 @@ def test_lists_accounts_read_only_and_masked():
     calls = []
     out = cswap.read(which=lambda name: "cswap", run=fake_run({"list": json.dumps(LIST)}, calls))
     assert calls == [["cswap", "list", "--json"]]
-    assert out == {"available": True, "accounts": [
+    assert out == {"available": True, "managed": True, "accounts": [
         {"slot": 1, "label": "j***@d***.cz", "alias": None, "active": False, "usage5h": 42.0, "usage7d": 91.5,
          "resetsAt": "2026-11-04T18:00:00Z"},
         {"slot": 2, "label": "e***@f***.uk", "alias": "práce", "active": True, "usage5h": None, "usage7d": None,
@@ -43,3 +45,14 @@ def test_not_installed_gives_hint_and_runs_nothing():
 def test_failure_hides_stderr():
     out = cswap.read(which=lambda name: "cswap", run=fake_run({"list": Done('{"error": "jan@domena.cz"}', 1)}))
     assert out == {"available": False, "reason": "cswap list skončil kódem 1."}
+
+
+def test_switch_reports_only_a_real_switch():
+    calls = []
+    switched = json.dumps({"switched": True, "from": {"number": 1}, "to": {"number": 2}})
+    assert REAL_SWITCH(which=lambda name: "cswap", run=fake_run({"switch": switched}, calls)) is True
+    assert calls == [["cswap", "switch", "--strategy", "next-available", "--json"]]
+    assert REAL_SWITCH(which=lambda name: "cswap", run=fake_run({"switch": json.dumps({"switched": False})})) is False
+    assert REAL_SWITCH(which=lambda name: "cswap", run=fake_run({"switch": Done("", returncode=1)})) is False
+    assert REAL_SWITCH(which=lambda name: "cswap", run=fake_run({"switch": "ne json"})) is False
+    assert REAL_SWITCH(which=lambda name: None, run=fake_run({}, calls)) is False and len(calls) == 1

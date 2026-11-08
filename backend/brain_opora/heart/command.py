@@ -165,7 +165,7 @@ def allowed_tools(subcommands=None):
 
 
 def build_command(claude, *, session_id, resume, settings_path, mcp_path, prompt_file, source_root=None,
-                  max_turns=MAX_TURNS, advisor=True, model=MODEL, advisor_model=ADVISOR, subcommands=None):
+                  max_turns=MAX_TURNS, advisor=True, model=MODEL, advisor_model=ADVISOR, subcommands=None, effort=None):
     """Řádka §2. Zpráva dávky jde na stdin (`-p` bez pozičního argumentu), ne do řádky (limit délky Windows).
     `model`, `advisor_model` a `subcommands` nastavuje uzel `agent.claude` enginu toků; výchozí = dnešní srdce."""
     if not session_id:
@@ -173,7 +173,7 @@ def build_command(claude, *, session_id, resume, settings_path, mcp_path, prompt
     uuid.UUID(str(session_id))  # --session-id i --resume berou UUID
     # `stream-json` (s `--verbose`) nese `usage` každého tahu: rotace relace měří kontext posledního tahu
     # (`session.context_tokens`); poslední řádek proudu je tentýž objekt výsledku jako u `json`.
-    command = [claude, "-p", "--output-format", "stream-json", "--verbose", "--model", model, *(["--advisor", advisor_model] if advisor else []),
+    command = [claude, "-p", "--output-format", "stream-json", "--verbose", "--model", model, *(["--effort", effort] if effort else []), *(["--advisor", advisor_model] if advisor else []),
                *(["--resume", session_id] if resume else ["--session-id", session_id]),
                "--setting-sources", "project", "--settings", str(settings_path),
                "--strict-mcp-config", "--mcp-config", str(mcp_path),

@@ -11,6 +11,7 @@ import threading
 import time
 from collections import deque
 
+from backend.agi_pletor.llm_settings import cswap
 from backend.brain_opora.determinism import brain_files, tokens
 from backend.brain_opora.heart import batch, command, session
 from backend.project.workspace.workspace_sources import WorkspaceSources
@@ -30,13 +31,15 @@ def _git_thread(target):
 
 
 class HeartState:
-    def __init__(self, service, *, base_url, runner=None, clock=time.time, find=None, git_spawn=_git_thread, jev=None):
+    def __init__(self, service, *, base_url, runner=None, clock=time.time, find=None, git_spawn=_git_thread, jev=None,
+                 switch_account=None):
         self.service, self.base_url, self.clock = service, base_url, clock
         self.jev = jev or (lambda: None)  # `evaluate(state, questions)` s klíčem aplikace, nebo None (bez Jevu)
         self.git_spawn, self.heads, self.git_errors = git_spawn, {}, {}
         self.git_at, self.git_busy = float("-inf"), False
         self.runner = runner or batch.run_process
         self.find = find or command.find_claude
+        self.switch_account = switch_account or (lambda: cswap.switch())  # po limitu: další účet claude-swap; pozdní vazba kvůli testům
         self.lock, self.wakeup = threading.Lock(), threading.Event()
         self.pending, self.running, self.starts, self.cursors, self.tokens, self.errors = {}, set(), {}, {}, {}, {}
         self.sleeping_until, self.generation, self.polled_at = 0.0, None, float("-inf")

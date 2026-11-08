@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  actionLabel, brainLabel, brainText, escalationText, fetchPletorLlm, fetchPletorState, heartText, parseBrain, sendPletorMessage, sendPletorMessageStream, setPletorBrain,
+  actionLabel, brainLabel, CLAUDE_BRAIN, brainText, cancelAccountLogin, escalationText, fetchPletorLlm, finishAccountLogin, fetchPletorState, heartText, parseBrain, sendPletorMessage, sendPletorMessageStream, setPletorBrain, startAccountLogin, switchAccount,
 } from "./pletor-client";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -68,26 +68,37 @@ describe("volání Pletora", () => {
 
   it("chybějící pole jsou prázdná", async () => {
     stubFetch({});
-    expect(await fetchPletorState("p", "w")).toEqual({ messages: [], heart: null, escalations: [], brain: { brain: "claude", model: null, available: [] } });
+    expect(await fetchPletorState("p", "w")).toEqual({ messages: [], heart: null, escalations: [], brain: CLAUDE_BRAIN });
   });
 
-  it("mozek ze stavu: ollama s modelem, cokoli jiného je claude", () => {
-    const local = parseBrain({ brain: "ollama", model: "qwen3:14b", available: ["qwen3:14b", 3] });
-    expect(local).toEqual({ brain: "ollama", model: "qwen3:14b", available: ["qwen3:14b"] });
+  it("mozek ze stavu: ollama a codex s modelem, cokoli jiného je claude", () => {
+    const local = parseBrain({ brain: "ollama", model: "qwen3:14b", available: ["qwen3:14b", 3], models: { ollama: "qwen3:14b", codex: 5 } });
+    expect(local).toEqual({ brain: "ollama", model: "qwen3:14b", available: ["qwen3:14b"], models: { claude: null, codex: null, ollama: "qwen3:14b" }, efforts: { claude: null, codex: null } });
     expect(brainText(local)).toBe("ollama · qwen3:14b");
-    expect(brainText(parseBrain({ brain: "claude", model: "sonnet" }))).toBe("claude");
+    expect(brainText(parseBrain({ brain: "codex", model: "gpt-6.1-sol" }))).toBe("codex · gpt-6.1-sol");
+    expect(brainText(parseBrain({ brain: "codex", model: null }))).toBe("codex");
+    expect(brainText(parseBrain({ brain: "claude", model: "haiku" }))).toBe("claude · haiku");
     expect(brainText(parseBrain({ brain: "gpt" }))).toBe("claude");
-    expect(brainText(parseBrain(null))).toBe("claude");
-    expect(parseBrain({ brain: "claude", model: "sonnet", available: ["qwen3:14b"] })).toEqual({ brain: "claude", model: "sonnet", available: ["qwen3:14b"] });
+    expect(parseBrain(null)).toEqual(CLAUDE_BRAIN);
   });
 
-  it("přepne mozek přes POST /api/pletor/brain a vrátí nový stav i důvod selhání", async () => {
-    const calls = stubFetch({ ok: false, reply: "Ollama nemá model.", brain: { brain: "claude", model: "sonnet", available: [] } });
-    const result = await setPletorBrain("ollama");
+  it("přepne mozek přes POST /api/pletor/brain s modelem a vrátí nový stav i důvod selhání", async () => {
+    const calls = stubFetch({ ok: false, reply: "Ollama nemá model.", brain: { brain: "claude", model: "sonnet" } });
+    const result = await setPletorBrain("ollama", "qwen3:14b");
     const write = calls.find((call) => call.init?.method === "POST")!;
     expect(write.url).toBe("/api/pletor/brain");
-    expect(JSON.parse(String(write.init!.body))).toEqual({ brain: "ollama" });
-    expect(result).toEqual({ ok: false, reply: "Ollama nemá model.", brain: { brain: "claude", model: "sonnet", available: [] } });
+    expect(JSON.parse(String(write.init!.body))).toEqual({ brain: "ollama", model: "qwen3:14b" });
+    expect(result).toEqual({ ok: false, reply: "Ollama nemá model.", brain: { ...CLAUDE_BRAIN, model: "sonnet" } });
+    const bare = stubFetch({ ok: true });
+    await setPletorBrain("codex");
+    expect(JSON.parse(String(bare.find((call) => call.init?.method === "POST")!.init!.body))).toEqual({ brain: "codex" });
+    const withEffort = stubFetch({ ok: true, brain: { brain: "claude", efforts: { claude: "high", codex: 5 } } });
+    const set = await setPletorBrain("claude", undefined, "high");
+    expect(JSON.parse(String(withEffort.find((call) => call.init?.method === "POST")!.init!.body))).toEqual({ brain: "claude", effort: "high" });
+    expect(set.brain.efforts).toEqual({ claude: "high", codex: null });
+    const reset = stubFetch({ ok: true });
+    await setPletorBrain("claude", undefined, "");
+    expect(JSON.parse(String(reset.find((call) => call.init?.method === "POST")!.init!.body))).toEqual({ brain: "claude", effort: "" });
   });
 });
 
@@ -128,5 +139,34 @@ describe("mapování pro okno", () => {
     expect(brainLabel(parseBrain({ brain: "claude", model: "sonnet" }))).toEqual({ name: "Claude Sonnet 5.5", plan: "cloud · předplatné", local: false });
     expect(brainLabel(parseBrain(undefined)).name).toBe("Claude Sonnet 5.5");
     expect(brainLabel(parseBrain({ brain: "ollama", model: "qwen3:14b" }))).toEqual({ name: "qwen3:14b", plan: "lokální · zdarma", local: true });
+    expect(brainLabel(parseBrain({ brain: "claude", model: "fable" })).name).toBe("Claude Fable 5.1");
+    expect(brainLabel(parseBrain({ brain: "codex", model: "gpt-6.1-sol" }))).toEqual({ name: "gpt-6.1-sol", plan: "pod předplatným ChatGPT", local: false });
+  });
+});
+
+describe("přepínače účtů", () => {
+  it("přihlášení vrátí adresu (u Codexu i kód) a dokončení jde na /login/code", async () => {
+    const calls = stubFetch({ url: "https://claude.com/x" });
+    expect(await startAccountLogin("cswap")).toEqual({ url: "https://claude.com/x", userCode: null });
+    expect(calls.some((call) => call.url === "/api/pletor/llm/cswap/login" && call.init?.method === "POST")).toBe(true);
+    stubFetch({ url: "https://auth.openai.com/codex/device", userCode: "AB12-CD34" });
+    expect((await startAccountLogin("codex")).userCode).toBe("AB12-CD34");
+    const more = stubFetch({ available: true, accounts: [{ slot: 2, label: "e***@f***.uk", active: true }] });
+    const cswap = await finishAccountLogin("cswap", "abc#1");
+    const code = more.find((call) => call.url === "/api/pletor/llm/cswap/login/code")!;
+    expect(JSON.parse(String(code.init?.body))).toEqual({ code: "abc#1" });
+    expect(cswap.accounts[0]).toMatchObject({ slot: 2, active: true, usage5h: null });
+  });
+
+  it("odmítne odpověď bez https adresy, zrušení jde DELETE, přepnutí nese slot", async () => {
+    stubFetch({ url: "javascript:x" });
+    await expect(startAccountLogin("cswap")).rejects.toThrow("adresu");
+    const calls = stubFetch({ ok: true });
+    await cancelAccountLogin("codex");
+    expect(calls.find((call) => call.url === "/api/pletor/llm/codex/login")?.init?.method).toBe("DELETE");
+    const sw = stubFetch({ available: true, accounts: [] });
+    await switchAccount("codex", 1);
+    const write = sw.find((call) => call.url === "/api/pletor/llm/codex/switch")!;
+    expect(JSON.parse(String(write.init?.body))).toEqual({ slot: 1 });
   });
 });

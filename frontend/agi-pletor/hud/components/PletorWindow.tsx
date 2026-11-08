@@ -47,7 +47,7 @@ export default function PletorWindow({ mode, project, projectName, workspace, on
   const state = hudState({ sending: thinking, voice: voice.phase, error: !!pletor.failure, work, repliedAt: pletor.repliedAt, now });
   const label = hudLabel(state, work);
   const gear = (tone: "bar" | "dark") => <PletorSettingsButton tone={tone} open={settings} onToggle={() => onSettings(!settings)} />;
-  const panel = settings && <PletorSettingsPanel voice={voice} brain={pletor.brain} onBrain={(brain) => void pletor.setBrain(brain)} onClose={() => onSettings(false)} />;
+  const panel = settings && <PletorSettingsPanel voice={voice} brain={pletor.brain} onBrain={(brain, model, effort) => void pletor.setBrain(brain, model, effort)} onClose={() => onSettings(false)} />;
   const listener = listening && (
     <PletorListener state={state} label={label} level={voice.level} interim={voice.interim} messages={pletor.messages}
       error={pletor.failure || voice.error} onListening={(on) => onListening(on)} onInterrupt={voice.interrupt} onFullscreen={() => onMode("hud")}

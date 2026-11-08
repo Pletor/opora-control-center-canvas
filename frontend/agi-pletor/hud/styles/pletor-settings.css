@@ -134,13 +134,7 @@
   border-top: 0;
 }
 
-/* Mozek jsou dvě velká tlačítka vedle sebe: kdo mluví, je jedna volba ze dvou a aktivní svítí. Claude stojí
-   limit předplatného, lokální model nic; proto jsou obě jména psaná i s tím, kdo je platí. */
-.pletor-settings__brains {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
+/* Velké tlačítko nastavení (dílna): jedna akce, aktivní svítí akcentem. */
 .pletor-settings__brain {
   min-height: 40px;
   padding: 4px 8px;

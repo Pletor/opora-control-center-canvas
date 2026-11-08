@@ -5,6 +5,7 @@
 - `GET /api/pletor/context?project&workspace` → `{text, sections: [{title, chars, cap, truncated}]}`.
 - `GET /api/pletor/messages?project&workspace&limit=50&q=` → `{messages: [{role, text, at}], total}` (limit 1–500).
 - `GET /api/pletor/monitoring?project` → `{hosts, events, enabled}`.
+- `GET|PUT /api/pletor/heart/model` → `{model, advisor, models, effort, efforts}`; PUT `{model, advisor, effort?}` zapíše novou verzi toku Srdce (M2e), neplatný alias 422.
 Zdroj, který selže, vrátí v sekci `{error}`; routa nikdy 500.
 """
 from fastapi import APIRouter, Request
@@ -13,8 +14,10 @@ from fastapi.responses import JSONResponse
 from backend.agi_pletor import context
 from backend.agi_pletor.dashboard import views
 from backend.agi_pletor.dashboard.heart_view import heart_view, safe
+from backend.api.agi_pletor import models
 from backend.api.agi_pletor.pletor_routes import _check
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
+from backend.flow.catalogs.heart import model_settings
 from backend.canvas.activity_log import require_human
 
 HUMAN = "Velín Pletora čte jen člověk v UI."
@@ -53,5 +56,21 @@ def create_dashboard_router(service, heart, pletor):
     @router.get("/monitoring")
     def monitoring_state(request: Request, project: str = ""):
         return guarded(request, project, "main", lambda: views.monitoring_view(service, project))
+
+    def heart_model(request, write=None):
+        require_human(request.state.actor, "Model srdce čte a mění jen člověk v UI.")
+        try:
+            with service.registry_lock:
+                return model_settings.write(service.db, *write) if write else model_settings.read(service.db)
+        except ValueError as error:
+            return JSONResponse(invalid(str(error), 'Příklad: {"model": "haiku", "advisor": "opus"}').body(), status_code=422)
+
+    @router.get("/heart/model")
+    def heart_model_state(request: Request):
+        return heart_model(request)
+
+    @router.put("/heart/model")
+    def heart_model_set(body: models.HeartModelIn, request: Request):
+        return heart_model(request, (body.model, body.advisor, body.effort))
 
     return router

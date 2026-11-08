@@ -3,15 +3,21 @@
 - `POST /api/pletor/messages {project, workspace, text, voice?}` → `{reply, actions: [{type, text, ok, detail?}]}`.
 - `POST /api/pletor/messages/stream` (stejné tělo a kontroly) → `application/x-ndjson`: `{"type": "delta", "text"}`
   nula a víckrát (složené = `reply`), nakonec vždy `{"type": "done", reply, actions}`.
-- `GET /api/pletor/state?project&workspace` → `{messages, heart, escalations, brain: {brain, model, available}}`.
-- `POST /api/pletor/brain {brain: claude | ollama, model?}` → `{ok, reply, brain}` (P2; selhání = `ok: false`).
+- `GET /api/pletor/state?project&workspace` → `{messages, heart, escalations, brain: {brain, model, available, models}}`.
+- `POST /api/pletor/brain {brain: claude | codex | ollama, model?, effort?}` → `{ok, reply, brain}` (P2, M2d; neplatný
+  model nebo selhání = `ok: false`).
 - `GET /api/pletor/voices?warm=<id>` → `{voices: [{id, label, gender, engine, available, reason, quota}]}`: XTTS,
   ElevenLabs, Edge, Piper v pořadí výchozí volby; `quota` `{tier, character_count, character_limit}` jen u ElevenLabs;
   `warm` (jinak nejlepší dostupný) se načte dopředu.
-- `GET /api/pletor/llm` → `{claude, codex, ollama, cswap}` jen ke čtení (docs/navrhy/2026-11-04-pletor-nastaveni-llm.md,
+- `GET /api/pletor/llm` → `{claude, codex, ollama, cswap}` (claude i codex s `models`) jen ke čtení (docs/navrhy/2026-11-04-pletor-nastaveni-llm.md,
   M1); každá sekce selže zvlášť jako `{available: false, reason}`, cesty od klienta se nepřijímají.
-- `PUT /api/pletor/llm/claude {model}` a `PUT /api/pletor/llm/codex {model, reasoning?}` (M2): zapíšou model do
+- `PUT /api/pletor/llm/claude {model, effort?}` a `PUT /api/pletor/llm/codex {model, reasoning?}` (M2): zapíšou model do
   `~/.claude/settings.json` / `~/.codex/config.toml` se zálohou a vrátí novou sekci jako `GET /llm` + `backup`.
+- Účty `{tool}` = `cswap` (Claude Code přes claude-swap) nebo `codex` (Codex přes codex-swap, login vrací i `userCode`):
+  `POST /api/pletor/llm/{tool}/login` → `{url}` (spustí `claude auth login`, člověk se přihlásí
+  jiným účtem v prohlížeči), `POST /api/pletor/llm/cswap/login/code {code?}` dokončí (bez kódu počká na samo-dokončené
+  přihlášení, bez běžícího uloží právě přihlášený účet) a `cswap add` uloží účet,
+  `DELETE /api/pletor/llm/cswap/login` zruší, `POST /api/pletor/llm/cswap/switch {slot}` přepne; vrací sekci `cswap`.
 - `POST /api/pletor/tts {text, voice?}` → zvuk podle enginu v id hlasu: `audio/wav` (Piper), `audio/mpeg` (Edge,
   ElevenLabs, cloud), `audio/pcm;rate=24000` (XTTS), streamovaně; nestažený hlas 404, nedostupný engine 503.
 Všechny jen pro člověka v UI a jen z tohoto počítače (`/api/pletor` v `backend/app/remote_access.py`).
@@ -19,6 +25,8 @@ Všechny jen pro člověka v UI a jen z tohoto počítače (`/api/pletor` v `bac
 import json
 import queue
 import threading
+
+from typing import Literal
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -29,7 +37,12 @@ from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
 from backend.agi_pletor import brains, llm_settings, speech, tts
+from backend.agi_pletor.llm_settings import accounts as llm_accounts
+from backend.agi_pletor.llm_settings import codex_accounts
 from backend.agi_pletor.llm_settings import write as llm_write
+
+
+AccountTool = Literal["cswap", "codex"]  # přepínač účtů: claude-swap / codex-swap
 
 
 def _check(service, project, workspace):
@@ -96,7 +109,7 @@ def create_pletor_router(service, pletor):
     @router.post("/brain", response_model=models.PletorBrainOut)
     def brain(body: models.PletorBrainIn, request: Request):
         require_human(request.state.actor, "Mozek Pletora přepíná jen člověk v UI.")
-        ok, reply = brains.switch(pletor.folder, body.brain, body.model, pletor.transport)
+        ok, reply = brains.switch(pletor.folder, body.brain, body.model, pletor.transport, body.effort)
         return {"ok": ok, "reply": reply, "brain": brains.status(pletor.folder, pletor.transport)}
 
     @router.get("/voices", response_model=models.PletorVoicesOut)
@@ -114,21 +127,45 @@ def create_pletor_router(service, pletor):
         require_human(request.state.actor, "Nastavení LLM na tomto počítači čte jen člověk v UI.")
         return llm_settings.read_all()
 
-    def _write(write, *args):
+    def _write(write, *args, example='{"model": "opus"}'):
         try:
             return write(*args)
         except ValueError as error:
-            return JSONResponse(invalid(str(error), 'Příklad: {"model": "opus"}').body(), status_code=422)
+            return JSONResponse(invalid(str(error), f"Příklad: {example}").body(), status_code=422)
 
     @router.put("/llm/claude")
     def llm_claude(body: models.PletorLlmClaudeIn, request: Request):
         require_human(request.state.actor, "Model Claude Code přepisuje jen člověk v UI.")
-        return _write(llm_write.claude_model, body.model)
+        return _write(llm_write.claude_model, body.model, body.effort or None)
 
     @router.put("/llm/codex")
     def llm_codex(body: models.PletorLlmCodexIn, request: Request):
         require_human(request.state.actor, "Model Codexu přepisuje jen člověk v UI.")
-        return _write(llm_write.codex_model, body.model, body.reasoning)
+        return _write(llm_write.codex_model, body.model, body.reasoning or None)
+
+    def _accounts(request, tool, verb):
+        require_human(request.state.actor, f"Účet {'Codexu' if tool == 'codex' else 'Claude Code'} {verb} jen člověk v UI.")
+        return {"cswap": llm_accounts, "codex": codex_accounts}[tool]
+
+    @router.post("/llm/{tool}/login")
+    async def llm_login(tool: AccountTool, request: Request):
+        module = _accounts(request, tool, "přidává")
+        return await run_in_threadpool(_write, module.start, example="POST bez těla")
+
+    @router.post("/llm/{tool}/login/code")
+    async def llm_login_code(tool: AccountTool, body: models.PletorLlmCodeIn, request: Request):
+        module = _accounts(request, tool, "přidává")
+        return await run_in_threadpool(_write, module.finish, body.code, example='{"code": "…"}')
+
+    @router.delete("/llm/{tool}/login")
+    def llm_login_cancel(tool: AccountTool, request: Request):
+        _accounts(request, tool, "přidává").cancel()
+        return {"ok": True}
+
+    @router.post("/llm/{tool}/switch")
+    async def llm_switch(tool: AccountTool, body: models.PletorLlmSlotIn, request: Request):
+        module = _accounts(request, tool, "přepíná")
+        return await run_in_threadpool(_write, module.switch_to, body.slot, example='{"slot": 2}')
 
     @router.post("/tts")
     async def say(body: models.PletorSpeechIn, request: Request):

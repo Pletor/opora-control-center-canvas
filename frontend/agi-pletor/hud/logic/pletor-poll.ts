@@ -58,9 +58,9 @@ export function usePletor(open: boolean, project: string, workspace: string) {
   }, [project, workspace, scopeKey, poll]);
 
   /** Přepnutí mozku z nastavení: nový stav hned ukáže řádek MOZEK, selhání (např. bez modelu Ollamy) jde do `failure`. */
-  const setBrain = useCallback(async (brain: PletorBrain["brain"]) => {
+  const setBrain = useCallback(async (brain: PletorBrain["brain"], model?: string, effort?: string) => {
     try {
-      const result = await setPletorBrain(brain);
+      const result = await setPletorBrain(brain, model, effort);
       setState((current) => ({ ...current, brain: result.brain }));
       setFailure(result.ok ? "" : result.reply);
     } catch (error) {

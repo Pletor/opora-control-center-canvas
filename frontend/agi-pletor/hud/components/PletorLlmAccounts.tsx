@@ -18,9 +18,12 @@ function UsageBar({ label, pct }: { label: string; pct: number | null }) {
   );
 }
 
-/** Účty Claude Code z `cswap list`: maskovaný e-mail (alias před ním), pruhy využití 5h a 7d, aktivní účet zvýrazněný. */
-export default function PletorLlmAccounts({ accounts }: { accounts: CswapAccount[] }) {
-  if (!accounts.length) return <p className="pletor-llm__note">Žádné účty. Přidávají se v terminálu (cswap add).</p>;
+type Props = { accounts: CswapAccount[]; busy: boolean; onSwitch: (slot: number) => void };
+
+/** Účty Claude Code z `cswap list`: maskovaný e-mail (alias před ním), pruhy využití 5h a 7d, aktivní účet zvýrazněný,
+ *  u ostatních tlačítko Přepnout (hlásí slot nahoru). */
+export default function PletorLlmAccounts({ accounts, busy, onSwitch }: Props) {
+  if (!accounts.length) return <p className="pletor-llm__note">Žádné účty. Přidej první tlačítkem níže.</p>;
   return (
     <ul className="pletor-llm__accounts">
       {accounts.map((account) => (
@@ -29,6 +32,9 @@ export default function PletorLlmAccounts({ accounts }: { accounts: CswapAccount
             {account.slot !== null && `${account.slot}: `}{account.alias ?? account.label}
             {account.alias && <small className="pletor-llm__account-mail"> {account.label}</small>}
             {account.active && <b className="pletor-llm__account-active"> aktivní</b>}
+            {!account.active && account.slot !== null && (
+              <button type="button" className="pletor-llm__switch" onClick={() => onSwitch(account.slot!)} disabled={busy}>Přepnout</button>
+            )}
           </span>
           <UsageBar label="5h" pct={account.usage5h} />
           <UsageBar label="7d" pct={account.usage7d} />

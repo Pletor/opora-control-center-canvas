@@ -1,11 +1,13 @@
 """Mozky Pletora s falešným transportem (žádná síť): přepínací věty, volba modelu, nastavení, tah Ollamy a jeho chyby,
 a přepnutí příkazem v chatu přes `Pletor.message` (příkaz nejde do modelu, tah pak jde do Ollamy)."""
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.factory import create_app
+from backend.brain_opora.heart.process import Outcome
 from backend.canvas.test_canvas_plan import ORIGIN, seed
 from backend.agi_pletor import brains, store
 from backend.agi_pletor.service import Pletor
@@ -64,18 +66,21 @@ def test_models_skip_embeddings_and_prefer_gemma_or_qwen35():
 
 
 def test_settings_default_and_switch(tmp_path):
-    assert store.settings(tmp_path) == {"brain": "claude", "ollamaModel": None}
+    assert store.settings(tmp_path) == {"brain": "claude", "claudeModel": "sonnet", "codexModel": None,
+                                        "ollamaModel": None, "claudeEffort": None, "codexEffort": None}
     (tmp_path / store.SETTINGS).write_text("{rozbitý", encoding="utf-8")
     assert store.settings(tmp_path)["brain"] == "claude"
     ok, reply = brains.switch(tmp_path, "ollama", transport=Ollama())
     assert ok and "Lokální mozek zapnut" in reply
-    assert store.settings(tmp_path) == {"brain": "ollama", "ollamaModel": "gemma4:12b"}
+    assert store.settings(tmp_path) == {"brain": "ollama", "claudeModel": "sonnet", "codexModel": None,
+                                        "ollamaModel": "gemma4:12b", "claudeEffort": None, "codexEffort": None}
     assert brains.switch(tmp_path, "ollama", "qwen3:14b", transport=Ollama())[0]
     assert brains.switch(tmp_path, "claude", transport=Ollama()) == (True, "Zpátky na Claude, pane.")
     # zpět na lokální: drží naposled zvolený model, pokud v Ollamě pořád je
     brains.switch(tmp_path, "ollama", transport=Ollama())
-    assert brains.status(tmp_path, Ollama()) == {"brain": "ollama", "model": "qwen3:14b",
-                                                 "available": ["qwen3:14b", "gemma4:12b"]}
+    assert brains.status(tmp_path, Ollama()) == {
+        "brain": "ollama", "model": "qwen3:14b", "available": ["qwen3:14b", "gemma4:12b"],
+        "models": {"claude": "sonnet", "codex": None, "ollama": "qwen3:14b"}, "efforts": {"claude": None, "codex": None}}
 
 
 def test_switch_fails_and_stays(tmp_path):
@@ -160,3 +165,74 @@ def test_chat_command_switches_without_model_and_turn_goes_to_ollama(tmp_path):
         assert pletor.message("draft", "draft", "přepni zpět na Claude")["reply"] == "Zpátky na Claude, pane."
         roles = [m["role"] for m in pletor.state("draft", "draft")["messages"]]
         assert roles == ["human", "pletor"] * 4
+
+
+def test_switch_claude_and_codex_validate_model(tmp_path, monkeypatch):
+    monkeypatch.setattr(brains.codex_settings, "models", lambda: [{"id": "gpt-a", "label": "A", "reasoning": []}])
+    assert brains.switch(tmp_path, "claude", "haiku") == (True, "Zpátky na Claude, pane.")
+    assert not brains.switch(tmp_path, "claude", "gpt-4")[0]
+    assert brains.switch(tmp_path, "codex", "gpt-a") == (True, "Přepínám na Codex, pane.")
+    assert brains.status(tmp_path, Ollama())["models"] == {"claude": "haiku", "codex": "gpt-a", "ollama": None}
+    assert not brains.switch(tmp_path, "codex", "nic")[0]
+    assert brains.switch(tmp_path, "codex")[0] and store.settings(tmp_path)["codexModel"] == "gpt-a"
+    assert brains.status(tmp_path, Ollama())["model"] == "gpt-a"
+    monkeypatch.setattr(brains.codex_settings, "models", lambda: [])  # prázdná cache = jen tvar názvu
+    assert brains.switch(tmp_path, "codex", "gpt-b")[0] and not brains.switch(tmp_path, "codex", "špatný model!")[0]
+    assert store.settings(tmp_path)["codexModel"] == "gpt-b"
+
+
+def codex_runner(calls, *, returncode=0, answer='{"reply": "Hotovo.", "actions": []}', stdout="", timed_out=False):
+    def run(command, *, cwd, env, stdin_text, timeout, on_line=None):
+        calls.append((command, env, stdin_text))
+        if answer is not None:
+            Path(command[command.index("-o") + 1]).write_text(answer, encoding="utf-8")
+        return Outcome(returncode, stdout, "", timed_out)
+    return run
+
+
+def test_codex_turn_command_env_and_reply(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "SECRET")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "SECRET")
+    calls = []
+    out = brains.codex_turn(tmp_path, "gpt-a", "PODKLADY X", "Ahoj", [{"role": "human", "text": "dřív"}],
+                            runner=codex_runner(calls), find=lambda: "codex")
+    command, env, stdin = calls[0]
+    assert out == ("Hotovo.", []) and command[:2] == ["codex", "exec"] and command[-1] == "-"
+    assert command[command.index("-m") + 1] == "gpt-a" and "mcp_servers={}" in command
+    assert "OPENAI_API_KEY" not in env and "ANTHROPIC_API_KEY" not in env
+    assert "PODKLADY X" in stdin and "human: dřív" in stdin and stdin.endswith("Ahoj")
+    brains.codex_turn(tmp_path, None, "P", "x", runner=codex_runner(calls), find=lambda: "codex")
+    assert "-m" not in calls[1][0] and "model_reasoning_effort" not in " ".join(calls[1][0])
+    brains.codex_turn(tmp_path, None, "P", "x", effort="high", runner=codex_runner(calls), find=lambda: "codex")
+    assert calls[2][0][calls[2][0].index("model_reasoning_effort=\"high\"") - 1] == "-c"
+
+
+def test_switch_effort_saved_per_brain_and_validated(tmp_path, monkeypatch):
+    monkeypatch.setattr(brains.codex_settings, "models", lambda: [{"id": "gpt-a", "label": "A", "reasoning": ["low", "xhigh"]}])
+    assert brains.switch(tmp_path, "claude", "haiku", effort="max")[0]
+    assert not brains.switch(tmp_path, "claude", effort="extreme")[0]
+    assert brains.switch(tmp_path, "codex", "gpt-a", effort="xhigh")[0]
+    assert not brains.switch(tmp_path, "codex", effort="medium")[0]  # model tuto úroveň nemá
+    assert brains.status(tmp_path, Ollama())["efforts"] == {"claude": "max", "codex": "xhigh"}
+    assert brains.switch(tmp_path, "claude")[0] and brains.status(tmp_path, Ollama())["efforts"]["claude"] == "max"
+    assert brains.switch(tmp_path, "claude", effort="")[0] and store.settings(tmp_path)["claudeEffort"] is None
+    assert brains.switch(tmp_path, "ollama", effort="high", transport=Ollama()) == (False, "Lokální model effort nemá.")
+
+
+@pytest.mark.parametrize(("kwargs", "match"), [
+    ({"timed_out": True}, "neodpověděl"), ({"returncode": 1, "answer": None}, "chyba procesu"),
+    ({"returncode": 1, "stdout": "You hit your usage limit", "answer": None}, "limit předplatného"),
+    ({"returncode": 1, "stdout": "401 code: token_revoked", "answer": None}, "přihlas se znovu"),
+    ({"answer": None}, "prázdnou"), ({"answer": "  "}, "prázdnou")])
+def test_codex_turn_errors(tmp_path, kwargs, match):
+    with pytest.raises(RuntimeError, match=match):
+        brains.codex_turn(tmp_path, None, "P", "x", runner=codex_runner([], **kwargs), find=lambda: "codex")
+    with pytest.raises(RuntimeError, match="chybí"):
+        brains.codex_turn(tmp_path, None, "P", "x", find=lambda: None)
+
+
+def test_turn_routes_by_brain(tmp_path):
+    store.save_settings(tmp_path, {"brain": "codex", "codexModel": "gpt-a"})
+    calls = []
+    assert brains.turn(tmp_path, "P", "x", runner=codex_runner(calls))[0] == "Hotovo."
+    assert calls[0][0][calls[0][0].index("-m") + 1] == "gpt-a"
