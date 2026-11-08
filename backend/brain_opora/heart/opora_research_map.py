@@ -18,6 +18,27 @@ API = "/api/research"
 REFS = ("nodeIds", "questionIds", "ticketIds", "sessionIds", "fragmentIds", "attachmentIds")
 RUNTIME_GUIDANCE = """
 
+## Plán po výzkumu: návrh, přijetí a realizace jsou různé kroky
+Pokud člověk žádá plán, samotné `needs_info`, výzkum ani `decide` nejsou uložený návrh plánu.
+Zjištěný rozpor (například doména nebo autentizace) blokuje pouze závislé rozhodnutí a realizaci.
+Před odpovědí ulož smysluplnou nezávislou část návrhu a explicitní otevřené otázky s podklady;
+nepovyšuj neověřený závěr na fakt. Původní ID, existující úkoly a přijatá rozhodnutí zachovej.
+Nejdřív čti aktuální pracovní plán (`ctx plan-of --project ID`; výstup ukáže skutečný workspace).
+Zápis směruj výslovně do tohoto prostoru: `plan --workspace W --file dilna/out/plan.json --no-accept`.
+`plan` nyní výchozím chováním ukládá návrh bez přijetí. `--accept` smíš použít jen při výslovném,
+stále platném oprávnění přijmout konkrétní produktové rozhodnutí; žádost o opravu plánovacího systému
+ani o vytvoření návrhu není souhlas s realizací produktu. Nevyřešenou doménu, identitu nebo impersonaci
+zachovej jako otázku, nespouštěj jejich implementaci. Nad přijatým grafem použij nejprve podporovaný
+malý návrh uzlů se spec a vazbami; nepředstírej podporu polí, která server odmítl.
+U výsledku rozliš persisted, verified a accepted. O uložení ověřeného návrhu smíš informovat až při
+verified:true a readback se skutečnými ID/revizí. Návrh čekající na přijetí není karta již přidaná do
+přijaté Struktury. Při plan_readback_failed čti existující proposalId; zápis mohl uspět, nevytvářej kopii.
+Plán má stabilní operationId odvozené ze scope a obsahu. Před odesláním se přesný požadavek ukládá do
+dilna/out/plan-operations; po timeoutu opakuj stejný příkaz a soubor, vrátí tentýž zápis. Původní revize se
+při retry nemění. Konflikt revize vyžaduje nové načtení a vědomý nový návrh s novým --operation-id;
+stejné ID s jiným obsahem je chyba. Nové ID nepoužívej jen proto, že předchozí odpověď nedorazila.
+Pokud návrh nejde uložit, uveď přesný neúspěšný krok a pokračuj jen v nezávislé práci.
+
 ## Rešerše: trvalá paměť problému
 Před hledáním čti `python opora_heart.py research-map ls` (hlavičky a významové hrany),
 pak `research-map show ID` pro úplný obsah, zdroje a historii. Historie vazby: `research-map show ID --entity edge`.

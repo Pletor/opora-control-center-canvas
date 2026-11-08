@@ -458,6 +458,8 @@ export default function App() {
     }
     // Otevřený detail karty (`openCardDrawer`) si drží vlastní parametry; v tomtéž prostoru je nepřepisujeme.
     if (!switchedScope) for (const name of ["ohCard", "ohTab"]) if (currentRoute.has(name)) q.set(name, currentRoute.get(name)!);
+    // Proposal restoration runs after async scope loading; retain its exact scoped URL until then.
+    if (currentRoute.get("project") === project && currentRoute.get("workspace") === workspace && currentRoute.has("ohGraph")) q.set("ohGraph", currentRoute.get("ohGraph")!);
     // Zanoření Studia (`studioFocus`, docs/studio.md §2) drží Studio samo; platí jen v jeho záložce a v tomtéž prostoru.
     if (!switchedScope && projectMapKind === "studio" && currentRoute.has("studioFocus")) q.set("studioFocus", currentRoute.get("studioFocus")!);
     history.replaceState(null, "", "/?" + q);

@@ -3,6 +3,7 @@ import { fieldKeys, fieldLabels } from "@/hub/plan-changes/logic/plan-changes";
 import type { GraphProposalsView } from "../logic/use-graph-proposals";
 import { graphProposalStale } from "../logic/graph-proposals";
 import GraphChangeReview from "./GraphChangeReview";
+import GraphProposalCanvas from "./GraphProposalCanvas";
 import { CARRIES_LABEL } from "@/shared/edge-carries/logic/edge-carries";
 import ProposalReview from "@/hub/proposal-review/components/ProposalReview";
 import { reviewReady } from "@/hub/proposal-review/logic/proposal-review";
@@ -36,12 +37,15 @@ export default function GraphProposalDetails({ model, review }: { model: GraphPr
   const incomplete = changes && (!proposal.changes || !proposal.stateEffects);
   return <section className="graph-proposals__details" aria-label="Obsah návrhu rozšíření">
     <h3>{proposal.subject}</h3>
+    <p role="status" className="graph-proposals__preview-status">{proposal.accepted ? "Návrh byl přijat" : "Návrh – čeká na přijetí"}</p>
     <dl className="graph-proposals__identity">
-      <dt>Návrh</dt><dd><code>{proposal.id}</code></dd>
+      <dt>Neměnná revize návrhu</dt><dd><code>{proposal.id}</code></dd>
       <dt>Přijatá výchozí revize</dt><dd><code>{proposal.parentRevision ?? "První plán bez přijaté revize"}</code></dd>
+      <dt>Aktuální přijatá revize</dt><dd><code>{model.context ? model.context.acceptedHead ?? "Bez přijaté revize" : "Kontext zatím není načtený"}</code></dd>
       <dt>Otisk výchozího grafu</dt><dd><code>{proposal.graphDigest}</code></dd>
       <dt>Autor a čas</dt><dd>{proposal.by.name} ({proposal.by.kind}) · {new Date(proposal.createdAt).toLocaleString("cs-CZ")}</dd>
     </dl>
+    <GraphProposalCanvas key={proposal.id} proposal={proposal} />
     {proposal.supersedes && <p>Nový návrh odvozený z <code>{proposal.supersedes}</code>. Původní návrh zůstává v historii.</p>}
     <ul>{Object.entries(proposal.refs).map(([ref, id]) => <li key={ref}>Značka <code>{ref}</code> → ID <code>{id}</code></li>)}</ul>
     <ul>{Object.entries(proposal.inside).map(([id, area]) => <li key={id}>Prvek <code>{id}</code> bude uvnitř oblasti <code>{area}</code>.</li>)}</ul>

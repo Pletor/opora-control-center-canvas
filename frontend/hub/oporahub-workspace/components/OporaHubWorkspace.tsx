@@ -7,6 +7,7 @@ import { useAgentState } from "@/hub/oporahub-agent-state/logic/use-agent-state"
 import type { OverviewModels } from "@/hub/oporahub-overview/logic/models";
 import type { DetailTarget } from "@/hub/oporahub-overview/logic/overview";
 import { initialHubLink, defaultCard } from "../logic/hub-link";
+import { scopedProposalLink } from "@/hub/graph-proposals/logic/proposal-preview";
 import DetailContent from "./DetailContent";
 import ProcessObservatory from "@/hub/process-observatory/components/ProcessObservatory";
 import "@/hub/oporahub-workspace/styles/oporahub-workspace.css";
@@ -26,8 +27,15 @@ export default function OporaHubWorkspace(models: OverviewModels) {
   // Jména karet pro Živý proces; klíč drží stejný objekt, dokud se jména v grafu nezmění.
   const nameKey = JSON.stringify(models.executions.choices.map(node => [node.id, node.name]));
   const names = useMemo(() => Object.fromEntries(JSON.parse(nameKey) as [string, string][]), [nameKey]);
-  const [selection, setSelection] = useState<{ scope: string; target: DetailTarget } | null>(null);
+  const [selection, setSelection] = useState<{ scope: string; target: DetailTarget } | null>(() => {
+    const id = scopedProposalLink(typeof location === "undefined" ? "" : location.search, project, workspace);
+    return id ? { scope, target: { kind: "graph", id, title: "Uložený návrh plánu" } } : null;
+  });
   const detail = selection?.scope === scope ? selection.target : null;
+  useEffect(() => {
+    const id = scopedProposalLink(location.search, project, workspace);
+    if (id) setSelection({ scope, target: { kind: "graph", id, title: "Uložený návrh plánu" } });
+  }, [scope, project, workspace]);
   const onDetailOpenChange = models.onDetailOpenChange;
   useEffect(() => { onDetailOpenChange?.(!!detail); }, [!!detail, onDetailOpenChange]);
   useEffect(() => {
@@ -36,6 +44,11 @@ export default function OporaHubWorkspace(models: OverviewModels) {
       setSelection({ scope, target: { kind: "content", id, title: "Změny obsahu · nový návrh" } });
   }, [scope, detail, models.contentChanges?.selectedId, models.contentChanges?.detail?.proposal.id]);
   function open(target: DetailTarget) {
+    const url = new URL(location.href);
+    if (target.kind === "graph" && target.id) {
+      url.searchParams.set("ohGraph", target.id); url.searchParams.set("project", project); url.searchParams.set("workspace", workspace);
+    } else url.searchParams.delete("ohGraph");
+    history.replaceState(history.state, "", url);
     if (target.id) {
       if (target.kind === "graph") models.graphProposals.inspect(target.id);
       if (target.kind === "changes") models.changes.inspect(target.id);
@@ -49,7 +62,8 @@ export default function OporaHubWorkspace(models: OverviewModels) {
     if (target.kind === "card") { const card = target.id || defaultCard(agent.state, models.executions.choices); if (card) openCardDrawer(card); return; }
     setSelection({ scope, target });
   }
-  function close() { models.proposalReview?.reset(); models.contentChanges?.cancel(); models.budgets.cancel(); models.executions.dismissCancel(); models.reviewPolicy.cancel(); models.reconciliation.cancel(); models.graphProposals.acknowledge(false); setSelection(null); }
+  function close() { const url = new URL(location.href); url.searchParams.delete("ohGraph"); history.replaceState(history.state, "", url);
+    models.proposalReview?.reset(); models.contentChanges?.cancel(); models.budgets.cancel(); models.executions.dismissCancel(); models.reviewPolicy.cancel(); models.reconciliation.cancel(); models.graphProposals.acknowledge(false); setSelection(null); }
   function refresh() {
     agent.refresh(); models.graphProposals.refresh(); models.changes.refresh(); models.executions.refresh(); models.executionObservations?.refresh();
     models.evidence.refresh(); models.reconciliation.refresh(); models.reviewPolicy.refresh(); models.formalVerification.refresh(); models.onRefresh();

@@ -252,7 +252,7 @@ def run(spec, runner=run_process, clock=time.time):
     (brain / SNAPSHOT).write_text(spec.snapshot, encoding="utf-8")
     (brain / LAST_DONE).unlink(missing_ok=True)
     settings_path, mcp_path, prompt_path = command.write_config(brain, spec.skills, spec.source_root)
-    prompt_digest = hashlib.sha256(spec.skills.prompt.encode("utf-8")).hexdigest()
+    prompt_digest = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
     session_id, resume = session.choose(brain, prompt_digest=prompt_digest)
     started = clock()
     advisor = advisor_spent(brain, started) < ADVISOR_DAY_USD

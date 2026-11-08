@@ -76,19 +76,29 @@ class OporaGraphChanges(OporaGraphProposals):
 
     def create(self, payload, by):
         from backend.canvas.opora_graph_change_plan import normalize
-        if set(payload) != {"project", "workspace", "parentRevision", "expectedGraphDigest", "subject", "plan"}:
+        if set(payload) - {"operationId"} != {"project", "workspace", "parentRevision", "expectedGraphDigest", "subject", "plan"}:
             raise ValueError("Invalid graph change proposal fields.")
         project, workspace = scope(payload)
         author, label, plan = _author(by, allow_agent=True), subject(payload), normalize(payload["plan"])
+        from backend.canvas.operation_receipts import Receipt
+        receipt = Receipt(payload, "graph-proposal", author) if "operationId" in payload else None
         with self.service.graph_lock_for(project), self.service.lock_for(project):
             repo = self.repository(project, workspace)
             with repo.db:
                 repo.db.execute("BEGIN IMMEDIATE")
+                if receipt:
+                    replay = receipt.replay(repo.db)
+                    if replay is not None:
+                        return replay
                 context, graph, manifest = self.current_change(project, workspace, plan["removeNodes"], plan["adoptArchitectureContext"])
                 self.expect(context, payload["parentRevision"], payload["expectedGraphDigest"])
                 derived = self.derive(project, workspace, graph, manifest, plan)
                 record = self.change_record(project, workspace, context, manifest, derived, author, label)
-                return {**repo.insert(record), "accepted": False}
+                result = {**repo.insert(record), "accepted": False}
+                if receipt:
+                    receipt.begin(repo.db)
+                    receipt.complete(repo.db, result)
+                return result
 
     def rebase(self, record_id, payload, by):
         if set(payload) != {"project", "workspace", "expectedAcceptedHead", "expectedGraphDigest"}:

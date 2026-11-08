@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, type CanvasNode } from "@/shared/types/logic/types";
 import { trackSaveWrite } from "@/shared/hooks/logic/save-coordinator";
 import { postGraphProposal } from "./graph-api";
+import { scopedProposalLink } from "./proposal-preview";
 import { graphEditPayload } from "./graph-edits";
 import { useGraphEdits } from "./use-graph-edits";
 import { flashEnded, flashFor, flashModifier, type DecisionFlash } from "./decision-flash";
@@ -29,7 +30,8 @@ export function useGraphProposals(project: string, workspace: string, existing: 
   const form = draft.scope === scope ? draft : { scope, subject: "", nodes: [newDraftNode("new1")], edges: [] as DraftEdge[] };
   const shown = state.key === key ? state : empty(key);
   const edits = useGraphEdits(JSON.stringify([key, attempt, shown.context?.graphDigest, shown.context?.acceptedHead]), shown.context);
-  const selectedId = selection.key === key ? selection.id : "";
+  const linkedId = scopedProposalLink(typeof location === "undefined" ? "" : location.search, project, workspace);
+  const selectedId = selection.key === key && selection.id ? selection.id : linkedId;
   const detailKey = JSON.stringify([key, selectedId, attempt]);
   const detailActive = useRef(detailKey);
   if (detailActive.current !== detailKey) { detailActive.current = detailKey; details.current.invalidate(); }

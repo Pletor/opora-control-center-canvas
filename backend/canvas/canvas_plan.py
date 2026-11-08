@@ -25,11 +25,12 @@ from backend.canvas.canvas_plan_summary import plan_summary
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import validate_graph
 from backend.canvas.payload_errors import relabel
+from backend.canvas.operation_receipts import Receipt
 from backend.canvas.project_architecture import ARCHITECTURE_WID
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State, validate_state
 from backend.editor.node import node_specs, node_text
 
-REQUEST_KEYS = {"project", "workspace", "digest", "dryRun", "plan"}
+REQUEST_KEYS = {"project", "workspace", "digest", "dryRun", "plan", "operationId"}
 
 
 def _request(payload):
@@ -116,12 +117,18 @@ def _check_content(project, workspace, built):
             raise ValueError(_named(error, built.labels)) from error
 
 
-def apply_plan(service, payload, *, actor="system", after_write=None):
+def apply_plan(service, payload, *, actor="system", after_write=None, operation_actor=None):
     """`after_write(db, refs)` (volitelné) zapíše v téže transakci ještě něco dalšího, např. bránu `placed`
     Schránky (docs/schranka-neurony.md §9 bod 1); výjimka v něm vrátí celou dávku (nic nezůstane)."""
     project, workspace, expected_digest, dry, plan = _request(payload)
+    receipt = Receipt(payload, "canvas-plan", operation_actor or {"kind": actor}) if "operationId" in payload else None
     store = getattr(service, "desktop_v3_state", None) or DesktopV3State(service)
     with service.graph_lock_for(project):
+        if receipt and not dry:
+            with service.lock_for(project):
+                replay = receipt.replay(service.db_for(project))
+            if replay is not None:
+                return replay
         view = service.view(project, workspace)
         if view["digest"] != expected_digest:
             raise ValueError("Plátno se změnilo v jiném okně. Obnovte ho.")
@@ -181,9 +188,24 @@ def apply_plan(service, payload, *, actor="system", after_write=None):
                   "summary": plan_summary(plan), "warnings": map_warnings(view["graph"], built.new_graph())}
         if dry:
             return {**result, "digest": view["digest"], "revision": stored["revision"]}
+        db = service.db_for(project)
+        if receipt:
+            # Durable intent prevents duplicate writes after the existing Git-file/SQL crash window.
+            # It is deliberately not advertised as an atomic distributed commit.
+            with service.lock_for(project), db:
+                receipt.begin(db, {"prepared": result, "baseDigest": expected_digest,
+                                   "baseStateRevision": stored["revision"]})
         revision = _write(service, store, project, workspace, expected_digest, stored["revision"], built, wid_of,
                           after_write, actor=actor)
-        return {**result, "digest": service.view(project, workspace)["digest"], "revision": revision}
+        saved = service.view(project, workspace)
+        if receipt:
+            from backend.canvas.operation_readback import verify_plan
+            verify_plan(service, store, project, workspace, built, wid_of, saved, revision)
+        response = {**result, "digest": saved["digest"], "revision": revision}
+        if receipt:
+            with service.lock_for(project), db:
+                receipt.complete(db, response)
+        return response
 
 
 def _check_main(service, project, view, built, owned):

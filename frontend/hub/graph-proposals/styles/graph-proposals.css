@@ -18,6 +18,13 @@
 .graph-proposals__ack { display: block; margin: 16px 0; }
 .graph-proposals__ack input { margin-right: 8px; }
 .graph-proposals__details { margin-top: 20px; }
+/* Návrh dostává vlastní neměnné plátno: člověk porovná vazby a přečte zadání před přijetím. */
+.graph-proposals__preview-canvas { height: 420px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.graph-proposals__preview-canvas .react-flow__node { color: var(--ink); background: var(--surface); border-color: var(--line-strong); }
+.graph-proposals__preview-canvas small { display: block; margin-top: 8px; overflow-wrap: anywhere; }
+.graph-proposals__preview-canvas .graph-proposals__preview-node--new { border: 2px solid var(--accent); }
+.graph-proposals__preview-status { padding: 10px; border-left: 3px solid var(--accent); font-weight: 600; }
+.graph-proposals__preview-detail { padding: 12px; border: 1px solid var(--line); margin-top: 12px; }
 .graph-proposals__editor, .graph-proposals__edit-row { min-width: 0; border: 1px solid var(--border, #677380); border-radius: 8px; padding: 16px; margin: 16px 0; }
 .graph-proposals__editor label { display: block; margin: 10px 0; }
 .graph-proposals__editor input:not([type="checkbox"]), .graph-proposals__editor select { display: block; width: 100%; box-sizing: border-box; padding: 8px; background: var(--bg); color: var(--ink); border: 1px solid var(--border, #677380); border-radius: 6px; font: inherit; }

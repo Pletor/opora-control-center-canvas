@@ -4,6 +4,9 @@ Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nev
 """
 import sqlite3
 
+from database.schema.canvas_operation_schema import SCHEMA as CANVAS_OPERATION_SCHEMA
+from database.schema.canvas_operation_schema import TABLES as CANVAS_OPERATION_TABLES
+
 from database.schema.brain_schema import SCHEMA as BRAIN_SCHEMA
 from database.schema.flow_schema import OWNER_INDEX as FLOW_OWNER_INDEX
 from database.schema.flow_schema import SCHEMA as FLOW_SCHEMA
@@ -357,10 +360,11 @@ CREATE TABLE IF NOT EXISTS ticket_feedback(
     session_id TEXT NOT NULL, answer TEXT, answered_at TEXT, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS ticket_feedback_ticket ON ticket_feedback(ticket_id, seq);
 """
-PROJECT_SCHEMA += GATE_SCHEMA + RESEARCH_SCHEMA + RESEARCH_DECISIONS_SCHEMA + RESEARCH_EVENTS_SCHEMA
+PROJECT_SCHEMA += GATE_SCHEMA + RESEARCH_SCHEMA + RESEARCH_DECISIONS_SCHEMA + RESEARCH_EVENTS_SCHEMA + CANVAS_OPERATION_SCHEMA
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
+    **{table: "project_id" for table in CANVAS_OPERATION_TABLES},
     **{table: "project_id" for table in RESEARCH_TABLES},
     **{table: "project_id" for table in RESEARCH_DECISIONS_TABLES},
     **{table: "project_id" for table in RESEARCH_EVENTS_TABLES},

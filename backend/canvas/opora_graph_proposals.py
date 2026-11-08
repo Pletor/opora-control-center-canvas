@@ -57,14 +57,20 @@ class OporaGraphProposals:
         plan = payload.get("plan")
         if isinstance(plan, dict) and (set(plan) & EDIT_KEYS or "adoptArchitectureContext" in plan):
             return OporaGraphChanges(self.service).create(payload, by)
-        if set(payload) != {"project", "workspace", "parentRevision", "expectedGraphDigest", "subject", "plan"}:
+        if set(payload) - {"operationId"} != {"project", "workspace", "parentRevision", "expectedGraphDigest", "subject", "plan"}:
             raise ValueError("Invalid graph proposal fields.")
         project, workspace = scope(payload)
         author, label = _author(by, allow_agent=True), subject(payload)
+        from backend.canvas.operation_receipts import Receipt
+        receipt = Receipt(payload, "graph-proposal", author) if "operationId" in payload else None
         with self.service.graph_lock_for(project), self.service.lock_for(project):
             repo = self.repository(project, workspace)
             with repo.db:
                 repo.db.execute("BEGIN IMMEDIATE")
+                if receipt:
+                    replay = receipt.replay(repo.db)
+                    if replay is not None:
+                        return replay
                 context, graph, manifest, missing = self.current(project, workspace)
                 self.expect(context, payload["parentRevision"], payload["expectedGraphDigest"])
                 plan = payload["plan"]
@@ -77,7 +83,11 @@ class OporaGraphProposals:
                     additions = prepare(plan, graph, DesktopV3State(self.service).read(project, workspace)["state"])
                 record = self.record(project, workspace, context, graph, manifest, missing, additions, author, label)
                 validate_application(self.service, project, workspace, graph, record, combined(manifest) if manifest else None)
-                return {**repo.insert(record), "accepted": False}
+                result = {**repo.insert(record), "accepted": False}
+                if receipt:
+                    receipt.begin(repo.db)
+                    receipt.complete(repo.db, result)
+                return result
 
     @staticmethod
     def expect(context, parent, graph_digest):

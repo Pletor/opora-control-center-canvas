@@ -4,7 +4,7 @@
     python opora_heart.py task --title T --do D [--why W] [--file F]… --done-when C [--done-when C]…
                                [--dont-touch P[@kdo]]… [--rule R]… [--open-path O]… [--intent I] [--node N]
                                [--department D] [--profile P] [--pin ARTEFAKT]… [--workspace W]
-    python opora_heart.py plan --file F [--dry-run] [--no-accept] [--workspace W]
+    python opora_heart.py plan --file F [--dry-run] [--accept | --no-accept] [--workspace W]
     python opora_heart.py plan --example
     python opora_heart.py workspace --domain NODE [--reuse]
     python opora_heart.py answer --ticket ID --text T
@@ -67,7 +67,7 @@ profil kanceláře = `--department` / `--profile` (strojová vrstva ticketu), sk
 v textu tělo nenese (nahradí je „(ID)“). Ticket vzniká v prostoru `--workspace` (jinak v prostoru tokenu srdce);
 pořadí práce = pořadí vydání.
 `plan` (docs/brain-heart-orchestrator.md §3) pošle dávku plánu ze souboru F na `/api/canvas-plan` s čerstvým digestem
-a ostrou dávku hned přijme (návrh grafu + přijetí, §3 O2b; `--no-accept` nechá přijetí člověku); `--example` vypíše
+a uloží návrh bez přijetí. Pouze výslovné `--accept` požádá o přijetí (§3 O2b); `--example` vypíše
 platný vzor dávky (tentýž je v promptu srdce, skill `heart` v Brainu, část Plán).
 Git projekt (docs/brain-heart-orchestrator.md §9 O7): `main` nese jen architekturu (prostředí › doména › stránka) a nic
 se v něm nepřijímá; ostrý plán architektury ještě převezme změnu architektury do pracovních prostorů s přijatým plánem
@@ -113,6 +113,7 @@ graf verze, `save` uloží ověřený graf do knihovny agenta a aktivuje ho (`--
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
 import argparse
+import hashlib
 import importlib
 import json
 import os
@@ -488,45 +489,166 @@ def keep_accepted(conflict_id):
     return {"conflictId": conflict_id, "resolved": (result or {}).get("status") == "resolved", "kept": "accepted"}
 
 
-def submit_plan(args, retried=False):
-    """`plan`: bez přijatého grafu čerstvý digest z `GET /api/view`, pak `POST /api/canvas-plan` a přijetí
-    (`accept_plan`); s přijatým grafem přírůstek přes návrh grafu (`submit_addition`). Zastaralý stav zkusí ještě
-    jednou; `--no-accept` nechá přijetí člověku; `--example` jen vypíše vzor dávky."""
+_plan_operation = None
+
+
+def plan_context():
+    if _plan_operation and _plan_operation.get("context"):
+        return _plan_operation["context"]
+    context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
+    if _plan_operation is not None:
+        _plan_operation["context"] = context
+    return context
+
+
+def plan_post(path, body):
+    """Journal the first native plan write before sending it; replay its original CAS."""
+    operation = _plan_operation
+    if operation is None or body.get("dryRun") or operation.get("sent"):
+        return call("POST", path, body)
+    if operation.get("request"):
+        request = operation["request"]
+        if request["path"] != path:
+            raise Failure({"code": "operation_conflict", "error": "Saved operation uses a different endpoint."})
+    else:
+        request = {"path": path, "body": {**body, "operationId": operation["operationId"]}}
+        operation["request"] = request
+        save_plan_operation(operation)
+    operation["sent"] = True
+    try:
+        result = call("POST", request["path"], request["body"])
+    except Failure as failure:
+        failure.payload.update(operationId=operation["operationId"], operationFile=operation["file"])
+        if failure.payload.get("status") == 409:
+            failure.payload["hint"] = (failure.payload.get("hint", "") +
+                " Original request retained. Reconcile this operation; after an intentional rebase use a new --operation-id.")
+        raise
+    operation["response"] = result
+    save_plan_operation(operation)
+    return result
+
+
+def save_plan_operation(operation):
+    write_json(operation["file"], {key: value for key, value in operation.items() if key not in ("sent", "file")})
+
+
+def submit_plan(args):
+    global _plan_operation
+    if args.example or args.dry_run or not args.file:
+        return execute_plan(args)
+    plan = read_plan(args.file)
+    signature = hashlib.sha256(json.dumps({**scope(), "plan": plan}, sort_keys=True,
+                                          ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest()
+    identifier = args.operation_id or "heart-plan:" + signature
+    if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", identifier):
+        raise Failure({"code": "operation_id", "error": "operation-id must be 1-160 identifier characters."})
+    folder = DILNA / "out" / "plan-operations"
+    folder.mkdir(parents=True, exist_ok=True)
+    filename = folder / (hashlib.sha256(json.dumps([scope(), identifier], sort_keys=True).encode()).hexdigest() + ".json")
+    if filename.exists():
+        try:
+            record = json.loads(filename.read_text(encoding="utf-8"))
+            if record["signature"] != signature or record["operationId"] != identifier:
+                raise ValueError("Operation ID already belongs to a different plan.")
+        except (ValueError, KeyError, TypeError) as error:
+            raise Failure({"code": "operation_conflict", "error": str(error), "operationFile": filename.as_posix()}) from error
+    else:
+        record = {"operationId": identifier, "signature": signature, **scope()}
+    _plan_operation = {**record, "file": filename.as_posix()}
+    try:
+        out = execute_plan(args)
+        out.update(operationId=identifier, operationFile=filename.as_posix())
+        _plan_operation["outcome"] = out
+        save_plan_operation(_plan_operation)
+        return out
+    finally:
+        _plan_operation = None
+
+
+def execute_plan(args):
+    """Persist first; report separately whether the saved proposal/state was read back."""
+    out = _submit_plan(args)
+    if args.example:
+        return out
+    out = {**out, **scope()}
+    if args.dry_run or out.get("error"):
+        return out
+    out.update(persisted=True, verified=False)
+    try:
+        if out.get("proposalId"):
+            saved = call("GET", f"{GRAPH_PROPOSALS}/{quote(out['proposalId'], safe='')}", query=scope())
+            receipt = (_plan_operation or {}).get("response", {})
+            expected = set((out.get("refs") or {}).values())
+            actual = {node["id"] for node in (saved.get("additions") or {}).get("nodes", [])}
+            if (saved.get("id") != out["proposalId"] or saved.get("project") != scope()["project"]
+                    or saved.get("workspace") != scope()["workspace"] or not expected <= actual
+                    or saved.get("refs") != out.get("refs")
+                    or any(saved.get(key) != value for key, value in receipt.items() if key != "accepted")):
+                raise Failure({"error": "Saved proposal does not match the write receipt."})
+            evidence = {"proposalId": saved["id"], "parentRevision": saved.get("parentRevision"),
+                        "nodeIds": sorted(expected), "accepted": saved.get("accepted") is True,
+                        "proposalContentVerified": True}
+            out["accepted"] = evidence["accepted"]
+        else:
+            saved = call("GET", "/api/view", query=scope())
+            expected = set((out.get("refs") or {}).values())
+            actual = {node["id"] for node in saved.get("graph", {}).get("nodes", [])}
+            state = call("GET", "/api/desktop-v3/state", query=scope())
+            if (not expected <= actual or not out.get("digest") or saved.get("digest") != out["digest"]
+                    or out.get("revision") is None or state.get("revision") != out["revision"]):
+                raise Failure({"error": "Saved canvas does not contain the written nodes."})
+            evidence = {"digest": saved["digest"], "revision": state["revision"], "nodeIds": sorted(expected)}
+        return {**out, "verified": True, "readback": evidence}
+    except (Failure, KeyError, TypeError, AttributeError) as failure:
+        error = failure.payload.get("error") if isinstance(failure, Failure) else "Malformed readback response."
+        return {**out, "ok": False, "code": "plan_readback_failed", "error": error,
+                "hint": "Write was acknowledged, but readback failed. Read the saved proposal/state before retrying the write."}
+
+
+def _submit_plan(args, retried=False):
+    """Save a draft or graph proposal; only explicit --accept requests acceptance.
+    Retry stale state once. --example returns the input shape without mutation."""
     if args.example:
         return PLAN_EXAMPLE
     if not args.file:
         raise Failure({"error": "Chybí --file.", "code": "plan_file",
                        "hint": "Ulož plán do dilna/out/<jméno>.json (Write) a předej --file. " + PLAN_SHAPE})
     plan = read_plan(args.file)
-    context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
+    context = plan_context()
     if context.get("graphManifestId"):
         try:
             return remember(submit_addition(args, plan, context))
         except Failure as failure:
-            if failure.payload.get("status") == 409 and "changed" in failure.payload.get("error", "") and not retried:
-                return submit_plan(args, retried=True)
+            if _plan_operation is None and failure.payload.get("status") == 409 and "changed" in failure.payload.get("error", "") and not retried:
+                return _submit_plan(args, retried=True)
             plan_hint(failure, ADDITION_SHAPE)
             raise
-    body = {**scope(), "digest": call("GET", "/api/view", query=scope())["digest"], "plan": plan}
+    original = (_plan_operation or {}).get("request", {}).get("body")
+    body = original or {**scope(), "digest": call("GET", "/api/view", query=scope())["digest"], "plan": plan}
     if args.dry_run:
         body["dryRun"] = True
     try:
-        result = call("POST", "/api/canvas-plan", body)
+        result = plan_post("/api/canvas-plan", body)
     except Failure as failure:
+        if _plan_operation is not None:
+            plan_hint(failure, MAIN_SHAPE if context.get("readOnly") else None)
+            raise
         if failure.payload.get("status") != 409 or STALE not in failure.payload.get("error", ""):
             plan_hint(failure, MAIN_SHAPE if context.get("readOnly") else None)
             raise
-        if not retried:
-            return submit_plan(args, retried=True)
+        if not retried and _plan_operation is None:
+            return _submit_plan(args, retried=True)
         failure.payload.update(code="stale", hint="Plátno se mění pod rukama; načti snapshot a pošli plán znovu.")
         raise
     out = {key: result.get(key) for key in ("ok", "dryRun", "refs", "summary", "warnings")}
+    if not args.dry_run:
+        out.update(digest=result.get("digest"), revision=result.get("revision"))
     if args.dry_run:
         return out
     if context.get("readOnly"):
         # main git projektu: jen architektura, přijetí tu neexistuje (návrh grafu chce zapisovatelný prostor).
         out["warnings"] = list(out["warnings"] or [])
-        return {**out, "architecture": True, "adopted": adopt_everywhere(out["warnings"])}
+        return {**out, "architecture": True, "accepted": False, "adopted": [] if args.no_accept else adopt_everywhere(out["warnings"])}
     return remember({**out, **({"accepted": False} if args.no_accept else accept_plan())})
 
 
@@ -656,7 +778,7 @@ def submit_addition(args, plan, context):
     if (state or extend or wired) and args.no_accept and not args.dry_run:
         raise Failure({"error": "Stav karet (bloky, text, fragmentRef, značky Schránky), extend a vazby block jdou "
                                 "jen na přijaté karty.", "code": "plan_shape",
-                       "hint": "Pošli plán bez --no-accept, nebo stav karet, extend a vazby block vynech."})
+                       "hint": "Použij výslovné --accept jen s oprávněním přijmout plán, nebo stav karet, extend a vazby block vynech."})
     if args.dry_run or state or extend or wired:
         # Návrh grafu nemá dryRun: celou dávku (karty se stavem, extend i vazby block) ověří dávka plánu bez zápisu,
         # před ostrým zápisem po krocích taky (chybný port nesmí nechat přijaté karty bez stavu).
@@ -702,7 +824,7 @@ def submit_addition(args, plan, context):
 
 def propose_addition(addition, context, adopted, no_accept):
     """Návrh grafu s přírůstkem a (bez `no_accept`) jeho přijetí tokenem srdce."""
-    proposal = call("POST", GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
+    proposal = plan_post(GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
                                               "expectedGraphDigest": context["graphDigest"],
                                               "subject": f"Plán srdce: {len(addition['nodes'])} uzlů", "plan": addition})
     out = {"ok": True, "dryRun": False, "refs": proposal.get("refs"), "proposalId": proposal["id"],
@@ -1357,7 +1479,21 @@ def run(args):
     if args.command in ("research", "research-map", "duel", "vault") and not _override["workspace"] and os.environ.get("OPORA_WORKSPACE") == "main":
         _override["workspace"] = active_workspace()  # schránka v main neexistuje (read-only): výzkum jde do prostoru posledního plánu
     if args.command == "ctx":
-        return load_context(args.name, args.project, args.workspace, args.node, args.full)
+        target = args.workspace
+        source = "explicit" if target else "project_home"
+        if args.name == "plan-of" and args.project == project and target is None:
+            target = env("OPORA_WORKSPACE")
+            source = "current"
+            if target == "main":
+                candidate = active_workspace()
+                if candidate:
+                    spaces = call("GET", "/api/view", query={"project": project, "workspace": "main"}).get("workspaces") or []
+                    if any(item.get("id") == candidate for item in spaces):
+                        target, source = candidate, "active"
+        result = load_context(args.name, args.project, target, args.node, args.full)
+        if args.name == "plan-of":
+            result.update(project=args.project, workspace=target, workspaceSource=source)
+        return result
     if args.command == "workspace":
         return open_workspace(args.domain, args.reuse, args.name)
     if args.command == "run":
@@ -1476,8 +1612,11 @@ def parser():
     task.add_argument("--pin", action="append", default=[], help="artefakt Brainu opora:brain:skill:<name>[@sha12]")
     plan = commands.add_parser("plan")
     plan.add_argument("--file")
+    plan.add_argument("--operation-id", help="Stable request identity; use a new ID only for an intentional new operation.")
     plan.add_argument("--dry-run", action="store_true")
-    plan.add_argument("--no-accept", action="store_true")
+    acceptance = plan.add_mutually_exclusive_group()
+    acceptance.add_argument("--no-accept", dest="no_accept", action="store_true", default=True, help="Uložit návrh bez přijetí (výchozí).")
+    acceptance.add_argument("--accept", dest="no_accept", action="store_false", help="Výslovně požádat o přijetí; server ověří oprávnění.")
     plan.add_argument("--example", action="store_true")
     plan.add_argument("--workspace")
     unlink = commands.add_parser("unlink")
@@ -1697,7 +1836,7 @@ def main(argv=None):
         print(json.dumps(failure.payload, ensure_ascii=False))
         return 1
     print(result if isinstance(result, str) else json.dumps(result, ensure_ascii=False))
-    return 0
+    return 1 if isinstance(result, dict) and result.get("code") == "plan_readback_failed" else 0
 
 
 if __name__ == "__main__":
