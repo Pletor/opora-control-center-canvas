@@ -401,12 +401,14 @@ ACCEPT_ROUNDS = 6
 def plan_hint(failure, shape=None):
     """Odmítnutí dávky nese vlastní text serveru (a pole), ne obecnou radu: srdce se podle něj opraví samo."""
     payload = failure.payload
-    if not 400 <= (payload.get("status") or 0) < 500 or payload.get("hint") not in (None, GENERIC_HINT):
+    retry_hint = payload.get("operationRetryHint", "")
+    original_hint = (payload.get("hint") or "").removesuffix(retry_hint).rstrip() if retry_hint else payload.get("hint")
+    if not 400 <= (payload.get("status") or 0) < 500 or original_hint not in (None, "", GENERIC_HINT):
         return
     detail = (f" Pole {payload['field']}: {payload['expected']}."
               if payload.get("field") and payload.get("expected") else "")
     payload["hint"] = (f"Server dávku odmítl: {payload.get('error')}{detail} Oprav soubor a pošli ho s --dry-run. "
-                       + (shape or PLAN_SHAPE))
+                       + (shape or PLAN_SHAPE) + retry_hint)
 
 
 def acceptance_step(action):
@@ -520,8 +522,8 @@ def plan_post(path, body):
     except Failure as failure:
         failure.payload.update(operationId=operation["operationId"], operationFile=operation["file"])
         if failure.payload.get("status") == 409:
-            failure.payload["hint"] = (failure.payload.get("hint", "") +
-                " Original request retained. Reconcile this operation; after an intentional rebase use a new --operation-id.")
+            retry_hint = " Original request retained. Reconcile this operation; after an intentional rebase use a new --operation-id."
+            failure.payload.update(operationRetryHint=retry_hint, hint=failure.payload.get("hint", "") + retry_hint)
         raise
     operation["response"] = result
     save_plan_operation(operation)

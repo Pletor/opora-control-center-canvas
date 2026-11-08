@@ -52,3 +52,10 @@ Nalezená chyba při zkoušce: App zahazovala ohGraph při přepisování URL; o
 
 Rodičovský agent znovu spustil 60 cílených testů Canvas/receipt/readback/CLI/batch: prošly. Následně 102 testů CLI/replay/readback/batch: prošly. Úplná backendová sada stále není dokončena. Důkazy a screenshoty jsou v `C:/Users/Admin/AppData/Local/Temp/opora-plan-proof`.
 Finální frontendová sada po opravě URL a zaměření nových karet: 496 souborů / 2840 testů prošlo. Izolovaný graf 185 přijatých + 2 navrhované karty ověřen i po reloadu; úplný graf zůstává dostupný přes ovládání přiblížení. Build prošel.
+
+### Zjištění širší backendové sady
+
+První úplný běh zachytil 17 selhání v integračních testech Heart. Šest modulů používalo implicitní přijetí plánu jako přípravu přijatého výchozího stavu. Přípravy dostaly výslovné `--accept`, sdílený helper si ponechal nový výchozí režim. Doplněna skutečná API kontrola výchozího návrhu bez přijetí a zachování acceptedHead=None. Dále upřesněny kontrakty implicitního aktivního workspace versus explicitního main a auditního souhrnu obsahujícího operationId.
+
+Cílený běh po první úpravě: 26 passed / 3 failed. Odhalil i skutečnou chybu CLI: informace pro bezpečné opakování zakryla původní radu k pracovnímu prostoru. Oprava zachovává obě informace; samostatně 16 cílených testů včetně skutečných HTTP/Git workspace scénářů prošlo. Finální běh všech 29 testů šesti dotčených modulů probíhá. Původní úplný běh nelze vydávat za zelený; obsahuje již diagnostikovaná selhání a pokračuje v ostatních oblastech.
+Finální opakování všech šesti dotčených integračních modulů: **29 passed** za 96,25 s. Výchozí návrh, výslovné přijetí, pracovní prostor i konkrétní chybová rada ověřeny. Kompletní sada zůstává nedokončená a její první běh obsahuje výše popsaná selhání.

@@ -86,7 +86,7 @@ def test_main_is_architecture_and_cards_live_in_the_domain_workspace(heart):
     arch = tool("plan", plan=ARCHITECTURE)
     # main: architektura projde tokenem srdce, přijetí tu neexistuje (návrh grafu chce zapisovatelný prostor)
     assert arch["ok"] is True and arch["architecture"] is True and arch["adopted"] == [], arch
-    assert "accepted" not in arch and not (brain / opora_heart.ACTIVE).exists()
+    assert arch["accepted"] is False and not (brain / opora_heart.ACTIVE).exists()
     web = arch["refs"]["web"]
     refused = tool("plan", plan={"nodes": [card("x", "@" + web, "[task] V main")], "edges": []})
     assert refused["status"] == 409 and "pouze pro čtení" in refused["error"] and "--workspace" in refused["hint"]
@@ -104,7 +104,7 @@ def test_main_is_architecture_and_cards_live_in_the_domain_workspace(heart):
     labels = client.get("/api/project-workspaces", params={"project": pid}).json()["workspaces"]
     assert {"id": wid, "label": "Domů · úvodní blok · work/" + wid} in labels  # prostor nese stránku a co se dělá
 
-    done = tool("plan", "--workspace", wid, plan={"nodes": [card("hero", "@" + web, "[task] Úvodní blok")], "edges": []})
+    done = tool("plan", "--accept", "--workspace", wid, plan={"nodes": [card("hero", "@" + web, "[task] Úvodní blok")], "edges": []})
     assert done["accepted"] is True and done["acceptSteps"] == ["propose_graph", "accept"], done
     _, ready = claims(call, pid, wid)
     assert ready[done["refs"]["hero"]]["status"] == "ready"
@@ -115,7 +115,7 @@ def test_main_is_architecture_and_cards_live_in_the_domain_workspace(heart):
     # nová stránka v main: prostor s přijatým plánem architekturu převezme, jinak by jeho karty nešly převzít
     page = {"nodes": [{"ref": "kontakt", "kind": "node", "parent": "@" + web, "name": "Kontakt",
                        "site": {"kind": "page", "path": "/kontakt"}}], "edges": []}
-    more = tool("plan", plan=page)
+    more = tool("plan", "--accept", plan=page)
     assert more["architecture"] is True and more["adopted"] == [wid], more
     state, ready = claims(call, pid, wid)
     assert state["heads"]["workingDiffers"] is False and ready[done["refs"]["hero"]]["status"] == "ready"
@@ -140,7 +140,7 @@ def test_plan_in_a_workspace_adopts_architecture_changed_behind_its_back(heart):
     _, call, pid, _ = heart
     web = tool("plan", plan=ARCHITECTURE)["refs"]["web"]
     wid = tool("workspace", "--domain", web, "--reuse")["workspace"]
-    first = tool("plan", "--workspace", wid, plan={"nodes": [card("hero", "@" + web, "[task] Úvodní blok")], "edges": []})
+    first = tool("plan", "--accept", "--workspace", wid, plan={"nodes": [card("hero", "@" + web, "[task] Úvodní blok")], "edges": []})
     assert first["accepted"] is True
     # architekturu změní někdo mimo nástroj srdce (člověk v UI, jiná dávka) → prostor ji ještě nepřevzal
     main = {"project": pid, "workspace": "main"}
@@ -148,7 +148,7 @@ def test_plan_in_a_workspace_adopts_architecture_changed_behind_its_back(heart):
                        "site": {"kind": "page", "path": "/o-nas"}}], "edges": []}
     call("POST", "/api/canvas-plan", {**main, "digest": call("GET", "/api/view", query=main)["digest"], "plan": page})
     assert claims(call, pid, wid)[0]["heads"]["workingDiffers"] is True
-    second = tool("plan", "--workspace", wid,
+    second = tool("plan", "--accept", "--workspace", wid,
                   plan={"nodes": [card("pata", "@" + web, "[task] Patička")], "edges": []})
     assert second["accepted"] is True, second
     assert second["acceptSteps"] == ["adopt_architecture", "accept", "graph_addition", "accept"]
@@ -161,7 +161,7 @@ def test_ctx_plan_of_dumps_another_workspace_plan_into_the_workshop(heart):
     _, _, pid, brain = heart
     web = tool("plan", plan=ARCHITECTURE)["refs"]["web"]
     wid = tool("workspace", "--domain", web, "--reuse")["workspace"]
-    hero = tool("plan", "--workspace", wid, plan={"nodes": [card("hero", "@" + web, "[task] Úvodní blok")],
+    hero = tool("plan", "--accept", "--workspace", wid, plan={"nodes": [card("hero", "@" + web, "[task] Úvodní blok")],
                                                     "edges": []})["refs"]["hero"]
     rows = tool("ctx", "plan-of", "--project", pid, "--workspace", wid)  # výchozí: řádek na uzel
     assert rows["path"] == f"dilna/data/plan-of-{pid}.txt" and rows["items"] == 4
@@ -178,7 +178,9 @@ def test_ctx_plan_of_dumps_another_workspace_plan_into_the_workshop(heart):
     detail = json.loads((brain / full["path"]).read_text(encoding="utf-8"))[0]
     assert detail["spec"]["steps"][0]["id"] == "s1" and detail["spec"]["steps"][0]["acceptance"]
     assert items[web]["architecture"] is True and items[web]["site"] == {"kind": "application"}
-    main = tool("ctx", "plan-of", "--project", pid)  # git projekt bez --workspace = main: jen architektura
+    active = tool("ctx", "plan-of", "--project", pid)
+    assert active["items"] == 4 and active["workspace"] == wid and active["workspaceSource"] == "active"
+    main = tool("ctx", "plan-of", "--project", pid, "--workspace", "main")  # explicit main: jen architektura
     assert main["items"] == 3
     assert tool("ctx", "plan-of")["code"] == "plan_of_project"
     assert tool("ctx", "plan-of", "--project", "nikde")["code"] == "project_not_found"

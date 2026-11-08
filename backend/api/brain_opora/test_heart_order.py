@@ -51,7 +51,7 @@ def write(call, graph, revision):
 def test_heart_orders_pages_in_the_architecture_and_adopts_them_into_the_plan(heart):
     client, call, tmp_path = heart
     human_architecture(client)
-    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")["refs"]
     autonomy(client, True)
     dry = order("--nodes", f"p_home=101,p_faq=102,{refs['mvp']}=201", "--dry-run")
     assert dry["architecture"] == {"revision": 1, "changes": [{"id": "p_home", "from": None, "to": 101},

@@ -85,3 +85,12 @@ def test_accept_is_explicit_and_no_accept_remains_compatible():
     assert cli.parser().parse_args(["plan"]).no_accept is True
     assert cli.parser().parse_args(["plan", "--no-accept"]).no_accept is True
     assert cli.parser().parse_args(["plan", "--accept"]).no_accept is False
+
+
+def test_operation_retry_hint_does_not_hide_main_workspace_guidance():
+    retry = " Original request retained; use a new --operation-id after rebase."
+    failure = cli.Failure({"status": 409, "error": "Main is read only.",
+                           "hint": cli.GENERIC_HINT + retry, "operationRetryHint": retry})
+    cli.plan_hint(failure, cli.MAIN_SHAPE)
+    assert "--workspace" in failure.payload["hint"]
+    assert failure.payload["hint"].endswith(retry)
