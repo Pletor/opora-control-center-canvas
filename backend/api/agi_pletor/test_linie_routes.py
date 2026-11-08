@@ -92,7 +92,8 @@ def test_linie_work_flow(tmp_path, repo):
         for path, payload in (("/accept", {"sha": head}), ("/allow-merge", {"target": "develop"}),
                               ("/accept-merge", {"sha": head})):  # L7g: přijmout a začlenit jen člověk
             assert client.post(work + path, headers=AGENT, params=q, json=payload).status_code == 403
-        assert client.post(f"{work}/accept", headers=HEADERS, params=q, json={"sha": head}).json()["work"][
+        assert client.post(f"{work}/accept", headers=HEADERS, params=q,
+                           json={"sha": head, "untested": True}).json()["work"][
             "acceptance"]["sha"] == head
         drawn = client.get(f"{BASE}/graph", headers=HEADERS, params=q).json()
         assert next(lane for lane in drawn["lanes"] if lane["name"] == "feat/uzel")["acceptance"]["valid"] is True
@@ -101,7 +102,8 @@ def test_linie_work_flow(tmp_path, repo):
         assert merged.status_code == 200 and merged.json()["state"] == "merged"
         assert merged.json()["work"]["merged"]["sha"] == run(repo, "rev-parse", "origin/develop")
         board = client.get(f"{BASE}/board", headers=HEADERS, params={**q, "workspace": "main"}).json()
-        assert board["balls"][0]["state"] == "merged" and board["realMerges"][0]["target"] == "develop"
+        assert board["balls"][0]["state"] == "merged" and board["balls"][0]["trial"]["state"] == "none"
+        assert merged.json()["work"]["merged"]["mode"] == "squash"  # feat/* jedním commitem, bez merge commitu
         assert client.post(f"{work}/merge", headers=AGENT, params=q).status_code == 200  # začleněné = idempotentní
 
 
@@ -238,7 +240,7 @@ def test_linie_merge_op_abandon_and_run_worktree(tmp_path, repo):
         gave_up = client.post(f"{work}/abandon", headers=AGENT, params=q, json={"sha": first, "why": "slepá ulička"})
         assert gave_up.status_code == 200 and gave_up.json()["work"]["headSha"] == head
         assert gave_up.json()["work"]["abandoned"][0]["by"] == "agent:dev"
-        client.post(f"{work}/accept", headers=HEADERS, params=q, json={"sha": head})
+        client.post(f"{work}/accept", headers=HEADERS, params=q, json={"sha": head, "untested": True})
         client.post(f"{work}/allow-merge", headers=HEADERS, params=q, json={})
         op = "6f1c2a8e-1b2c-4d3e-8f90-123456789abc"
         merged = client.post(f"{work}/merge", headers=AGENT, params=q, json={"op": op})
@@ -275,3 +277,65 @@ def test_linie_board_txt_plain_text_for_agent_and_human(tmp_path, repo):
             assert "Uzel · " in text.text and "Deník (posledních 20):" in text.text
         assert "Uzel" not in client.get(f"{BASE}/board.txt", headers=AGENT, params={**q, "mine": 1}).text.split("Řádky")[1]
         assert client.get(f"{BASE}/board.txt", headers=HEADERS, params={**q, "mine": 1}).status_code == 422
+
+
+def test_linie_trial_preview_tried_and_accept(tmp_path, repo, monkeypatch):
+    """Zkouška (docs/navrhy/2026-11-08-linie-zkouska.md): Vyzkoušet, tried jen člověk, přijetí podle zkoušky,
+    restart náhledu po reportu, fronta s `trial`."""
+    from backend.agi_pletor.linie import previews
+    from backend.agi_pletor.linie.test_work import Alive
+    q = {"project": "draft"}
+    starts = []
+
+    def start(folder, root, branch, project, data_root, now, fresh=False, **kwargs):
+        starts.append((branch, fresh))
+        record = {"slug": "feat-uzel", "branch": branch, "sha": run(root, "rev-parse", branch), "state": "running",
+                  "port": 8790, "url": "http://127.0.0.1:8790/", "startedAt": now}
+        previews._save(folder, {"feat-uzel": record})
+        return record
+
+    monkeypatch.setattr(previews, "start", start)
+    monkeypatch.setitem(previews.RUNNING, "feat-uzel", Alive())
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        body = {"title": "Uzel", "essence": "Proč.", "build": "Uzel.", "doneCriteria": ["testy"],
+                "branch": "feat/uzel", "baseBranch": "develop", "target": "develop"}
+        tid = client.post(f"{BASE}/work", headers=HEADERS, params={**q, "workspace": "main"}, json=body).json()[
+            "ticketId"]
+        work = f"{BASE}/work/{tid}"
+        green = [{"name": "npm test", "status": "green"}]
+        head = agent_commit(repo)
+        client.post(f"{work}/report", headers=AGENT, params=q, json={"sha": head, "checks": green})
+        assert starts == []  # první spuštění je akce člověka
+        none = client.post(f"{work}/tried", headers=JSON, params=q)
+        assert none.status_code == 409 and none.json()["code"] == "preview_not_running"
+        assert client.post(f"{work}/preview", headers=AGENT, params=q, json={}).status_code == 403
+        shown = client.post(f"{work}/preview", headers=JSON, params=q, json={"fresh": True}).json()
+        assert starts == [("feat/uzel", True)] and shown["work"]["preview"]["state"] == "running"
+        assert shown["trial"]["state"] == "current" and shown["trial"]["url"] == "http://127.0.0.1:8790/"
+        refused = client.post(f"{work}/accept", headers=JSON, params=q, json={"sha": head})
+        assert refused.status_code == 409 and refused.json()["code"] == "not_tried"
+        assert refused.json()["error"].startswith("Nevyzkoušeno, hlava je")
+        assert client.post(f"{work}/tried", headers=AGENT, params=q).status_code == 403
+        tried = client.post(f"{work}/tried", headers=JSON, params=q).json()
+        assert tried["work"]["tried"]["sha"] == head and tried["trial"]["triedCurrent"] is True
+        newer = agent_commit(repo, name="v.txt")
+        far = client.post(f"{work}/report", headers=AGENT, params=q,
+                          json={"sha": newer, "tryout": {"at": "https://evil.example/?a=1", "steps": []}})
+        assert far.status_code == 422  # odkaz Vyzkoušet jen do náhledu
+        client.post(f"{work}/report", headers=AGENT, params=q, json={
+            "sha": newer, "checks": green, "tryout": {"at": "screen=pletor&part=linie", "steps": ["Otevři Linii"]}})
+        assert starts[-1] == ("feat/uzel", False)  # report posunul hlavu: služba náhled restartuje, data drží
+        shown = client.get(work, headers=JSON, params=q).json()
+        assert shown["trial"]["state"] == "current" and shown["trial"]["news"] == [{"sha": newer,
+                                                                                     "subject": "přidán v.txt"}]
+        assert shown["trial"]["url"] == "http://127.0.0.1:8790/?screen=pletor&part=linie"
+        assert shown["trial"]["steps"] == ["Otevři Linii"]
+        queue = client.get(f"{BASE}/board", headers=HEADERS, params={**q, "workspace": "main"}).json()[
+            "queues"]["human"]
+        assert queue[0]["trial"]["tried"]["sha"] == head and queue[0]["trial"]["head"] == newer
+        stale = client.post(f"{BASE}/work/{tid}/accept-merge", headers=JSON, params=q, json={"sha": newer})
+        assert stale.status_code == 409 and stale.json()["code"] == "not_tried"
+        assert f"Vyzkoušeno na {head[:7]}, hlava je {newer[:7]}." in stale.json()["error"]
+        done = client.post(f"{BASE}/work/{tid}/accept-merge", headers=JSON, params=q,
+                           json={"sha": newer, "untested": True}).json()
+        assert done["summary"]["key"] == "merged" and done["work"]["acceptance"]["tested"] is None

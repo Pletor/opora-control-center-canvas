@@ -106,7 +106,7 @@ def test_attach_freezes_issued_and_accept_pairs_sha_with_card_revision(carded):
     assert work.get(service, "draft", editor)["work"]["issued"] == {"cardId": None, "cardRevision": None, "at": NOW}
     head = agent_commit(repo, branch="feat/plan")
     work.report(service, "draft", heart, head, GREEN, None, NOW, "agent:t")
-    accepted = work.accept(service, "draft", heart, head, "ok", NOW)
+    accepted = work.accept(service, "draft", heart, head, "ok", NOW, untested=True)
     assert accepted["work"]["acceptance"]["cardRevision"] == 2 and accepted["summary"]["key"] == "accepted"
     work.allow_merge(service, "draft", heart, None, NOW)
 
@@ -116,7 +116,7 @@ def test_attach_freezes_issued_and_accept_pairs_sha_with_card_revision(carded):
     assert "accept" in stale["allowed"] and "merge" not in stale["allowed"]
     assert stale["summary"]["next"] == "Člověk potvrdí přijetí vůči nové revizi zadání (karta R3)."
     assert stale["plan"]["diff"] is True and stale["plan"]["cardRevision"] == 3
-    again = work.accept(service, "draft", heart, head, "znovu", NOW)
+    again = work.accept(service, "draft", heart, head, "znovu", NOW, untested=True)
     assert again["work"]["acceptance"]["cardRevision"] == 3 and again["work"]["mergeAllowed"] is None
     assert [item["cardRevision"] for item in again["work"]["acceptanceHistory"]] == [2]  # staré přijetí v historii
     assert again["summary"]["key"] == "accepted"

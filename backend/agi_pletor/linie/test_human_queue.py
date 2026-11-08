@@ -56,11 +56,11 @@ def test_accept_merge_one_step_and_same_op_merges_once(setup):
     service, repo, tid = setup
     head = agent_commit(repo)
     work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
-    done = human_queue.accept_merge(service, "draft", tid, head[:7], OP, "", NOW)
+    done = human_queue.accept_merge(service, "draft", tid, head[:7], OP, "", NOW, True)
     tip = run(repo, "rev-parse", "origin/develop")
     assert done["summary"]["key"] == "merged" and done["work"]["merged"]["sha"] == tip
     assert done["work"]["acceptance"]["sha"] == head and done["work"]["mergeAllowed"]["sourceSha"] == head
-    again = human_queue.accept_merge(service, "draft", tid, head, OP, "", NOW)
+    again = human_queue.accept_merge(service, "draft", tid, head, OP, "", NOW, True)
     assert again["work"]["merged"] == done["work"]["merged"] and run(repo, "rev-parse", "origin/develop") == tip
     assert len(merge_log.read(service.root, "draft")) == 1
 
@@ -70,7 +70,7 @@ def test_accept_merge_stops_on_first_409_with_sentence(setup):
     old = agent_commit(repo)
     work.report(service, "draft", tid, old, GREEN, None, NOW, "agent:t")
     agent_commit(repo, name="v.txt")  # cizí revize: člověk viděl old, na větvi už je nová
-    error = refused(lambda: human_queue.accept_merge(service, "draft", tid, old, OP, "", NOW))
+    error = refused(lambda: human_queue.accept_merge(service, "draft", tid, old, OP, "", NOW, True))
     assert error.status == 409 and error.code == "head_moved"
     assert str(error).startswith("Přijetí se zastavilo: na větvi je jiná revize") and "špičku" in error.hint
     shown = work.get(service, "draft", tid)["work"]
@@ -81,7 +81,7 @@ def test_accept_merge_reallows_moved_target(setup):
     service, repo, tid = setup
     head = agent_commit(repo)
     work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
-    work.accept(service, "draft", tid, head, "", NOW)
+    work.accept(service, "draft", tid, head, "", NOW, untested=True)
     work.allow_merge(service, "draft", tid, "develop", NOW)
     run(repo, "checkout", "-q", "develop")
     commit(repo, "jiny.txt")  # zaseklé povolení z posunutého cíle (§6 důvod L7g)
@@ -89,7 +89,7 @@ def test_accept_merge_reallows_moved_target(setup):
     run(repo, "checkout", "-q", "main")
     shown = board.board(service, "draft", "main", repo, pr_lookup=NO_PR)["queues"]["human"]
     assert shown[0]["action"]["label"] == "Povolit znovu a začlenit"
-    assert human_queue.accept_merge(service, "draft", tid, head, None, "", NOW)["summary"]["key"] == "merged"
+    assert human_queue.accept_merge(service, "draft", tid, head, None, "", NOW, True)["summary"]["key"] == "merged"
 
 
 def test_train_of_three_bottom_up(setup):
@@ -111,7 +111,7 @@ def test_train_of_three_bottom_up(setup):
         tip = run(repo, "rev-parse", branch)  # rodič má po začlenění dítěte novou špičku; agent ji nahlásí
         if tip != heads[t]:
             work.report(service, "draft", t, tip, GREEN, None, NOW, "agent:t")
-        assert human_queue.accept_merge(service, "draft", t, tip, None, "", NOW)["summary"]["key"] == "merged"
+        assert human_queue.accept_merge(service, "draft", t, tip, None, "", NOW, True)["summary"]["key"] == "merged"
     assert board.board(service, "draft", "main", repo, pr_lookup=NO_PR)["queues"]["human"] == []
 
 

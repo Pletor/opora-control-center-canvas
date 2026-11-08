@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/shared/types/logic/types";
-import { humanQueueView, humanRequest, idleText, refusalText, verified } from "./linie-human-queue";
+import { humanQueueView, humanRequest, idleText, refusalText, trialRequest, verified } from "./linie-human-queue";
 
 const SHA = "9c8050f1a2b3c4d5e6f708192a3b4c5d6e7f8091";
 const row = (extra: object = {}) => ({
   ticketId: "tk_c", mark: "OP-C", title: "Vůz C", branch: "feat/a-b-c", target: "feat/a-b", sha: SHA, order: 1, state: "čeká na přijetí 9c8050f",
   next: "Člověk rozhodne.", sentence: "začlení feat/a-b-c do feat/a-b, pak bude na řadě OP-B (feat/a-b)",
-  checks: { state: "passed", sha: SHA }, preview: true, action: { kind: "accept_merge", label: "Přijmout a začlenit" }, ...extra,
+  checks: { state: "passed", sha: SHA }, trial: { state: "current", url: "http://u/", sha: SHA, head: SHA, tried: { sha: SHA, at: "" }, triedCurrent: true, news: [], newsMore: 0, steps: [] }, action: { kind: "accept_merge", label: "Přijmout a začlenit" }, ...extra,
 });
 
 describe("Čeká na tebe", () => {
@@ -17,16 +17,22 @@ describe("Čeká na tebe", () => {
     expect(humanQueueView({ queues: { humanDecisions: 0 } })).toEqual([]);
   });
 
-  it("ověření: kontroly pro revizi a shoda náhledu", () => {
+  it("ověření: kontroly pro revizi; zkouška z trial, bez něj none", () => {
     const [r] = humanQueueView({ queues: { human: [row()] } });
-    expect(verified(r)).toBe("kontroly prošly 9c8050f · náhled = revize");
-    expect(verified({ ...r, preview: null, checks: { state: "missing", sha: "" } })).toBe("kontroly chybí");
+    expect(verified(r)).toBe("kontroly prošly 9c8050f");
+    expect(verified({ ...r, checks: { state: "missing", sha: "" } })).toBe("kontroly chybí");
+    expect([r.trial.state, r.trial.triedCurrent]).toEqual(["current", true]);
+    const [old] = humanQueueView({ queues: { human: [row({ trial: undefined })] } });
+    expect([old.trial.state, old.trial.triedCurrent]).toEqual(["none", false]);
   });
 
   it("jedno tlačítko = accept-merge s revizí, kterou člověk viděl, a s op", () => {
     const [r] = humanQueueView({ queues: { human: [row()] } });
     expect(humanRequest(r, "op-1")).toEqual({ path: "/work/tk_c/accept-merge", body: { sha: SHA, op: "op-1" }, method: "POST", done: "Začleněno feat/a-b-c do feat/a-b." });
     expect(humanRequest({ ...r, action: null }, "x")).toBeNull();
+    expect(humanRequest(r, "op-2", true)?.body).toEqual({ sha: SHA, op: "op-2", untested: true });
+    expect(trialRequest(r, "start")).toMatchObject({ path: "/work/tk_c/preview", body: {} });
+    expect(trialRequest(r, "tried")).toMatchObject({ path: "/work/tk_c/tried", body: {} });
   });
 
   it("prázdný stav jmenuje, kdo pracuje", () => {

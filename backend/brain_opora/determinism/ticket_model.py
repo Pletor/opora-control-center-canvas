@@ -153,9 +153,11 @@ def feedback_payload(body):
 
 
 def deliver_payload(body):
-    """`ticket.deliver` `{ticketId, summary, sha?}` → `(ticketId, {summary, sha?})`."""
+    """`ticket.deliver` `{ticketId, summary, sha?, tryout?}` → `(ticketId, {summary, sha?, tryout?})`; `tryout`
+    jen projde do `work.apply_report`, které ho ověří."""
     hint = 'Například {"ticketId": "tk_…", "summary": "Hero je hotový, testy zelené.", "sha": "abc1234"}.'
-    shaped(body, ("ticketId", "summary"), ("sha",), ids=("ticketId",), texts=("summary",), hint=hint)
+    shaped(body, ("ticketId", "summary"), ("sha", "tryout"), ids=("ticketId",), texts=("summary",), hint=hint)
     if "sha" in body and not (isinstance(body["sha"], str) and re.fullmatch(r"[0-9a-fA-F]{7,40}", body["sha"])):
         raise invalid("sha je výstup git rev-parse HEAD.", hint)
-    return body["ticketId"], {key: body[key].strip() for key in ("summary", "sha") if key in body}
+    return body["ticketId"], {**{key: body[key].strip() for key in ("summary", "sha") if key in body},
+                              **({"tryout": body["tryout"]} if "tryout" in body else {})}

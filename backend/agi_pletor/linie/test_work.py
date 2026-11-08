@@ -1,7 +1,7 @@
 """Práce ticketu na Linii nad dočasným repozitářem s bare originem (kontrakt §7 body 2, 3, 5, 6, 10 a brána deliver)."""
 import pytest
 
-from backend.agi_pletor.linie import rows, work
+from backend.agi_pletor.linie import journal, previews, rows, work
 from backend.agi_pletor.linie.test_branches import commit, make_repo, run
 from backend.brain_opora.determinism import gate, kinds
 from backend.brain_opora.determinism.gate_payloads import GateError
@@ -90,7 +90,7 @@ def test_accept_states_and_no_merge(setup):
     assert refused(lambda: work.accept(service, "draft", tid, head, "ok", NOW)).code == "action_not_allowed"
     green = work.report(service, "draft", tid, head, [{"name": "npm test", "status": "green"}], None, NOW, "agent:t")
     assert green["state"] == "open" and green["allowed"][0] == "accept"
-    accepted = work.accept(service, "draft", tid, head[:7], "ok", NOW)
+    accepted = work.accept(service, "draft", tid, head[:7], "ok", NOW, untested=True)
     assert accepted["work"]["acceptance"]["sha"] == head and accepted["state"] == "accepted_unmerged"
     assert accepted["allowed"] == ["allow_merge", "preview", "revoke_accept", "defer", "block"]
     allowed = work.allow_merge(service, "draft", tid, None, NOW)
@@ -260,3 +260,163 @@ def test_forget_deletes_only_blocked_dead_end(setup):
         store.set_work(tid, {**work.get(service, "draft", tid)["work"], "target": "topic/zanikla"}, NOW)
     assert work.forget(service, "draft", tid, NOW)["forgotten"] == tid
     assert refused(lambda: work.get(service, "draft", tid)).status == 404
+
+
+class Alive:
+    """Běžící proces náhledu (bez serveru)."""
+    pid = 1
+
+    def poll(self):
+        return None
+
+
+GREEN = [{"name": "npm test", "status": "green"}]
+
+
+def preview_at(service, tid, sha, monkeypatch, state="running"):
+    """Náhled kuličky v registru (`state`), jako by ho člověk spustil; `running` drží podvržený proces."""
+    record = {"slug": "feat-uzel", "branch": "feat/uzel", "sha": sha, "state": state, "port": 8790,
+              "url": "http://127.0.0.1:8790/?project=draft&workspace=main", "startedAt": NOW}
+    previews._save(work.folder(service), {"feat-uzel": record})
+    monkeypatch.setitem(previews.RUNNING, "feat-uzel", Alive())
+    return work.set_preview(service, "draft", tid, record, NOW)
+
+
+def started(monkeypatch, fail=False):
+    """Podvržený `previews.start` (bez worktree a npm): zapíše `building` na špičku větve."""
+    calls = []
+
+    def start(folder, root, branch, project, data_root, now, **kwargs):
+        if fail:
+            raise OSError("worktree zamčený")
+        calls.append(branch)
+        record = {**previews._read(folder)["feat-uzel"], "sha": run(root, "rev-parse", branch), "state": "building"}
+        previews._save(folder, {"feat-uzel": record})
+        return record
+    monkeypatch.setattr(work.previews, "start", start)
+    return calls
+
+
+def test_tried_and_accept_follow_the_trial(setup, monkeypatch):
+    """§6–§8: zkouška zapíše SHA běžícího náhledu, přijetí chce vyzkoušenou hlavu, novinky od zkoušky."""
+    service, repo, tid = setup
+    head = agent_commit(repo)
+    work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
+    assert refused(lambda: work.mark_tried(service, "draft", tid, NOW)).code == "preview_not_running"
+    assert work.get(service, "draft", tid)["trial"]["state"] == "none"
+    assert preview_at(service, tid, head, monkeypatch, "failed")["trial"]["state"] == "failed"
+    building = preview_at(service, tid, head, monkeypatch, "building")
+    assert building["work"]["preview"]["state"] == "building" and building["trial"]["state"] == "building"
+    assert refused(lambda: work.mark_tried(service, "draft", tid, NOW)).status == 409
+    preview_at(service, tid, head, monkeypatch)
+    untried = refused(lambda: work.accept(service, "draft", tid, head, "", NOW))
+    assert untried.code == "not_tried" and untried.body()["error"].startswith(f"Nevyzkoušeno, hlava je {head[:7]}")
+    tried = work.mark_tried(service, "draft", tid, NOW)
+    assert tried["work"]["tried"] == {"sha": head, "at": NOW}
+    assert tried["trial"] == {"state": "current", "url": "http://127.0.0.1:8790/?project=draft&workspace=main",
+                              "sha": head, "head": head, "tried": {"sha": head, "at": NOW}, "triedCurrent": True,
+                              "news": [], "newsMore": 0, "steps": []}
+    events = journal.read(service, "draft", 0, 100)["events"]
+    assert any(e["kind"] == "linie.preview.tried" and e["refs"]["sha"] == head for e in events)
+    newer = agent_commit(repo, name="v.txt")
+    started(monkeypatch)
+    work.report(service, "draft", tid, newer, GREEN, None, NOW, "agent:t")
+    shown = work.get(service, "draft", tid)
+    assert shown["trial"]["state"] == "building" and shown["trial"]["triedCurrent"] is False
+    assert shown["trial"]["news"] == [{"sha": newer, "subject": "přidán v.txt"}]
+    stale = refused(lambda: work.accept(service, "draft", tid, newer, "", NOW))
+    assert stale.code == "not_tried" and stale.body()["error"].startswith(
+        f"Vyzkoušeno na {head[:7]}, hlava je {newer[:7]}.")
+    blind = work.accept(service, "draft", tid, newer, "", NOW, untested=True)
+    assert blind["work"]["acceptance"]["tested"] is None and blind["axes"]["acceptance"]["tested"] is None
+    work.revoke_accept(service, "draft", tid, NOW)
+    preview_at(service, tid, newer, monkeypatch)
+    work.mark_tried(service, "draft", tid, NOW)
+    assert work.accept(service, "draft", tid, newer, "", NOW)["work"]["acceptance"]["tested"] == newer
+
+
+def test_report_tryout_kept_and_trial_url_points_to_change(setup, monkeypatch):
+    """Doplněk: report s `tryout` ho uloží, report bez něj převezme; `trial.url` míří na místo změny."""
+    service, repo, tid = setup
+    head = agent_commit(repo)
+    tryout = {"at": "screen=pletor&project=jiny&part=linie", "steps": [" Otevři Linii ", "Uvidíš kuličku"]}
+    work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t", tryout)
+    newer = agent_commit(repo, name="v.txt")
+    work.report(service, "draft", tid, newer, GREEN, None, NOW, "agent:t")
+    preview_at(service, tid, newer, monkeypatch)
+    shown = work.get(service, "draft", tid)
+    assert shown["work"]["tryout"] == {"at": tryout["at"], "steps": ["Otevři Linii", "Uvidíš kuličku"], "sha": head}
+    assert shown["trial"]["steps"] == ["Otevři Linii", "Uvidíš kuličku"]
+    assert shown["trial"]["url"] == ("http://127.0.0.1:8790/?project=draft&workspace=main"
+                                     "&screen=pletor&part=linie")  # `project` náhledu se nezdvojí
+
+
+def test_tryout_refuses_absolute_url_and_oversize():
+    for at in ("https://evil.example/?a=1", "//evil.example/?a=1", "javascript:alert(1)", "?a=1", "a=1#x",
+               "a=" + "x" * 300):
+        assert refused(lambda: work.tryout_of({"at": at, "steps": []}, "s")).code == "invalid_payload"
+    for steps in (["x"] * 9, ["x" * 201], [""], "krok"):
+        assert refused(lambda: work.tryout_of({"at": "a=1", "steps": steps}, "s")).status == 422
+    assert work.tryout_of({"at": "", "steps": ["x"]}, "s") == {"at": "", "steps": ["x"], "sha": "s"}
+    assert work.with_at("http://h/?project=p", "") == "http://h/?project=p" and work.with_at(None, "a=1") is None
+
+
+def test_trial_stale_and_news_cap(setup, monkeypatch):
+    service, repo, tid = setup
+    head = agent_commit(repo)
+    work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
+    preview_at(service, tid, head, monkeypatch)
+    work.mark_tried(service, "draft", tid, NOW)
+    for index in range(12):
+        tip = agent_commit(repo, name=f"n{index}.txt")
+    shown = work.get(service, "draft", tid)["trial"]  # nehlášené commity: hlava = špička větve
+    assert shown["state"] == "stale" and shown["head"] == tip and shown["sha"] == head
+    assert len(shown["news"]) == 10 and shown["newsMore"] == 2 and shown["news"][0]["sha"] == tip
+
+
+def test_report_restarts_existing_preview_only_on_new_head(setup, monkeypatch):
+    """§3: náhled se drží hlavy; bez náhledu, se zastaveným nebo na téže hlavě se nic nespouští."""
+    service, repo, tid = setup
+    calls = started(monkeypatch)
+    head = agent_commit(repo)
+    work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
+    assert calls == []  # bez náhledu: první spuštění je akce člověka
+    preview_at(service, tid, head, monkeypatch)
+    work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
+    assert calls == []  # stejná hlava
+    newer = agent_commit(repo, name="v.txt")
+    done = work.report(service, "draft", tid, newer, GREEN, None, NOW, "agent:t")
+    assert calls == ["feat/uzel"] and done["work"]["preview"]["sha"] == newer
+    assert done["work"]["preview"]["state"] == "building" and done["work"]["headSha"] == newer
+    preview_at(service, tid, newer, monkeypatch, "stopped")
+    newest = agent_commit(repo, name="w.txt")
+    work.report(service, "draft", tid, newest, GREEN, None, NOW, "agent:t")
+    assert calls == ["feat/uzel"]  # zastavený náhled člověk vypnul
+
+
+def test_failed_restart_keeps_report(setup, monkeypatch):
+    service, repo, tid = setup
+    head = agent_commit(repo)
+    work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
+    preview_at(service, tid, head, monkeypatch)
+    started(monkeypatch, fail=True)
+    newer = agent_commit(repo, name="v.txt")
+    assert work.report(service, "draft", tid, newer, GREEN, None, NOW, "agent:t")["work"]["headSha"] == newer
+
+
+def test_gate_deliver_restarts_preview(setup, monkeypatch):
+    service, repo, tid = setup
+    calls = started(monkeypatch)
+    office = gate.authenticate(service, gate.open_session(service, {"project": "draft", "workspace": "main",
+                                                                    "worker": {"name": "office-1"}})["token"])
+    kinds.run(service, office, {"kind": "ticket.claim", "body": {"ticketId": tid}})
+    head = agent_commit(repo)
+    work.report(service, "draft", tid, head, GREEN, None, NOW, "agent:t")
+    preview_at(service, tid, head, monkeypatch)
+    newer = agent_commit(repo, name="v.txt")
+    kinds.run(service, office, {"kind": "ticket.deliver", "body": {"ticketId": tid, "summary": "Hotovo.", "sha": newer,
+                                                                   "tryout": {"at": "part=linie", "steps": ["Klikni"]}}})
+    shown = work.get(service, "draft", tid)
+    assert calls == ["feat/uzel"] and shown["work"]["preview"]["sha"] == newer
+    assert shown["work"]["tryout"] == {"at": "part=linie", "steps": ["Klikni"], "sha": newer}  # brána tryout propustí
+    assert "tryout" not in shown["delivery"]

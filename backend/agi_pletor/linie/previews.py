@@ -105,7 +105,7 @@ def _writable_rmtree(path):
 
 def _copy_data(data_root, project, data):
     """Čerstvá kopie dat; vrací použitou cestu (zamčenou starou kopii obejde novou složkou)."""
-    if data.exists():  # každý start má čerstvou kopii; stará by se přes read-only git objekty nepřepsala
+    if data.exists():  # obnova z ostrých: stará kopie by se přes read-only git objekty nepřepsala
         try:
             _writable_rmtree(data)
         except OSError:  # starou kopii drží jiný proces (např. náhled spuštěný uvnitř náhledu)
@@ -147,15 +147,17 @@ def _background(work):
     threading.Thread(target=work, daemon=True).start()
 
 
-def start(folder, root, branch, project, data_root, now, *, build=_build, spawn=_spawn, run=_background):
-    """Připraví worktree a kopii dat, zapíše `building` a na pozadí sestaví a spustí náhled."""
+def start(folder, root, branch, project, data_root, now, *, fresh=False, build=_build, spawn=_spawn, run=_background):
+    """Připraví worktree a kopii dat, zapíše `building` a na pozadí sestaví a spustí náhled. Kopie dat vznikne jen
+    při prvním startu nebo s `fresh` (obnova z ostrých); restart drží data, která člověk v náhledu vytvořil."""
     exists = git(root, "rev-parse", "--verify", "-q", branch + "^{commit}", optional=True)
     if branch.startswith("-") or not exists:
         raise ValueError(f"Větev {branch} v repozitáři neexistuje.")
     name = slug(branch)
     if not name:
         raise ValueError("Z názvu větve nejde složit název náhledu.")
-    if name in _read(folder):
+    old = _read(folder).get(name)
+    if old:
         stop(folder, name)
     base = _root(folder) / "previews" / name
     tree, data = base / "tree", base / "data"
@@ -166,7 +168,9 @@ def start(folder, root, branch, project, data_root, now, *, build=_build, spawn=
     else:
         git(root, "worktree", "add", "--detach", str(tree), branch, timeout=300)
     _link_node_modules(tree)
-    data = _copy_data(data_root, project, data)
+    data = Path(old["data"]) if old and old.get("data") else data
+    if fresh or not data.exists():  # OP-43F5B0.5: restart data drží, čerstvou kopii dělá jen první start a obnova
+        data = _copy_data(data_root, project, data)
     taken = {r.get("port") for key, r in _read(folder).items() if key != name and r.get("state") != "stopped"}
     port = free_port(taken)
     record = _update(folder, name, slug=name, branch=branch, project=project, worktree=str(tree),

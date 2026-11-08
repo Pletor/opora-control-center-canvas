@@ -124,6 +124,16 @@ def test_report_sends_head_checks_and_identity(repo, monkeypatch, capsys):
     assert headers["X-opora-actor"] == "agent; name=terminal"
 
 
+def test_report_sends_tryout_only_when_given(repo, monkeypatch, capsys):
+    server = Server(repo, {("POST", f"/work/{TICKET}/report"): {"ok": True}})
+    run(monkeypatch, capsys, server, repo, "report", "--ticket", TICKET, "--try", "screen=pletor&part=linie",
+        "--step", "Otevři Linii", "--step", "Uvidíš kuličku")
+    assert server.calls[-1][2]["tryout"] == {"at": "screen=pletor&part=linie",
+                                             "steps": ["Otevři Linii", "Uvidíš kuličku"]}
+    run(monkeypatch, capsys, server, repo, "report", "--ticket", TICKET)
+    assert "tryout" not in server.calls[-1][2]  # server převezme předchozí
+
+
 def test_merge_conflict_prints_message_exits_1_and_never_merges(repo, monkeypatch, capsys):
     refused = HTTPError("u", 409, "Conflict", {}, io.BytesIO(json.dumps(
         {"code": "head_moved", "message": "Přijetí platí pro starší SHA."}).encode()))

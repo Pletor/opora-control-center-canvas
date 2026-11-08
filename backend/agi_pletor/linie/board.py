@@ -36,6 +36,7 @@ from backend.agi_pletor.linie import (
     merge_log,
     plan_link,
     plan_view,
+    previews,
     trace_git,
     tree,
 )
@@ -172,10 +173,10 @@ def _row_for(rows, branch):
     return next((row["id"] for row in rows if row.get("branch") == branch), branch)
 
 
-VIEW = ("axes", "summary", "allowed", "blocked", "incomplete", "evidence", "plan")
+VIEW = ("axes", "summary", "allowed", "blocked", "incomplete", "evidence", "plan", "trial")
 
 
-def _ball(service, project, ticket, rows, prs, sources, log, events, by_mark, graph):
+def _ball(service, project, ticket, rows, prs, sources, log, events, by_mark, graph, running=None):
     work = ticket["work"]
     allowed = work.get("mergeAllowed")
     commits = _commits(work)
@@ -183,7 +184,8 @@ def _ball(service, project, ticket, rows, prs, sources, log, events, by_mark, gr
     if pr is not None:  # PR řeší úkoly podle Opora-Mark svých commitů, jinak úkol své větve
         marked = sorted({by_mark[c["mark"]] for c in commits if c["mark"] in by_mark})
         pr = {**pr, "ticketIds": marked or [ticket["ticketId"]]}
-    shown = work_mod.view(ticket, sources, pr, work_mod.facts(service, project, ticket, pr, log, events, graph))
+    shown = work_mod.view(ticket, sources, pr, work_mod.facts(service, project, ticket, pr, log, events, graph,
+                                                              running))
     links = []
     if work.get("merged"):
         links.append({"to": _row_for(rows, work["merged"]["target"]), "kind": "merged", "sha": work["merged"]["sha"]})
@@ -196,7 +198,7 @@ def _ball(service, project, ticket, rows, prs, sources, log, events, by_mark, gr
             "createdAt": ticket["createdAt"], "mergedAt": (work.get("merged") or {}).get("at"),
             "counts": {"commits": len(commits), "prs": int(pr is not None) if sources["prs"]["ok"] or prs else None,
                        "merges": int(bool(work.get("merged")))},
-            "links": links, "pr": pr, "commits": commits, "preview": work.get("preview"), "acceptance": work.get("acceptance"),
+            "links": links, "pr": pr, "commits": commits, "preview": shown["work"]["preview"], "acceptance": work.get("acceptance"),
             # `blocked` = {akce: důvod} z evaluate (L7 §4); ruční blokace kuličky je `block`.
             "mergeAllowed": allowed, "block": work.get("blocked"), **{key: shown[key] for key in VIEW}}
 
@@ -302,8 +304,9 @@ def board(service, project, workspace, root, *, pr_lookup=gh_lookup):
                "checks": {"verifiedAt": db_at, "ok": True}, "sessions": {"verifiedAt": db_at, "ok": True},
                "deploy": {"verifiedAt": deploy_at, "ok": True}}
     by_mark = {t["work"].get("mark"): t["ticketId"] for t in tickets if t["work"].get("mark")}
+    running = previews.status(work_mod.folder(service))  # registr náhledů jednou (status ověřuje porty)
     with service.reading(project):  # jeden snímek grafu pro revize karet všech kuliček
-        balls = [_ball(service, project, ticket, found["rows"], prs, sources, log, events, by_mark, graph)
+        balls = [_ball(service, project, ticket, found["rows"], prs, sources, log, events, by_mark, graph, running)
                  for ticket in tickets]
     plan_link.settle([ball["plan"] for ball in balls])
     for ball in balls:

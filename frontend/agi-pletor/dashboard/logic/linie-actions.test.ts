@@ -6,14 +6,14 @@ import { workDetail } from "./linie-work";
 import { actionRequest, actionsOf, sameRevision, splitActions } from "./linie-actions";
 
 const ball = boardView(boardFixture).balls[0]; // tk_1, board HEAD 9c8050f
-const detail = (headSha: string) => workDetail({ ticketId: "tk_1", work: { headSha, target: "topic/knihovna" } });
+const detail = (headSha: string, trial?: object) => workDetail({ ticketId: "tk_1", work: { headSha, target: "topic/knihovna" }, trial });
 
 describe("jedna cesta pro akce", () => {
   it("povolené z allowed, zakázané s důvodem z blocked", () => {
     expect(actionsOf(ball.judgement, "tk_1", ball.headSha7, detail("9c8050f1a2b3"))).toEqual([
       { id: "allow_merge", label: "Povolit začlenění", enabled: true, why: "" },
       { id: "block", label: "Blokovat", enabled: true, why: "" },
-      { id: "preview", label: "Spustit náhled", enabled: true, why: "" },
+      { id: "preview", label: "Vyzkoušet", enabled: true, why: "" },
       { id: "revoke_accept", label: "Zrušit přijetí", enabled: true, why: "" },
       { id: "accept", label: "Přijmout 9c8050f", enabled: false, why: "acceptance.accepted(HEAD) – už přijato" },
       { id: "merge", label: "Začlenit", enabled: false, why: "mergeAllowed chybí – nejdřív povolit začlenění" },
@@ -42,8 +42,18 @@ describe("jedna cesta pro akce", () => {
     const ten = judgementOf({ allowed: ["accept", "allow_merge", "merge", "block", "unblock", "defer", "resume", "preview", "revoke_accept", "attempt"] });
     const split = splitActions(actionsOf(ten, "tk_1", "", detail("")), "pending");
     expect(split.main.length).toBeLessThanOrEqual(3);
-    expect(split.main.length + split.rest.length).toBe(10);
+    expect(split.main.length + split.rest.length).toBe(11); // + přijmout bez zkoušky
     expect(splitActions(actionsOf(ten, "tk_1", "", detail("")), "blocked").main.map((a) => a.id)).toEqual(["unblock"]);
+  });
+  it("přijetí až po zkoušce hlavy, jinak výslovně bez zkoušky", () => {
+    const j = judgementOf({ allowed: ["accept"] });
+    expect(actionsOf(j, "tk_1", "", detail("9c8050f1a2b3")).map((a) => [a.id, a.enabled, a.why])).toEqual([
+      ["accept", false, "nejdřív Vyzkoušet: přijímá se hlava, kterou jsi zkoušel"], ["accept_untested", true, ""],
+    ]);
+    expect(actionsOf(j, "tk_1", "", detail("9c8050f1a2b3", { state: "current", triedCurrent: true })).map((a) => [a.id, a.enabled])).toEqual([["accept", true]]);
+    expect(actionRequest("accept_untested", "tk_1", detail("9c8050f1a2b3"))?.body).toEqual({ sha: "9c8050f1a2b3", note: "", untested: true });
+    expect(actionRequest("fresh", "tk_1", detail("9c8050f1a2b3"))).toMatchObject({ path: "/work/tk_1/preview", body: { fresh: true } });
+    expect(actionRequest("tried", "tk_1", detail("9c8050f1a2b3"))).toMatchObject({ path: "/work/tk_1/tried", body: {} });
   });
   it("trasy akcí", () => {
     const d = detail("9c8050f1a2b3");

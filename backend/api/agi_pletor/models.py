@@ -161,11 +161,19 @@ class LinieCheckIn(BaseModel):
     status: Literal["green", "red", "pending"]
 
 
+class LinieTryoutIn(BaseModel):
+    """Kde a jak vyzkoušet (docs/navrhy/2026-11-08-linie-zkouska.md, Doplněk); query ověří `work.tryout_of`."""
+    model_config = ConfigDict(extra="forbid")
+    at: str = Field(default="", max_length=300)
+    steps: list[str] = Field(default_factory=list, max_length=8)
+
+
 class LinieReportIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     sha: str = Field(min_length=7, max_length=40)
     checks: list[LinieCheckIn] = Field(default_factory=list, max_length=50)
     worktree: str | None = Field(default=None, max_length=500)
+    tryout: LinieTryoutIn | None = None
 
 
 class LinieRunIn(BaseModel):
@@ -246,6 +254,7 @@ class LinieAcceptIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     sha: str = Field(min_length=7, max_length=40)
     note: str = Field(default="", max_length=2000)
+    untested: bool = False  # výslovné přijetí bez zkoušky v náhledu
 
 
 class LinieAcceptMergeIn(BaseModel):
@@ -254,6 +263,13 @@ class LinieAcceptMergeIn(BaseModel):
     sha: str = Field(min_length=7, max_length=40)
     op: str | None = Field(default=None, max_length=64)
     note: str = Field(default="", max_length=2000)
+    untested: bool = False
+
+
+class LinieWorkPreviewIn(BaseModel):
+    """Spuštění náhledu; `fresh` = obnovit data z ostrých (jinak restart data drží)."""
+    model_config = ConfigDict(extra="forbid")
+    fresh: bool = False
 
 
 class LinieAllowIn(BaseModel):

@@ -79,7 +79,7 @@ export default function LinieDetail({ ticketId, query, ball, follows, cluster, r
           <button key={id} type="button" role="tab" aria-selected={tab === id} className="pletor-dashboard__linie-tab" onClick={() => setTab(id)}>{text}</button>
         ))}
       </div>
-      {tab === "souhrn" && <LinieDetailSummary judgement={judgement} detail={d} cluster={cluster} onPick={onPick} />}
+      {tab === "souhrn" && <LinieDetailSummary judgement={judgement} detail={d} cluster={cluster} onPick={onPick} actions={actions} onAct={onAct} />}
       {tab === "plan" && <LinieDetailPlan plan={plan} detail={d} query={query} />}
       {tab === "git" && <LinieDetailGit detail={d} ball={ball} actions={actions} note={note} onNote={onNote} flash={flash} onAct={onAct} />}
       {tab === "relace" && (

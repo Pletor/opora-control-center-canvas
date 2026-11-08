@@ -19,14 +19,34 @@ L7e (§7 bod 5): každá změna `work` zapíše v téže transakci událost den�
 L7d (§7 bod 4, `plan_link.py`): `create` / `attach` zmrazí `work.issued = {cardId, cardRevision, at}` (revizi čte
 server), `accept` uloží dvojici `(sha, cardRevision)`, smaže povolení začlenění a staré přijetí přesune do
 `work.acceptanceHistory[]`; `view` nese `plan = {state, planCardId, directionCardId, cardRevision, issued, text, diff}`.
+
+Zkouška (docs/navrhy/2026-11-08-linie-zkouska.md §3–§8): `view` nese `work.preview = {slug, sha, url, state, at}` se
+stavem z registru náhledů a odvozené `trial` (stav náhledu proti hlavě, `tried`, novinky `tried.sha..hlava`). `tried`
+zapíše SHA běžícího náhledu, `accept` bez zkoušky hlavy odmítne 409 `not_tried` (kromě výslovného `untested`).
+`follow_preview` po reportu (routa i brána) restartuje existující náhled na novou hlavu; selhání jen zaloguje.
+Doplněk: report nese `tryout = {at, steps}` (místo v aplikaci jako query a kroky); uloží se jako `work.tryout` s SHA,
+report bez něj převezme předchozí. `trial.url` = URL náhledu + `tryout.at`, `trial.steps` = kroky.
 """
+import logging
 import os
 import re
 import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
-from backend.agi_pletor.linie import deploy, evaluate, journal, merge_log, plan_link, rows, tree, work_state
+from backend.agi_pletor.linie import (
+    deploy,
+    evaluate,
+    journal,
+    merge_log,
+    plan_link,
+    previews,
+    rows,
+    tree,
+    work_state,
+)
 from backend.brain_opora.determinism import gate, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.ticket_model import body_payload
@@ -39,6 +59,9 @@ SHA = re.compile(r"[0-9a-fA-F]{7,40}")
 STATUSES = ("green", "red", "pending")
 STALE_AFTER = 600  # s; zdroj starší než 10 min je „zastaralé“ (L7 §4)
 HINT = "Stav a povolený další krok vrací GET /api/pletor/linie/work/{ticketId}."
+NEWS = 10  # novinek od poslední zkoušky v `trial.news`, zbytek jen počtem
+TRYOUT_AT, TRYOUT_STEPS, TRYOUT_STEP = 300, 8, 200  # meze `tryout`: délka query, počet kroků, délka kroku
+LOG = logging.getLogger(__name__)
 
 
 class WorkError(GateError):
@@ -64,21 +87,24 @@ def ancestor(root, older, newer):
     return git(root, "merge-base", "--is-ancestor", older, newer, timeout=TIMEOUT, optional=True) is not None
 
 
-def unreported(work, integ=None):
+def unreported(work, integ=None, squashed=()):
     """`(sha, git_ok)`: skutečná špička větve, kterou hlášení nepokrývá (L7 §2a HEAD = špička podle gitu), jinak None.
 
     Po začlenění je to nejnovější commit, který merge neobsahuje; před ním špička `rev(branch)`, když se liší od
-    `headSha`. Nedostupná špička u nahlášené nezačleněné práce = `git_ok: False` (HEAD zůstává `headSha`)."""
+    `headSha`. Nedostupná špička u nahlášené nezačleněné práce = `git_ok: False` (HEAD zůstává `headSha`).
+    `squashed` = zdrojové hlavy hotových squashů do cíle (merge log): ty commity jsou v cíli, i když ne jako předci."""
     merged = integ["state"] == "merged" if integ else bool(work.get("merged"))
     if not work.get("branch"):
         return None, True
     if merged:
-        sha = integ["sha"] if integ else work["merged"].get("sha")
+        # OP-43F5B0.2: začleněná hlava = headSha (merge chce headSha == přijatá == špička); squash ji v cíli nemá
+        sha = work.get("headSha") or (integ["sha"] if integ else work["merged"].get("sha"))
         new = (git(work["repository"], "rev-list", "-1", f"{sha}..{work['branch']}", timeout=TIMEOUT,
                    optional=True) or None) if sha else None
         # §10.2: commit po merge, který už v cíli leží (začlenila ho další kulička téže větve), větev znovu neotvírá
         target = (integ or {}).get("target") or (work.get("merged") or {}).get("target") or work.get("target")
-        if new and target and any(ancestor(work["repository"], new, ref) for ref in (target, "origin/" + target)):
+        refs = (target, "origin/" + target, *squashed) if target else squashed
+        if new and any(ancestor(work["repository"], new, ref) for ref in refs):
             new = None
         return new, True
     if not work.get("headSha"):
@@ -138,9 +164,74 @@ def deployed(work, integ, events):
             if sha and (e["sha"] == sha or ancestor(root, sha, e["sha"]))}
 
 
-def facts(service, project, ticket, pr=None, log=None, events=None, graph=None):
-    """Data kuličky mimo ticket (merge log, nasazení, živost relace, vazba na plán); board předá log, události a graf
-    prostoru přečtené jednou."""
+def folder(service):
+    """Složka Pletoru (`<data>/pletor`) s registrem náhledů."""
+    return Path(service.root) / "pletor"
+
+
+def live_preview(service, work, running=None):
+    """`work.preview` se stavem z registru náhledů (`running` = `previews.status`, přečtené jednou); záznam, který
+    z registru zmizel, je `stopped`."""
+    stored = work.get("preview")
+    if not stored:
+        return None
+    found = next((r for r in (previews.status(folder(service)) if running is None else running)
+                  if r.get("slug") == stored.get("slug")), None)
+    if found is None:
+        return {**stored, "url": stored.get("url"), "state": "stopped", "at": stored.get("at")}
+    return {"slug": found["slug"], "sha": found.get("sha"), "url": found.get("url"), "state": found.get("state"),
+            "at": found.get("startedAt")}
+
+
+def trial(work, preview, head):
+    """Zkouška hlavy (§4, §7, §8): stav náhledu proti hlavě, poslední zkouška a novinky `tried.sha..hlava`."""
+    shown = preview if preview and preview.get("state") != "stopped" else None
+    state = "none" if not shown else shown["state"] if shown["state"] in ("building", "failed") else (
+        "current" if shown.get("sha") == head else "stale")
+    tried = work.get("tried")
+    news = []
+    if tried and head and tried["sha"] != head:
+        out = git(work["repository"], "log", "--format=%H%x1f%s", f"{tried['sha']}..{head}", timeout=TIMEOUT,
+                  optional=True) or ""
+        news = [dict(zip(("sha", "subject"), line.split("\x1f", 1))) for line in out.splitlines()]
+    tryout = work.get("tryout") or {}
+    return {"state": state, "url": with_at((shown or {}).get("url"), tryout.get("at")),
+            "sha": (shown or {}).get("sha"), "head": head, "tried": tried,
+            "triedCurrent": bool(tried and head and tried["sha"] == head),
+            "news": news[:NEWS], "newsMore": max(0, len(news) - NEWS), "steps": tryout.get("steps") or []}
+
+
+def with_at(url, at):
+    """URL náhledu s místem `at` (query); klíče, které URL už má (`project`, `workspace`), se nezdvojují."""
+    if not url or not at:
+        return url
+    query = urlsplit(url).query
+    have = {key for key, _ in parse_qsl(query)}
+    extra = urlencode([(key, value) for key, value in parse_qsl(at) if key not in have])
+    return f"{url}{'&' if query else '?'}{extra}" if extra else url
+
+
+def tryout_of(raw, sha):
+    """`{at, steps}` z reportu → `work.tryout = {at, steps, sha}`; `at` je jen query bez schématu a hostu, jinak 422."""
+    bad = WorkError("invalid_payload", 422, f"tryout je {{at: query do {TRYOUT_AT} znaků (např. "
+                    f"\"screen=pletor&part=linie\"), steps: nejvýš {TRYOUT_STEPS} kroků do {TRYOUT_STEP} znaků}}.")
+    if not isinstance(raw, dict) or not set(raw) <= {"at", "steps"}:
+        raise bad
+    at, steps = raw.get("at") or "", raw.get("steps") or []
+    if not isinstance(at, str) or len(at) > TRYOUT_AT or at.startswith(("?", "/", "#")):
+        raise bad
+    parts = urlsplit(at)
+    if at and (parts.scheme or parts.netloc or parts.fragment or not parse_qsl(at)):
+        raise bad  # odkaz Vyzkoušet nesmí vést mimo náhled
+    if not isinstance(steps, list) or len(steps) > TRYOUT_STEPS or not all(
+            isinstance(step, str) and step.strip() and len(step) <= TRYOUT_STEP for step in steps):
+        raise bad
+    return {"at": at, "steps": [step.strip() for step in steps], "sha": sha}
+
+
+def facts(service, project, ticket, pr=None, log=None, events=None, graph=None, running=None):
+    """Data kuličky mimo ticket (merge log, nasazení, živost relace, vazba na plán, náhled); board předá log, události,
+    graf prostoru a registr náhledů přečtené jednou."""
     work = ticket.get("work")
     if not work:
         return {}
@@ -148,7 +239,10 @@ def facts(service, project, ticket, pr=None, log=None, events=None, graph=None):
     events = deploy.read(service.root, project) if events is None else events
     integ = integration(work, log, ticket["ticketId"], pr)
     allowed = work.get("mergeAllowed")
-    return {"integration": integ, "deploy": deployed(work, integ, events),
+    squashed = [e["started"]["source_sha"] for e in log if (e.get("finished") or {}).get("ok")
+                and e["started"].get("mode") == "squash" and e["started"]["target"] == integ["target"]]
+    return {"integration": integ, "deploy": deployed(work, integ, events), "squashed": squashed,
+            "preview": live_preview(service, work, running),
             "live": any(live(run) for run in work.get("runs") or []),
             "targetSha": tip(work["repository"], allowed["target"]) if allowed else None,
             "plan": plan_link.resolve(service, project, ticket, graph)}
@@ -159,7 +253,7 @@ def view(ticket, sources=None, pr=None, facts=None):
     `next` zůstávají pro frontend do L7b. `facts` z `facts()`; bez nich osy jen ze záznamu ticketu."""
     work, facts = ticket.get("work") or {}, facts or {}
     integ = facts.get("integration")
-    after, git_ok = unreported(work, integ) if work else (None, True)
+    after, git_ok = unreported(work, integ, facts.get("squashed") or ()) if work else (None, True)
     plan = facts.get("plan")
     found = evaluate.evaluate(work, after, facts.get("live", False), integ, facts.get("deploy"),
                               facts.get("targetSha"), (plan or {}).get("cardRevision"))
@@ -169,7 +263,10 @@ def view(ticket, sources=None, pr=None, facts=None):
     shipped = [{"kind": "deploy", "ref": f"{env}@{e['sha'][:7]}", "at": e["at"],
                 "src": "událost prostředí" if e["origin"] == "environment" else "hlášeno člověkem"}
                for env, e in (facts.get("deploy") or {}).items()]
-    return {**ticket, "state": work_state.LEGACY[found["key"]], "stateLabel": found["text"], "next": found["next"],
+    preview = facts["preview"] if "preview" in facts else work.get("preview")
+    return {**ticket, "work": {**work, "preview": preview} if work else ticket.get("work"),
+            "trial": trial(work, preview, found["axes"]["work"]["sha"]) if work else None,
+            "state": work_state.LEGACY[found["key"]], "stateLabel": found["text"], "next": found["next"],
             "axes": found["axes"], "summary": {key: found[key] for key in ("key", "text", "reason", "next")},
             "allowed": found["allowed"], "blocked": found["blocked"],
             "incomplete": incomplete(sources),
@@ -324,8 +421,9 @@ def on_branch(work, sha):
     return full
 
 
-def apply_report(work, sha, checks, worktree, now, by):
-    """`work` s novou hlavou: `sha` musí existovat, ležet nad `baseSha` a na větvi úkolu, jinak 409 `work_mismatch`."""
+def apply_report(work, sha, checks, worktree, now, by, tryout=None):
+    """`work` s novou hlavou: `sha` musí existovat, ležet nad `baseSha` a na větvi úkolu, jinak 409 `work_mismatch`.
+    `tryout` (`{at, steps}`) nahradí `work.tryout`; bez něj zůstane předchozí."""
     full = on_branch(work, sha)
     if work.get("merged"):
         if full == work["headSha"]:
@@ -343,14 +441,35 @@ def apply_report(work, sha, checks, worktree, now, by):
     names = {check["name"] for check in fresh}
     kept = [check for check in work["checks"] if not (check["sha"] == full and check["name"] in names)]
     return {**work, "headSha": full, "headRunId": run_id, "checks": kept + fresh,
-            "worktree": worktree or work.get("worktree")}
+            "worktree": worktree or work.get("worktree"),
+            **({"tryout": tryout_of(tryout, full)} if tryout is not None else {})}
 
 
-def report(service, project, ticket_id, sha, checks, worktree, now, by):
-    """Commit (a kontroly k němu) na větvi úkolu. Kuličku neuzavírá."""
-    return _change(service, project, ticket_id, now,
-                   lambda ticket: apply_report(ticket["work"], sha, checks, worktree, now, by), "linie.report", by,
-                   sha=sha)
+def report(service, project, ticket_id, sha, checks, worktree, now, by, tryout=None):
+    """Commit (a kontroly k němu) na větvi úkolu. Kuličku neuzavírá; existující náhled dožene novou hlavu."""
+    shown = _change(service, project, ticket_id, now,
+                    lambda ticket: apply_report(ticket["work"], sha, checks, worktree, now, by, tryout),
+                    "linie.report", by,
+                    sha=sha)
+    return follow_preview(service, project, ticket_id, now) or shown
+
+
+def follow_preview(service, project, ticket_id, now):
+    """Po reportu (routa i brána, mimo zámek a transakci): náhled, který kulička má a není `stopped`, se restartuje
+    na novou hlavu. Vrací kuličku po restartu, jinak None; selhání restartu report neshodí, jen se zaloguje."""
+    try:
+        with service.reading(project):
+            work = (TicketStore(service.db_for(project), project).get(ticket_id) or {}).get("work") or {}
+        preview = live_preview(service, work)
+        # OP-43F5B0.3: člověk zkouší přesně aktuální hlavu; první spuštění zůstává jeho, restart dělá služba
+        if not preview or preview["state"] == "stopped" or not work.get("headSha") or preview["sha"] == work["headSha"]:
+            return None
+        record = previews.start(folder(service), work["repository"], work["branch"], project, service.root, now)
+        journal.record(service, project, "linie.preview.restarted", "opora", {"ticket": ticket_id, "sha": record["sha"]})
+        return set_preview(service, project, ticket_id, record, now)
+    except Exception:  # náhled je pomůcka, report už je zapsaný
+        LOG.exception("Restart náhledu %s po reportu selhal", ticket_id)
+        return None
 
 
 def run(service, project, ticket_id, payload, now):
@@ -371,8 +490,9 @@ def run(service, project, ticket_id, payload, now):
     return _change(service, project, ticket_id, now, change)
 
 
-def accept(service, project, ticket_id, sha, note, now):
-    """Přijetí přesně aktuální hlavy (`sha` == skutečná špička větve, i zkrácené), s revizí zadání. Nic neslučuje."""
+def accept(service, project, ticket_id, sha, note, now, untested=False):
+    """Přijetí přesně aktuální hlavy (`sha` == skutečná špička větve, i zkrácené), s revizí zadání. Nic neslučuje.
+    Hlava musí být vyzkoušená (`work.tried`), jinak 409 `not_tried`; `untested` = výslovně bez zkoušky."""
     def change(ticket):
         work, shown = ticket["work"], present(service, project, ticket)
         head = shown["axes"]["work"]["sha"]  # skutečná špička větve, ne jen poslední hlášení
@@ -380,11 +500,17 @@ def accept(service, project, ticket_id, sha, note, now):
             raise WorkError("head_moved", 409, f"Revize {sha} není aktuální hlava {(head or 'žádná')[:7]}.",
                             "Načtěte kuličku znovu a přijměte aktuální headSha.")
         require(shown, "accept")  # jen ověřenou revizi (checks.passed pro HEAD, L7 §8)
+        tried = (work.get("tried") or {}).get("sha")
+        # OP-43F5B0.7: přijímá se to, co člověk vyzkoušel; nevyzkoušené jen výslovně
+        if tried != head and not untested:
+            said = f"Vyzkoušeno na {tried[:7]}, hlava je {head[:7]}." if tried else f"Nevyzkoušeno, hlava je {head[:7]}."
+            raise WorkError("not_tried", 409, said + " Vyzkoušejte hlavu v náhledu, nebo přijměte výslovně bez zkoušky.",
+                            "Vyzkoušet (POST /work/{ticketId}/tried), nebo accept s untested: true.")
         # OP-8A69A3.accept: přijetí platí pro dvojici (sha, cardRevision); revize je táž, kterou ověřil require
         card = (shown["plan"] or {}).get("cardRevision")
         return {**_archived(work), "mergeAllowed": None,
                 "acceptance": {"sha": head, "cardRevision": card, "revision": ticket["machine"]["cardVersion"],
-                               "by": "human", "at": now, "note": note or ""}}
+                               "by": "human", "at": now, "note": note or "", "tested": None if untested else tried}}
     return _change(service, project, ticket_id, now, change, "linie.accept", "human", sha=sha)
 
 
@@ -463,6 +589,10 @@ def forget(service, project, ticket_id, now, by="human"):
         head, target = w.get("headSha"), w.get("target")
         # kód je „použitý“, když došel do cíle nebo do kmene (develop) – starý cíl mohl zaniknout při přestavbě stromu
         kept = (target, "origin/" + target, "develop", "origin/develop")
+        # OP-43F5B0.2: squash commity větve do cíle nepřenese; použité jsou i ty pod zdrojem hotového squashe
+        kept += tuple(e["started"]["source_sha"] for e in merge_log.read(service.root, project)
+                      if (e.get("finished") or {}).get("ok") and e["started"].get("mode") == "squash"
+                      and e["started"]["target"] in (target, "develop"))
         if head and head != w.get("baseSha") and not any(ancestor(w["repository"], head, ref) for ref in kept):
             raise WorkError("forget_code_alive", 409, f"Commit {head[:7]} není v {target} ani v develop; kuličku drží "
                             "živý kód.",
@@ -481,8 +611,20 @@ def resume(service, project, ticket_id, now, by="human"):
 
 
 def set_preview(service, project, ticket_id, record, now):
+    return _change(service, project, ticket_id, now, lambda ticket: {**ticket["work"], "preview": {
+        "slug": record["slug"], "sha": record["sha"], "url": record.get("url"), "state": record.get("state"),
+        "at": record.get("startedAt")}})
+
+
+def mark_tried(service, project, ticket_id, now):
+    """Člověk otevřel běžící náhled (§6): `work.tried = {sha náhledu, at}` a deník `linie.preview.tried`."""
+    preview = get(service, project, ticket_id)["work"]["preview"]
+    if not preview or preview["state"] != "running":
+        raise WorkError("preview_not_running", 409, "Náhled neběží, není co vyzkoušet.",
+                        "Spusťte náhled (POST /work/{ticketId}/preview) a počkejte, až poběží.")
     return _change(service, project, ticket_id, now,
-                   lambda ticket: {**ticket["work"], "preview": {"slug": record["slug"], "sha": record["sha"]}})
+                   lambda ticket: {**ticket["work"], "tried": {"sha": preview["sha"], "at": now}},
+                   "linie.preview.tried", "human", sha=preview["sha"])
 
 
 def _all(service, project):

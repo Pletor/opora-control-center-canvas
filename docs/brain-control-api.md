@@ -30,7 +30,7 @@ a thin layer with no logic of its own. Measured problems it addresses:
 | `ticket.request` | worker | `{}` | the ticket for the session (or `null`), in the shape of `ticket.claim` |
 | `ticket.claim` | worker | `{ticketId, executionId?}` | `{ticket}` (issued → claimed) |
 | `ticket.feedback` | worker | `{ticketId, kind, text}` | `{feedback}`; `kind` = bug / idea / improvement / question (a question → `needs_answer`) |
-| `ticket.deliver` | worker | `{ticketId, summary, sha?}` | `{ticket}` (→ delivered) |
+| `ticket.deliver` | worker | `{ticketId, summary, sha?, tryout?: {at, steps}}` | `{ticket}` (→ delivered) |
 | `ticket.release` | worker | `{ticketId, reason}` | `{ticket}`: the claimed ticket goes back to `issued` |
 | `ask` | worker | `{question}` | ticket, queued; the answer arrives in the inbox |
 | `change` | worker | `{proposal, reason}` | ticket, queued for the heart |

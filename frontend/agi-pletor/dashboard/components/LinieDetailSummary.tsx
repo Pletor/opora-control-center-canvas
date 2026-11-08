@@ -1,7 +1,12 @@
+import type { PletorAction } from "../logic/linie-actions";
 import type { Judgement } from "../logic/linie-summary";
 import type { WorkDetail } from "../logic/linie-work";
+import LinieTrial from "./LinieTrial";
 
-type Props = { judgement: Judgement | null; detail: WorkDetail; cluster: { ticketId: string; title: string }[]; onPick: (ticketId: string) => void };
+type Props = {
+  judgement: Judgement | null; detail: WorkDetail; cluster: { ticketId: string; title: string }[]; onPick: (ticketId: string) => void;
+  actions: PletorAction[]; onAct: (id: string) => void;
+};
 
 const short = (sha: string) => sha.slice(0, 7);
 const AXIS_LABEL: Record<string, Record<string, string>> = {
@@ -13,9 +18,10 @@ const AXIS_LABEL: Record<string, Record<string, string>> = {
 
 /**
  * Záložka Souhrn: pět os, každá s hodnotou, revizí a zdrojem; pravidlo souhrnu strojově (monospace) a další krok
- * týmž textem jako v panelu Pletora. Chybějící osa je „nevím“, nikdy „není“. Pod tím výčet shluku „+N“.
+ * týmž textem jako v panelu Pletora. Chybějící osa je „nevím“, nikdy „není“. Pak náhled se zkouškou a novinkami od ní,
+ * pod tím výčet shluku „+N“.
  */
-export default function LinieDetailSummary({ judgement, detail, cluster, onPick }: Props) {
+export default function LinieDetailSummary({ judgement, detail, cluster, onPick, actions, onAct }: Props) {
   const a = judgement?.axes;
   const word = (axis: string, state: string) => (state ? AXIS_LABEL[axis]?.[state] ?? state : "nevím");
   const envs = a ? Object.entries(a.deploy.envs) : [];
@@ -43,6 +49,7 @@ export default function LinieDetailSummary({ judgement, detail, cluster, onPick 
         <h3 className="pletor-dashboard__linie-detail-h">Další krok (ze stejného pravidla)</h3>
         <p>{next || "—"}</p>
       </div>
+      <LinieTrial trial={detail.trial} actions={actions} onAct={onAct} news />
       {cluster.length > 0 && (
         <div className="pletor-dashboard__linie-detail-card">
           <h3 className="pletor-dashboard__linie-detail-h">Ve shluku · {cluster.length}</h3>

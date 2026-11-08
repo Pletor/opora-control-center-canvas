@@ -1,3 +1,4 @@
+import { trialOf, type Trial } from "./linie-trial";
 import { list, rec, str } from "./view-common";
 
 /**
@@ -12,7 +13,8 @@ export type WorkDetail = {
   acceptance: { sha: string; note: string; at: string; revision: string } | null;
   mergeAllowed: { target: string; targetSha: string } | null;
   merged: { sha: string; target: string; at: string } | null;
-  preview: { slug: string; sha: string; url: string } | null;
+  /** Zkouška v živém náhledu (docs/navrhy/2026-11-08-linie-zkouska.md); chybí-li, je `none`. */
+  trial: Trial;
   blocked: string;
   commits: { sha7: string; title: string; at: string }[];
   pr: { number: string; url: string; state: string } | null;
@@ -30,7 +32,7 @@ export function workDetail(raw: unknown): WorkDetail {
   const ticket = opt(root.ticket) ?? root;
   const body = rec(ticket.body);
   const w = rec(root.work ?? ticket.work);
-  const acceptance = opt(w.acceptance), allowed = opt(w.mergeAllowed), merged = opt(w.merged), preview = opt(w.preview), pr = opt(root.pr ?? ticket.pr);
+  const acceptance = opt(w.acceptance), allowed = opt(w.mergeAllowed), merged = opt(w.merged), pr = opt(root.pr ?? ticket.pr);
   return {
     ticketId: str(ticket.ticketId ?? ticket.id), mark: str(w.mark), title: str(w.title) || str(ticket.title) || str(body.essence).split("\n")[0],
     essence: str(body.essence), build: str(body.build), doneCriteria: list(body.doneCriteria).map(str).join("\n") || str(body.doneCriteria), status: str(ticket.status),
@@ -40,20 +42,13 @@ export function workDetail(raw: unknown): WorkDetail {
     acceptance: acceptance && { sha: str(acceptance.sha), note: str(acceptance.note), at: str(acceptance.at), revision: str(acceptance.revision) },
     mergeAllowed: allowed && { target: str(allowed.target), targetSha: str(allowed.targetSha) },
     merged: merged && { sha: str(merged.sha), target: str(merged.target), at: str(merged.at) },
-    preview: preview && { slug: str(preview.slug), sha: str(preview.sha), url: str(preview.url) },
+    trial: trialOf(root.trial ?? ticket.trial),
     blocked: str(opt(w.blocked)?.reason),
     commits: list(root.commits).map((item) => ({ sha7: str(rec(item).sha7), title: str(rec(item).title), at: str(rec(item).at) })),
     pr: pr && { number: str(pr.number), url: str(pr.url), state: str(pr.state) },
     attempts: list(w.attempts).map((item) => { const a = rec(item); return { attemptId: str(a.attemptId), branch: str(a.branch), baseRef: str(a.baseRef), agent: str(a.agent), at: str(a.at), published: a.published === true }; }),
     runs: list(w.runs).map((item) => { const r = rec(item); return { runId: str(r.runId), agent: str(r.agent), startedAt: str(r.startedAt), heartbeat: str(r.heartbeat), worktree: str(r.worktree) }; }),
   };
-}
-
-/** Náhled se vždy vztahuje k revizi; chybějící náhled se přizná, nevydává se za aktuální. */
-export function previewSentence(d: WorkDetail): string {
-  if (!d.preview?.sha) return "náhled této revize není dostupný";
-  const same = d.preview.sha === d.headSha;
-  return `náhled zobrazuje ${short(d.preview.sha)}, hlava je ${short(d.headSha) || "—"}${same ? " – shoda" : " – náhled není z hlavy"}`;
 }
 
 export function acceptanceSentence(d: WorkDetail): string {
@@ -66,6 +61,7 @@ export function acceptanceSentence(d: WorkDetail): string {
 /** Text odmítnutí: `message` z těla (409 backendu), jinak text chyby. */
 export function failureText(failure: unknown, fallback = "Zápis selhal."): string {
   const body = rec((failure as { body?: unknown } | null)?.body);
-  if (typeof body.message === "string" && body.message) return body.message;
+  const said = str(body.message) || str(body.error); // GateError (409) nese českou větu v `error`
+  if (said) return said;
   return failure instanceof Error ? failure.message : fallback;
 }

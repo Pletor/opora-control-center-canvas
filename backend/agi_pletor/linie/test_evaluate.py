@@ -103,7 +103,8 @@ def test_checks_for_other_sha_are_nocheck_and_block_accept():
 def test_acceptance_for_other_sha_is_stale():
     found = evaluate({**BASE, "checks": GREEN, "acceptance": {"sha": OLD}})
     assert found["key"] == "stale" and found["axes"]["acceptance"] == {"state": "stale", "sha": OLD,
-                                                                       "cardRevision": None, "src": "záznam přijetí"}
+                                                                       "cardRevision": None, "tested": None,
+                                                                       "src": "záznam přijetí"}
 
 
 def test_new_card_revision_with_same_sha_is_stale_plan():

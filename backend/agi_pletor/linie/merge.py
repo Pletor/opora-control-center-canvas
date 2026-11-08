@@ -10,6 +10,10 @@ Merge log (docs/navrhy/2026-11-06-linie-rebrand.md §5a, `merge_log.py`): `start
 Stejné `op` (nebo dvojice `headSha → target` s hotovým `ok`) další merge neprovede, jen vrátí záznam; `started` bez
 `finished` se jen ověří v gitu a dopíše. Začlenění bez `started` (starší než log) se do logu nedopočítává.
 Zápis `started` i `finished` jde i do deníku (`linie.merge.started` / `linie.merge.finished`, `journal.py`).
+
+Squash (docs/navrhy/2026-11-08-linie-zkouska.md §2): `feat/*` a `fix/*` jdou do rodiče jedním commitem
+(`merge --squash` + commit: titulek, essence, commity `base..head`, trailer `Opora-Mark`), `mode: "squash"`. Hlava
+větve pak v cíli není předkem; výsledek se pozná podle commitu s trailerem kuličky (`_landed`). Ostatní merge commitem.
 """
 import shutil
 import threading
@@ -39,6 +43,33 @@ def _merge_commit(git, root, head, remote):
     """První merge commit na cestě od hlavy ke špičce cíle (ten, který hlavu začlenil), jinak špička."""
     found = git(root, "rev-list", "--merges", "--ancestry-path", "--reverse", f"{head}..{remote}", optional=True)
     return (found or "").split("\n")[0] or git(root, "rev-parse", remote)
+
+
+def _landed(git, root, started, remote):
+    """SHA výsledku začlenění ve špičce cíle `remote`, jinak None."""
+    if not _rev(git, root, remote):
+        return None
+    if started.get("mode") != "squash":
+        head = started["source_sha"]
+        return _merge_commit(git, root, head, remote) if _ancestor(git, root, head, remote) else None
+    # OP-43F5B0.2: squash hlavu do cíle nepřenese; důkazem je commit na linii cíle s trailerem téže kuličky
+    found = git(root, "log", "--first-parent", "-1", "--format=%H", "-F", f"--grep=Opora-Mark: {started['mark']}",
+                f"{started['target_sha_before']}..{remote}", optional=True)
+    return found or None
+
+
+def mode_for(branch):
+    """`squash` pro `feat/*` a `fix/*`, jinak `merge` (merge commit)."""
+    return "squash" if tree.role(branch) in ("feat", "fix") else "merge"
+
+
+def _message(git, root, ticket, head):
+    """Odstavce squash commitu: titulek, essence, commity větve `base..head`, trailer `Opora-Mark` (git ho pozná
+    jen jako samostatný poslední odstavec)."""
+    work, essence = ticket["work"], ticket["body"]["essence"].strip()
+    title = work.get("title") or essence.split("\n")[0][:120]
+    listed = git(root, "log", "--reverse", "--format=%h %s", f"{work['baseSha']}..{head}", optional=True) or ""
+    return [part for part in (title, essence, listed, f"Opora-Mark: {work['mark']}") if part]
 
 
 def _record(service, project, ticket_id, merged, now):
@@ -71,12 +102,12 @@ def _confirm(service, project, ticket_id, entry, now, git):
     started = entry["started"]
     root, remote = started["repo"], "origin/" + started["target"]
     git(root, "fetch", "origin", started["target"], timeout=TIMEOUT, optional=True)
-    if not (_rev(git, root, remote) and _ancestor(git, root, started["source_sha"], remote)):
+    landed = _landed(git, root, started, remote)
+    if not landed:
         _finish(service, project, ticket_id, entry["op"], None, False, now, "opora")
         raise WorkError("merge_not_done", 409, f"Operace {entry['op']} v gitu neproběhla; zapsáno jako neúspěch.",
                         "Zavolejte merge znovu (nové op).")
-    done = _finish(service, project, ticket_id, entry["op"],
-                   _merge_commit(git, root, started["source_sha"], remote), True, now, "opora")
+    done = _finish(service, project, ticket_id, entry["op"], landed, True, now, "opora")
     return _from_log(service, project, ticket_id, {**entry, "finished": done}, now)
 
 
@@ -120,13 +151,19 @@ def detached(git, root, tree, sha):
         git(root, "worktree", "prune", optional=True)
 
 
-def _operate(git, root, tree, head, branch, target, target_sha):
-    """Merge v odpojeném worktree a push; `(sha, pushed)`. Worktree se uklidí vždy."""
+def _operate(git, root, tree, head, branch, target, target_sha, message=None):
+    """Merge v odpojeném worktree a push; `(sha, pushed)`. S `message` (odstavce) squash. Worktree se uklidí vždy."""
     with detached(git, root, tree, target_sha):
-        # shortcut: i feat/* a fix/* do rodiče jdou merge commitem (--no-ff); squash podle typu řádku až po M3.
-        if git(tree, *_identity(git, root), "merge", "--no-ff", "-m", f"Merge {branch} into {target}", head,
-               timeout=TIMEOUT, optional=True) is None:
-            git(tree, "merge", "--abort", optional=True)
+        who = _identity(git, root)
+        if message:  # OP-43F5B0.1: rodič dostane jeden čistý commit na úkol, ne hromadu oprav z větve
+            done = git(tree, "merge", "--squash", head, timeout=TIMEOUT, optional=True) is not None and git(
+                tree, *who, "commit", "--allow-empty", *(x for part in message for x in ("-m", part)),
+                timeout=TIMEOUT, optional=True) is not None
+        else:
+            done = git(tree, *who, "merge", "--no-ff", "-m", f"Merge {branch} into {target}", head,
+                       timeout=TIMEOUT, optional=True) is not None
+        if not done:
+            git(tree, "reset", "--hard", optional=True)  # squash nemá MERGE_HEAD, --abort by strom nevrátil
             raise WorkError("merge_conflict", 409, f"{branch} nejde čistě začlenit do {target}.",
                             "Agent sloučí cíl do větve, vyřeší konflikt a pošle nový report.")
         sha = git(tree, "rev-parse", "HEAD")
@@ -171,10 +208,12 @@ def merge(service, project, ticket_id, now, *, op=None, by="opora", git=gitio.gi
                             f"{tree.parent(work['branch'], heads, work.get('baseBranch'))}, ne do {target}.",
                             "Člověk povolí začlenění do rodiče (allow-merge).")
         git(root, "fetch", "origin", target, timeout=TIMEOUT, optional=True)
-        if _rev(git, root, remote) and _ancestor(git, root, head, remote):  # merge proběhl, zápis ne: dožene se
-            merged = {"sha": _merge_commit(git, root, head, remote), "target": target, "at": now, "by": "opora"}
+        target_sha, mode = work["mergeAllowed"]["targetSha"], mode_for(work["branch"])
+        started = {"source_sha": head, "target_sha_before": target_sha, "mode": mode, "mark": work.get("mark")}
+        landed = _landed(git, root, started, remote)
+        if landed:  # merge proběhl, zápis ne: dožene se
+            merged = {"sha": landed, "target": target, "at": now, "by": "opora", "mode": mode}
             return _record(service, project, ticket_id, merged, now)
-        target_sha = work["mergeAllowed"]["targetSha"]
         if (_rev(git, root, remote) or _rev(git, root, target)) != target_sha:
             raise WorkError("target_moved", 409, f"Cíl {target} se od povolení posunul.",
                             "Člověk povolí začlenění znovu (allow-merge).")
@@ -185,19 +224,19 @@ def merge(service, project, ticket_id, now, *, op=None, by="opora", git=gitio.gi
         workdir = Path(service.root) / "pletor" / "linie" / "merge" / ticket_id
         op = op or str(uuid.uuid4())
         # OP-020DBE.1: started před gitem – pád služby po merge zanechá „neověřeno“, ne tiché nic nebo druhý merge
-        merge_log.start(service.root, project, {"op": op, "ticket": ticket_id, "repo": root, "source_sha": head,
-                                                "target": target, "target_sha_before": target_sha, "mode": "merge",
-                                                "by": by, "at": now})
+        merge_log.start(service.root, project, {"op": op, "ticket": ticket_id, "repo": root, **started,
+                                                "target": target, "branch": work["branch"], "by": by, "at": now})
         journal.record(service, project, "linie.merge.started", by, {"ticket": ticket_id, "op": op, "sha": head},
                        target=target)
         try:
-            sha, pushed = _operate(git, root, workdir, head, work["branch"], target, target_sha)
+            message = _message(git, root, ticket, head) if mode == "squash" else None
+            sha, pushed = _operate(git, root, workdir, head, work["branch"], target, target_sha, message)
             if not pushed:
                 git(root, "fetch", "origin", target, timeout=TIMEOUT, optional=True)
-                if not (_rev(git, root, remote) and _ancestor(git, root, head, remote)):
+                sha = _landed(git, root, started, remote)
+                if not sha:
                     raise WorkError("push_failed", 409, f"Push do origin/{target} selhal; nic se nezapsalo.",
                                     "Ověřte přístup k origin a zavolejte merge znovu.")
-                sha = _merge_commit(git, root, head, remote)
         except WorkError:  # konflikt i neúspěšný push jsou v gitu ověřený neúspěch
             _finish(service, project, ticket_id, op, None, False, now, by)
             raise
@@ -205,4 +244,4 @@ def merge(service, project, ticket_id, now, *, op=None, by="opora", git=gitio.gi
         if not _checked_out(git, root, target):  # lokální ref cíle jen když ho nedrží žádný strom
             git(root, "update-ref", f"refs/heads/{target}", sha, target_sha, optional=True)
         return _record(service, project, ticket_id, {"sha": sha, "target": target, "at": now, "by": by,
-                                                     "mode": "merge"}, now)
+                                                     "mode": mode}, now)

@@ -11,7 +11,8 @@ export type ActionRequest = { path: string; body: object; method: "POST" | "DELE
 
 const LABEL: Record<string, string> = {
   accept: "Přijmout", allow_merge: "Povolit začlenění", merge: "Začlenit", block: "Blokovat", unblock: "Odblokovat",
-  defer: "Odložit", park: "Odložit", resume: "Obnovit", preview: "Spustit náhled", revoke_accept: "Zrušit přijetí", attempt: "Založit pokus",
+  defer: "Odložit", park: "Odložit", resume: "Obnovit", preview: "Vyzkoušet", revoke_accept: "Zrušit přijetí", attempt: "Založit pokus",
+  accept_untested: "přijmout bez zkoušky",
 };
 const ROUTED = new Set(["accept", "allow_merge", "merge", "block", "unblock", "defer", "park", "resume", "preview", "revoke_accept"]); // = case v actionRequest
 const short = (sha: string) => sha.slice(0, 7);
@@ -30,7 +31,11 @@ export function actionRequest(id: string, ticketId: string, d: WorkDetail, note 
     case "unblock": return { path: `${path}/unblock`, body: {}, method: "POST", done: "Odblokováno." };
     case "defer": case "park": return { path: `${path}/defer`, body: {}, method: "POST", done: "Odloženo." };
     case "resume": return { path: `${path}/resume`, body: {}, method: "POST", done: "Obnoveno." };
+    case "accept_untested": return { path: `${path}/accept`, body: { sha: d.headSha, note, untested: true }, method: "POST", done: `Přijato ${short(d.headSha)} bez zkoušky.` };
     case "preview": return { path: `${path}/preview`, body: {}, method: "POST", done: "Náhled se spouští." };
+    // Zkouška a obnova dat nejsou v `allowed`: týkají se jen běžícího náhledu (docs/navrhy/2026-11-08-linie-zkouska.md §5, §6).
+    case "tried": return { path: `${path}/tried`, body: {}, method: "POST", done: `Zkouška zapsána na ${short(d.trial.sha)}.` };
+    case "fresh": return { path: `${path}/preview`, body: { fresh: true }, method: "POST", done: "Náhled se přestaví s čerstvými daty z ostrých." };
     case "revoke_accept": return { path: `${path}/accept`, body: {}, method: "DELETE", done: "Přijetí zrušeno." };
     default: return null;
   }
@@ -44,7 +49,14 @@ export function splitActions(actions: PletorAction[], key: string): { main: Plet
 }
 
 // OP-159D4C.3: akce jen z allowed/blocked a jen nad shodnou revizí boardu a detailu.
+// Přijímá se vyzkoušená hlava (zkouška §7): bez platné zkoušky je Přijmout zamčené a vedle stojí „přijmout bez zkoušky“.
 export function actionsOf(j: Judgement, ticketId: string, boardSha7: string, detail: WorkDetail | null): PletorAction[] {
+  return ruleActions(j, ticketId, boardSha7, detail).flatMap((a) => (a.id === "accept" && a.enabled && !detail!.trial.triedCurrent
+    ? [{ ...a, enabled: false, why: "nejdřív Vyzkoušet: přijímá se hlava, kterou jsi zkoušel" }, { id: "accept_untested", label: LABEL.accept_untested, enabled: true, why: "" }]
+    : [a]));
+}
+
+function ruleActions(j: Judgement, ticketId: string, boardSha7: string, detail: WorkDetail | null): PletorAction[] {
   const synced = !!detail && detail.ticketId === ticketId && sameRevision(boardSha7, detail.headSha);
   return [...new Set([...j.allowed, ...Object.keys(j.blocked)])].map((id) => {
     const label = id === "accept" && synced && detail!.headSha ? `Přijmout ${short(detail!.headSha)}` : LABEL[id] ?? id;

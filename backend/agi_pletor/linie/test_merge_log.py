@@ -35,7 +35,7 @@ def test_same_op_does_not_merge_again(setup, monkeypatch):
     done = merge.merge(service, "draft", tid, NOW, op=op, by="human")
     tip = run(repo, "rev-parse", "origin/develop")
     assert done["axes"]["integration"] == {"state": "merged", "target": "develop", "sha": tip, "at": NOW,
-                                           "mode": "merge", "op": op, "src": "merge log"}
+                                           "mode": "squash", "op": op, "src": "merge log"}
 
     def never(*args, **kwargs):
         raise AssertionError("druhý merge")

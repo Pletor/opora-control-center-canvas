@@ -2,6 +2,7 @@
 
     uv run python tools/linie.py task [--ticket tk_…] [--project P --workspace W]
     uv run python tools/linie.py report [--check "npm test=green"]… [--sha HEAD] [--allow-unmarked]
+                                        [--try "screen=pletor&part=linie"] [--step "Klikni na … → uvidíš …"]…
     uv run python tools/linie.py trace [--mark OP-…]
     uv run python tools/linie.py board [--mine] [--all]   # text přehledu jako obrazovka Linie (GET /board.txt)
     uv run python tools/linie.py status | preview | merge | defer | resume | block --reason "…"
@@ -204,7 +205,10 @@ def report(cwd, args):
         raise Stop(EXIT_CONTEXT, f"Commit {sha[:7]} nemá řádek \"Opora-Mark: {mark}\". Doplň ho "
                                  f"(`git commit --amend`, jen u vlastního nesdíleného commitu), nebo použij "
                                  f"--allow-unmarked u cizího commitu či úklidu.")
-    return post(cwd, args, "report", {"sha": sha, "checks": checks, "worktree": str(cwd)})
+    body = {"sha": sha, "checks": checks, "worktree": str(cwd)}
+    if args.tryout is not None or args.step:  # bez nich server převezme předchozí `tryout`
+        body["tryout"] = {"at": args.tryout or "", "steps": args.step}
+    return post(cwd, args, "report", body)
 
 
 def trace(cwd, args):
@@ -256,6 +260,8 @@ def parser():
             command.add_argument("--check", action="append", default=[], help='"npm test=green"')
             command.add_argument("--sha", help="výchozí HEAD")
             command.add_argument("--allow-unmarked", action="store_true", help="přeskočí kontrolu Opora-Mark")
+            command.add_argument("--try", dest="tryout", help='kde vyzkoušet, query "screen=pletor&part=linie"')
+            command.add_argument("--step", action="append", default=[], help='krok "co udělat → co uvidíš"')
         if name == "board":
             command.add_argument("--mine", action="store_true", help="jen kuličky volajícího agenta")
             command.add_argument("--all", action="store_true", help="i uzavřené řádky s kuličkami")

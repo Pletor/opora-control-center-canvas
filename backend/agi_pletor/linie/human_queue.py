@@ -34,6 +34,7 @@ SAY = {
     "push_failed": ("push do originu selhal, nic se nezapsalo", "Ověř přístup k originu a klikni znovu."),
     "merge_not_done": ("předchozí začlenění v gitu neproběhlo", "Klikni znovu (nová operace)."),
     "op_conflict": ("operace patří jinému úkolu", "Klikni znovu (nová operace)."),
+    "not_tried": ("hlava není vyzkoušená v náhledu", "Vyzkoušej hlavu, nebo přijmi výslovně bez zkoušky."),
 }
 
 
@@ -64,7 +65,7 @@ def _row(ball, depth):
             "key": ball["summary"]["key"], "state": ball["summary"]["text"], "next": ball["summary"]["next"],
             "checks": {"state": checks["state"], "sha": checks["sha"]},
             "preview": None if not preview.get("sha") else preview["sha"] == head,
-            "action": _action(ball)}
+            "trial": ball.get("trial"), "action": _action(ball)}
 
 
 def order(balls, rows):
@@ -88,8 +89,9 @@ def _refuse(step, error):
     return GateError(error.status, error.code, f"{STEP[step]} se zastavilo: {said}. ({error})", fix)
 
 
-def accept_merge(service, project, ticket_id, sha, op, note, now):
-    """Přijmout (revizi `sha`, kterou člověk viděl) → povolit → začlenit; vrací kuličku jako `merge`."""
+def accept_merge(service, project, ticket_id, sha, op, note, now, untested=False):
+    """Přijmout (revizi `sha`, kterou člověk viděl) → povolit → začlenit; vrací kuličku jako `merge`. Přijetí platí
+    jen pro vyzkoušenou hlavu (`not_tried`), `untested` = výslovně bez zkoušky."""
     shown = work_mod.get(service, project, ticket_id)
     if shown["work"].get("merged") or shown["axes"]["integration"]["state"] == "merged":
         return shown  # už začleněno: opakované kliknutí nic nedělá
@@ -100,7 +102,7 @@ def accept_merge(service, project, ticket_id, sha, op, note, now):
         if not head.startswith((sha or "-").lower()):
             raise WorkError("head_moved", 409, f"Revize {sha[:7]} není aktuální hlava {head[:7] or 'žádná'}.")
         if "accept" in shown["allowed"]:
-            work_mod.accept(service, project, ticket_id, sha, note, now)
+            work_mod.accept(service, project, ticket_id, sha, note, now, untested)
             shown = work_mod.get(service, project, ticket_id)
         step = "allow_merge"
         if "allow_merge" in shown["allowed"]:  # i po posunu cíle: povolení pro dnešní špičku cíle

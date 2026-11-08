@@ -235,6 +235,7 @@ def deliver(service, session, body, now=None):
     Ticket s prací Linie (`work`) a `sha`: commit projde `work.apply_report` (sha na větvi úkolu, jinak 409
     `work_mismatch`, nic se nezapíše); `delivered` neznamená hotovo, kuličku uzavře až začlenění službou."""
     wanted, delivery = deliver_payload(body)
+    tryout = delivery.pop("tryout", None)
     at = tokens.stamp(now)
 
     def work(store):
@@ -242,13 +243,16 @@ def deliver(service, session, body, now=None):
         targets = ("in_progress", "delivered") if ticket["status"] == "claimed" else ("delivered",)
         if ticket.get("work") and delivery.get("sha"):
             reported = linie_work.apply_report(ticket["work"], delivery["sha"], [], None, at,
-                                               "agent:" + (session.get("worker_name") or "?"))
+                                               "agent:" + (session.get("worker_name") or "?"), tryout)
             store.set_work(wanted, reported, at)
         _walk(store, ticket, targets, at, delivery={**delivery, "at": at})
         # Exekuce mohla být ověřená nebo sloučená dřív než odevzdání ticketu: stav ji dožene hned.
         return {"ticket": {"ticketId": wanted, "status": ticket_lifecycle.follow(store.db, store.project,
                                                                                  store.get(wanted), now)}}
-    return _write(service, session, work)
+    done = _write(service, session, work)
+    if delivery.get("sha"):  # mimo zámek a transakci: existující náhled dožene novou hlavu (jako routa report)
+        linie_work.follow_preview(service, session["project_id"], wanted, at)
+    return done
 
 
 def answer(service, session, body, now=None):

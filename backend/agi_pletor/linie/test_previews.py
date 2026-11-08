@@ -112,3 +112,18 @@ def test_start_refuses_unknown_branch(tmp_path):
         previews.start(tmp_path / "p", repo, "feat/nic", "p1", tmp_path, "t", run=lambda work: None)
     with pytest.raises(KeyError):
         previews.stop(tmp_path / "p", "nic")
+
+
+def test_restart_keeps_data_and_fresh_copies_again(tmp_path):
+    """§5: kopie dat jen při prvním startu; restart drží, co člověk v náhledu vytvořil; `fresh` obnoví z ostrých."""
+    repo, folder = make_repo(tmp_path / "r"), tmp_path / "pletor"
+    data = data_root(tmp_path / "data")
+    quiet = {"build": lambda tree, log: True, "spawn": lambda *a: Process(), "run": lambda work: None}
+    first = previews.start(folder, repo, "feat/a", "p1", data, "t1", **quiet)
+    made = previews.Path(first["data"]) / "projects" / "p1" / "brain" / "made-in-preview.txt"
+    made.write_text("zkouška", encoding="utf-8")
+    again = previews.start(folder, repo, "feat/a", "p1", data, "t2", **quiet)
+    assert again["data"] == first["data"] and made.exists()
+    fresh = previews.start(folder, repo, "feat/a", "p1", data, "t3", fresh=True, **quiet)
+    assert not (previews.Path(fresh["data"]) / "projects" / "p1" / "brain" / "made-in-preview.txt").exists()
+    assert (previews.Path(fresh["data"]) / "projects" / "p1" / "brain" / "f.txt").exists()

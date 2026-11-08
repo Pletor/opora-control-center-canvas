@@ -63,7 +63,8 @@ def axes(work, after_merge=None, integration=None, deploy=None, card_revision=No
         "work": {"state": state, "sha": head, "src": src},
         "checks": _checks(work, head),
         "acceptance": {"state": _acceptance(accepted, head, card_revision), "sha": (accepted or {}).get("sha"),
-                       "cardRevision": (accepted or {}).get("cardRevision"), "src": "záznam přijetí"},
+                       "cardRevision": (accepted or {}).get("cardRevision"), "tested": (accepted or {}).get("tested"),
+                       "src": "záznam přijetí"},
         "integration": integ,
         "deploy": {"envs": deploy or {}, "src": "událost prostředí"},
     }

@@ -2,8 +2,9 @@ import type { ReactNode } from "react";
 import type { PletorAction } from "../logic/linie-actions";
 import type { BoardBall } from "../logic/linie-board";
 import { hhmm } from "../logic/linie-summary";
-import { acceptanceSentence, previewSentence, short, type WorkDetail } from "../logic/linie-work";
+import { acceptanceSentence, short, type WorkDetail } from "../logic/linie-work";
 import LinieActions from "./LinieActions";
+import LinieTrial from "./LinieTrial";
 
 type Props = { detail: WorkDetail; ball: BoardBall | null; actions: PletorAction[]; note: string; onNote: (note: string) => void; flash: string; onAct: (id: string) => void };
 
@@ -14,12 +15,13 @@ const PR_STATE: Record<string, string> = { OPEN: "otevřen", MERGED: "sloučen",
 
 /**
  * Záložka Git: větev a revize, pokusy (větev z rodiče, agent), commity z boardu (opuštěné přeškrtnuté), PR s posledním
- * známým stavem, kontroly, přijetí a náhled. Akce člověka jsou tentýž seznam jako v panelu Pletora (jen `allowed` /
+ * známým stavem, kontroly, přijetí a náhled se zkouškou a obnovou dat. Akce člověka jsou tentýž seznam jako v panelu Pletora (jen `allowed` /
  * `blocked`, jedna cesta přes rodiče); vlastní odhad tlačítek tu není.
  */
 export default function LinieDetailGit({ detail: d, ball, actions, note, onNote, flash, onAct }: Props) {
   const commits = ball?.commits.length ? ball.commits.map((c) => ({ sha7: c.sha7, title: c.title, at: c.at, dead: !!c.abandoned, why: c.abandoned?.why ?? "" })) : d.commits.map((c) => ({ ...c, dead: false, why: "" }));
   const pr = ball?.pr ?? (d.pr && { ...d.pr, unconfirmed: false });
+  const rest = actions.filter((a) => a.id !== "preview"); // Vyzkoušet kreslí karta náhledu
   return (
     <div className="pletor-dashboard__linie-detail-cols">
       <div className="pletor-dashboard__linie-detail-col">
@@ -50,11 +52,11 @@ export default function LinieDetailGit({ detail: d, ball, actions, note, onNote,
             : <p className="pletor-dashboard__note">kontroly neproběhly</p>}
           <Row k="přijetí">{acceptanceSentence(d)}</Row>
           <Row k="povolení">{d.mergeAllowed ? `do ${d.mergeAllowed.target} při ${short(d.mergeAllowed.targetSha)}` : "—"}</Row>
-          <Row k="náhled">{previewSentence(d)}{d.preview?.url && <> · <a href={d.preview.url} target="_blank" rel="noreferrer">otevřít ↗</a></>}</Row>
         </div>
+        <LinieTrial trial={d.trial} actions={actions} onAct={onAct} fresh />
         <div className="pletor-dashboard__linie-detail-card">
           <h3 className="pletor-dashboard__linie-detail-h">Akce člověka</h3>
-          {actions.length ? <LinieActions actions={actions} note={note} onNote={onNote} onAct={onAct} />
+          {rest.length ? <LinieActions actions={rest} note={note} onNote={onNote} onAct={onAct} />
             : <p className="pletor-dashboard__note">Další akce nejsou; hlavní krok je v panelu Pletora.</p>}
           <p className="pletor-dashboard__note">Agent tato tlačítka nikdy nestiskne za tebe.</p>
           {flash && <p className="pletor-dashboard__linie-flash" role="status">{flash}</p>}

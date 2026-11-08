@@ -1,7 +1,7 @@
 """Editor Linie a vynucení workflow (docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §3), prefix `/api/pletor/linie`.
 
 Všude `?project=`; `GET /board` a `POST /work` navíc `&workspace=`. Jen člověk: board, řádky, `POST /work`, attach,
-preview, accept (i DELETE), allow-merge, accept-merge. Agent i člověk: `GET /work/{id}`, report, merge (provádí služba),
+preview `{fresh?}`, tried, accept `{untested?}` (i DELETE), allow-merge, accept-merge `{untested?}`. Agent i člověk: `GET /work/{id}`, report, merge (provádí služba),
 block / defer / resume, run (relace LLM); čtení bez identity: `GET /commit/{sha}` a `GET /trace/{mark}` (cesta práce
 podle vodotisku OP-XXXXXX, 404 `mark_not_found`); agent se prokáže `X-Opora-Actor: agent; name=…` nebo tokenem brány `X-Opora-Gate-Token`
 (projekt i prostor ticketu musí sedět), bez identity 428. Odmítnutí je JSON `{error, code, hint}`.
@@ -63,6 +63,7 @@ from backend.api.agi_pletor.models import (
     LinieRowPatch,
     LinieRunIn,
     LinieWorkIn,
+    LinieWorkPreviewIn,
 )
 from backend.api.agi_pletor.pletor_routes import _check
 from backend.brain_opora.determinism import gate, tokens
@@ -196,7 +197,8 @@ def create_linie_work_router(service, pletor, root=None):
         checks = [check.model_dump() for check in body.checks]
 
         def act(by):
-            shown = work.report(service, project, ticket_id, body.sha, checks, body.worktree, tokens.stamp(), by)
+            shown = work.report(service, project, ticket_id, body.sha, checks, body.worktree, tokens.stamp(), by,
+                                body.tryout and body.tryout.model_dump())
             shown = attempt.publish(service, project, ticket_id, tokens.stamp()) or shown
             requests.follow(service, project, shown, "commit", by, tokens.stamp(), sha=shown["work"]["headSha"])
             return shown
@@ -235,19 +237,25 @@ def create_linie_work_router(service, pletor, root=None):
         return answer(lambda: (_check(service, project, workspace), journal.read(service, project, after, limit))[1])
 
     @router.post("/work/{ticket_id}/preview")
-    def work_preview(request: Request, ticket_id: str, project: str = ""):
+    def work_preview(request: Request, ticket_id: str, body: LinieWorkPreviewIn | None = None, project: str = ""):
         def act():
             shown = work.get(service, project, ticket_id)
             work.require(shown, "preview")
             branch = shown["work"]["branch"]
-            record = previews.start(pletor.folder, root, branch, project, service.root, tokens.stamp())
+            record = previews.start(pletor.folder, root, branch, project, service.root, tokens.stamp(),
+                                    fresh=bool(body and body.fresh))
             return work.set_preview(service, project, ticket_id, record, tokens.stamp())
         return human(request, project, act)
+
+    @router.post("/work/{ticket_id}/tried")
+    def work_tried(request: Request, ticket_id: str, project: str = ""):
+        """Člověk otevřel běžící náhled (zkouška hlavy); bez běžícího náhledu 409 `preview_not_running`."""
+        return human(request, project, lambda: work.mark_tried(service, project, ticket_id, tokens.stamp()))
 
     @router.post("/work/{ticket_id}/accept")
     def work_accept(request: Request, ticket_id: str, body: LinieAcceptIn, project: str = ""):
         return human(request, project, lambda: work.accept(service, project, ticket_id, body.sha, body.note,
-                                                           tokens.stamp()))
+                                                           tokens.stamp(), body.untested))
 
     @router.delete("/work/{ticket_id}/accept")
     def work_revoke(request: Request, ticket_id: str, project: str = ""):
@@ -261,7 +269,7 @@ def create_linie_work_router(service, pletor, root=None):
     @router.post("/work/{ticket_id}/accept-merge")
     def work_accept_merge(request: Request, ticket_id: str, body: LinieAcceptMergeIn, project: str = ""):
         return human(request, project, lambda: human_queue.accept_merge(service, project, ticket_id, body.sha, body.op,
-                                                                        body.note, tokens.stamp()))
+                                                                        body.note, tokens.stamp(), body.untested))
 
     @router.post("/work/{ticket_id}/merge")
     def work_merge(request: Request, ticket_id: str, body: LinieMergeIn | None = None, project: str = ""):

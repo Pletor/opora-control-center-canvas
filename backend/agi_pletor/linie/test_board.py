@@ -54,12 +54,12 @@ def test_board_links_and_real_merges(setup):
     assert first["counts"] == {"commits": 1, "prs": 1, "merges": 1}
     shut = {row["branch"]: row["closed"] for row in found["rows"] if row["closed"]}
     assert shut == {"feat/uzel": {"at": NOW, "sha": tip, "target": "develop", "by": "merge", "balls": 1}}  # §10.2
-    assert [(m["target"], m["sha"]) for m in found["realMerges"] if m["parents"]] == [("develop", tip)]
+    assert [m for m in found["realMerges"] if m["parents"]] == []  # feat/* squashem: v develop žádný merge commit
     assert kinds(found["balls"][1]) == ["planned"]  # nezačleněná kulička dál jen plán
     assert first["evidence"][-1] == {"kind": "pr", "ref": "#3", "url": None, "at": None, "src": "GitHub"}
     assert first["pr"]["ticketIds"] == [tid]  # commity bez Opora-Mark: jen úkol větve
     integration = first["axes"]["integration"]
-    assert (integration["src"], integration["mode"], integration["sha"]) == ("merge log", "merge", tip)
+    assert (integration["src"], integration["mode"], integration["sha"]) == ("merge log", "squash", tip)
 
     def down(root):
         raise OSError("GitHub neodpovídá")

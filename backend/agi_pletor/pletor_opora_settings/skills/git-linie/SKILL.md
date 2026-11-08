@@ -26,7 +26,7 @@ main                          produkce
 
 `fix/*`, `hotfix/*` (z nasazeného SHA do `main`, pak přenos do `develop`) a `experiment/*` (nikam automaticky) jako dosud.
 
-Větev vzniká z rodiče podle jména (`feat/a-b` z `feat/a`, `feat/a` z `develop`) a slučuje se jen do rodiče. Kořen `feat/<a>` jde do `develop` až po poslední kontrole celé komponenty; `items/*` do `develop` nebo do feat větve, kde je díl potřeba. `develop -> main` a kořen feat `-> develop` merge commitem, squash jen u krátkých `feat/*` a `fix/*`. Vlak PR dál platí, `base` vagonu je rodič.
+Větev vzniká z rodiče podle jména (`feat/a-b` z `feat/a`, `feat/a` z `develop`) a slučuje se jen do rodiče. Kořen `feat/<a>` jde do `develop` až po poslední kontrole celé komponenty; `items/*` do `develop` nebo do feat větve, kde je díl potřeba. `develop -> main` merge commitem, `feat/*` (i kořen do `develop`) a `fix/*` squashem: služba udělá jeden commit s titulkem kuličky, výpisem commitů větve a trailerem `Opora-Mark` (`docs/navrhy/2026-11-08-linie-zkouska.md`). Vlak PR dál platí, `base` vagonu je rodič.
 
 ## Přijetí
 
@@ -52,6 +52,9 @@ Hlášení říká: která větev, jaké SHA, jaký cíl, co chybí.
 
 - `uv run python tools/linie.py task` před editací: ověří, že jsi v repozitáři/worktree a na větvi úkolu; exit 2 = jiný kontext, nezačínej a nic nezahazuj.
 - `uv run python tools/linie.py report --check "npm test=green"` po commitu a testech (pošle HEAD a kontroly); commit kuličku neuzavírá.
+  Report nese i `--try "screen=pletor&environment=editor&part=linie"` (místo změny v aplikaci, jen query) a opakované
+  `--step "co udělat → co uvidíš"`; tlačítko Vyzkoušet pak otevře přímo změnu a člověk vidí kroky „Jak vyzkoušet“.
+  Report bez `--try`/`--step` převezme předchozí návod.
 - `uv run python tools/linie.py merge` jen přes službu OPORY; 409 vypíše důvod. Přijetí za člověka nezapisuj. Exit 3 = evidence nedostupná, kód zachovej a hlas blokaci.
 
 ## Vodotisk
