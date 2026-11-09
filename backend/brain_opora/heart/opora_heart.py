@@ -4,7 +4,7 @@
     python opora_heart.py task --title T --do D [--why W] [--file F]… --done-when C [--done-when C]…
                                [--dont-touch P[@kdo]]… [--rule R]… [--open-path O]… [--intent I] [--node N]
                                [--department D] [--profile P] [--pin ARTEFAKT]… [--workspace W]
-    python opora_heart.py plan --file F [--dry-run] [--no-accept] [--workspace W]
+    python opora_heart.py plan --file F [--dry-run] [--accept | --no-accept] [--workspace W]
     python opora_heart.py plan --example
     python opora_heart.py workspace --domain NODE [--reuse]
     python opora_heart.py answer --ticket ID --text T
@@ -67,7 +67,7 @@ profil kanceláře = `--department` / `--profile` (strojová vrstva ticketu), sk
 v textu tělo nenese (nahradí je „(ID)“). Ticket vzniká v prostoru `--workspace` (jinak v prostoru tokenu srdce);
 pořadí práce = pořadí vydání.
 `plan` (docs/brain-heart-orchestrator.md §3) pošle dávku plánu ze souboru F na `/api/canvas-plan` s čerstvým digestem
-a ostrou dávku hned přijme (návrh grafu + přijetí, §3 O2b; `--no-accept` nechá přijetí člověku); `--example` vypíše
+a uloží návrh bez přijetí. Pouze výslovné `--accept` požádá o přijetí (§3 O2b); `--example` vypíše
 platný vzor dávky (tentýž je v promptu srdce, skill `heart` v Brainu, část Plán).
 Git projekt (docs/brain-heart-orchestrator.md §9 O7): `main` nese jen architekturu (prostředí › doména › stránka) a nic
 se v něm nepřijímá; ostrý plán architektury ještě převezme změnu architektury do pracovních prostorů s přijatým plánem
@@ -113,6 +113,7 @@ graf verze, `save` uloží ověřený graf do knihovny agenta a aktivuje ho (`--
 Výstup je jeden JSON na stdout (`snapshot` vypíše text); chyba vypíše `code` a `hint` a skončí nenulovým kódem.
 """
 import argparse
+import hashlib
 import importlib
 import json
 import os
@@ -164,7 +165,7 @@ def env(name):
 
 def call(method, path, body=None, query=None, actor="heart"):
     """Jedno volání OPORY s tokenem srdce; odmítnutí serveru je `Failure` s jeho `code` a `hint`.
-    `actor` = jméno agenta v X-Opora-Actor (duel: strany a soudci jsou různí aktéři, token zůstává srdce)."""
+    `actor` je pouze deklarace; skutečnou identitu určuje server z tokenu. Duel role jsou explicitní metadata."""
     base = env("OPORA_BASE_URL").rstrip("/")
     url = base + path + ("?" + urlencode(query) if query else "")
     headers = {"Accept": "application/json", "Origin": base, "X-Opora-Actor": f"agent; name={actor}",
@@ -400,12 +401,14 @@ ACCEPT_ROUNDS = 6
 def plan_hint(failure, shape=None):
     """Odmítnutí dávky nese vlastní text serveru (a pole), ne obecnou radu: srdce se podle něj opraví samo."""
     payload = failure.payload
-    if not 400 <= (payload.get("status") or 0) < 500 or payload.get("hint") not in (None, GENERIC_HINT):
+    retry_hint = payload.get("operationRetryHint", "")
+    original_hint = (payload.get("hint") or "").removesuffix(retry_hint).rstrip() if retry_hint else payload.get("hint")
+    if not 400 <= (payload.get("status") or 0) < 500 or original_hint not in (None, "", GENERIC_HINT):
         return
     detail = (f" Pole {payload['field']}: {payload['expected']}."
               if payload.get("field") and payload.get("expected") else "")
     payload["hint"] = (f"Server dávku odmítl: {payload.get('error')}{detail} Oprav soubor a pošli ho s --dry-run. "
-                       + (shape or PLAN_SHAPE))
+                       + (shape or PLAN_SHAPE) + retry_hint)
 
 
 def acceptance_step(action):
@@ -488,45 +491,190 @@ def keep_accepted(conflict_id):
     return {"conflictId": conflict_id, "resolved": (result or {}).get("status") == "resolved", "kept": "accepted"}
 
 
-def submit_plan(args, retried=False):
-    """`plan`: bez přijatého grafu čerstvý digest z `GET /api/view`, pak `POST /api/canvas-plan` a přijetí
-    (`accept_plan`); s přijatým grafem přírůstek přes návrh grafu (`submit_addition`). Zastaralý stav zkusí ještě
-    jednou; `--no-accept` nechá přijetí člověku; `--example` jen vypíše vzor dávky."""
+_plan_operation = None
+
+
+def plan_context():
+    if _plan_operation and _plan_operation.get("context"):
+        return _plan_operation["context"]
+    context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
+    if _plan_operation is not None:
+        _plan_operation["context"] = context
+    return context
+
+
+def plan_post(path, body):
+    """Journal the first native plan write before sending it; replay its original CAS."""
+    operation = _plan_operation
+    if operation is None or body.get("dryRun") or operation.get("sent"):
+        return call("POST", path, body)
+    if operation.get("request"):
+        request = operation["request"]
+        if request["path"] != path:
+            raise Failure({"code": "operation_conflict", "error": "Saved operation uses a different endpoint."})
+    else:
+        request = {"path": path, "body": {**body, "operationId": operation["operationId"]}}
+        operation["request"] = request
+        save_plan_operation(operation)
+    operation["sent"] = True
+    try:
+        result = call("POST", request["path"], request["body"])
+    except Failure as failure:
+        failure.payload.update(operationId=operation["operationId"], operationFile=operation["file"])
+        if failure.payload.get("status") == 409:
+            retry_hint = " Original request retained. Reconcile this operation; after an intentional rebase use a new --operation-id."
+            failure.payload.update(operationRetryHint=retry_hint, hint=failure.payload.get("hint", "") + retry_hint)
+        raise
+    operation["response"] = result
+    save_plan_operation(operation)
+    return result
+
+
+def save_plan_operation(operation):
+    write_json(operation["file"], {key: value for key, value in operation.items() if key not in ("sent", "file")})
+
+
+def submit_plan(args):
+    global _plan_operation
+    if args.example or args.dry_run or not args.file:
+        return execute_plan(args)
+    plan = read_plan(args.file)
+    signature = hashlib.sha256(json.dumps({**scope(), "plan": plan}, sort_keys=True,
+                                          ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest()
+    identifier = args.operation_id or "heart-plan:" + signature
+    if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", identifier):
+        raise Failure({"code": "operation_id", "error": "operation-id must be 1-160 identifier characters."})
+    folder = DILNA / "out" / "plan-operations"
+    folder.mkdir(parents=True, exist_ok=True)
+    filename = folder / (hashlib.sha256(json.dumps([scope(), identifier], sort_keys=True).encode()).hexdigest() + ".json")
+    if filename.exists():
+        try:
+            record = json.loads(filename.read_text(encoding="utf-8"))
+            if record["signature"] != signature or record["operationId"] != identifier:
+                raise ValueError("Operation ID already belongs to a different plan.")
+        except (ValueError, KeyError, TypeError) as error:
+            raise Failure({"code": "operation_conflict", "error": str(error), "operationFile": filename.as_posix()}) from error
+    else:
+        record = {"operationId": identifier, "signature": signature, **scope()}
+    _plan_operation = {**record, "file": filename.as_posix()}
+    try:
+        out = execute_plan(args)
+        out.update(operationId=identifier, operationFile=filename.as_posix())
+        _plan_operation["outcome"] = out
+        save_plan_operation(_plan_operation)
+        return out
+    finally:
+        _plan_operation = None
+
+
+def execute_plan(args):
+    """Persist first; report separately whether the saved proposal/state was read back."""
+    out = _submit_plan(args)
+    if args.example:
+        return out
+    out = {**out, **scope()}
+    if args.dry_run or out.get("error"):
+        return out
+    out.update(persisted=True, verified=False)
+    try:
+        if out.get("proposalId"):
+            saved = call("GET", f"{GRAPH_PROPOSALS}/{quote(out['proposalId'], safe='')}", query=scope())
+            receipt = (_plan_operation or {}).get("response", {})
+            expected = set((out.get("refs") or {}).values())
+            actual = {node["id"] for node in (saved.get("additions") or {}).get("nodes", [])}
+            if (saved.get("id") != out["proposalId"] or saved.get("project") != scope()["project"]
+                    or saved.get("workspace") != scope()["workspace"] or not expected <= actual
+                    or saved.get("refs") != out.get("refs")
+                    or any(saved.get(key) != value for key, value in receipt.items() if key != "accepted")):
+                raise Failure({"error": "Saved proposal does not match the write receipt."})
+            evidence = {"proposalId": saved["id"], "parentRevision": saved.get("parentRevision"),
+                        "nodeIds": sorted(expected), "accepted": saved.get("accepted") is True,
+                        "proposalContentVerified": True}
+            out["accepted"] = evidence["accepted"]
+        else:
+            saved = call("GET", "/api/view", query=scope())
+            expected = set((out.get("refs") or {}).values())
+            actual = {node["id"] for node in saved.get("graph", {}).get("nodes", [])}
+            state = call("GET", "/api/desktop-v3/state", query=scope())
+            if (not expected <= actual or not out.get("digest") or saved.get("digest") != out["digest"]
+                    or out.get("revision") is None or state.get("revision") != out["revision"]):
+                raise Failure({"error": "Saved canvas does not contain the written nodes."})
+            evidence = {"digest": saved["digest"], "revision": state["revision"], "nodeIds": sorted(expected)}
+            if out.get("canvasDraft"):
+                draft = out["canvasDraft"]
+                def checksum(value):
+                    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                if checksum(state["state"]) != draft["stateDigest"]:
+                    raise Failure({"error": "Research draft state readback differs from the receipt."})
+                for document in draft["documents"]:
+                    source = call("GET", "/api/node-" + document["kind"], query={**scope(), "node": document["nodeId"]})
+                    field = "fields" if document["kind"] == "spec" else "text"
+                    if source["revision"] != document["revision"] or checksum(source[field]) != document["contentDigest"]:
+                        raise Failure({"error": "Research draft document readback differs from the receipt."})
+                head = call("GET", GRAPH_PROPOSALS + "/context", query=scope()).get("acceptedHead")
+                if out.get("acceptedHeadAtWrite", "missing") is not None:
+                    raise Failure({"error": "Research draft receipt lacks initial acceptance provenance."})
+                evidence.update(resultKind="canvasDraft", contentVerified=True, acceptedHeadAtReadback=head)
+        return {**out, "verified": True, "readback": evidence}
+    except (Failure, KeyError, TypeError, AttributeError) as failure:
+        error = failure.payload.get("error") if isinstance(failure, Failure) else "Malformed readback response."
+        return {**out, "ok": False, "code": "plan_readback_failed", "error": error,
+                "hint": "Write was acknowledged, but readback failed. Read the saved proposal/state before retrying the write."}
+
+
+def _submit_plan(args, retried=False):
+    """Save a draft or graph proposal; only explicit --accept requests acceptance.
+    Retry stale state once. --example returns the input shape without mutation."""
     if args.example:
         return PLAN_EXAMPLE
     if not args.file:
         raise Failure({"error": "Chybí --file.", "code": "plan_file",
                        "hint": "Ulož plán do dilna/out/<jméno>.json (Write) a předej --file. " + PLAN_SHAPE})
     plan = read_plan(args.file)
-    context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
+    context = plan_context()
     if context.get("graphManifestId"):
         try:
             return remember(submit_addition(args, plan, context))
         except Failure as failure:
-            if failure.payload.get("status") == 409 and "changed" in failure.payload.get("error", "") and not retried:
-                return submit_plan(args, retried=True)
+            if _plan_operation is None and failure.payload.get("status") == 409 and "changed" in failure.payload.get("error", "") and not retried:
+                return _submit_plan(args, retried=True)
             plan_hint(failure, ADDITION_SHAPE)
             raise
-    body = {**scope(), "digest": call("GET", "/api/view", query=scope())["digest"], "plan": plan}
+    original = (_plan_operation or {}).get("request", {}).get("body")
+    body = original or {**scope(), "digest": call("GET", "/api/view", query=scope())["digest"], "plan": plan}
+    if not original:
+        body["plan"] = dict(plan)
+        if "researchSource" in plan:
+            body["researchSource"] = body["plan"].pop("researchSource")
+        if type(plan.get("draftVersion")) is int and plan["draftVersion"] == 3:
+            body["plan"].pop("draftVersion")
     if args.dry_run:
         body["dryRun"] = True
     try:
-        result = call("POST", "/api/canvas-plan", body)
+        result = plan_post("/api/canvas-plan", body)
     except Failure as failure:
+        if _plan_operation is not None:
+            plan_hint(failure, MAIN_SHAPE if context.get("readOnly") else None)
+            raise
         if failure.payload.get("status") != 409 or STALE not in failure.payload.get("error", ""):
             plan_hint(failure, MAIN_SHAPE if context.get("readOnly") else None)
             raise
-        if not retried:
-            return submit_plan(args, retried=True)
+        if not retried and _plan_operation is None:
+            return _submit_plan(args, retried=True)
         failure.payload.update(code="stale", hint="Plátno se mění pod rukama; načti snapshot a pošli plán znovu.")
         raise
     out = {key: result.get(key) for key in ("ok", "dryRun", "refs", "summary", "warnings")}
+    if not args.dry_run:
+        out.update(digest=result.get("digest"), revision=result.get("revision"))
+        if "canvasDraft" in result:
+            out.update(canvasDraft=result["canvasDraft"], researchSource=result["researchSource"],
+                       acceptedHeadAtWrite=result["acceptedHeadAtWrite"], resultKind="canvasDraft")
     if args.dry_run:
         return out
     if context.get("readOnly"):
         # main git projektu: jen architektura, přijetí tu neexistuje (návrh grafu chce zapisovatelný prostor).
         out["warnings"] = list(out["warnings"] or [])
-        return {**out, "architecture": True, "adopted": adopt_everywhere(out["warnings"])}
+        return {**out, "architecture": True, "accepted": False, "adopted": [] if args.no_accept else adopt_everywhere(out["warnings"])}
     return remember({**out, **({"accepted": False} if args.no_accept else accept_plan())})
 
 
@@ -582,26 +730,18 @@ def adopt_everywhere(warnings):
 
 
 # Přírůstek nad přijatým grafem (O2c): stejná cesta jako formulář „Rozšíření plánu“ v UI (frontend/hub/graph-proposals).
-# Návrh grafu nese tatáž pole karty jako první plán (`card` s effortem, `checks`, `goal_mode`, spec.steps), vazby `next`
-# a `block`. Stav karty (bloky s porty, text, `fragmentRef` = vazba na zadání ve Schránce, značky Schránky) návrh grafu
-# nenese: po přijetí karet ho dopíše `extend` dávky plánu (docs/karta-pro-agenty.md) spolu s `extend` existujících karet.
-CARD_STATE = ("blocks", "text", "fragmentRef", "briefGroup", "briefDiscipline")
+# OP-B171BE: úplný neměnný návrh uchová graf, dokumenty i stav karet až do výslovného přijetí.
+CARD_STATE = ("blocks", "text", "fragmentRef", "briefGroup", "briefDiscipline", "rules", "agentRole", "criteria", "downloadsUrl")
 ADDITION_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf",
-                 "card", "checks", "goal_mode", *CARD_STATE}
+                 "card", "checks", "goal_mode", "order", *CARD_STATE}
 ADDITION_EDGE_KEYS = {"from", "to", "port", "carries", "block", "blockPort"}
-# `extend` existující přijaté karty nese jen stav karty: zadání (spec) je přijatý dokument a pole grafu (layer, parent, …)
-# patří přijatému grafu; obojí by pracovní plán rozešlo s přijatým.
+# Rozšíření existující karty nese očekávané revize stavu i dokumentů.
 ADDITION_EXTEND_KEYS = {"node", "expectedRevision", "blocks", "ports", "replaceBlocks", "text", "fragmentRef",
-                        "briefGroup", "briefDiscipline"}
-ADDITION_SHAPE = ("Plán nad už přijatým grafem jde jako návrh grafu: uzel jen s poli ref, kind (node|sector|area), "
-                  "name, parent, purpose, spec (i steps), card (i effort), checks, goal_mode, sourceRef, position, size, "
-                  "memberOf, text, fragmentRef, briefGroup (oblast), briefDiscipline (sektor) a u karty blocks (ref, "
-                  "title, text, condition, ports [{ref, label}]); vazby next (from, to) a block (from, to, port "
-                  "\"block\", block = ref bloku zdroje nebo id bloku existující karty, blockPort = ref portu); "
-                  "existující kartu rozšíří extend [{node \"@<id>\", blocks, ports, replaceBlocks, text "
-                  "{expectedRevision, text}, fragmentRef, briefGroup, briefDiscipline}] (revizi stavu doplní nástroj); "
-                  "nic dalšího (pravidla, rozhodnutí; zadání existující karty mění steps --node). "
-                  "Existující uzel odkazuj \"@<id>\".")
+                        "briefGroup", "briefDiscipline", "spec", "rules", "layer", "tech", "states", "section", "memberOf", "parent", "columns", "color"}
+ADDITION_SHAPE = ("Complete pending graph proposal: nodes (node|sector|area) with spec, text, blocks/ports, "
+                  "fragmentRef, briefGroup/briefDiscipline; next/block edges; extend existing @id with expectedRevision "
+                  "and spec/text expectedRevision. Safe graph edits use draftVersion:3 and native update/remove fields. "
+                  "Saving does not accept the proposal. Use --accept only when explicitly authorized.")
 ARCHITECTURE_HINT = ("Architekturu (sektor domény se site.kind application, stránky se site.kind page) pošli do main: "
                      "plan --file F --workspace main (nejdřív s --dry-run). Prostory s přijatým plánem ji převezmou "
                      "samy; karty pak plánuj v prostoru domény.")
@@ -645,64 +785,32 @@ def addition_plan(plan):
 
 
 def submit_addition(args, plan, context):
-    """Plán nad přijatým grafem: `POST /api/oporahub/graph-proposals` s přírůstkem, pak jeho přijetí tokenem srdce.
-    Karty vzniknou na plátně až přijetím, takže pracovní a přijatý graf se nerozejdou a claimy ostatních karet platí.
-    Stav nových karet (bloky s porty, text, `fragmentRef`, značky Schránky) a `extend` existujících karet zapíše po
-    přijetí jedna dávka plánu (`place_state`); vazby `block` z jejich portů jdou druhým návrhem grafu s přijetím."""
-    addition = addition_plan(plan)
-    state = {node["ref"]: {key: node[key] for key in CARD_STATE if key in node} for node in addition["nodes"]}
-    state, extend = {ref: fields for ref, fields in state.items() if fields}, addition["extend"]
-    wired = [edge for edge in addition["edges"] if edge.get("port") == "block"]
-    if (state or extend or wired) and args.no_accept and not args.dry_run:
-        raise Failure({"error": "Stav karet (bloky, text, fragmentRef, značky Schránky), extend a vazby block jdou "
-                                "jen na přijaté karty.", "code": "plan_shape",
-                       "hint": "Pošli plán bez --no-accept, nebo stav karet, extend a vazby block vynech."})
-    if args.dry_run or state or extend or wired:
-        # Návrh grafu nemá dryRun: celou dávku (karty se stavem, extend i vazby block) ověří dávka plánu bez zápisu,
-        # před ostrým zápisem po krocích taky (chybný port nesmí nechat přijaté karty bez stavu).
-        checked = {"nodes": addition["nodes"], "edges": addition["edges"], **({"extend": revised(extend)} if extend else {})}
-        result = call("POST", "/api/canvas-plan", {**scope(), "digest": context["graphDigest"], "plan": checked,
-                                                    "dryRun": True})
-        if args.dry_run:
-            return {"ok": result.get("ok"), "dryRun": True, "refs": result.get("refs"),
-                    "summary": result.get("summary"), "warnings": result.get("warnings") or [], "path": "graph-proposal"}
-    adopted = []
-    if not args.no_accept and stale_architecture(context):
-        context, adopted = adopt_architecture(context), ["adopt_architecture", "accept"]
-    cards = {"nodes": [{key: value for key, value in node.items() if key not in CARD_STATE}
-                       for node in addition["nodes"]],
-             "edges": [edge for edge in addition["edges"] if edge.get("port") != "block"]}
-    if cards["nodes"] or cards["edges"] or not (extend or wired):
-        out = propose_addition(cards, context, adopted, args.no_accept)
-    else:  # jen extend a vazby block existujících karet: nové karty ani vazby next k přijetí nejsou
-        out = {"ok": True, "dryRun": False, "refs": {}, "summary": "Bez nových karet.", "warnings": [],
-               "path": "graph-proposal", "accepted": True, "acceptSteps": adopted}
-    if not out["accepted"] or not (state or extend or wired):
-        return out
-    refs, steps = out["refs"] or {}, list(out["acceptSteps"])
-    try:
-        ids = place_state(state, extend, refs)
-        steps += ["card_state"] if state or extend else []
-        if wired:
-            second = propose_addition({"nodes": [], "edges": [wire(edge, refs, ids) for edge in wired]},
-                                      call("GET", f"{GRAPH_PROPOSALS}/context", query=scope()), [], False)
-            steps += second["acceptSteps"]
-            if not second["accepted"]:
-                return {**out, "blocks": ids, "acceptSteps": steps, "wired": False,
-                        **{key: second[key] for key in ("code", "error", "hint")}}
-    except Failure as failure:
-        return {**out, "acceptSteps": steps, "statePlaced": False, "code": failure.payload.get("code"),
-                "error": failure.payload.get("error"),
-                "hint": "Karty jsou přijaté, jejich stav (bloky, text, fragmentRef), extend nebo vazby block ne; "
-                        "oprav je podle chyby serveru."}
-    return {**out, "blocks": ids, "acceptSteps": steps,
-            "summary": f"{out['summary']} Stav u {len(state)} nových karet, {len(extend)} rozšíření, "
-                       f"{len(wired)} vazeb block."}
+    """Persist the complete immutable proposal before any explicitly requested acceptance."""
+    edit_keys = {"updateNodes", "removeNodes", "updateEdges", "removeEdges", "adoptArchitectureContext", "draftVersion", "researchSource"}
+    addition = addition_plan({key: value for key, value in plan.items() if key not in edit_keys})
+    addition.update({key: value for key, value in plan.items() if key in edit_keys})
+    if stale_architecture(context):
+        addition["adoptArchitectureContext"] = True
+    complete = bool(addition["extend"] or set(addition) & edit_keys or any(
+        set(node) & set(CARD_STATE) for node in addition["nodes"]))
+    if complete:
+        original = (_plan_operation or {}).get("request", {}).get("body", {}).get("plan")
+        addition = original or {**addition, "draftVersion": 3,
+                               **({"extend": revised(addition["extend"])} if addition["extend"] else {})}
+    else:
+        addition.pop("extend", None)
+    if args.dry_run:
+        if set(plan) & edit_keys or stale_architecture(context):
+            raise Failure({"code": "plan_dry_run", "error": "Graph edit dry-run is not available; save a pending proposal for review."})
+        checked = {key: value for key, value in addition.items() if key != "draftVersion"}
+        result = call("POST", "/api/canvas-plan", {**scope(), "digest": context["graphDigest"], "plan": checked, "dryRun": True})
+        return {**result, "path": "graph-proposal"}
+    return propose_addition(addition, context, [], args.no_accept)
 
 
 def propose_addition(addition, context, adopted, no_accept):
     """Návrh grafu s přírůstkem a (bez `no_accept`) jeho přijetí tokenem srdce."""
-    proposal = call("POST", GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
+    proposal = plan_post(GRAPH_PROPOSALS, {**scope(), "parentRevision": context["acceptedHead"],
                                               "expectedGraphDigest": context["graphDigest"],
                                               "subject": f"Plán srdce: {len(addition['nodes'])} uzlů", "plan": addition})
     out = {"ok": True, "dryRun": False, "refs": proposal.get("refs"), "proposalId": proposal["id"],
@@ -713,7 +821,8 @@ def propose_addition(addition, context, adopted, no_accept):
     try:
         call("POST", f"{GRAPH_PROPOSALS}/{quote(proposal['id'], safe='')}/accept",
              {**scope(), "expectedAcceptedHead": context["acceptedHead"], "expectedGraphDigest": context["graphDigest"],
-              "adoptBaseGraphDigest": None})
+              "adoptBaseGraphDigest": None, **({"reviewedChangesId": proposal["id"]} if proposal.get("kind") == "graph-changes" else {}),
+              **({"adoptBaseContentDigest": proposal["contentBase"]["digest"]} if proposal.get("contentBase", {}).get("requiresAdoption") else {})})
     except Failure as failure:
         return {**out, "accepted": False, "acceptSteps": [*adopted, "graph_addition"], "code": failure.payload.get("code"),
                 "error": failure.payload.get("error"),
@@ -726,28 +835,6 @@ def revised(extend, revision=None):
     """`extend` s revizí stavu: položka bez `expectedRevision` dostane současnou (dávka Schránky nese vlastní)."""
     revision = call("GET", "/api/desktop-v3/state", query=scope())["revision"] if revision is None else revision
     return [{"expectedRevision": revision, **item} for item in extend]
-
-
-def place_state(state, extend, refs):
-    """Stav přijatých nových karet a `extend` existujících karet jednou dávkou plánu nad čerstvým digestem a revizí
-    stavu (graf se nemění; text nové karty je její první revize). Vrací `{"@<id>/<ref bloku>": blockId}` ze serveru."""
-    if not state and not extend:
-        return {}
-    revision = call("GET", "/api/desktop-v3/state", query=scope())["revision"]
-    items = [{"node": f"@{refs.get(ref, ref)}", "expectedRevision": revision,
-              **{key: {"expectedRevision": 0, "text": value} if key == "text" else value for key, value in fields.items()}}
-             for ref, fields in state.items()]
-    result = call("POST", "/api/canvas-plan", {**scope(), "digest": call("GET", "/api/view", query=scope())["digest"],
-                                                "plan": {"extend": [*items, *revised(extend, revision)]}})
-    return result.get("blocks") or {}
-
-
-def wire(edge, refs, ids):
-    """Vazba block nad přijatými kartami: ref → `@id`, ref bloku nové karty → jeho id (u existující karty zůstává)."""
-    def at(value):
-        return f"@{refs[value]}" if value in refs else value
-    source = at(edge["from"])
-    return {**edge, "from": source, "to": at(edge["to"]), "block": ids.get(f"{source}/{edge['block']}", edge["block"])}
 
 
 def submit_unlink(args):
@@ -1357,7 +1444,21 @@ def run(args):
     if args.command in ("research", "research-map", "duel", "vault") and not _override["workspace"] and os.environ.get("OPORA_WORKSPACE") == "main":
         _override["workspace"] = active_workspace()  # schránka v main neexistuje (read-only): výzkum jde do prostoru posledního plánu
     if args.command == "ctx":
-        return load_context(args.name, args.project, args.workspace, args.node, args.full)
+        target = args.workspace
+        source = "explicit" if target else "project_home"
+        if args.name == "plan-of" and args.project == project and target is None:
+            target = env("OPORA_WORKSPACE")
+            source = "current"
+            if target == "main":
+                candidate = active_workspace()
+                if candidate:
+                    spaces = call("GET", "/api/view", query={"project": project, "workspace": "main"}).get("workspaces") or []
+                    if any(item.get("id") == candidate for item in spaces):
+                        target, source = candidate, "active"
+        result = load_context(args.name, args.project, target, args.node, args.full)
+        if args.name == "plan-of":
+            result.update(project=args.project, workspace=target, workspaceSource=source)
+        return result
     if args.command == "workspace":
         return open_workspace(args.domain, args.reuse, args.name)
     if args.command == "run":
@@ -1367,6 +1468,8 @@ def run(args):
         return getattr(module, args.command)(args, sys.modules[__name__])
     if args.command == "research-map":
         return research_module("opora_research_map").run(args, sys.modules[__name__])
+    if args.command == "canvas":
+        return research_module("opora_canvas").run(args, sys.modules[__name__])
     if args.command == "snapshot":
         return call("GET", "/api/brain/heart/snapshot", query=scope())["snapshot"]
     if args.command == "plan":
@@ -1464,6 +1567,13 @@ def run(args):
 def parser():
     root = argparse.ArgumentParser(prog="opora_heart.py", description="Nástroj srdce OPORY.")
     commands = root.add_subparsers(dest="command", required=True)
+    canvas_actions = commands.add_parser("canvas", help="Scoped native Canvas capabilities").add_subparsers(dest="action", required=True)
+    canvas_actions.add_parser("discover")
+    canvas_actions.add_parser("describe").add_argument("capability")
+    canvas_invoke = canvas_actions.add_parser("invoke")
+    canvas_invoke.add_argument("capability")
+    canvas_invoke.add_argument("--file", required=True)
+    canvas_invoke.add_argument("--request-id")
     commands.add_parser("snapshot")
     task = commands.add_parser("task")
     task.add_argument("--title", required=True)
@@ -1476,8 +1586,11 @@ def parser():
     task.add_argument("--pin", action="append", default=[], help="artefakt Brainu opora:brain:skill:<name>[@sha12]")
     plan = commands.add_parser("plan")
     plan.add_argument("--file")
+    plan.add_argument("--operation-id", help="Stable request identity; use a new ID only for an intentional new operation.")
     plan.add_argument("--dry-run", action="store_true")
-    plan.add_argument("--no-accept", action="store_true")
+    acceptance = plan.add_mutually_exclusive_group()
+    acceptance.add_argument("--no-accept", dest="no_accept", action="store_true", default=True, help="Uložit návrh bez přijetí (výchozí).")
+    acceptance.add_argument("--accept", dest="no_accept", action="store_false", help="Výslovně požádat o přijetí; server ověří oprávnění.")
     plan.add_argument("--example", action="store_true")
     plan.add_argument("--workspace")
     unlink = commands.add_parser("unlink")
@@ -1697,7 +1810,7 @@ def main(argv=None):
         print(json.dumps(failure.payload, ensure_ascii=False))
         return 1
     print(result if isinstance(result, str) else json.dumps(result, ensure_ascii=False))
-    return 0
+    return 1 if isinstance(result, dict) and result.get("code") == "plan_readback_failed" else 0
 
 
 if __name__ == "__main__":

@@ -9,8 +9,13 @@ describe("pending thought", () => {
     const html = renderToStaticMarkup(createElement(PletorVoiceDraft, { listening: true, draft, manual: true, onFinish: () => {} }));
     expect(html).toContain(draft);
     expect(html).toContain("Domluvil jsem</button>");
-    expect(html).toContain("Odešlu až po stisknutí");
-    expect(html).toContain("Máš čas dokončit myšlenku.");
+    expect(html).toContain("Až dokončíš celou myšlenku");
+    expect(html).toContain("Pauza nic neodesílá");
+  });
+  it.each([4000, 8000, 12000])("states the actual selected timeout %s", endpointMs => {
+    const html = renderToStaticMarkup(createElement(PletorVoiceDraft, { listening: true, draft: "text", manual: false, endpointMs, onFinish() {} }));
+    expect(html).toContain(`po ${endpointMs / 1000} sekundách ticha`);
+    expect(html).not.toContain("Pauza nic neodesílá");
   });
   it("does not offer an empty send or a send after listening ended", () => {
     expect(renderToStaticMarkup(createElement(PletorVoiceDraft, { listening: true, draft: " ", manual: false, onFinish: () => {} }))).not.toContain("<button");

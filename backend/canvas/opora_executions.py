@@ -92,11 +92,17 @@ class OporaExecutions:
                 captured, pin = sparse_context.collect(self.canvas, repo.db, project, workspace, node)
             else:
                 captured = assignment(self.canvas, project, workspace, node)
+                from backend.editor.research.execution_evidence import collect as research_evidence
+                relevant = [item["nodeId"] for item in captured["documents"]]
+                if research_evidence(repo.db, project, workspace, captured["acceptedRevision"], relevant)["records"]:
+                    raise ValueError("Research-derived tasks require prepared contextProtocolVersion 2.")
             if (captured["acceptedRevision"] != payload["expectedAcceptedHead"]
                     or captured["contextVersion"] != payload["expectedContextVersion"]):
                 raise ValueError("Accepted assignment changed before claim.")
             require_ready(self.canvas, project, workspace, node, captured)  # steps + no blockedBy
             captured = handoff.attach(captured, pin, handoff.handoff_for(self.canvas, repo.db, project, workspace, node))
+            from backend.canvas.opora_execution_code_context import attach as attach_code_context
+            captured = attach_code_context(self.canvas, repo, node, captured, pin)
             stamp = time.time()
             lease = repo.db.execute("SELECT expires_at FROM card_leases"
                                     " WHERE project_id=? AND workspace_id=? AND node_id=?",
@@ -186,9 +192,11 @@ class OporaExecutions:
 
     def slice_changed(self, repo, record, head):
         """Změnil se od claimu výřez karty, na kterém zadání běhu stálo? Posun hlavy jinde ne (jako `active`)."""
-        if record["acceptedRevision"] == head:
-            return False
         try:
+            from backend.editor.research.execution_evidence import validate_assignment
+            validate_assignment(repo.db, *repo.scope, record)
+            if record["acceptedRevision"] == head:
+                return False
             if record.get("contextProtocolVersion") == 2:
                 validate_accepted_lineage(repo.db, *repo.scope, record["nodeId"], record["acceptedRevision"], head)
                 return False

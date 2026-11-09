@@ -1,6 +1,8 @@
 """Bloky s porty a vazby dávky plánu: blok dostane UUID, port si nechá svůj `ref` jako id
 a vazba `block` míří na blok a port zdroje — z dávky podle refů, u existující karty podle id."""
 
+import json
+
 from backend.canvas.canvas_plan_fields import fail, fields, items_of, new_id, plan_ref
 
 BLOCK_FIELDS = {"ref", "title", "text", "condition", "ports"}
@@ -16,7 +18,7 @@ def blocks_of(built, ref, node_id, items):
         label = f"{ref}/{plan_ref(item['ref'], f'{ref}.blocks[{index}]')}"
         if label in built.blocks:
             fail(label, "duplicitní ref bloku.")
-        block_id = new_id()
+        block_id = new_id("block:" + label)
         built.blocks[label] = block_id
         built.labels[block_id] = label
         ports = []
@@ -39,7 +41,10 @@ def edge_of(built, item, label, resolve):
     fields(item, EDGE_FIELDS, {"from", "to"}, label)
     source, target = resolve(item["from"], label), resolve(item["to"], label)
     port = item.get("port", "next")
-    edge = {"id": new_id(), "source": source, "target": target, "port": port}
+    identity = json.dumps([item["from"], item["to"], port, item.get("block"), item.get("blockPort"), item.get("carries")], separators=(",", ":"), sort_keys=True)
+    ordinal = built.edge_identity_counts.get(identity, 0)
+    built.edge_identity_counts[identity] = ordinal + 1
+    edge = {"id": new_id(f"edge:{identity}:{ordinal}"), "source": source, "target": target, "port": port}
     if port == "block":
         if "block" not in item or "blockPort" not in item:
             fail(label, "vazba block vyžaduje block a blockPort zdroje.")

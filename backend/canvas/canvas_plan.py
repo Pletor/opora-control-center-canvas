@@ -25,11 +25,12 @@ from backend.canvas.canvas_plan_summary import plan_summary
 from backend.canvas.canvas_service import now
 from backend.canvas.graph import validate_graph
 from backend.canvas.payload_errors import relabel
+from backend.canvas.operation_receipts import Receipt
 from backend.canvas.project_architecture import ARCHITECTURE_WID
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State, validate_state
 from backend.editor.node import node_specs, node_text
 
-REQUEST_KEYS = {"project", "workspace", "digest", "dryRun", "plan"}
+REQUEST_KEYS = {"project", "workspace", "digest", "dryRun", "plan", "operationId", "researchSource"}
 
 
 def _request(payload):
@@ -116,17 +117,33 @@ def _check_content(project, workspace, built):
             raise ValueError(_named(error, built.labels)) from error
 
 
-def apply_plan(service, payload, *, actor="system", after_write=None):
+def apply_plan(service, payload, *, actor="system", after_write=None, operation_actor=None, repin_owner=None, verify_write=False):
     """`after_write(db, refs)` (volitelné) zapíše v téže transakci ještě něco dalšího, např. bránu `placed`
     Schránky (docs/schranka-neurony.md §9 bod 1); výjimka v něm vrátí celou dávku (nic nezůstane)."""
     project, workspace, expected_digest, dry, plan = _request(payload)
+    receipt = Receipt(payload, "canvas-plan", operation_actor or {"kind": actor}) if "operationId" in payload else None
+    source = payload.get("researchSource")
+    provenance = {}
+    if "researchSource" in payload and not dry and receipt is None:
+        raise ValueError("Research canvas draft requires a durable operationId.")
     store = getattr(service, "desktop_v3_state", None) or DesktopV3State(service)
     with service.graph_lock_for(project):
+        if receipt and not dry:
+            with service.lock_for(project):
+                replay = receipt.replay(service.db_for(project), allow_pending=True)
+            if replay is not None:
+                if "pending" in replay:
+                    from backend.canvas.canvas_plan_recovery import resume
+                    return resume(service, store, project, workspace, receipt, replay["pending"], actor)
+                return replay
         view = service.view(project, workspace)
         if view["digest"] != expected_digest:
             raise ValueError("Plátno se změnilo v jiném okně. Obnovte ho.")
         with service.lock_for(project):
             stored = store.current(project, workspace)
+            if "researchSource" in payload:
+                from backend.canvas.research_canvas_draft import prepare
+                provenance = prepare(service, project, workspace, source)
         built = build(plan, view["graph"], stored["state"])
         # Zadání a text uzlu architektury leží pod `architecture`; rozhoduje se podle nového grafu
         # dřív, než se cokoli čte nebo píše (i u uzlu, kterému dávka právě přidala `site`).
@@ -177,13 +194,34 @@ def apply_plan(service, payload, *, actor="system", after_write=None):
             if changes and not acts_as_human(actor):  # plná autonomie: docs/plna-autonomie-agenta.md
                 raise HumanRequired(actor, "Tato pole mění jen člověk v UI: " + ", ".join(changes[:10]))
         # Díry, které dávka otevřela, jsou varování, nikdy důvod odmítnutí (docs/architektura-pro-agenty.md §5.3).
-        result = {"ok": True, "dryRun": dry, "refs": built.refs, "blocks": built.blocks,
+        result = {"ok": True, "dryRun": dry, "refs": built.refs, "blocks": built.blocks, **provenance,
                   "summary": plan_summary(plan), "warnings": map_warnings(view["graph"], built.new_graph())}
         if dry:
             return {**result, "digest": view["digest"], "revision": stored["revision"]}
+        db = service.db_for(project)
+        if receipt:
+            from backend.canvas.canvas_plan_recovery import prepare as prepare_recovery, persist
+            intent = prepare_recovery(service, store, project, workspace, built, wid_of,
+                                      view["graph"], result, after_write is not None, repin_owner)
+            with service.lock_for(project), db:
+                receipt.begin(db, intent)
+            return persist(service, store, project, workspace, receipt, intent, built, wid_of,
+                           actor, "pre", after_write=after_write)
+        def after_checked_write(db, refs):
+            if provenance:
+                # Recheck under the write transaction, including after a durable intent was recorded.
+                prepare(service, project, workspace, source)
+            if after_write is not None:
+                after_write(db, refs)
+
         revision = _write(service, store, project, workspace, expected_digest, stored["revision"], built, wid_of,
-                          after_write, actor=actor)
-        return {**result, "digest": service.view(project, workspace)["digest"], "revision": revision}
+                          after_checked_write, actor=actor)
+        saved = service.view(project, workspace)
+        if verify_write:
+            from backend.canvas.operation_readback import verify_plan
+            verify_plan(service, store, project, workspace, built, wid_of, saved, revision)
+        response = {**result, "digest": saved["digest"], "revision": revision}
+        return response
 
 
 def _check_main(service, project, view, built, owned):
@@ -203,7 +241,7 @@ def _check_main(service, project, view, built, owned):
                          "architekturu (domény a stránky) lze měnit i tady.")
 
 
-def _write(service, store, project, workspace, expected_digest, revision, built, wid_of, after_write=None, *, actor="system"):
+def _write(service, store, project, workspace, expected_digest, revision, built, wid_of, after_write=None, *, actor="system", graph_written=False):
     """Spec, text a stav v jedné transakci, graf poslední (viz docstring modulu)."""
     db = service.db_for(project)
     saved_at = now()
@@ -234,5 +272,6 @@ def _write(service, store, project, workspace, expected_digest, revision, built,
                        (project, workspace, revision, json.dumps(built.state, ensure_ascii=False), saved_at))
         if after_write is not None:
             after_write(db, built.refs)
-        service.save_graph(project, workspace, built.new_graph(), expected_digest)
+        if not graph_written:
+            service.save_graph(project, workspace, built.new_graph(), expected_digest)
     return revision

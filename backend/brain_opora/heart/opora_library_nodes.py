@@ -30,7 +30,8 @@ def _fail(tool, error, code, **extra):
 
 def _base(tool, flow_id):
     """Graf, ze kterého se vychází: nejnovější draft, jinak aktivní verze, jinak prázdný graf (+ ta verze)."""
-    versions = tool.call("GET", f"/api/library/flows/{_q(flow_id)}")["versions"]
+    versions = tool.call("POST", "/api/brain/canvas/invoke", {**tool.scope(),
+        "capability": "library_routes.flow_detail", "input": {"workflow_id": flow_id}})["result"]["versions"]
     drafts = [v for v in versions if v["status"] == "draft"]
     source = drafts[-1] if drafts else next((v for v in versions if v["status"] == "active"), None)
     graph = (source or {}).get("graph") or {}

@@ -37,7 +37,7 @@ export type ListenLoopEvents = {
 export type ListenLoop = { start: () => void; stop: () => void; finish: () => void; pause: () => void; resume: () => void; active: () => boolean; pending: () => boolean };
 
 export function createListenLoop(input: VoiceInput, events: ListenLoopEvents, wakeOnly: () => boolean = () => readListenPrefs().wakeOnly,
-  endpointMs: () => number = () => 8000): ListenLoop {
+  endpointMs: () => number = () => 0): ListenLoop {
   let on = false;
   let paused = false;
   let attempt = 0;
@@ -119,7 +119,7 @@ export function createListenLoop(input: VoiceInput, events: ListenLoopEvents, wa
 }
 
 /** Smyčka pro React: zapne se a vypne podle přepínače, handlery čte vždy čerstvé. Volá ji jen usePletorVoice. */
-export function usePletorListen(input: VoiceInput, on: boolean, events: ListenLoopEvents, endpointMs = 8000): ListenLoop {
+export function usePletorListen(input: VoiceInput, on: boolean, events: ListenLoopEvents, endpointMs = 0): ListenLoop {
   const live = useRef(events);
   live.current = events;
   const endpoint = useRef(endpointMs);

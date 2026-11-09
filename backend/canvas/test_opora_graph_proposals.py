@@ -91,7 +91,7 @@ def test_failure_after_graph_and_documents_rolls_back_everything(graphs, service
     assert db.execute("SELECT COUNT(*) FROM node_spec_revisions WHERE node_id=?", (item["refs"]["new"],)).fetchone()[0] == 0
 
 
-@pytest.mark.parametrize("field", ["site", "gateNodeId", "rules", "blocks", "text", "criteria", "agentRole"])
+@pytest.mark.parametrize("field", ["site", "gateNodeId"])
 def test_forbidden_addition_fields_are_rejected_before_build(graphs, field):
     with pytest.raises(ValueError, match="Unsupported"):
         proposal(graphs, plan={"nodes": [{"ref": "x", "kind": "node", "name": "X", field: "value"}]})
@@ -127,5 +127,18 @@ def test_later_plan_wires_a_block_port_of_an_accepted_card(graphs, service):
     with pytest.raises(ValueError, match="nemá port"):
         proposal(graphs, "Bad", {"edges": [{"from": f"@{card}", "to": f"@{card}", "port": "block", "block": block,
                                             "blockPort": "no"}]})
-    with pytest.raises(ValueError, match="Only next edges"):
+    before = service.view("draft", "draft")
+    accepted_head = graphs.context(**SCOPE)["acceptedHead"]
+    with pytest.raises(ValueError, match="Neplatn\u00e1 vazba"):
         proposal(graphs, "Rule", {"edges": [{"from": f"@{card}", "to": f"@{card}", "port": "rule"}]})
+    observed = service.view("draft", "draft")
+    assert (observed["graph"], observed["digest"]) == (before["graph"], before["digest"])
+    assert graphs.context(**SCOPE)["acceptedHead"] == accepted_head
+    # Native rule links are valid between distinct cards; only the self-edge was invalid.
+    semantic = proposal(graphs, "Rule link", {"edges": [
+        {"from": f"@{card}", "to": "@" + wired["refs"]["next"], "port": "rule"}]})
+    observed = service.view("draft", "draft")
+    assert (observed["graph"], observed["digest"]) == (before["graph"], before["digest"])
+    accept(graphs, semantic)
+    assert any(item["source"] == card and item["target"] == wired["refs"]["next"] and item["port"] == "rule"
+               for item in service.view("draft", "draft")["graph"]["edges"])

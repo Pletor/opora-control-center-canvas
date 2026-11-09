@@ -15,7 +15,7 @@ import re
 import uuid
 from datetime import UTC, datetime
 
-from backend.project.site_admin import store
+from backend.project.site_admin import proposal_apply, proposal_attachments, store
 from backend.project.site_admin.design_system import normalize
 from backend.project.site_admin.store import SiteAdminConflict, SiteFileMissing
 from backend.project.site_admin.tokens import SiteAdminInvalid, shape
@@ -26,7 +26,7 @@ ID = re.compile(r"^sp_[0-9a-f]{32}$")
 
 
 def _dir(service, project):
-    return store.site_dir(service, project) / "proposals"
+    return proposal_attachments.path(service, project, "proposals")
 
 
 def _now():
@@ -69,39 +69,51 @@ def diff(before, after):
 def _path(service, project, proposal_id):
     if not isinstance(proposal_id, str) or not ID.match(proposal_id):
         raise SiteFileMissing(f"Návrh {proposal_id} neexistuje.")
-    return _dir(service, project) / f"{proposal_id}.json"
+    return proposal_attachments.path(service, project, f"proposals/{proposal_id}.json")
 
 
 def _load(path):
+    shape(not path.is_symlink(), "Site proposal cannot be a symbolic link.")
     return json.loads(path.read_text("utf-8"))
 
 
 def _save(service, project, proposal):
-    store._atomic(_path(service, project, proposal["id"]),
-                  json.dumps(proposal, ensure_ascii=False, indent=2).encode("utf-8"))
+    _path(service, project, proposal["id"])
+    proposal_attachments.write(service, project, f"proposals/{proposal['id']}.json",
+                               json.dumps(proposal, ensure_ascii=False, indent=2).encode("utf-8"))
 
 
 def pending(service, project):
     """Čekající návrhy (nejvýš jeden), nejnovější první."""
     folder = _dir(service, project)
     found = [_load(path) for path in folder.glob("sp_*.json")] if folder.is_dir() else []
-    return sorted((item for item in found if item["status"] == "pending"), key=lambda item: item["at"], reverse=True)
+    interrupted = {item["proposalId"]: item for item in proposal_apply.active(service, project)}
+    return sorted(({**item, **({"recoveryNeeded": True,
+                               "recoveryTargets": proposal_apply.observed(service, project, interrupted[item["id"]])}
+                              if item["id"] in interrupted else {})}
+                   for item in found if item["status"] in ("pending", "pending-attachments") or item["id"] in interrupted),
+                  key=lambda item: item["at"], reverse=True)
 
 
-def propose(service, project, changes, note=None, by="heart"):
+def propose(service, project, changes, note=None, by="heart", *, attachments=None):
     """Uloží návrh nad uloženým dokumentem; vrací záznam návrhu. Návrh bez změny je 422."""
     shape(note is None or (isinstance(note, str) and len(note) <= 280), "note je jeden řádek do 280 znaků.")
     with service.lock_for(project):
+        proposal_apply.guard(service, project)
         current = store.read(service, project)
-        document, notes = normalize(_merge(current, changes), current)
+        document, notes = normalize(current if changes == {} and attachments else _merge(current, changes), current)
         changed = diff(current, document)
-        if not changed:
+        binaries = proposal_attachments.prepare(service, project, attachments) if attachments is not None else []
+        if not changed and not binaries:
             raise SiteAdminInvalid("Návrh nic nemění proti uloženému dokumentu.")
         for older in pending(service, project):
             _save(service, project, {**older, "status": "superseded", "decidedAt": _now()})
         proposal = {"id": "sp_" + uuid.uuid4().hex, "status": "pending", "baseRevision": current["revision"],
                     "changes": changes, "document": document, "diff": changed[:MAX_DIFF], "diffTotal": len(changed),
                     "notes": notes, "note": note or "", "by": by, "at": _now()}
+        if binaries:
+            proposal["attachments"] = binaries
+            proposal.update(schemaVersion=2, status="pending-attachments")
         _save(service, project, proposal)
     return proposal
 
@@ -111,7 +123,7 @@ def _pending_one(service, project, proposal_id):
     if not path.is_file():
         raise SiteFileMissing(f"Návrh {proposal_id} neexistuje.")
     proposal = _load(path)
-    if proposal["status"] != "pending":
+    if proposal["status"] not in ("pending", "pending-attachments"):
         raise SiteAdminConflict(f"Návrh {proposal_id} už je {proposal['status']}.")
     return proposal
 
@@ -119,6 +131,15 @@ def _pending_one(service, project, proposal_id):
 def accept(service, project, proposal_id, expected_revision):
     """Zapíše dokument návrhu (člověk na stránce); vrací `(uložený dokument, poznámky, návrh)`."""
     with service.lock_for(project):
+        proposal_apply.guard(service, project, proposal_id)
+        path = _path(service, project, proposal_id)
+        if not path.is_file():
+            raise SiteFileMissing(f"Proposal {proposal_id} does not exist.")
+        stored = _load(path)
+        if stored.get("attachments"):
+            if stored["status"] not in ("pending-attachments", "accepted"):
+                raise SiteAdminConflict(f"Proposal is {stored['status']}.")
+            return proposal_apply.accept(service, project, stored, expected_revision)
         proposal = _pending_one(service, project, proposal_id)
         current = store.read(service, project)["revision"]
         if proposal["baseRevision"] != current:
@@ -133,6 +154,7 @@ def accept(service, project, proposal_id, expected_revision):
 
 def reject(service, project, proposal_id):
     with service.lock_for(project):
+        proposal_apply.guard(service, project)
         proposal = {**_pending_one(service, project, proposal_id), "status": "rejected", "decidedAt": _now()}
         _save(service, project, proposal)
     return proposal

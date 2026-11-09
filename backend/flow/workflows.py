@@ -13,6 +13,8 @@ import json
 import re
 import sqlite3
 import uuid
+
+from backend.flow.transactions import transaction
 from datetime import UTC, datetime
 
 from backend.flow.graph_check import FlowInvalid, check_graph
@@ -77,7 +79,7 @@ def create_workflow(db, kind, name, project_id=None, owner_ref=None, description
     workflow = {"id": uuid.uuid4().hex, "kind": kind, "project_id": project_id, "name": name.strip(),
                 "created_at": _now(), "owner_ref": owner_ref, "description": description}
     try:
-        with db:
+        with transaction(db):
             db.execute("INSERT INTO flow_workflows(id,kind,project_id,name,created_at,owner_ref,description) VALUES("
                        ":id,:kind,:project_id,:name,:created_at,:owner_ref,:description)", workflow)
     except sqlite3.IntegrityError as error:
@@ -132,7 +134,7 @@ def create_draft(db, workflow_id, graph, parent_version_id=None, registry=None, 
     kind = workflow_kind(db, workflow_id)
     check_graph(graph, registry or catalog(kind), kind)
     text = json.dumps(graph, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    with db:
+    with transaction(db):
         if parent_version_id is None:
             active = db.execute("SELECT id FROM flow_workflow_versions WHERE workflow_id=? AND status='active'",
                                 (workflow_id,)).fetchone()
@@ -156,14 +158,14 @@ def set_candidate(db, version_id, eval_run_id=None):
     version = get_version(db, version_id)
     if version["status"] != "draft":
         raise FlowConflict(f"Kandidátem může být jen draft, verze je {version['status']}.")
-    with db:
+    with transaction(db):
         db.execute("UPDATE flow_workflow_versions SET status='candidate', eval_run_id=? WHERE id=?",
                    (eval_run_id, version_id))
     return get_version(db, version_id)
 
 
 def _switch_active(db, version):
-    with db:
+    with transaction(db):
         db.execute("UPDATE flow_workflow_versions SET status='retired' WHERE workflow_id=? AND status='active'",
                    (version["workflow_id"],))
         db.execute("UPDATE flow_workflow_versions SET status='active' WHERE id=?", (version["id"],))
@@ -215,7 +217,7 @@ def reject(db, version_id, reason, author):
     if not reason or not reason.strip():
         raise FlowInvalid("Zamítnutí potřebuje důvod.")
     version = _intent_candidate(db, version_id, library_draft=True)
-    with db:
+    with transaction(db):
         db.execute("UPDATE flow_workflow_versions SET status='retired' WHERE id=?", (version_id,))
         append(db, None, None, "version.rejected", _decision(version, author, reason.strip()), canvas=2)
     return get_version(db, version_id)

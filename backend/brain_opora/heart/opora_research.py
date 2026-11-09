@@ -150,6 +150,9 @@ def research(args, tool):
     at = tool.now()
     fields, digest = vault_fields(result, at)
     research_batch = opora_research_map.batch(result, fragment["id"], args, at)
+    research_batch["continuation"] = {"researchId": research_batch["operations"][0]["id"],
+                                       "sourceFragmentId": fragment["id"], "sourceRevision": fragment["revision"],
+                                       "finalization": fields}
     out = dilna / RESEARCH_OUT / f"{fragment['id']}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     # Save before either network write. The immutable batch is replayable without paying for another research run.
@@ -166,9 +169,12 @@ def research(args, tool):
         raise tool.Failure({**failure.payload, "out": str(out), "scope": scope,
                             "hint": f"Výzkum je uložen. Opakujte research-map import --file {out}; "
                                     "výzkum znovu nespouštějte."}) from failure
-    tool.call("POST", "/api/brief-vault", {**scope, "op": "research-update", "fragmentId": fragment["id"],
-                                           "expectedRevision": fragment["revision"],
-                                           "note": "Výsledek výzkumného stolu srdce.", **fields})
+    try:
+        opora_research_map.finalize(research_batch["continuation"], tool, scope)
+    except tool.Failure as failure:
+        raise tool.Failure({**failure.payload, "out": str(out), "scope": scope,
+                            "hint": f"Mapa je uložená a čeká na dokončení. Opakujte research-map import --file {out}; "
+                                    "výzkum znovu nespouštějte."}) from failure
     result = summary(fragment["id"], digest, stats, (Path(tool.DILNA.name) / RESEARCH_OUT / out.name).as_posix())
     result["researchIds"] = [card["id"] for card in imported["cards"]]
     result["scope"] = scope

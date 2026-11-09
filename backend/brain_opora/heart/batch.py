@@ -90,6 +90,16 @@ def _flow_context(context):
 
 def _input_line(item):
     kind = item.get("type")
+    if kind == "researchPlanning":
+        return (f"- RESEARCH PLANNING {item['continuationId']}: read research-map show {item['researchId']} "
+                f"--revision {item['researchRevision']}. Create only a pending native proposal using plan --no-accept "
+                f"--workspace {item['workspace']} --operation-id {item['operationId']}. "
+                f"The plan must include draftVersion:3 and researchSource:{json.dumps(item['researchSource'])}. "
+                "Preserve source revisions, uncertainties and existing tasks. Missing evidence blocks only dependent work. "
+                "Do not launch more research or accept/execute tasks. Reuse the same operation and request after interruption; "
+                "a conflict requires reconciliation. With no accepted head, the same command saves an initial unaccepted "
+                "canvas draft with pinned researchSource. Completion requires native proposal or initial draft readback, "
+                "not this run ending.")
     if kind == "message":
         return f"- ZPRÁVA ČLOVĚKA: {item['text']}{_intake(item)}{_flow_context(item.get('context'))}"
     if kind == "ticket":
@@ -252,7 +262,7 @@ def run(spec, runner=run_process, clock=time.time):
     (brain / SNAPSHOT).write_text(spec.snapshot, encoding="utf-8")
     (brain / LAST_DONE).unlink(missing_ok=True)
     settings_path, mcp_path, prompt_path = command.write_config(brain, spec.skills, spec.source_root)
-    prompt_digest = hashlib.sha256(spec.skills.prompt.encode("utf-8")).hexdigest()
+    prompt_digest = hashlib.sha256(prompt_path.read_bytes()).hexdigest()
     session_id, resume = session.choose(brain, prompt_digest=prompt_digest)
     started = clock()
     advisor = advisor_spent(brain, started) < ADVISOR_DAY_USD

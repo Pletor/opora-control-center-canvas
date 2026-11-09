@@ -4,9 +4,20 @@ Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nev
 """
 import sqlite3
 
+from database.schema.canvas_operation_schema import SCHEMA as CANVAS_OPERATION_SCHEMA
+from database.schema.canvas_operation_schema import TABLES as CANVAS_OPERATION_TABLES
+from database.schema.canvas_session_schema import SCHEMA as CANVAS_SESSION_SCHEMA
+from database.schema.canvas_session_schema import TABLES as CANVAS_SESSION_TABLES
+from database.schema.canvas_view_attachments_schema import SCHEMA as CANVAS_VIEW_ATTACHMENTS_SCHEMA
+from database.schema.canvas_view_attachments_schema import TABLES as CANVAS_VIEW_ATTACHMENTS_TABLES
+from database.schema.research_continuations_schema import SCHEMA as RESEARCH_CONTINUATIONS_SCHEMA
+from database.schema.research_continuations_schema import TABLES as RESEARCH_CONTINUATIONS_TABLES
+
 from database.schema.brain_schema import SCHEMA as BRAIN_SCHEMA
 from database.schema.flow_schema import OWNER_INDEX as FLOW_OWNER_INDEX
 from database.schema.flow_schema import SCHEMA as FLOW_SCHEMA
+from database.schema.library_review_schema import SCHEMA as LIBRARY_REVIEW_SCHEMA
+from database.schema.library_review_schema import TABLES as LIBRARY_REVIEW_TABLES
 from database.schema.flow_schema import WORKFLOWS_TABLE as FLOW_WORKFLOWS_TABLE
 from database.schema.guard_experience_schema import SCHEMA as GUARD_EXPERIENCE_SCHEMA
 from database.schema.guard_experience_schema import TABLES as GUARD_EXPERIENCE_TABLES
@@ -59,6 +70,8 @@ from database.schema.research_schema import SCHEMA as RESEARCH_SCHEMA
 from database.schema.research_schema import TABLES as RESEARCH_TABLES
 from database.schema.research_decisions_schema import SCHEMA as RESEARCH_DECISIONS_SCHEMA
 from database.schema.research_decisions_schema import TABLES as RESEARCH_DECISIONS_TABLES
+from database.schema.research_review_proposals_schema import SCHEMA as RESEARCH_REVIEW_PROPOSALS_SCHEMA
+from database.schema.research_review_proposals_schema import TABLES as RESEARCH_REVIEW_PROPOSALS_TABLES
 from database.schema.research_events_schema import SCHEMA as RESEARCH_EVENTS_SCHEMA
 from database.schema.research_events_schema import TABLES as RESEARCH_EVENTS_TABLES
 from database.schema.studio_model_schema import SCHEMA as STUDIO_MODEL_SCHEMA
@@ -89,7 +102,7 @@ CREATE TABLE IF NOT EXISTS activity_log(
   method TEXT NOT NULL, path TEXT NOT NULL, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
   node_ids TEXT NOT NULL, status INTEGER NOT NULL, summary TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS activity_log_scope ON activity_log(project_id, workspace_id, actor, id);
-""" + CONTEXT_BINDING_SCHEMA + ";" + OBSERVER_REGISTRY_SCHEMA + FLOW_SCHEMA + BRAIN_SCHEMA  # backend/flow/, backend/brain/
+""" + CONTEXT_BINDING_SCHEMA + ";" + OBSERVER_REGISTRY_SCHEMA + FLOW_SCHEMA + BRAIN_SCHEMA + LIBRARY_REVIEW_SCHEMA  # backend/flow/, backend/brain/
 
 # projects/<id>/project.sqlite – vše o jednom projektu; vlastník tabulky v komentáři.
 PROJECT_SCHEMA = """
@@ -357,12 +370,17 @@ CREATE TABLE IF NOT EXISTS ticket_feedback(
     session_id TEXT NOT NULL, answer TEXT, answered_at TEXT, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS ticket_feedback_ticket ON ticket_feedback(ticket_id, seq);
 """
-PROJECT_SCHEMA += GATE_SCHEMA + RESEARCH_SCHEMA + RESEARCH_DECISIONS_SCHEMA + RESEARCH_EVENTS_SCHEMA
+PROJECT_SCHEMA += GATE_SCHEMA + RESEARCH_SCHEMA + RESEARCH_DECISIONS_SCHEMA + RESEARCH_EVENTS_SCHEMA + CANVAS_OPERATION_SCHEMA
+PROJECT_SCHEMA += RESEARCH_REVIEW_PROPOSALS_SCHEMA
+PROJECT_SCHEMA += CANVAS_SESSION_SCHEMA + RESEARCH_CONTINUATIONS_SCHEMA + CANVAS_VIEW_ATTACHMENTS_SCHEMA
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
+    **{table: "project_id" for table in (*CANVAS_SESSION_TABLES, *RESEARCH_CONTINUATIONS_TABLES, *CANVAS_VIEW_ATTACHMENTS_TABLES)},
+    **{table: "project_id" for table in CANVAS_OPERATION_TABLES},
     **{table: "project_id" for table in RESEARCH_TABLES},
     **{table: "project_id" for table in RESEARCH_DECISIONS_TABLES},
+    **{table: "project_id" for table in RESEARCH_REVIEW_PROPOSALS_TABLES},
     **{table: "project_id" for table in RESEARCH_EVENTS_TABLES},
     "opora_graph_proposals": "project_id",
     "opora_graph_manifests": "project_id",
@@ -399,7 +417,7 @@ PROJECT_TABLES = {
     "opora_execution_results": "project_id",
     "opora_execution_steps": "project_id",
 }
-REGISTRY_TABLES = ("projects", "project_sources", "builtin_project_metadata", "workspaces", "jobs", "archived_projects", "opora_context_bindings", "opora_execution_observer_sessions")
+REGISTRY_TABLES = ("projects", "project_sources", "builtin_project_metadata", "workspaces", "jobs", "archived_projects", "opora_context_bindings", "opora_execution_observer_sessions", *LIBRARY_REVIEW_TABLES)
 PROJECT_TABLES.update({table: "project_id" for table in (*RECONCILIATION_TABLES, *JOB_TABLES)})
 PROJECT_TABLES.update({table: "project_id" for table in BUDGET_TABLES})
 PROJECT_TABLES.update({table: "project_id" for table in VERIFICATION_TABLES})

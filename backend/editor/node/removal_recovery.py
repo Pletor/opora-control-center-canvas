@@ -32,7 +32,7 @@ def pointing_branches(state, removed_nodes):
     return found
 
 
-def capture(canvas, db, recovery_id, project, workspace, graph, node_ids, edge_ids):
+def snapshot(canvas, db, project, workspace, graph, node_ids, edge_ids):
     """Uloží záznam obnovy; volající drží `canvas.lock_for(project)` a otevřenou transakci `db`."""
     from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
 
@@ -45,7 +45,7 @@ def capture(canvas, db, recovery_id, project, workspace, graph, node_ids, edge_i
             list(row)
             for row in db.execute(
                 f"SELECT {WORKSPACE_COLUMNS} FROM agent_workspace_revisions"
-                f" WHERE project_id=? AND workspace_id=? AND node_id IN ({marks})",
+                f" WHERE project_id=? AND workspace_id=? AND node_id IN ({marks}) ORDER BY node_id,revision",
                 (project, workspace, *node_ids),
             ).fetchall()
         ]
@@ -60,6 +60,12 @@ def capture(canvas, db, recovery_id, project, workspace, graph, node_ids, edge_i
         "branches": pointing_branches(state, removed),
         "workspaceRows": rows,
     }
+    return record
+
+
+def capture(canvas, db, recovery_id, project, workspace, graph, node_ids, edge_ids):
+    """Persist the exact native recovery snapshot in the caller transaction."""
+    record = snapshot(canvas, db, project, workspace, graph, node_ids, edge_ids)
     db.execute(
         "INSERT INTO removal_restores VALUES(?,?,?,?,?,NULL)",
         (recovery_id, project, workspace, json.dumps(record, ensure_ascii=False), _now()),

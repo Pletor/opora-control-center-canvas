@@ -204,7 +204,7 @@ function send(url: string, body?: object, conditional = true, method: WriteMetho
 export type WriteMethod = "POST" | "PATCH" | "PUT" | "DELETE";
 export async function api<T>(url: string, body?: object, method: WriteMethod = "POST"): Promise<T> {
   // Research reads are scoped to a human or agent, including a fresh canvas deep link.
-  const researchRead = !body && /^\/api\/research(?:[/?]|$)/.test(url);
+  const researchRead = !body && /^\/api\/(?:research|brief-vault\/reviews|library\/reviews|flow\/review|working-reviews|desktop-reviews)(?:[/?]|$)/.test(url);
   if (body || researchRead) await ensureHumanSession();
   let response = await send(url, body, true, method);
   if (response.status === 428 || (researchRead && response.status === 401)) {

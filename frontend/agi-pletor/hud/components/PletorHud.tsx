@@ -62,7 +62,7 @@ export default function PletorHud({ pletor, state, label, voice, mic, voiceError
       </div>
       <div className="pletor-hud__command">
         {mic}
-        <PletorVoiceDraft listening={voice.phase === "listening"} draft={voice.interim} manual={voice.prefs.endpointMs === 0} onFinish={voice.finish} />
+        <PletorVoiceDraft listening={voice.phase === "listening"} draft={voice.interim} manual={voice.prefs.endpointMs === 0} endpointMs={voice.prefs.endpointMs} onFinish={voice.finish} />
         {voiceError}
       </div>
     </div>

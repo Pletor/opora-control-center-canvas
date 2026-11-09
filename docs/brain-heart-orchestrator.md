@@ -45,48 +45,11 @@ i zápisy **práce na kartě** (pruh, `LANE`), i bez tokenu brány. Plátno a pr
   dependsOn[]}]}`, `checks[{id, command}]` a vazba `next`); tentýž vzor vypíše `plan --example`
   (`opora_heart.PLAN_EXAMPLE`). Test `backend/api/brain_opora/test_heart_plan.py` vzor z promptu vytáhne, porovná
   s nástrojem a pošle skutečnému `/api/canvas-plan` s `dryRun`, takže vzor nezastará.
-- **O2b – přijetí plánu (rozhodnutí člověka 2026-10-29: „srdce plánuje, orchestrátor koná“).** Ostrý `plan` hned po
-  dávce přijme plán sám, tokenem srdce: opakovaně čte `GET /api/oporahub/agent-state` a provede kroky
-  `propose_graph` (`POST /api/oporahub/graph-proposals`, tělo = `project`, `workspace` + `preconditions` akce),
-  přijetí návrhu grafu (`POST /api/oporahub/graph-proposals/{id}/accept`) a případně `accept_baseline`
-  (`POST /api/oporahub/baselines`), nejvýš 6 kroků. Cizí návrhy zadání a obsahu (`accept` mimo graf) nechává
-  člověku. Oprávnění: obě routy přijetí volají `require_authority` → `acts_as_human`; token srdce ve vlastním
-  projektu se zapnutou bránou dostane ve zdi `Verdict(heart=True)` a middleware mu dá oprávnění `human` (plná
-  autonomie, záznam `by: {kind: agent, name: heart}`), takže routy nebylo třeba měnit. Výstup `plan` má
-  `accepted: true|false` a `acceptSteps`; při `false` `code` a `hint` (např. `plan_not_accepted`). `--no-accept`
-  nechá přijetí člověku. Uzavření karty (`awaitingHumanClose`) dělá server deterministicky.
-- **O2c – další plán nad přijatým grafem.** Fáze 2 je vždy další plán. Dávka plánu (`/api/canvas-plan`) nad už
-  přijatým grafem by změnila jen pracovní graf: agent-state pro to nemá krok přijetí (návrh grafu záměrně nic
-  z pracovního grafu nepřebírá) a claim všech karet by se zablokoval („Working graph differs from the accepted
-  graph“). `plan` proto nejdřív čte `GET /api/oporahub/graph-proposals/context`; když má přijatý graf
-  (`graphManifestId`), pošle dávku stejnou cestou jako formulář „Rozšíření plánu“ v UI
-  (`frontend/hub/graph-proposals`): `POST /api/oporahub/graph-proposals {parentRevision: acceptedHead,
-  expectedGraphDigest: graphDigest, subject, plan}` a hned `POST /api/oporahub/graph-proposals/{id}/accept
-  {expectedAcceptedHead, expectedGraphDigest, adoptBaseGraphDigest: null}` tokenem srdce. Karty vzniknou na plátně až
-  přijetím, pracovní a přijatý graf zůstanou shodné a dřívější claimy platí. Návrh grafu nese jen pole uzlu `ref, kind
-  (node|sector|area), name, parent, purpose, spec, sourceRef, position, size, memberOf` a pole karty `card` (i `effort`), `checks`,
-  `goal_mode` se stejnou validací jako dávka plánu (`validate_graph`), vazby `next`; jiná pole odmítne (`code: plan_shape`) dřív než server. `--dry-run` ověří
-  přírůstek dávkou plánu s `dryRun`. Výstup: `acceptSteps: ["graph_addition", "accept"]`, `proposalId`, `refs`.
-  Stav karty (`blocks` s porty, `text`, `fragmentRef` = vazba na zadání ve Schránce, `briefGroup` oblasti,
-  `briefDiscipline` sektoru) návrh grafu nenese: dávka ho smí mít u uzlu jako první plán (i dávka generátoru Schránky)
-  a po přijetí karet ho zapíše jedna dávka plánu `extend` (`acceptSteps` `card_state`) spolu s položkami `extend`
-  dávky pro existující přijaté karty (`node: "@<id>"`, jen stav karty: `blocks`, `ports`, `replaceBlocks`, `text`,
-  `fragmentRef`, značky; bez `expectedRevision` doplní revizi stavu nástroj; `spec` a pole grafu odmítne, zadání mění
-  `steps --node`). Vazby `block` (i z portu existující karty) jdou pak druhým návrhem grafu. Dávka se stavem karet,
-  `extend` nebo vazbou `block` se před prvním zápisem celá ověří dávkou plánu s `dryRun`, takže chybný port nic nezapíše.
-  Žádná routa ani agent-state se neměnily. Test: `backend/api/brain_opora/test_heart_plan.py` (plán 1 → claim
-  ready; plán 2 se sektorem `@id` a vazbou na existující kartu → nová karta ready, dřívější ready zůstal).
-- **O2d – členství existujících uzlů v oblasti.** Srdce smí návrhem grafu změnit i existující uzly, ale jen
-  jejich členství v oblasti: `opora_heart.py member --area <id oblasti>|none --nodes id1,id2` pošle
-  `POST /api/oporahub/graph-proposals {…, plan: {updateNodes: [{id, fields: {memberOf}}]}}`. Nástroj nejdřív ověří,
-  že `--area` je uzel `kind: area` a uzly existují v pracovním nebo přijatém grafu a jsou `node` / `sector`
-  (`member_area`, `member_unknown_node`, `member_kind`); uzly, které už členství mají, vynechá; `--dry-run` jen
-  vypíše `changes` (`id`, `from`, `to`). Na rozdíl od přírůstku návrh **nepřijímá**: čeká na přijetí člověkem
-  (změny grafu v UI) a do té doby nemění přijatý ani pracovní graf. Server návrh grafu ověřeného tokenu srdce
-  omezí (`opora_graph_change_plan.heart_scope`): `updateNodes` jen s polem `memberOf`, `updateEdges` vůbec,
-  jinak 422 `heart_edit_scope`; přírůstky (`plan`) a odebrání (`unlink`, `prune`) jdou dál. Sektor stačí zařadit:
-  karty v něm členství zdědí (docs/plan-lens.md, Členství karty v oblasti, bod 4), pokud samy nemají výslovné
-  `memberOf`, značku „samostatné“ ani polohu v jiné oblasti. Test: `backend/api/brain_opora/test_heart_member.py`.
+- **Aktuální kontrakt návrhu (9. 11. 2026).** `plan` výchozí cestou ukládá návrh bez přijetí. `--no-accept` tento záměr vyjádří výslovně; `--accept` je samostatně vyžádaná autorizovaná operace, nikoli důsledek dokončené rešerše. Pro Ample V1–V5 se přijetí ani realizace neprovádí. Výstup rozlišuje uložený návrh a `accepted`.
+- **Další plán nad přijatým grafem.** Nástroj načte `GET /api/oporahub/graph-proposals/context` a odešle nepřijatý nativní návrh s `parentRevision`, `expectedGraphDigest` a stabilním `operationId`. Kompletní V3 obsahuje společně graf, text, specifikaci, bloky, porty, `fragmentRef` a `extend` existujících uzlů. Nejde o starou posloupnost přijmout karty a pak do nich dodatečně zapisovat obsah. Přijetí ověřuje původní obsah, revize a celý rozsah změny. `contentBase` vyžadující převzetí musí být v UI výslovně zobrazený.
+- **První pracovní návrh.** Bez přijatého základu jde o nativní `canvas-plan` s ověřením zpětným čtením a durable receipt. Timeout opakuje stejný vstup/operationId; nevytváří nové identity. Obnova porovnává přesný původní a výsledný stav. Neznámý smíšený stav vrací explicitní `operation_incomplete`, ne falešný atomický úspěch.
+- **Úpravy návrhu.** `rebase` zachovává záměr a převede návrh na aktuální základ. `POST /api/oporahub/graph-proposals/{identifier}/revise` vytvoří nový neměnný V3 záznam s `supersedes`, zachová identity pojmenovaných prvků a vyžaduje `observeResearchSources:true`, aktuální hlavu/digest a nový operationId. Staré záznamy zůstávají dohledatelné. Změněná rešerše není automaticky přijaté rozhodnutí.
+- **Členství a další struktura.** `member` připravuje změnu členství existujících uzlů; aktuální rozsah dalších operací, vstupy a jejich validační hranice jsou dostupné přes `canvas discover` a `canvas describe`. Katalog používá nativní validaci a návrhy; nepovyšuje token agenta na člověka. Uzavřená práce se neotevírá kvůli novému auditu: navazující úkol uchová odkaz na původní historii.
 - Snímek: sekce `PLÁN` ukáže u karet stav práce z executions: `volná`, `běží (agent)`, `odevzdáno`, `PR #n`,
   `sloučeno sha`, `čeká na uzavření`, `nezapsáno` (sloučeno bez zápisu zpět). Volná karta s nehotovým předchůdcem
   (graf karet agent-state, `blocked_by_predecessor`) je `blokovaná – čeká na <jméno>: <jeho stav>`, např.

@@ -72,6 +72,12 @@ class Wakes:
         for project in self.service.project_ids():
             if not gate_setting.is_on(self.service, project):
                 continue
+            from backend.editor.research.continuations import wakes as research_wakes
+            try:
+                for workspace, item in research_wakes(self.service, project, now):
+                    self._add(project, workspace, item, now)
+            except Exception:
+                LOGGER.exception("Research planning continuation reconciliation failed for %s", project)
             with self.service.reading(project):
                 db = self.service.db_for(project)
                 cursor = self.cursors.get(project)

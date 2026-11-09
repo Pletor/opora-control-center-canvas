@@ -86,3 +86,15 @@ def test_plan_of_over_the_cap_names_every_cut_node(service, monkeypatch):
     assert marker["cut"] and "--node" in marker["hint"]
     with pytest.raises(GateError):
         workshop.context(service, "draft", "draft", "plan-of")  # bez projektu
+
+
+def test_node_detail_preserves_observed_and_unknown_files_without_expanding_summary(service):
+    _plan(service)
+    current = service.specs.read(("draft", "draft", "a"))
+    steps = [{**STEP, "kind": "research", "files": ["src/cache.py"]},
+             {**STEP, "id": "s2", "order": 2, "kind": "design", "files": []}]
+    service.specs.save(("draft", "draft", "a"), current["revision"], {**current["fields"], "steps": steps})
+    detail = workshop.plan_of(service, "draft", "draft", "a")[0]
+    assert detail["spec"]["steps"] == steps
+    summary = next(item for item in workshop.plan_of(service, "draft") if item["id"] == "a")
+    assert summary["steps"] == ["Krok", "Krok"] and "spec" not in summary

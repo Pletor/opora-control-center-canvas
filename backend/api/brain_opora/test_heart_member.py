@@ -22,10 +22,10 @@ def membership(graph, node):
 
 
 def accepted_plan_with_area(call, tmp_path):
-    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")["refs"]
     area = {"nodes": [{"ref": "pay", "kind": "area", "name": "Platby", "size": {"w": 400, "h": 300}}],
             "edges": []}
-    done = plan(tmp_path, area)
+    done = plan(tmp_path, area, "--accept")
     assert done.get("accepted") is True, done
     return refs, done["refs"]["pay"]
 

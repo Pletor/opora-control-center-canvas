@@ -10,10 +10,12 @@ from fastapi.responses import FileResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 from backend.api.brain_opora.writer import heart_project
+from backend.brain_opora.determinism import gate, tokens
+from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.activity_log import require_human
 from backend.canvas.canvas_service import ProjectNotFound
 from backend.project.site_admin import compile as compiled
-from backend.project.site_admin import proposals, store
+from backend.project.site_admin import proposal_attachments, proposals, store
 from backend.project.site_admin.export import export_zip
 from backend.project.site_admin.store import SiteAdminConflict, SiteFileMissing
 from backend.project.site_admin.summary import summary
@@ -33,7 +35,7 @@ def _errors(action):
     except SiteAdminInvalid as error:  # vlastní CSS vrací {message, path, line, reason}
         raise HTTPException(422, getattr(error, "detail", None) or str(error)) from error
     except SiteAdminConflict as error:
-        raise HTTPException(409, str(error)) from error
+        raise HTTPException(409, getattr(error, "detail", None) or str(error)) from error
 
 
 def _human(request, what):
@@ -51,6 +53,16 @@ def create_site_admin_router(service):
 
     def document(project):
         return _errors(lambda: store.read(service, project))
+
+    def verified_heart(request, project):
+        token = request.headers.get(tokens.HEADER)
+        if token:
+            try:
+                gate.authenticate(service, token, project, ("heart",))
+            except GateError as error:
+                raise HTTPException(error.status, error.body()) from error
+            return True
+        return heart_project(request) == project
 
     @router.get("")
     def site_admin_view(project: str = PROJECT):
@@ -139,15 +151,28 @@ def create_site_admin_router(service):
 
     @router.post("/proposals")
     async def proposal_create(request: Request, payload: dict):
-        if not isinstance(payload, dict) or not {"project", "changes"} <= set(payload) <= {"project", "changes", "note"}:
-            raise HTTPException(422, "Tělo je {project, changes, note?}.")
+        if not isinstance(payload, dict) or not {"project", "changes"} <= set(payload) <= {"project", "changes", "note", "attachments"}:
+            raise HTTPException(422, "Tělo je {project, changes, note?, attachments?}.")
         project = payload["project"]
-        heart = heart_project(request) == project
+        heart = verified_heart(request, project)
         if not heart:
             _human(request, "Návrh Správy webu")
         found = await run_in_threadpool(_errors, lambda: proposals.propose(
-            service, project, payload["changes"], payload.get("note"), "heart" if heart else "human"))
+            service, project, payload["changes"], payload.get("note"), "heart" if heart else "human",
+            attachments=payload.get("attachments")))
         return {key: value for key, value in found.items() if key != "document"}
+
+    @router.get("/proposals/{proposal_id}/attachments/{index}")
+    def proposal_attachment(request: Request, proposal_id: str, index: int, project: str = PROJECT):
+        if not verified_heart(request, project):
+            _human(request, "Přílohy návrhu")
+        def content():
+            item, raw = proposal_attachments.content(service, project, proposal_id, index)
+            return Response(raw, media_type="application/octet-stream", headers={
+                "Content-Disposition": f'attachment; filename="{item["name"]}"',
+                "Content-Security-Policy": FILE_CSP, "X-Content-Type-Options": "nosniff",
+                "X-Content-SHA256": item["sha256"]})
+        return _errors(content)
 
     @router.post("/proposals/{proposal_id}/accept")
     async def proposal_accept(request: Request, proposal_id: str, payload: dict):

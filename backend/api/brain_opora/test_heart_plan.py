@@ -97,7 +97,7 @@ def test_rejected_plan_tells_the_heart_what_the_server_said(heart):
 
 def test_plan_accepts_the_graph_so_the_first_card_is_claimable(heart):
     _, call, tmp_path = heart
-    done = plan(tmp_path, opora_heart.PLAN_EXAMPLE)
+    done = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")
     assert done["ok"] is True and done["accepted"] is True, done
     assert done["acceptSteps"] == ["propose_graph", "accept"]
     state = call("GET", "/api/oporahub/agent-state", query=SCOPE)
@@ -119,7 +119,7 @@ def claims(call):
 def test_second_plan_over_the_accepted_graph_is_accepted_and_keeps_earlier_claims(heart):
     """Fáze 2 je vždy další plán: přírůstek jde návrhem grafu (jako „Rozšíření plánu“ v UI) a přijme ho srdce."""
     _, call, tmp_path = heart
-    first = plan(tmp_path, opora_heart.PLAN_EXAMPLE)
+    first = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")
     assert first["accepted"] is True
     refs = first["refs"]
     step = [{"id": "s1", "order": 1, "title": "Export a test", "dependsOn": [], "acceptance": ["test exportu projde"]}]
@@ -131,7 +131,7 @@ def test_second_plan_over_the_accepted_graph_is_accepted_and_keeps_earlier_claim
             "edges": [{"from": "export", "to": "@" + refs["cli"], "port": "next"}]}
     dry = plan(tmp_path, more, "--dry-run")
     assert dry["ok"] is True and dry["dryRun"] is True and "accepted" not in dry
-    done = plan(tmp_path, more)
+    done = plan(tmp_path, more, "--accept")
     assert done["ok"] is True and done["accepted"] is True, done
     assert done["acceptSteps"] == ["graph_addition", "accept"] and done["warnings"] == []
     state, ready = claims(call)
@@ -160,7 +160,7 @@ def test_later_plan_with_unknown_card_effort_is_rejected_like_the_first_plan(hea
     bad = json.loads(json.dumps(opora_heart.PLAN_EXAMPLE))
     bad["nodes"][1]["card"]["effort"] = "extreme"
     first = plan(tmp_path, bad, "--dry-run")
-    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")["refs"]
     later = {"nodes": [{**bad["nodes"][1], "ref": "bad", "parent": "@" + refs["mvp"]}], "edges": []}
     done = plan(tmp_path, later)
     assert done["status"] in (409, 422) and "Neplatná karta uzlu." in done["error"] and "Neplatná karta uzlu." in first["error"]
@@ -194,22 +194,31 @@ def test_vault_batch_over_the_accepted_graph_keeps_the_brief_and_wires_an_existi
     """Další plán ze Schránky: karta nese fragmentRef, text a bloky, oblast a sektor značky; existující karta dostane
     blok s portem a vazba block z něj projde. Chybný port neprojde ani v dry-run, ani ostře a nic nezapíše."""
     _, call, tmp_path = heart
-    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")["refs"]
     batch, fragment_id = vault_card(call, refs)
     bad = json.loads(json.dumps(batch))
     bad["edges"][0]["blockPort"] = "no"
     before = call("GET", "/api/desktop-v3/state", query=SCOPE)["revision"], len(call_history(heart))
-    for flags in (("--dry-run",), ()):
+    for flags in (("--dry-run",), ("--accept",)):
         refused = plan(tmp_path, bad, *flags)
         assert refused["status"] == 409 and "nemá port" in refused["error"], refused
     assert (call("GET", "/api/desktop-v3/state", query=SCOPE)["revision"], len(call_history(heart))) == before
     dry = plan(tmp_path, batch, "--dry-run")
     assert dry["ok"] is True and dry["dryRun"] is True, dry
-    done = plan(tmp_path, batch)
+    done = plan(tmp_path, batch, "--accept")
     assert done["accepted"] is True, done
-    assert done["acceptSteps"] == ["graph_addition", "accept", "card_state", "graph_addition", "accept"]
+    assert done["acceptSteps"] == ["graph_addition", "accept"]
+    assert len(call_history(heart)) == before[1] + 1
+    saved = call("GET", "/api/oporahub/graph-proposals/" + done["proposalId"], query=SCOPE)
+    assert saved["schemaVersion"] == 3 and saved["accepted"] is True
+    assert saved["refs"] == done["refs"]
+    accepted_head = call("GET", "/api/oporahub/graph-proposals/context", query=SCOPE)["acceptedHead"]
+    accepted = call("GET", "/api/oporahub/revisions/" + accepted_head, query=SCOPE)
+    assert accepted["proposalId"] == saved["id"] and accepted["parentRevision"] == saved["parentRevision"]
+    assert accepted["graphManifestId"] and accepted["contentManifestId"]
     new = done["refs"]
     nodes = call("GET", "/api/desktop-v3/state", query=SCOPE)["state"]["nodes"]
+    assert nodes == saved["contentEffects"]["after"]["nodes"]
     assert [item["fragmentId"] for item in nodes[new["f1"]]["fragmentRefs"]] == [fragment_id]
     assert [block["title"] for block in nodes[new["f1"]]["blocks"]] == [block["title"] for block in batch["nodes"][2]["blocks"]]
     assert (nodes[new["a1"]]["briefGroup"], nodes[new["s1"]]["briefDiscipline"]) == ("logika", "be")
@@ -223,11 +232,15 @@ def test_vault_batch_over_the_accepted_graph_keeps_the_brief_and_wires_an_existi
     assert state["heads"]["workingDiffers"] is False
 
 
-def test_no_accept_leaves_the_plan_for_the_human(heart):
+@pytest.mark.parametrize("flags", [(), ("--no-accept",)])
+def test_no_accept_leaves_the_plan_for_the_human(heart, flags):
     _, call, tmp_path = heart
-    done = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--no-accept")
+    done = plan(tmp_path, opora_heart.PLAN_EXAMPLE, *flags)
     assert done["accepted"] is False and "acceptSteps" not in done
-    verbs = [action["verb"] for action in call("GET", "/api/oporahub/agent-state", query=SCOPE)["actions"]]
+    assert done["persisted"] is True and done["verified"] is True
+    state = call("GET", "/api/oporahub/agent-state", query=SCOPE)
+    assert state["heads"]["acceptedHead"] is None
+    verbs = [action["verb"] for action in state["actions"]]
     assert "propose_graph" in verbs
 
 
@@ -241,7 +254,7 @@ def unlink(tmp_path, *flags):
 
 def test_unlink_removes_the_edge_and_unblocks_the_successor(heart):
     _, call, tmp_path = heart
-    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")["refs"]
     _, ready = claims(call)
     assert ready[refs["cli"]]["blockReason"] == "blocked_by_predecessor"
     pair = ["--from", refs["model"], "--to", refs["cli"]]
@@ -259,7 +272,7 @@ def test_unlink_removes_the_edge_and_unblocks_the_successor(heart):
 
 def test_unlink_unknown_edge_is_a_clear_error(heart):
     _, _, tmp_path = heart
-    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")["refs"]
     done = unlink(tmp_path, "--from", refs["cli"], "--to", refs["model"])  # opačný směr
     assert done["code"] == "unlink_unknown_edge" and "není vazba next" in done["error"]
 
@@ -275,7 +288,7 @@ def prune(tmp_path, *flags):
 def test_prune_removes_nodes_with_their_edges_and_never_cascades(heart):
     """Živě: prázdné uzly po zkoušení v přijatém plánu blokovaly každou změnu grafu (409 specifikací)."""
     _, call, tmp_path = heart
-    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")["refs"]
     parent = prune(tmp_path, "--node", refs["mvp"])
     assert parent["code"] == "prune_children"
     dry = prune(tmp_path, "--node", refs["cli"], "--dry-run")
@@ -307,7 +320,7 @@ def test_prune_clears_nodes_left_only_in_the_accepted_plan_and_adopts_the_new_ar
               {"ref": "u", "kind": "node", "parent": "s", "name": "Nový uzel"},
               {"ref": "u2", "kind": "node", "parent": "@" + home, "name": "Nový uzel"},
               {"ref": "a", "kind": "area", "parent": "@" + home, "name": "Nová oblast", "size": {"w": 400, "h": 300}}]
-    first = tool("plan", "--workspace", wid, plan={
+    first = tool("plan", "--accept", "--workspace", wid, plan={
         "nodes": [spaces.card("hero", "@" + web, "[task] Úvodní blok"), spaces.card("pata", "@" + web, "[task] Patička"),
                   *filler],
         "edges": [{"from": "hero", "to": "pata"}, {"from": "u", "to": "u2"}]})
@@ -341,6 +354,6 @@ def test_prune_clears_nodes_left_only_in_the_accepted_plan_and_adopts_the_new_ar
     assert not {home, *filler_ids} & {node["id"] for node in accepted["acceptedGraph"]["nodes"]}
 
     assert tool("unlink", *pair)["accepted"] is True
-    more = tool("plan", "--workspace", wid, plan={"nodes": [spaces.card("kontakt", "@" + web, "[task] Kontakt")],
+    more = tool("plan", "--accept", "--workspace", wid, plan={"nodes": [spaces.card("kontakt", "@" + web, "[task] Kontakt")],
                                                    "edges": []})
     assert more["accepted"] is True and more["acceptSteps"] == ["graph_addition", "accept"], more

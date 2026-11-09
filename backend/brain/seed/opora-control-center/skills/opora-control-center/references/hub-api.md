@@ -36,9 +36,10 @@ skript odmítne předem a server vrátí 403/428; s autonomií volá agent cestu
 | `POST /api/oporahub/baselines` | člověk | první přijetí základu |
 | `GET /api/oporahub/revisions/{identifier}` | read | jedna přijatá revize plánu (dokumenty po přijetí); kontrola, co přesně platí |
 | `GET /api/oporahub/graph-proposals/context` | read | hlava a digest grafu pro nový návrh |
-| `POST /api/oporahub/graph-proposals` | write | nové uzly a vazby `next`; GET = seznam návrhů grafu |
+| `POST /api/oporahub/graph-proposals` | write | nativní návrh grafu; V3 zahrnuje text, zadání, bloky, porty a rozšíření; GET = seznam návrhů |
 | `GET /api/oporahub/graph-proposals/{identifier}` | read | detail návrhu grafu; ověř po zápisu |
 | `POST /api/oporahub/graph-proposals/{identifier}/rebase` | write | převod zastaralého návrhu na hlavu |
+| `POST /api/oporahub/graph-proposals/{identifier}/revise` | write | nová nepřijatá revize V3 se zachováním ID, explicitním načtením podkladů a vazbou supersedes; není přijetí |
 | `POST /api/oporahub/graph-proposals/{identifier}/accept` | člověk | přijetí návrhu grafu |
 | `POST /api/oporahub/content-changes` | write | texty, kresby, konfigurace karty; GET = seznam návrhů obsahu |
 | `GET /api/oporahub/content-changes/{identifier}` | read | detail návrhu obsahu |

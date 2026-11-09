@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import pytest
 
-from backend.canvas.opora_graph_build import validate_plan
+from backend.canvas.opora_graph_build import prepare
 from backend.canvas.opora_graph_change_build import build
 from backend.canvas.test_opora_graph_change_build import graph
 
@@ -44,6 +44,16 @@ def test_unknown_carries_update_is_rejected(value):
 
 
 def test_added_edge_may_carry_only_on_next():
-    validate_plan({"edges": [{"from": "@a", "to": "@b", "carries": "event"}]})
-    with pytest.raises(ValueError):
-        validate_plan({"edges": [{"from": "@a", "to": "@b", "port": "rule", "carries": "event"}]})
+    # OP-B171BE.port-validation: shape validation admits native semantic ports;
+    # the actual build/graph validator remains authoritative for carries.
+    base = {**graph(), "edges": []}
+    edge = {"from": "@child", "to": "@other"}
+    carried = prepare({"edges": [{**edge, "carries": "event"}]}, base, {})
+    assert carried["additions"]["edges"][0]["carries"] == "event"
+    assert carried["additions"]["edges"][0]["port"] == "next"
+    semantic = prepare({"edges": [{**edge, "port": "rule"}]}, base, {})
+    assert semantic["additions"]["edges"][0]["port"] == "rule"
+    assert "carries" not in semantic["additions"]["edges"][0]
+    with pytest.raises(ValueError, match="carries"):
+        prepare({"edges": [{**edge, "port": "rule", "carries": "event"}]}, base, {})
+    assert base == {**graph(), "edges": []}

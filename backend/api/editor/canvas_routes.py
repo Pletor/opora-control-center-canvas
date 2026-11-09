@@ -80,13 +80,18 @@ def create_canvas_router(service):
     def canvas_plan(payload: dict, request: Request):
         # Dávka plánu (docs/davka-planu.md §3): jen přidává, atomicky; `dryRun` nic nezapíše.
         name = getattr(request.state, "agent", None)
-        if request.state.actor != "agent" or not isinstance(name, str) or not name.strip():
-            result = apply_plan(service, payload, actor=request.state.actor)
+        operation_actor = {"kind": request.state.actor, "name": name or ""}
+        if "operationId" in payload:
+            owner = "agent:" + name if request.state.actor == "agent" and isinstance(name, str) and name.strip() else None
+            result = apply_plan(service, payload, actor=request.state.actor, operation_actor=operation_actor,
+                                repin_owner=owner)
+        elif request.state.actor != "agent" or not isinstance(name, str) or not name.strip():
+            result = apply_plan(service, payload, actor=request.state.actor, operation_actor=operation_actor)
         else:
             # Vlastní dávka agenta přepne kontext jeho živých běhů (re-pin, zefektivneni-opory.md §3.3).
             from backend.canvas.opora_execution_repin import plan_with_repin
             result = plan_with_repin(service, payload, "agent:" + name,
-                                     lambda: apply_plan(service, payload, actor=request.state.actor))
+                                     lambda: apply_plan(service, payload, actor=request.state.actor, operation_actor=operation_actor))
         note(request, created_nodes(result))  # stopa karty: ID nových uzlů dávky (docs/zaznam-cinnosti.md)
         return result
 

@@ -25,7 +25,7 @@ class FakeRunner:
 SKILLS = command.HeartSkills("# Srdce\n", {"vyslech": "# Výslech\n"},
                              {"heart": "opora:brain:skill:heart@aaaaaaaaaaaa",
                               "vyslech": "opora:brain:skill:vyslech@aaaaaaaaaaaa"})
-DIGEST = hashlib.sha256(SKILLS.prompt.encode("utf-8")).hexdigest()
+DIGEST = hashlib.sha256((SKILLS.prompt + command.RUNTIME_GUIDANCE).encode("utf-8")).hexdigest()
 
 
 def spec(tmp_path, inputs=None):
@@ -153,6 +153,20 @@ def test_ok_batch_is_journaled_with_costs_and_summary(tmp_path):
     batch.run(spec(tmp_path), second, clock(200.0, 201.0))
     assert second.calls[0]["line"][second.calls[0]["line"].index("--resume") + 1] == RESULT["session_id"]
     assert session.load(tmp_path / "brain")["batches"] == 2
+
+
+def test_runtime_guidance_change_rotates_session_and_unchanged_guidance_resumes(tmp_path, monkeypatch):
+    first = FakeRunner(Outcome(0, json.dumps(RESULT), ""))
+    batch.run(spec(tmp_path), first, clock(100.0, 101.0))
+    monkeypatch.setattr(command, "RUNTIME_GUIDANCE", command.RUNTIME_GUIDANCE + "\nSave a partial draft before needs_info.\n")
+    second = FakeRunner(Outcome(0, json.dumps(RESULT), ""))
+    changed = batch.run(spec(tmp_path), second, clock(200.0, 201.0))
+    assert changed["resumed"] is False and "--session-id" in second.calls[0]["line"]
+    third = FakeRunner(Outcome(0, json.dumps(RESULT), ""))
+    unchanged = batch.run(spec(tmp_path), third, clock(300.0, 301.0))
+    assert unchanged["resumed"] is True and "--resume" in third.calls[0]["line"]
+    assert session.load(tmp_path / "brain")["promptDigest"] == hashlib.sha256(
+        (tmp_path / "brain" / command.PROMPT_NAME).read_bytes()).hexdigest()
 
 
 def test_rate_limit_keeps_session_and_is_marked(tmp_path):

@@ -195,6 +195,8 @@ def _research(service, project, workspace):
         if item["kind"] == "duel" and isinstance(fields.get("duel"), dict):
             summary = duel_summary(fields["duel"])
             item.update(status=summary["status"], outcome=summary["outcome"], p=summary["p"])
+            if "delegation" in summary:
+                item["delegation"] = summary["delegation"]
         elif isinstance(fields.get("research"), dict):
             research = fields["research"]
             item.update(status=research["status"], verdict=research["verdict"], confidence=research["confidence"],
@@ -578,7 +580,8 @@ def _research_lines(facts):
         if item["kind"] == "duel":
             p = item.get("p")
             rows.append(head + f" · {item.get('outcome') or item.get('status') or '?'}"
-                        + (f" · p {p:.2f}" if isinstance(p, (int, float)) else ""))
+                        + (f" · p {p:.2f}" if isinstance(p, (int, float)) else "")
+                        + (" · single-principal-role-simulation (not independent review)" if item.get("delegation") else ""))
         else:
             rows.append(head + f" · {item.get('verdict') or '?'}"
                         + (f"/{item['confidence']}" if item.get("confidence") else "")

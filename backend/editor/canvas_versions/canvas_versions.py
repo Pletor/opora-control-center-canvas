@@ -234,6 +234,26 @@ class CanvasVersions:
                     return None
                 return self._insert(db, project, workspace, author, view["graph"], stored["state"], snapshot, actor)
 
+    def preview_restore(self, payload):
+        """Validate the exact full-content restore without saving or granting authority."""
+        _payload(payload, RESTORE_KEYS)
+        if "expectedToken" not in payload:
+            raise ValueError("Restore preview requires expectedToken.")
+        project, workspace = payload["project"], payload["workspace"]
+        with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
+            db = self.canvas.db_for(project)
+            current, stored, captured = self._capture(db, project, workspace)
+            self._check(payload, current, stored, captured)
+            row, graph, state, snapshot = self._read(db, project, workspace, payload["versionId"])
+            normalized = {**snapshot, "records": with_later_stores(snapshot["records"])} if snapshot else None
+            preflight(self.canvas, db, project, workspace, graph, state, normalized, current, stored)
+            if normalized:
+                check_closed_records(stored["state"], state, normalized["records"], captured["records"])
+            return {"version": _summary(row), "graph": graph, "integrity": "verified",
+                    "coverage": "full" if snapshot else "legacy-partial", "excluded": EXCLUDED,
+                    "digest": current["digest"], "currentToken": current_token(current["graph"], stored, captured),
+                    "applied": False, "autonomy": "preserved from current state"}
+
     def restore(self, payload):
         author = _payload(payload, RESTORE_KEYS)
         if "expectedToken" not in payload:

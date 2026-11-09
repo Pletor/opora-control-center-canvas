@@ -45,13 +45,15 @@ export default function DetailContent({ models, detail, open, currentAcceptedHea
   models: OverviewModels; detail: DetailTarget; open: (target: DetailTarget) => void; currentAcceptedHead: string | null; onChanged?: () => void;
 }) {
   const graph = models.graphProposals;
+  // Drawer identity and scoped URL must move together with the graph hook selection.
+  const navigableGraph = { ...graph, inspect: (id: string) => open({ kind: "graph", id, title: "Uložený návrh plánu" }) };
   const project = models.executions.project ?? "", workspace = models.executions.workspace ?? "";
   switch (detail.kind) {
     case "graph": return detail.id ? <section className="graph-proposals">
       {graph.detailBusy && <p role="status">Načítám přesný obsah vybraného návrhu…</p>}
       {graph.detailError && <p role="alert">{graph.detailError}</p>}
-      {graph.inspected?.id === detail.id ? <GraphProposalDetails model={graph} review={models.proposalReview?.graph} /> : !graph.detailBusy && !graph.detailError && <p>Vybraný návrh není dostupný. Nebyl nahrazen jiným návrhem.</p>}
-    </section> : <GraphProposals model={graph} review={models.proposalReview?.graph} />;
+      {graph.inspected?.id === detail.id ? <GraphProposalDetails model={navigableGraph} review={models.proposalReview?.graph} /> : !graph.detailBusy && !graph.detailError && <p>Vybraný návrh není dostupný. Nebyl nahrazen jiným návrhem.</p>}
+    </section> : <GraphProposals model={navigableGraph} review={models.proposalReview?.graph} />;
     case "changes": return <ExactDetail requestedId={detail.id} selectedId={models.changes.inspected?.id} busy={models.changes.busy} error={models.changes.error}>
       <FocusedDetail selector={detail.id ? ".plan-changes__inspection" : ":not(*)"} revision={`${detail.id ?? ""}:${models.changes.inspected?.id ?? ""}`}><PlanChanges model={models.changes} review={models.proposalReview?.spec} acceptancePolicy={models.proposalReview?.policy} /></FocusedDetail>
     </ExactDetail>;

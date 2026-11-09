@@ -4,7 +4,9 @@
 import { useEffect, useState } from "react";
 import { authorLine, canRestore, versionLabel, type CanvasVersion } from "@/editor/canvas/save-versions/logic/save-versions";
 
-export default function SaveHistoryPanel({ versions, loading, error, disabled, onRestore, onPrepareRestore, onClose }: {
+export default function SaveHistoryPanel({ initialSelected = null, reviewNodes, versions, loading, error, disabled, onRestore, onPrepareRestore, onClose }: {
+  initialSelected?: string | null;
+  reviewNodes?: { id: string; name?: string }[];
   versions: CanvasVersion[];
   loading: boolean;
   /** Chyba načtení seznamu. */
@@ -14,7 +16,7 @@ export default function SaveHistoryPanel({ versions, loading, error, disabled, o
   onPrepareRestore: (versionId: string) => Promise<void>;
   onClose: () => void;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialSelected);
   const [confirming, setConfirming] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [restoreError, setRestoreError] = useState("");
@@ -61,6 +63,9 @@ export default function SaveHistoryPanel({ versions, loading, error, disabled, o
       </p>
       <p className="save-versions__panel-info">Úplná verze zahrnuje plátno, pracovní stav, zadání, texty, deníky, kresby a dokumentaci pracovního prostoru. Cíl a nastavení projektu jsou společné; tato obnova je nemění. Git a externí soubory se neobnovují.</p>
       {(error || restoreError) && <p className="save-versions__panel-error" role="alert">{restoreError || error}</p>}
+      {selected === initialSelected && reviewNodes && <details open><summary>Obsah vybrané verze · {reviewNodes.length} karet</summary>
+        <ul>{reviewNodes.map(node => <li key={node.id}>{node.name || node.id}</li>)}</ul>
+      </details>}
       <ul className="save-versions__panel-list" role="listbox" aria-label="Uložené verze">
         {loading && versions.length === 0 && <li className="save-versions__panel-empty">Načítám verze…</li>}
         {!loading && versions.length === 0 && !error && <li className="save-versions__panel-empty">Zatím žádná uložená verze.</li>}

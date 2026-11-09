@@ -1,5 +1,35 @@
 # Správa webu: dokument a design systém projektu
 
+## Staged attachment bundles
+
+`proposals.propose(..., attachments=[...])` extends the existing proposal store and human review authority.
+Each operation is `{kind:asset|font, op:put|delete, name, group? (asset), data? (base64 put)}`; `changes:{}` is
+valid for attachment-only proposals. Native filename/content/size validators are reused. Limits: 50 operations,
+100 MiB including backup bytes per bundle, 256 MiB immutable staged blobs per project, existing live asset quota.
+Blobs live under `site/proposals/blobs/<sha256>`; rejected/superseded blobs never become live. No implicit garbage
+collection removes audit history. Traversal, symbolic links and Windows junctions are rejected for staged/live targets.
+
+Binary proposals carry `schemaVersion:2,status:pending-attachments`. This deliberately fences older runtimes:
+their pending reader hides them and their accept gate rejects the unknown status. Legacy document-only records
+retain their existing shape and behavior; there is no migration rewriting historical proposals.
+
+Human accept validates the document revision and ALL original file digests before writing a durable
+`site/proposals/apply-<proposalId>.json` journal. It pins exact before/after blobs, final document revision and
+proposal status. Files are individually atomically replaced, not one cross-file atomic transaction. An interruption
+returns 409 `detail.code:site_recovery_needed` with observed target states, and blocks other native Site writes.
+Retrying the same accept after restart completes only targets matching the pinned before state; already-written
+after targets are skipped. Any third digest or changed/missing staged blob blocks recovery without overwriting it.
+Backups remain immutable; there is no automatic rollback over external work. A completed retry returns the original
+accepted result and never creates another revision/journal. Rejected/superseded proposals cannot start acceptance.
+The recovery/backup unit is the whole bundle: every attachment plus `design-system.json` and the proposal status.
+No rollback endpoint is provided: an operator must resolve a conflicting target back to a reviewed before/after
+state before retrying, or request a separate explicitly reviewed restoration. The implementation never claims that
+an interrupted bundle was rolled back. New proposals and rejection are blocked until the existing apply journal completes.
+
+`GET /api/site-admin/proposals/{proposal_id}/attachments/{index}?project=…` authenticates a real scoped Heart token
+or human UI session, verifies the immutable digest, and returns a download with octet-stream, attachment disposition,
+CSP sandbox and nosniff. Heart can stage; only existing human accept/reject endpoints can make files live.
+
 Backend Správy webu (`docs/navrhy/2026-11-04-sprava-webu-design-system.md` §2, PR S-2, Vzhled a Tlačítka S-4b).
 Jeden dokument na projekt: globální nastavení webu (`settings`) a design systém (`design`). Gramatika tokenů je
 převzatá z otevřeného formátu `tokens.json` typu Design System, kód typu ne.

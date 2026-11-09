@@ -27,7 +27,7 @@ Projekt určují dvě hodnoty `<projectId>` a `<workspace>` (nikdy název projek
 absolutní cesta k tomuto skillu (řádek „Base directory for this skill“), v příkazu v uvozovkách.
 
 ## Kde běžíš (zjisti jako první)
-
+Heart runtime: `canvas describe opora_graph_routes.read`; exact saved-proposal reads and input-file format: [api.md](references/api.md#srdce-katalog).
 | | Pod agent-office (prompt s neměnným zadáním) | Agent mimo aplikaci (terminál, VS Code) |
 |---|---|---|
 | Projekt, workspace | z promptu | `opora_read.py projects`, `workspaces --project P` |

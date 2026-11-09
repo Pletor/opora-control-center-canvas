@@ -1,0 +1,8 @@
+/* Posouzení drží výběr verze, rozdíl a rozhodnutí pohromadě; graf zůstává pouze ke čtení. */
+.flow-review {flex: 1; width: 100%; min-width: 0; overflow: auto; padding: 20px; color: var(--ink); background: var(--bg);}
+.flow-review header {display: flex; align-items: center; gap: 16px; flex-wrap: wrap;}
+.flow-review__graph {height: 420px; min-height: 260px;}
+.flow-review pre {white-space: pre-wrap; overflow-wrap: anywhere;}
+.flow-review footer {padding: 12px 0;}
+.flow-review textarea {display: block; width: min(600px, 100%); min-height: 72px;}
+.flow-review details {overflow-wrap: anywhere; margin: 12px 0;}

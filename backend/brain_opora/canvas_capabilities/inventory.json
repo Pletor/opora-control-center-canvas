@@ -1,0 +1,1290 @@
+[
+  {
+    "id": "canvas_routes.view",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/view",
+    "source": "`backend/api/editor/canvas_routes.py:21`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get, service.view, current.items`; snapshot; ctx tree/plan-of (partial)",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.canvas_layout",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/canvas-layout",
+    "source": "`backend/api/editor/canvas_routes.py:28`; `payload:dict`",
+    "nativeCalls": "`router.post, apply_layout`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.preview_layout",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/layout-preview",
+    "source": "`backend/api/editor/canvas_routes.py:32`; `project:str, workspace:str, layer:str`",
+    "nativeCalls": "`router.get, service.view`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.canvas_index",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/canvas-index",
+    "source": "`backend/api/editor/canvas_routes.py:37`; `project:str, workspace:str, q:str, limit:int`",
+    "nativeCalls": "`router.get, service.reading, service.view, store.stamp, service.read_cache.get`; gap: CLI search",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.graph",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/graph",
+    "source": "`backend/api/editor/canvas_routes.py:57`; `payload:dict`",
+    "nativeCalls": "`router.post, service.save_graph`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.graph_positions",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/graph/positions",
+    "source": "`backend/api/editor/canvas_routes.py:72`; `payload:dict`",
+    "nativeCalls": "`router.post, service.save_positions`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.canvas_plan",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/canvas-plan",
+    "source": "`backend/api/editor/canvas_routes.py:80`; `payload:dict`",
+    "nativeCalls": "`router.post, apply_plan, name.strip`; plan --file --dry-run/--no-accept (limits below)",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.drawing",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/drawing",
+    "source": "`backend/api/editor/canvas_routes.py:94`; `project:str, workspace:str, layer:str`",
+    "nativeCalls": "`router.get, service.drawing`; gap: CLI scene",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.save_drawing",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/drawing",
+    "source": "`backend/api/editor/canvas_routes.py:98`; `payload:dict`",
+    "nativeCalls": "`router.post, service.drawing`; gap: CLI scene",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.save_drawing_file",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/drawing-file",
+    "source": "`backend/api/editor/canvas_routes.py:104`; `payload:dict`",
+    "nativeCalls": "`router.post, service.drawing_file`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.drawing_files",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/drawing-files",
+    "source": "`backend/api/editor/canvas_routes.py:108`; `project:str, workspace:str, ids:str`",
+    "nativeCalls": "`router.get, service.drawing_file_list`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.wireframe_context_api",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/wireframe-context",
+    "source": "`backend/api/editor/canvas_routes.py:112`; `project:str, workspace:str, layer:str`",
+    "nativeCalls": "`router.get, service.drawing, wireframe_context`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.removal_preview",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/removal-preview",
+    "source": "`backend/api/editor/canvas_routes.py:117`; `project:str, workspace:str, kind:str, target:str`",
+    "nativeCalls": "`router.get, service.removals.preview`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.remove_item",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/remove",
+    "source": "`backend/api/editor/canvas_routes.py:121`; `payload:dict`",
+    "nativeCalls": "`router.post, service.removals.remove`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_routes.restore_removed",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/remove/restore",
+    "source": "`backend/api/editor/canvas_routes.py:125`; `payload:dict`",
+    "nativeCalls": "`router.post, service.removals.restore`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "node_routes.node_text",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/node-text",
+    "source": "`backend/api/editor/node_routes.py:19`; `project:str, workspace:str, node:str`",
+    "nativeCalls": "`router.get, service.texts.access`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "node_routes.save_node_text",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/node-text",
+    "source": "`backend/api/editor/node_routes.py:23`; `payload:dict`",
+    "nativeCalls": "`router.post, service.texts.access`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "node_routes.node_links",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/node-links",
+    "source": "`backend/api/editor/node_routes.py:27`; `project:str, workspace:str, node:str`",
+    "nativeCalls": "`router.get, links.links`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "node_routes.node_journal",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/node-journal",
+    "source": "`backend/api/editor/node_routes.py:31`; `project:str, workspace:str, node:str, day:str`",
+    "nativeCalls": "`router.get, journal.access`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "node_routes.save_node_journal",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/node-journal",
+    "source": "`backend/api/editor/node_routes.py:35`; `payload:dict`",
+    "nativeCalls": "`router.post, journal.access`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "node_routes.node_spec",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/node-spec",
+    "source": "`backend/api/editor/node_routes.py:45`; `project:str, workspace:str, node:str`",
+    "nativeCalls": "`router.get, service.node_spec`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "node_routes.save_node_spec",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/node-spec",
+    "source": "`backend/api/editor/node_routes.py:49`; `payload:dict`",
+    "nativeCalls": "`router.post, service.node_spec`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "node_routes.upload_material",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/node-materials/upload",
+    "source": "`backend/api/editor/node_routes.py:54`; `payload:dict`",
+    "nativeCalls": "`router.post, materials.save_upload`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "node_routes.material_file",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/node-materials/file",
+    "source": "`backend/api/editor/node_routes.py:59`; `project:str, nodeId:str, file:str`",
+    "nativeCalls": "`router.get, materials.file_path`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "node_routes.remove_material",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/node-materials/remove",
+    "source": "`backend/api/editor/node_routes.py:67`; `payload:dict`",
+    "nativeCalls": "`router.post, materials.remove`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_scenario_history",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/scenario-history",
+    "source": "`backend/api/editor/desktop_v3_routes.py:57`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_work_overview",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/work-overview",
+    "source": "`backend/api/editor/desktop_v3_routes.py:61`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_source_status",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/source-status",
+    "source": "`backend/api/editor/desktop_v3_routes.py:65`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.write_source_realization",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/realize-source",
+    "source": "`backend/api/editor/desktop_v3_routes.py:69`; `payload:dict`",
+    "nativeCalls": "`router.post`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.grant_autonomy",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/autonomy",
+    "source": "`backend/api/editor/desktop_v3_routes.py:73`; `payload:dict`",
+    "nativeCalls": "`router.post, state.canvas.graph_lock_for, state.canvas.lock_for, state.set_autonomy`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.confirm_sector_proposals",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/confirm-proposals",
+    "source": "`backend/api/editor/desktop_v3_routes.py:83`; `payload:dict`",
+    "nativeCalls": "`router.post`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_leases",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/leases",
+    "source": "`backend/api/editor/desktop_v3_routes.py:88`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get, leases.summary`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.write_lease",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/lease",
+    "source": "`backend/api/editor/desktop_v3_routes.py:92`; `payload:dict`",
+    "nativeCalls": "`router.post, leases.apply`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_usage",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/usage-summary",
+    "source": "`backend/api/editor/desktop_v3_routes.py:96`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_assignment_status",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/assignment-status",
+    "source": "`backend/api/editor/desktop_v3_routes.py:100`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_frontier",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/frontier",
+    "source": "`backend/api/editor/desktop_v3_routes.py:104`; `project:str, workspace:str, nodeId:str`",
+    "nativeCalls": "`router.get, state.canvas.reading, agent_workspace.read_many, frontier, state.canvas.view`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_card_checklist",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/card-checklist",
+    "source": "`backend/api/editor/desktop_v3_routes.py:123`; `project:str, workspace:str, layer:str`",
+    "nativeCalls": "`router.get, state.canvas.reading, state.canvas.view, state.read, n.get`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.write_assignment_snapshot",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/assignment-snapshot",
+    "source": "`backend/api/editor/desktop_v3_routes.py:135`; `payload:dict`",
+    "nativeCalls": "`router.post`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_assignment_comparison",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/assignment-comparison",
+    "source": "`backend/api/editor/desktop_v3_routes.py:139`; `project:str, workspace:str, nodeId:str, id:str, source:str`",
+    "nativeCalls": "`router.get`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_rule",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/rule",
+    "source": "`backend/api/editor/desktop_v3_routes.py:143`; `project:str, workspace:str, id:str`",
+    "nativeCalls": "`router.get, items.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.write_rule",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/rule",
+    "source": "`backend/api/editor/desktop_v3_routes.py:147`; `payload:dict, full:bool`",
+    "nativeCalls": "`router.post, items.apply`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.review_rule",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/rule-review",
+    "source": "`backend/api/editor/desktop_v3_routes.py:152`; `payload:dict, full:bool`",
+    "nativeCalls": "`router.post, items.review_rule`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.review_rules",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/rule-review-batch",
+    "source": "`backend/api/editor/desktop_v3_routes.py:157`; `payload:dict, full:bool`",
+    "nativeCalls": "`router.post, items.review_rules`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_decision",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/decision",
+    "source": "`backend/api/editor/desktop_v3_routes.py:165`; `project:str, workspace:str, id:str`",
+    "nativeCalls": "`router.get, items.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.write_decision",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/decision",
+    "source": "`backend/api/editor/desktop_v3_routes.py:169`; `payload:dict, full:bool`",
+    "nativeCalls": "`router.post, items.apply`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_pipeline_profiles",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/pipeline-profiles",
+    "source": "`backend/api/editor/desktop_v3_routes.py:189`; ``",
+    "nativeCalls": "`router.get`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.write_pipeline",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/pipeline",
+    "source": "`backend/api/editor/desktop_v3_routes.py:193`; `payload:dict, full:bool`",
+    "nativeCalls": "`router.post, routing.apply`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_state",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/state",
+    "source": "`backend/api/editor/desktop_v3_routes.py:199`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get, state.canvas.reading, state.stamp, state.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.save_state",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/state",
+    "source": "`backend/api/editor/desktop_v3_routes.py:206`; `payload:dict`",
+    "nativeCalls": "`router.post, state.save, state.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.save_node",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/node",
+    "source": "`backend/api/editor/desktop_v3_routes.py:219`; `payload:dict`",
+    "nativeCalls": "`router.post, state.save_node, state.read, stored.get`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_trace",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/trace",
+    "source": "`backend/api/editor/desktop_v3_routes.py:247`; `project:str, workspace:str, id:str`",
+    "nativeCalls": "`router.get, state.read, state.canvas.view`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_pipelines",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/pipelines",
+    "source": "`backend/api/editor/desktop_v3_routes.py:257`; ``",
+    "nativeCalls": "`router.get, pipeline_library.load`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_node_brief",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/node-brief",
+    "source": "`backend/api/editor/desktop_v3_routes.py:262`; `project:str, workspace:str, nodeId:str`",
+    "nativeCalls": "`router.get, briefs.build`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.write_agent_output",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/agent-output",
+    "source": "`backend/api/editor/desktop_v3_routes.py:267`; `payload:dict`",
+    "nativeCalls": "`router.post, agent_output.apply`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_agent_results",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/agent-results",
+    "source": "`backend/api/editor/desktop_v3_routes.py:273`; `project:str, workspace:str, nodeId:str, before:int / None`",
+    "nativeCalls": "`router.get, agent_output.results.history`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_block",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/block",
+    "source": "`backend/api/editor/desktop_v3_routes.py:278`; `project:str, workspace:str, nodeId:str, blockId:str`",
+    "nativeCalls": "`router.get, block_access.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.write_block",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/block",
+    "source": "`backend/api/editor/desktop_v3_routes.py:288`; `payload:dict`",
+    "nativeCalls": "`router.post, block_access.apply`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_agent_workspace",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/agent-workspace",
+    "source": "`backend/api/editor/desktop_v3_routes.py:294`; `project:str, workspace:str, nodeId:str`",
+    "nativeCalls": "`router.get, agent_workspace.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.read_agent_workspace_summaries",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/agent-workspace-summaries",
+    "source": "`backend/api/editor/desktop_v3_routes.py:304`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get, agent_workspace.summaries`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.write_agent_workspace",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/agent-workspace",
+    "source": "`backend/api/editor/desktop_v3_routes.py:309`; `payload:dict`",
+    "nativeCalls": "`router.post, agent_workspace.save`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.packet_preview",
+    "contract": "R/H/D",
+    "nativeRoute": "POST /api/desktop-v3/packet/preview",
+    "source": "`backend/api/editor/desktop_v3_routes.py:329`; `payload:dict`",
+    "nativeCalls": "`router.post, packets.build`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.packet_snapshot",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/packet/snapshot",
+    "source": "`backend/api/editor/desktop_v3_routes.py:333`; `payload:dict`",
+    "nativeCalls": "`router.post, packets.snapshot`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.packet_snapshot_read",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/packet/snapshots/{snapshot_id}",
+    "source": "`backend/api/editor/desktop_v3_routes.py:338`; `snapshot_id:str, project:str, workspace:str`",
+    "nativeCalls": "`router.get, packets.load`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.external_export",
+    "contract": "S/H/D",
+    "nativeRoute": "POST /api/desktop-v3/packet/snapshots/{snapshot_id}/external-export",
+    "source": "`backend/api/editor/desktop_v3_routes.py:343`; `snapshot_id:str, payload:dict`",
+    "nativeCalls": "`router.post, external_tasks.export`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "desktop_v3_routes.external_read",
+    "contract": "R/H/D",
+    "nativeRoute": "GET /api/desktop-v3/packet/snapshots/{snapshot_id}/external-export",
+    "source": "`backend/api/editor/desktop_v3_routes.py:347`; `snapshot_id:str, project:str, workspace:str, nodeId:str, digest:str`",
+    "nativeCalls": "`router.get, external_tasks.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_version_routes.canvas_versions",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/canvas-versions",
+    "source": "`backend/api/editor/canvas_version_routes.py:15`; `project:str, workspace:str, versionId:str / None`",
+    "nativeCalls": "`router.get, versions.list, versions.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_version_routes.canvas_versions_head",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/canvas-versions/head",
+    "source": "`backend/api/editor/canvas_version_routes.py:25`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get, versions.head`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_version_routes.save_canvas_version",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/canvas-versions",
+    "source": "`backend/api/editor/canvas_version_routes.py:32`; `payload:dict`",
+    "nativeCalls": "`router.post, versions.save`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "canvas_version_routes.restore_canvas_version",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/canvas-versions/restore",
+    "source": "`backend/api/editor/canvas_version_routes.py:36`; `payload:dict`",
+    "nativeCalls": "`router.post, versions.restore`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_graph_routes.context",
+    "contract": "R/N",
+    "nativeRoute": "GET /api/oporahub/graph-proposals/context",
+    "source": "`backend/api/editor/opora_graph_routes.py:25`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get, proposals.context`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_graph_routes.history",
+    "contract": "R/N",
+    "nativeRoute": "GET /api/oporahub/graph-proposals",
+    "source": "`backend/api/editor/opora_graph_routes.py:29`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get, proposals.list`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_graph_routes.create",
+    "contract": "S/N",
+    "nativeRoute": "POST /api/oporahub/graph-proposals",
+    "source": "`backend/api/editor/opora_graph_routes.py:33`; `payload:dict`",
+    "nativeCalls": "`router.post, proposals.create`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_graph_routes.read",
+    "contract": "R/N",
+    "nativeRoute": "GET /api/oporahub/graph-proposals/{identifier}",
+    "source": "`backend/api/editor/opora_graph_routes.py:41`; `identifier:str, project:str, workspace:str`",
+    "nativeCalls": "`router.get, proposals.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_graph_routes.rebase",
+    "contract": "S/N",
+    "nativeRoute": "POST /api/oporahub/graph-proposals/{identifier}/rebase",
+    "source": "`backend/api/editor/opora_graph_routes.py:45`; `identifier:str, payload:dict`",
+    "nativeCalls": "`router.post, proposals.rebase`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_graph_routes.accept",
+    "contract": "S/N",
+    "nativeRoute": "POST /api/oporahub/graph-proposals/{identifier}/accept",
+    "source": "`backend/api/editor/opora_graph_routes.py:49`; `identifier:str, payload:dict`",
+    "nativeCalls": "`router.post, acceptance.accept, proposals.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_changeset_routes.context",
+    "contract": "R/N",
+    "nativeRoute": "GET /api/oporahub/changesets/context",
+    "source": "`backend/api/editor/opora_changeset_routes.py:24`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get, changesets.context`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_changeset_routes.baseline",
+    "contract": "S/N",
+    "nativeRoute": "POST /api/oporahub/baselines",
+    "source": "`backend/api/editor/opora_changeset_routes.py:29`; `payload:dict`",
+    "nativeCalls": "`router.post, changesets.baseline`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_changeset_routes.revision",
+    "contract": "R/N",
+    "nativeRoute": "GET /api/oporahub/revisions/{identifier}",
+    "source": "`backend/api/editor/opora_changeset_routes.py:33`; `identifier:str, project:str, workspace:str`",
+    "nativeCalls": "`router.get, changesets.revision`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_changeset_routes.propose",
+    "contract": "S/N",
+    "nativeRoute": "POST /api/oporahub/changesets",
+    "source": "`backend/api/editor/opora_changeset_routes.py:38`; `payload:dict`",
+    "nativeCalls": "`router.post, changesets.create`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_changeset_routes.history",
+    "contract": "R/N",
+    "nativeRoute": "GET /api/oporahub/changesets",
+    "source": "`backend/api/editor/opora_changeset_routes.py:42`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get, changesets.list`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_changeset_routes.read",
+    "contract": "R/N",
+    "nativeRoute": "GET /api/oporahub/changesets/{identifier}",
+    "source": "`backend/api/editor/opora_changeset_routes.py:47`; `identifier:str, project:str, workspace:str`",
+    "nativeCalls": "`router.get, changesets.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_changeset_routes.accept",
+    "contract": "S/N",
+    "nativeRoute": "POST /api/oporahub/changesets/{identifier}/accept",
+    "source": "`backend/api/editor/opora_changeset_routes.py:52`; `identifier:str, payload:dict`",
+    "nativeCalls": "`router.post, acceptance.accept, changesets.read`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "opora_changeset_routes.rebase",
+    "contract": "S/N",
+    "nativeRoute": "POST /api/oporahub/changesets/{identifier}/rebase",
+    "source": "`backend/api/editor/opora_changeset_routes.py:59`; `identifier:str, payload:dict`",
+    "nativeCalls": "`router.post, changesets.rebase`; gap: named adapter/readback not established",
+    "implemented": false
+  },
+  {
+    "id": "research_routes.listing",
+    "contract": "R/Q",
+    "nativeRoute": "GET /api/research",
+    "source": "`backend/api/editor/research_routes.py:41`; `project:str, workspace:str, archived:bool`",
+    "nativeCalls": "`router.get, research.listing`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_routes.detail",
+    "contract": "R/Q",
+    "nativeRoute": "GET /api/research/cards/{id}",
+    "source": "`backend/api/editor/research_routes.py:49`; `id:str, project:str, workspace:str, revision:int / None`",
+    "nativeCalls": "`router.get, research.detail`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_routes.edge_detail",
+    "contract": "R/Q",
+    "nativeRoute": "GET /api/research/edges/{id}",
+    "source": "`backend/api/editor/research_routes.py:57`; `id:str, project:str, workspace:str, revision:int / None`",
+    "nativeCalls": "`router.get, research.edge_detail`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_routes.apply",
+    "contract": "S/Q",
+    "nativeRoute": "POST /api/research",
+    "source": "`backend/api/editor/research_routes.py:65`; `payload:dict`",
+    "nativeCalls": "`router.post, model.shape, model.identifier, research.apply`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_read_routes.topics",
+    "contract": "R/Q",
+    "nativeRoute": "GET /api/research/topics",
+    "source": "`backend/api/editor/research_read_routes.py:22`; `project:str, workspace:str, archived:bool`",
+    "nativeCalls": "`router.get, reads.topics`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_read_routes.parts",
+    "contract": "R/Q",
+    "nativeRoute": "GET /api/research/cards/{id}/parts",
+    "source": "`backend/api/editor/research_read_routes.py:26`; `id:str, project:str, workspace:str, revision:int / None, offset:int, size:int, snapshot:str / None`",
+    "nativeCalls": "`router.get, reads.parts`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_read_routes.changes",
+    "contract": "R/Q",
+    "nativeRoute": "GET /api/research/events",
+    "source": "`backend/api/editor/research_read_routes.py:32`; `project:str, workspace:str, after:int, limit:int`",
+    "nativeCalls": "`router.get, events.listing`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_decision_routes.review",
+    "contract": "S/Q",
+    "nativeRoute": "POST /api/research/decision-reviews",
+    "source": "`backend/api/editor/research_decision_routes.py:24`; `payload:dict`",
+    "nativeCalls": "`router.post, model.shape, decisions.review`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_decision_routes.listing",
+    "contract": "R/Q",
+    "nativeRoute": "GET /api/research/decision-reviews",
+    "source": "`backend/api/editor/research_decision_routes.py:31`; `project:str, workspace:str, decisionId:str`",
+    "nativeCalls": "`router.get, decisions.listing`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_decision_routes.read",
+    "contract": "R/Q",
+    "nativeRoute": "GET /api/research/decision-reviews/{id}",
+    "source": "`backend/api/editor/research_decision_routes.py:36`; `id:str, project:str, workspace:str`",
+    "nativeCalls": "`router.get, decisions.read`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_decision_routes.tasks",
+    "contract": "S/Q",
+    "nativeRoute": "POST /api/research/decision-reviews/{id}/tasks",
+    "source": "`backend/api/editor/research_decision_routes.py:41`; `id:str, payload:dict`",
+    "nativeCalls": "`router.post, model.shape, decision_tasks.materialize`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_decision_routes.task_status",
+    "contract": "R/Q",
+    "nativeRoute": "GET /api/research/decision-reviews/{id}/tasks",
+    "source": "`backend/api/editor/research_decision_routes.py:49`; `id:str, project:str, workspace:str`",
+    "nativeCalls": "`router.get, decision_tasks.status`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_decision_routes.reconcile",
+    "contract": "S/Q",
+    "nativeRoute": "POST /api/research/decision-reviews/{id}/reconcile",
+    "source": "`backend/api/editor/research_decision_routes.py:54`; `id:str, payload:dict`",
+    "nativeCalls": "`router.post, model.shape, decision_tasks.reconcile`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_ticket_routes.branch",
+    "contract": "S/Q",
+    "nativeRoute": "POST /api/research/tickets/branch",
+    "source": "`backend/api/editor/research_ticket_routes.py:22`; `payload:dict`",
+    "nativeCalls": "`router.post`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "research_ticket_routes.answer",
+    "contract": "S/Q",
+    "nativeRoute": "POST /api/research/tickets/answer",
+    "source": "`backend/api/editor/research_ticket_routes.py:26`; `payload:dict`",
+    "nativeCalls": "`router.post`; research-map subset; human review separate",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_tree",
+    "contract": "R/B",
+    "nativeRoute": "GET /api/brief-vault",
+    "source": "`backend/api/editor/brief_vault_routes.py:40`; `project:str, workspace:str, scope:str / None, discipline:str / None`",
+    "nativeCalls": "`router.get, vault.tree`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_disciplines",
+    "contract": "R/B",
+    "nativeRoute": "GET /api/brief-vault/disciplines",
+    "source": "`backend/api/editor/brief_vault_routes.py:44`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get, vault.disciplines`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_next",
+    "contract": "R/B",
+    "nativeRoute": "GET /api/brief-vault/next",
+    "source": "`backend/api/editor/brief_vault_routes.py:48`; `project:str, workspace:str, discipline:str / None`",
+    "nativeCalls": "`router.get`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_lessons",
+    "contract": "R/B",
+    "nativeRoute": "GET /api/brief-vault/lessons",
+    "source": "`backend/api/editor/brief_vault_routes.py:52`; `project:str, workspace:str, discipline:str / None, versionId:str / None`",
+    "nativeCalls": "`router.get`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_duel",
+    "contract": "R/B",
+    "nativeRoute": "GET /api/brief-vault/duel",
+    "source": "`backend/api/editor/brief_vault_routes.py:56`; `project:str, workspace:str, id:str`",
+    "nativeCalls": "`router.get`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_vision",
+    "contract": "R/B",
+    "nativeRoute": "GET /api/brief-vault/vision",
+    "source": "`backend/api/editor/brief_vault_routes.py:60`; `project:str, workspace:str, scopeNodeId:str`",
+    "nativeCalls": "`router.get`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_mirror",
+    "contract": "R/B",
+    "nativeRoute": "GET /api/brief-vault/mirror",
+    "source": "`backend/api/editor/brief_vault_routes.py:64`; `project:str, workspace:str`",
+    "nativeCalls": "`router.get, vault.mirror_overview`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_fragment",
+    "contract": "R/B",
+    "nativeRoute": "GET /api/brief-vault/fragment",
+    "source": "`backend/api/editor/brief_vault_routes.py:68`; `project:str, workspace:str, id:str, revision:int / None`",
+    "nativeCalls": "`router.get, vault.fragment`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_history",
+    "contract": "R/B",
+    "nativeRoute": "GET /api/brief-vault/history",
+    "source": "`backend/api/editor/brief_vault_routes.py:72`; `project:str, workspace:str, scope:str / None, limit:int`",
+    "nativeCalls": "`router.get, vault.history`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_research_brief",
+    "contract": "R/B",
+    "nativeRoute": "GET /api/brief-vault/research-brief",
+    "source": "`backend/api/editor/brief_vault_routes.py:76`; `project:str, workspace:str, fragment:str`",
+    "nativeCalls": "`router.get, vault.research_brief`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_plan",
+    "contract": "R/B",
+    "nativeRoute": "POST /api/brief-vault/plan",
+    "source": "`backend/api/editor/brief_vault_routes.py:80`; `payload:dict`",
+    "nativeCalls": "`router.post, vault.plan`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "brief_vault_routes.brief_vault_write",
+    "contract": "S/B",
+    "nativeRoute": "POST /api/brief-vault",
+    "source": "`backend/api/editor/brief_vault_routes.py:85`; `payload:dict`",
+    "nativeCalls": "`router.post, vault.apply`; vault ls/show/plan subset",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.node_type_list",
+    "contract": "R/F",
+    "nativeRoute": "GET /api/flow/node-types",
+    "source": "`backend/api/flow/flow_routes.py:157`; `kind:Kind / None`",
+    "nativeCalls": "`router.get, catalog(kind).values`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.node_port_list",
+    "contract": "R/F",
+    "nativeRoute": "POST /api/flow/node-ports",
+    "source": "`backend/api/flow/flow_routes.py:172`; `body:NodePortsIn`",
+    "nativeCalls": "`router.post, catalog(body.kind).get`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.graph_check",
+    "contract": "R/F",
+    "nativeRoute": "POST /api/flow/graph-check",
+    "source": "`backend/api/flow/flow_routes.py:182`; `body:GraphCheckIn`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.simulate_case",
+    "contract": "R/F",
+    "nativeRoute": "POST /api/flow/simulate",
+    "source": "`backend/api/flow/flow_routes.py:188`; `body:SimulateIn`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.page_intent_list",
+    "contract": "R/F",
+    "nativeRoute": "GET /api/flow/page-intents",
+    "source": "`backend/api/flow/flow_routes.py:200`; `project:str`",
+    "nativeCalls": "`router.get, page_intents.status, page_intents.pages_of`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.workflow_list",
+    "contract": "R/F",
+    "nativeRoute": "GET /api/flow/workflows",
+    "source": "`backend/api/flow/flow_routes.py:206`; `project:str / None, kind:Kind / None, owner_ref:str / None`",
+    "nativeCalls": "`router.get`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.workflow_create",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/flow/workflows",
+    "source": "`backend/api/flow/flow_routes.py:211`; `body:WorkflowIn`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.version_list",
+    "contract": "R/F",
+    "nativeRoute": "GET /api/flow/workflows/{workflow_id}/versions",
+    "source": "`backend/api/flow/flow_routes.py:217`; `workflow_id:str`",
+    "nativeCalls": "`router.get`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.version_draft",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/flow/workflows/{workflow_id}/versions",
+    "source": "`backend/api/flow/flow_routes.py:221`; `workflow_id:str, body:DraftIn`",
+    "nativeCalls": "`router.post, workflows.create_draft, (body.note or '').strip`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.version_candidate",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/flow/versions/{version_id}/candidate",
+    "source": "`backend/api/flow/flow_routes.py:231`; `version_id:str, body:CandidateIn / None`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.version_activate",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/flow/versions/{version_id}/activate",
+    "source": "`backend/api/flow/flow_routes.py:237`; `version_id:str`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.version_approve",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/flow/versions/{version_id}/approve",
+    "source": "`backend/api/flow/flow_routes.py:243`; `version_id:str`",
+    "nativeCalls": "`router.post, page_intents.current_digest`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.version_reject",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/flow/versions/{version_id}/reject",
+    "source": "`backend/api/flow/flow_routes.py:251`; `version_id:str, body:RejectIn`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.version_rollback",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/flow/workflows/{workflow_id}/rollback",
+    "source": "`backend/api/flow/flow_routes.py:256`; `workflow_id:str`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.run_manual",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/flow/versions/{version_id}/runs",
+    "source": "`backend/api/flow/flow_routes.py:262`; `version_id:str, body:RunIn / None`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.run_list",
+    "contract": "R/F",
+    "nativeRoute": "GET /api/flow/runs",
+    "source": "`backend/api/flow/flow_routes.py:270`; `workflow:str / None, limit:int`",
+    "nativeCalls": "`router.get`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.run_detail",
+    "contract": "R/F",
+    "nativeRoute": "GET /api/flow/runs/{run_id}",
+    "source": "`backend/api/flow/flow_routes.py:274`; `run_id:str`",
+    "nativeCalls": "`router.get`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.run_log",
+    "contract": "R/F",
+    "nativeRoute": "GET /api/flow/runs/{run_id}/log",
+    "source": "`backend/api/flow/flow_routes.py:278`; `run_id:str, seq:int, limit:int`",
+    "nativeCalls": "`router.get`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.run_advance",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/flow/runs/{run_id}/advance",
+    "source": "`backend/api/flow/flow_routes.py:283`; `run_id:str`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.approval_decision",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/flow/node-runs/{node_run_id}/decision",
+    "source": "`backend/api/flow/flow_routes.py:290`; `node_run_id:str, body:DecisionIn`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.canvas_log_create",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/flow/log",
+    "source": "`backend/api/flow/flow_routes.py:295`; `body:CanvasLogIn`",
+    "nativeCalls": "`router.post, error.body`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "flow_routes.stalls",
+    "contract": "R/F",
+    "nativeRoute": "GET /api/flow/stalls",
+    "source": "`backend/api/flow/flow_routes.py:304`; ``",
+    "nativeCalls": "`router.get`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "library_routes.library_list",
+    "contract": "R/F",
+    "nativeRoute": "GET /api/library",
+    "source": "`backend/api/flow/library_routes.py:107`; `owner:str`",
+    "nativeCalls": "`router.get`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "library_routes.folder_create",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/library/folders",
+    "source": "`backend/api/flow/library_routes.py:111`; `body:FolderIn`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "library_routes.folder_update",
+    "contract": "S/F",
+    "nativeRoute": "PATCH /api/library/folders/{folder_id}",
+    "source": "`backend/api/flow/library_routes.py:116`; `folder_id:str, body:FolderPatch`",
+    "nativeCalls": "`router.patch`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "library_routes.folder_delete",
+    "contract": "S/F",
+    "nativeRoute": "DELETE /api/library/folders/{folder_id}",
+    "source": "`backend/api/flow/library_routes.py:121`; `folder_id:str`",
+    "nativeCalls": "`router.delete`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "library_routes.flow_create",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/library/flows",
+    "source": "`backend/api/flow/library_routes.py:125`; `body:FlowIn`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "library_routes.flow_detail",
+    "contract": "R/F",
+    "nativeRoute": "GET /api/library/flows/{workflow_id}",
+    "source": "`backend/api/flow/library_routes.py:130`; `workflow_id:str`",
+    "nativeCalls": "`router.get`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "library_routes.flow_brief",
+    "contract": "R/F",
+    "nativeRoute": "GET /api/library/flows/{workflow_id}/brief",
+    "source": "`backend/api/flow/library_routes.py:134`; `workflow_id:str, version:int / None`",
+    "nativeCalls": "`router.get`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "library_routes.flow_adopt",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/library/flows/{workflow_id}/adopt",
+    "source": "`backend/api/flow/library_routes.py:138`; `workflow_id:str, body:AdoptIn`",
+    "nativeCalls": "`router.post, wall.check, verdict.body`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "library_routes.flow_contribute",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/library/flows/{workflow_id}/contribute",
+    "source": "`backend/api/flow/library_routes.py:146`; `workflow_id:str, body:FlowIn`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "library_routes.flow_promote",
+    "contract": "S/F",
+    "nativeRoute": "POST /api/library/flows/{workflow_id}/promote",
+    "source": "`backend/api/flow/library_routes.py:151`; `workflow_id:str, body:PromoteIn / None`",
+    "nativeCalls": "`router.post`; intent/library subset; boundaries below",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.site_admin_view",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/site-admin",
+    "source": "`backend/api/project/site_admin_routes.py:56`; `project:str`",
+    "nativeCalls": "`router.get`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.site_admin_save",
+    "contract": "S/G/P/D",
+    "nativeRoute": "PUT /api/site-admin",
+    "source": "`backend/api/project/site_admin_routes.py:61`; `payload:dict, project:str`",
+    "nativeCalls": "`router.put, store.write`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.tokens_css",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/site-admin/tokens.css",
+    "source": "`backend/api/project/site_admin_routes.py:71`; `project:str`",
+    "nativeCalls": "`router.get, compiled.tokens_css`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.components_css",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/site-admin/components.css",
+    "source": "`backend/api/project/site_admin_routes.py:75`; `project:str`",
+    "nativeCalls": "`router.get, compiled.components_css`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.tokens_json",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/site-admin/tokens.json",
+    "source": "`backend/api/project/site_admin_routes.py:79`; `project:str`",
+    "nativeCalls": "`router.get, compiled.tokens_json`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.readme",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/site-admin/README.md",
+    "source": "`backend/api/project/site_admin_routes.py:83`; `project:str`",
+    "nativeCalls": "`router.get, compiled.readme`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.asset_upload",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/site-admin/assets",
+    "source": "`backend/api/project/site_admin_routes.py:87`; `payload:dict`",
+    "nativeCalls": "`router.post, store.put_asset`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.asset_delete",
+    "contract": "S/G/P/D",
+    "nativeRoute": "DELETE /api/site-admin/assets",
+    "source": "`backend/api/project/site_admin_routes.py:94`; `project:str, group:str, name:str`",
+    "nativeCalls": "`router.delete, store.delete_asset`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.asset_file",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/site-admin/assets/{group}/{name}",
+    "source": "`backend/api/project/site_admin_routes.py:101`; `group:str, name:str, project:str`",
+    "nativeCalls": "`router.get, store.asset_path`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.font_upload",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/site-admin/fonts",
+    "source": "`backend/api/project/site_admin_routes.py:106`; `payload:dict`",
+    "nativeCalls": "`router.post, store.put_font`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.font_delete",
+    "contract": "S/G/P/D",
+    "nativeRoute": "DELETE /api/site-admin/fonts",
+    "source": "`backend/api/project/site_admin_routes.py:112`; `project:str, name:str`",
+    "nativeCalls": "`router.delete, store.delete_font`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.font_file",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/site-admin/fonts/{name}",
+    "source": "`backend/api/project/site_admin_routes.py:118`; `name:str, project:str`",
+    "nativeCalls": "`router.get, store.font_path`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.site_admin_summary",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/site-admin/summary",
+    "source": "`backend/api/project/site_admin_routes.py:125`; `project:str`",
+    "nativeCalls": "`router.get, proposals.pending`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.site_admin_export",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/site-admin/export",
+    "source": "`backend/api/project/site_admin_routes.py:130`; `project:str`",
+    "nativeCalls": "`router.get`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.proposal_list",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/site-admin/proposals",
+    "source": "`backend/api/project/site_admin_routes.py:136`; `project:str`",
+    "nativeCalls": "`router.get, proposals.pending, item.items`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.proposal_create",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/site-admin/proposals",
+    "source": "`backend/api/project/site_admin_routes.py:141`; `payload:dict`",
+    "nativeCalls": "`router.post, found.items, proposals.propose`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.proposal_accept",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/site-admin/proposals/{proposal_id}/accept",
+    "source": "`backend/api/project/site_admin_routes.py:153`; `proposal_id:str, payload:dict`",
+    "nativeCalls": "`router.post, proposals.accept`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "site_admin_routes.proposal_reject",
+    "contract": "S/G/P/D",
+    "nativeRoute": "POST /api/site-admin/proposals/{proposal_id}/reject",
+    "source": "`backend/api/project/site_admin_routes.py:161`; `proposal_id:str, payload:dict`",
+    "nativeCalls": "`router.post, proposals.reject`; site show/propose subset; acceptance human",
+    "implemented": false
+  },
+  {
+    "id": "design_system_routes.read",
+    "contract": "R/G/P/D",
+    "nativeRoute": "GET /api/oporahub/design-system",
+    "source": "`backend/api/project/design_system_routes.py:15`; `project:str`",
+    "nativeCalls": "`router.get, value.items`; gap: named adapter/readback not established",
+    "implemented": false
+  }
+]

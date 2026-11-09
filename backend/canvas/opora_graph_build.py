@@ -4,7 +4,7 @@ from copy import deepcopy
 from backend.canvas.architecture_graph import split
 from backend.canvas.canvas_plan_build import build
 from backend.canvas.canvas_plan_layout import layout
-from backend.canvas.graph import digest, validate_graph
+from backend.canvas.graph import EDGE_PORTS, digest, validate_graph
 from backend.editor.node.node_specs import EMPTY_FIELDS
 
 # Pole karty pro dělníka nese přírůstek stejně jako dávka plánu (`card` s effortem, `checks`, `goal_mode`);
@@ -15,7 +15,7 @@ NODE_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "so
 PERSISTED_NODE_KEYS = {"id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf", "order", *CARD_FIELDS}
 # Přidaná vazba: `next`, nebo `block` z portu bloku zdroje (docs/karta-pro-agenty.md); blok a port musí už stát
 # ve stavu zdrojové karty (`canvas_plan_links._source_port`), tvar hlídá `validate_graph`.
-ADDITION_PORTS = ("next", "block")
+ADDITION_PORTS = EDGE_PORTS
 EDGE_KEYS = {"from", "to", "port", "carries", "block", "blockPort"}
 PERSISTED_EDGE_KEYS = {"id", "source", "target", "port", "carries", "sourceBlockId", "sourcePortId"}
 
@@ -35,7 +35,7 @@ def validate_plan(plan):
             raise ValueError("Unsupported graph addition fields or kind.")
     for edge in plan.get("edges", []):
         if not isinstance(edge, dict) or not set(edge) <= EDGE_KEYS or edge.get("port", "next") not in ADDITION_PORTS:
-            raise ValueError("Only next edges (optionally with carries) and block edges from a block port are supported.")
+            raise ValueError("Edge additions require a native Canvas port.")
 
 
 def place(additions, base, inside, positions):

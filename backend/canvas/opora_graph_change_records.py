@@ -20,6 +20,12 @@ def validate_record(record):
 
 
 def _validate(record):
+    if record.get("schemaVersion") == 4:
+        from backend.canvas.opora_graph_candidate import validate_record as validate_candidate
+        return validate_candidate(record)
+    if record.get("schemaVersion") == 3:
+        from backend.canvas.opora_graph_complete import validate_record as validate_complete
+        return validate_complete(record)
     project, workspace = scope(record)
     json.dumps(record, allow_nan=False)
     if type(record.get("schemaVersion")) is not int or record["schemaVersion"] != 2 or record.get("kind") != "graph-changes":

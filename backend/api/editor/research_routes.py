@@ -64,7 +64,7 @@ def create_research_router(service):
     @router.post("")
     def apply(request: Request, payload: dict):
         def run():
-            model.shape(payload, {"project", "workspace", "key", "operations"})
+            model.shape(payload, {"project", "workspace", "key", "operations"}, {"continuation"})
             model.identifier(payload["project"]); model.identifier(payload["workspace"])
             selected = _workspace(service, payload["project"], payload["workspace"])
             actor, agent = _authorize(service, request, payload["project"], selected, True)

@@ -9,7 +9,6 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from backend.api.http_etag import conditional, etag_of
-from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas.activity_log import require_authority
 from backend.canvas.graph import payload_project
 from backend.canvas.opora_process_links import brief_metadata
@@ -23,26 +22,14 @@ from backend.editor.agent_memory.confirm_proposals import confirm_proposals
 from backend.editor.agent_memory.memory_items import BatchConflict, MemoryItems
 from backend.editor.agent_memory.pipeline_routing import PipelineRouting
 from backend.editor.agent_memory.pipeline_routing import profiles as pipeline_profiles
+from backend.editor.agent_memory.role_memory_commit import commit_card, confirmed_nodes
+from backend.editor.agent_memory.role_memory_commit import node_role as _node_role
 from backend.editor.agent_memory.scenario_history import scenario_history
 from backend.editor.agent_memory.trace import trace
 from backend.editor.agent_memory.usage import usage_summary
-from backend.editor.agent_packet.card_checklist import checklists, missing
-from backend.editor.agent_packet.frontier import frontier
+from backend.editor.agent_packet.card_checklist import checklists
+from backend.editor.agent_packet.frontier_read import read_frontier as native_frontier
 from backend.editor.agent_packet.work_overview import work_overview
-
-
-def _node_role(node):
-    value = node.get("agentRole") if isinstance(node, dict) else None
-    return value if isinstance(value, str) and value else None
-
-
-def confirmed_nodes(state_payload):
-    """Které karty jsou v daném stavu uzavřené; podklad pro „právě se uzavřela“."""
-    nodes = state_payload.get("nodes", {}) if isinstance(state_payload, dict) else {}
-    return {
-        node_id for node_id, node in nodes.items()
-        if isinstance(node, dict) and bool(node.get("done", {}).get("confirmed", False))
-    }
 
 
 def create_desktop_v3_router(state, packets, briefs, agent_output, block_access, agent_workspace,
@@ -102,22 +89,7 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
 
     @router.get("/frontier")
     def read_frontier(project: str, workspace: str, nodeId: str = ""):
-        with state.canvas.reading(project):
-            graph = state.canvas.view(project, workspace)["graph"]
-            stored = state.read(project, workspace)["state"]
-            spaces = agent_workspace.read_many(project, workspace, [n["id"] for n in graph["nodes"]])
-            linked = pulls.read(state.canvas, project, workspace) or []
-            merged = {item["cardId"] for item in linked
-                      if item.get("cardId") and item["state"] == "merged" and item.get("planWrittenBack") is True}
-            out = frontier(graph, stored, nodeId, {key: value.get("frame", "") for key, value in spaces.items()},
-                           leases.summary(project, workspace)["nodes"], merged=merged)
-            # Kontrolní pás: co každé kartě chybí (klíče polí), aby relace věděla, co doplnit.
-            rows = [row for group in ("frontier", "claimed", "blocked", "waiting", "closed") for row in out[group]]
-            lists = checklists(state.canvas, project, workspace, graph, stored, {row["id"] for row in rows})
-            for row in rows:
-                if row["id"] in lists:
-                    row["missing"] = missing(lists[row["id"]])
-            return out
+        return native_frontier(state, agent_workspace, leases, project, workspace, nodeId)
 
     @router.get("/card-checklist")
     def read_card_checklist(project: str, workspace: str, layer: str = ""):
@@ -233,15 +205,7 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
         return saved
 
     def _commit_card(payload, saved, node_id):
-        """Právě potvrzená karta jde do paměti role jako session; extrakci dělá OpenViking."""
-        role = _node_role(saved["state"]["nodes"].get(node_id, {}))
-        if role is None:
-            return
-        project, workspace = payload["project"], payload["workspace"]
-        space = agent_workspace.read(project, workspace, node_id) or {}
-        sections = {key: value for key, value in (space.get("workspace") or {}).items()
-                    if key not in ("updatedAt", "by")}
-        memory_service.commit_card(role, project, node_id, sections)
+        commit_card(memory_service, agent_workspace, payload["project"], payload["workspace"], saved["state"], node_id)
 
     @router.get("/trace")
     def read_trace(project: str, workspace: str, id: str):

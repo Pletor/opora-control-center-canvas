@@ -1,0 +1,5 @@
+/* Nabídka připojí právě tuto kartu prohlížeče; stav potvrzuje skutečné zobrazení. */
+.session-view { position: absolute; top: 40px; right: 12px; z-index: 20; max-width: 460px; padding: 8px; background: var(--panel, #1b232b); border: 1px solid #52616d; border-radius: 6px; }
+.session-view summary { cursor: pointer; }
+.session-view select { max-width: 260px; }
+.session-view p { margin: 6px 0; }

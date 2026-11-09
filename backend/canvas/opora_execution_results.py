@@ -25,7 +25,7 @@ class ExecutionResults(OporaExecutions):
     def receipts(self, identifier, project, workspace):
         scope({"project": project, "workspace": workspace})
         with self.transaction(project, workspace) as repo:
-            return {"results": repo.receipts(identifier)}
+            return {"results": repo.receipts(identifier), "checkpoints": repo.steps(identifier)}
 
     def submit(self, identifier, payload):
         project, workspace = validate(payload, {"token", "epoch", "requestId", "result"})

@@ -54,7 +54,7 @@ def valid(executions, project, workspace, identifier):
         return False
 
 
-def repin(executions, project, workspace, identifier):
+def repin(executions, project, workspace, identifier, *, on_success=None):
     """Přepne kontext běhu na aktuální stav; vrací True, když se přepnul, False když nesmí."""
     canvas = executions.canvas
     try:
@@ -71,7 +71,13 @@ def repin(executions, project, workspace, identifier):
                                       ChangesetRepository(repo.db, project, workspace).head())
             snapshot = capture(repo.db, project)
             projection = project_sql_context(snapshot["rows"], project, workspace, node, metadata=pin["metadata"])
-            opaque = token(private.key(repo.db, project), projection, pin["acceptedRevision"], binding)
+            from backend.editor.research.execution_evidence import validate_assignment
+            validate_assignment(repo.db, project, workspace, record)
+            # Re-pin SQL context, never refresh the assignment's research authority.
+            authenticated = dict(projection)
+            if "researchEvidence" in record["assignment"]:
+                authenticated["researchEvidence"] = record["assignment"]["researchEvidence"]
+            opaque = token(private.key(repo.db, project), authenticated, pin["acceptedRevision"], binding)
             assignment = {**record["assignment"], "contextVersion": opaque,
                           "specification": {**redact_deep(projection), "schema": "opora.specification-context/2"}}
             kit_of_assignment(assignment, node)
@@ -84,9 +90,63 @@ def repin(executions, project, workspace, identifier):
                           contextPinId=fresh)
             repo.save(record)
             validate_context(canvas, repo, record)  # nový pin musí projít stejnou kontrolou jako každý zápis
+            if on_success is not None:
+                on_success(repo.db)
             return True
     except ValueError:
         return False
+
+
+def _fence(record):
+    return {"assignmentDigest": record["assignmentDigest"], "pinId": pin_id(record),
+            "epoch": record["epoch"], "token": record["token"]}
+
+
+def freeze_candidates(canvas, project, workspace, owner):
+    if owner is None:
+        return []
+    executions = OporaExecutions(canvas)
+    frozen = []
+    for identifier in owned_running(canvas, project, workspace, owner):
+        if valid(executions, project, workspace, identifier):
+            with executions.transaction(project, workspace) as repo:
+                record = repo.read(identifier)
+                executions.lease_valid(repo, record)
+                validate_context(canvas, repo, record)
+                frozen.append({"id": identifier, "fence": _fence(record), "outcome": None})
+    return frozen
+
+
+def finish_candidates(canvas, project, workspace, receipt, intent):
+    from backend.canvas.canvas_plan_recovery import blocked
+    executions = OporaExecutions(canvas)
+    for candidate in intent["repins"]:
+        if candidate["outcome"] is not None:
+            continue  # outcome and re-pin were committed in the same native SQL transaction
+        identifier = candidate["id"]
+        with executions.transaction(project, workspace) as repo:
+            record = repo.read(identifier)
+            owner = repo.db.execute('SELECT owner FROM opora_executions WHERE id=? AND project_id=? AND workspace_id=?',
+                                   (identifier, project, workspace)).fetchone()[0]
+            if owner != intent["repinOwner"] or _fence(record) != candidate["fence"]:
+                blocked("Original execution authority changed before operation re-pin.")
+            try:
+                executions.lease_valid(repo, record)
+            except ValueError:
+                blocked("Original execution lease is no longer authoritative for re-pin.")
+        if valid(executions, project, workspace, identifier):
+            with canvas.lock_for(project), canvas.db_for(project) as db:
+                candidate["outcome"] = "unchanged"
+                receipt.progress(db, intent)
+            continue
+
+        def persist(db):
+            candidate["outcome"] = "repinned"
+            receipt.progress(db, intent)
+
+        if not repin(executions, project, workspace, identifier, on_success=persist):
+            blocked("Original execution evidence cannot be safely re-pinned.")
+    return [item["id"] for item in intent["repins"] if item["outcome"] == "repinned"]
 
 
 def plan_with_repin(canvas, payload, owner, apply):

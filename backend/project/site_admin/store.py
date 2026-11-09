@@ -78,6 +78,8 @@ def write(service, project, expected_revision, document, note=None):
     if note is not None and (not isinstance(note, str) or len(note) > 280):
         raise SiteAdminInvalid("note je jeden řádek do 280 znaků.")
     with service.lock_for(project):
+        from backend.project.site_admin.proposal_apply import guard
+        guard(service, project)
         stored = read(service, project)
         current = stored["revision"]
         if expected_revision != current:
@@ -142,6 +144,8 @@ def put_asset(service, project, group, name, data):
     media = _checked(name, raw, ASSET_TYPES, ASSET_LIMIT)
     root = site_dir(service, project) / "assets"
     with service.lock_for(project):
+        from backend.project.site_admin.proposal_apply import guard
+        guard(service, project)
         count = sum(1 for path in root.rglob("*") if path.is_file()) if root.exists() else 0
         target = root / group / name
         if count >= MAX_ASSETS and not target.exists():
@@ -156,6 +160,8 @@ def put_font(service, project, name, data):
     raw = _decode(data)
     media = _checked(name, raw, FONT_TYPES, FONT_LIMIT)
     with service.lock_for(project):
+        from backend.project.site_admin.proposal_apply import guard
+        guard(service, project)
         _atomic(site_dir(service, project) / "fonts" / name, raw)
     return {"file": f"fonts/{name}", "size": len(raw), "type": media}
 
@@ -184,6 +190,8 @@ def font_path(service, project, name):
 def delete_asset(service, project, group, name):
     path, _ = asset_path(service, project, group, name)
     with service.lock_for(project):
+        from backend.project.site_admin.proposal_apply import guard
+        guard(service, project)
         path.unlink()
         if not any(path.parent.iterdir()):
             path.parent.rmdir()
@@ -192,4 +200,6 @@ def delete_asset(service, project, group, name):
 def delete_font(service, project, name):
     path, _ = font_path(service, project, name)
     with service.lock_for(project):
+        from backend.project.site_admin.proposal_apply import guard
+        guard(service, project)
         path.unlink()

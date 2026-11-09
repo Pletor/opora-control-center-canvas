@@ -53,7 +53,8 @@ def pin_id(record):
 def public_proof(repo, record):
     if record.get("contextProtocolVersion") != 2:
         return {}
-    return {"contextValidation": private.read_proof(repo.db, *repo.scope, pin_id(record))}
+    return {"contextValidation": private.read_proof(repo.db, *repo.scope, pin_id(record)),
+            "researchEvidenceCoverage": record["assignment"].get("researchEvidence", {}).get("coverage", "legacy-untracked")}
 
 
 def _metadata(canvas, project):
@@ -92,11 +93,14 @@ def _collect(canvas, db, project, workspace, node):
     after = bindings.checkpoint(canvas.db, project, workspace)
     if before != after:
         raise ValueError("Registry source binding changed during context capture.")
-    opaque = token(private.key(db, project), projection, head, before)
+    from backend.editor.research.execution_evidence import collect as research_evidence
+    evidence = research_evidence(db, project, workspace, head, projection["selection"]["cardIds"])
+    opaque = token(private.key(db, project), {**projection, "researchEvidence": evidence}, head, before)
     steps = ordered(steps_of((accepted.get(node) or {}).get("fields")))  # pinned plan (oporahub-plan-steps.md)
     assignment = {"acceptedRevision": head, "documents": redact_deep(selected), "contextVersion": opaque,
                   "contextProtocolVersion": 2, "steps": redact_deep(steps), "run": run_profile(target, graph, steps),
-                  "specification": {**redact_deep(projection), "schema": "opora.specification-context/2"}}
+                  "specification": {**redact_deep(projection), "schema": "opora.specification-context/2"},
+                  "researchEvidence": evidence}
     kit_of_assignment(assignment, node)  # Validate transported content before issuing an execution pin.
     pin = {"schemaVersion": 1, "snapshot": snapshot, "metadata": metadata, "binding": before,
            "nodeId": node, "acceptedRevision": head, "contextVersion": opaque,

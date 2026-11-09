@@ -24,6 +24,14 @@ rozepsané změny ani nepotvrzuje předchozí externí změnu.
 
 Veškerý obsah návrhu se vykresluje jako text, nikoli HTML. UI ukazuje ID,
 souřadnice, vazby, zdrojové reference a všechna přidávaná/přebíraná zadání.
+`GraphProposalCanvas` zobrazuje uložený návrh pouze ke čtení: v1 spojí výchozí
+graf a additions se skutečnými ID, v2 použije přímo serverový `resultGraph`
+(pracovní výsledek, nikoli `acceptedResultGraph`). Chybějící v2 výsledek
+neodvozuje z operací. Klik zobrazí ID, rodiče a přesné zadání návrhu; zoom a
+výběr jsou lokální a bez zápisu. Přijatý Canvas se tím nemění.
+Odkaz `?environment=hub&project=P&workspace=W&ohGraph=ID` obnoví detail
+po načtení stránky. Výběr je platný jen pro přesnou dvojici projekt/prostor;
+otevření nesmí spustit přijetí ani jiné POST.
 Přijetí plánu nepotvrzuje implementaci ani dokončení karty. Styl má BEM prefix
 `graph-proposals`; čistá logika a transport mají sousední testy.
 

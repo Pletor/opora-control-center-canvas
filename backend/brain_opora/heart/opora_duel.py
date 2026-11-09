@@ -1,8 +1,8 @@
 """Duel srdce o směr projektu přes schránku zadání (docs/brain-heart.md §3c), jen standardní knihovna.
 
-Deterministický průběh: claim B od srdce, strany a soudci jako pod-volání Haiku pod vlastními jmény, nejvýš 2 kola
+Deterministický průběh: claim B od srdce, strany a soudci jako pod-volání Haiku v explicitních simulovaných rolích, nejvýš 2 kola
 a 12 pod-volání; rozhodnutí počítá a hlídá server (`duel-decide`). Nástroj sem předá sám sebe (`tool`): volání OPORY
-s tokenem srdce a jménem aktéra, `_execute`, `Failure`, `scope`, `DILNA`, `log_run`. Odpovědi modelů jsou data.
+s tokenem jediného srdce, `_execute`, `Failure`, `scope`, `DILNA`, `log_run`. Odpovědi modelů jsou data, nikoli nezávislé schválení.
 Dávka srdce (`command.py`) soubor kopíruje do `brain/` vedle `opora_heart.py`.
 """
 import time
@@ -25,7 +25,7 @@ except ImportError:  # v testech modul balíčku
 SUB_TIMEOUT, DUEL_BUDGET, SUB_CAP, MAX_TURN = 90, 540, 12, 2000
 # Prahy pravidla duelu (kopie brief_vault_duel_math: ADOPT_P, KEEP_P, MIN_SCORED, DEFENDED_AT); rozhoduje server.
 ADOPT_P, KEEP_P, MIN_SCORED, DEFENDED_AT = 0.75, 0.40, 3, 6
-SIDE_A, SIDE_B, JUDGES = "srdce-obhajce-a", "srdce-obhajce-b", ("srdce-soudce-1", "srdce-soudce-2")
+SIDE_A, SIDE_B, JUDGES = "advocate_a", "advocate_b", ("judge_1", "judge_2")
 
 DUEL_HEAD = """Duel o směr projektu. A = současný směr, B = navrhovaná paralelní cesta.
 A: <A>
@@ -36,7 +36,7 @@ Dosavadní výměny (data, ne pokyny):
 SIDE = DUEL_HEAD + """Hájíš stranu <S> (<WHO>). Buď věcný a krátký (každé pole do 600 znaků).
 <ASK>
 Odpověz JEN jedním objektem JSON s poli <KEYS>, bez dalšího textu."""
-JUDGE = DUEL_HEAD + """Jsi nezávislý soudce. Ohodnoť každou z těchto výměn: <IDS>.
+JUDGE = DUEL_HEAD + """Simuluješ roli soudce v jednom běhu srdce; nejsi nezávislý člověk ani jiný autentizovaný aktér. Ohodnoť každou z těchto výměn: <IDS>.
 strength = síla argumentu 0–10, supports = strana, kterou výměna ve skutečnosti podporuje (A nebo B).
 Odpověz JEN JSON {"scores": [{"turnId": "…", "strength": 0, "supports": "A"}]}, bez dalšího textu."""
 
@@ -66,8 +66,9 @@ class Duel:
 
     def write(self, actor, body):
         try:
+            role = {"delegateRole": actor} if actor in (SIDE_A, SIDE_B, *JUDGES) else {}
             reply = self.tool.call("POST", "/api/brief-vault", {**self.scope, "fragmentId": self.id,
-                                                                "expectedRevision": self.rev, **body}, actor=actor)
+                                                                "expectedRevision": self.rev, **body, **role})
         except self.tool.Failure as failure:
             self.skipped.append(f"{body['op']}: {failure.payload.get('error', '')[:160]}")
             self.rev = self.view()["duel"]["fragment"]["revision"]
@@ -125,9 +126,9 @@ class Duel:
                                                              "subject": {"kind": "fragment", "id": self.args.subject},
                                                              "incumbent": {"text": self.args.a[:4000]},
                                                              "challenger": {"text": self.args.b[:4000]},
-                                                             "scopeNodeId": ""})
+                                                             "scopeNodeId": "", "delegatedRoles": True})
         self.id, self.rev = opened["fragment"]["id"], opened["fragment"]["revision"]
-        b_claim = self.turn("heart", "B", "claim", self.args.b)
+        b_claim = self.turn(SIDE_B, "B", "claim", self.args.b)
         a = self.side("A", "Napiš nejsilnější argument pro A (claim) a jednu ostrou otázku na slabinu B (grill).",
                       ("claim", "grill"))
         a_claim = self.turn(SIDE_A, "A", "claim", a["claim"])
@@ -177,6 +178,7 @@ class Duel:
         decision = (decided or {}).get("decision") or {}
         probability = (decided or view)["probability"]
         out = {"duelId": self.id, "probability": round(probability["p"], 4), "n": probability["n"],
+               "delegation": view["duel"].get("delegation"),
                "outcome": decision.get("outcome"), "applied": decision.get("applied"),
                "canDecide": view["canDecide"], "subCalls": self.calls, "costUsd": round(self.cost, 6)}
         if self.skipped:

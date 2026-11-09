@@ -14,6 +14,21 @@ def args(*extra):
     return opora_heart.parser().parse_args(["research", "--title", "Login", "--question", "How?", *extra])
 
 
+def test_original_fragment_show_falls_back_without_masquerading_as_research_card(monkeypatch):
+    calls = []
+    def call(method, path, query=None):
+        calls.append((method, path, query))
+        if '/cards/' in path:
+            raise opora_heart.Failure({"status": 404, "code": "research_not_found"})
+        return {"origin": "brief-vault", "type": "original-research", "sourceId": "fragment", "sourceRevision": 3}
+    monkeypatch.setattr(opora_heart, 'call', call)
+    monkeypatch.setattr(opora_heart, 'scope', lambda: SCOPE)
+    parsed = opora_heart.parser().parse_args(['research-map', 'show', 'fragment', '--revision', '3'])
+    result = mapping.run(parsed, opora_heart)
+    assert result['type'] == 'original-research' and 'card' not in result
+    assert calls[-1] == ('GET', '/api/research/originals/fragment', {**SCOPE, 'revision': 3})
+
+
 def result():
     return {"digest": {"verdict": "unverified", "confidence": "low", "next": "ask", "nextWhy": "Check identity",
                        "layers": {}, "hypotheses": [], "slices": []},
@@ -117,11 +132,17 @@ def test_raw_saved_before_network_failure_and_retry_uses_same_payload(monkeypatc
     assert saved["facts"] == data["facts"] and saved["digest"] == data["digest"]
     assert len(costs) == 1 and costs[0][-1] == data["stats"]["costUsd"]
     failed_payload = calls[-1][2]
-    tool.call = lambda method, path, body: calls.append((method, path, body)) or {"cards": []}
+    def retry(method, path, body=None, **kwargs):
+        calls.append((method, path, body))
+        if method == 'GET':
+            return {'sourceRevision': 2, 'original': {'details': {'research': saved['researchBatch']['continuation']['finalization']}}}
+        return {'cards': []}
+    tool.call = retry
     parsed = opora_heart.parser().parse_args(["research-map", "import", "--file", str(raw)])
     mapping.run(parsed, tool)
     mapping.run(parsed, tool)
-    assert calls[-1][2] == calls[-2][2] == failed_payload
+    imported_payloads = [body for method, path, body in calls if method == 'POST' and path == mapping.API]
+    assert imported_payloads[-1] == imported_payloads[-2] == failed_payload
     tool.scope = lambda: {**SCOPE, "workspace": "foreign"}
     with pytest.raises(tool.Failure) as caught:
         mapping.run(parsed, tool)
@@ -152,3 +173,68 @@ def test_attachment_uses_drawing_store_with_content_id_and_no_scene_mutation(tmp
     invalid.write_text("<svg/>")
     with pytest.raises(opora_heart.Failure):
         mapping.attach(str(invalid), tool)
+
+
+@pytest.mark.parametrize('mode', ['new', 'already', 'lost-response', 'advanced-conflict'])
+def test_finalization_keeps_original_cas_and_replays_only_exact_native_output(mode):
+    fields = {'status': 'done', 'verdict': 'unverified', 'confidence': '', 'approach': 'Result', 'evidence': []}
+    intent = {'sourceFragmentId': 'original', 'sourceRevision': 1, 'finalization': fields}
+    state = {'revision': 2 if mode in ('already', 'advanced-conflict') else 1}
+    writes, reads = [], []
+    tool = SimpleNamespace(Failure=opora_heart.Failure)
+
+    def call(method, route, body=None, query=None):
+        if method == 'GET':
+            reads.append(query)
+            actual = fields if state['revision'] == 2 and mode != 'advanced-conflict' else {**fields, 'approach': 'Other'}
+            return {'sourceRevision': state['revision'], 'original': {'details': {'research': actual}}}
+        writes.append(body)
+        assert body['expectedRevision'] == 1
+        state['revision'] = 2
+        if mode == 'lost-response':
+            raise tool.Failure({'error': 'Response lost'})
+        return {'fragment': {'revision': 2}}
+
+    tool.call = call
+    if mode == 'advanced-conflict':
+        with pytest.raises(tool.Failure) as caught:
+            mapping.finalize(intent, tool, SCOPE)
+        assert caught.value.payload['code'] == 'research_finalization_conflict' and writes == []
+    else:
+        mapping.finalize(intent, tool, SCOPE)
+        assert len(writes) == (0 if mode == 'already' else 1)
+        assert mapping.finalize(intent, tool, SCOPE)['alreadyFinalized'] is True
+        assert len(writes) == (0 if mode == 'already' else 1)
+    assert all(query == SCOPE for query in reads)
+
+
+def test_research_saves_finalization_intent_before_import_and_completes_native_original(monkeypatch, tmp_path):
+    calls = []
+    tool = SimpleNamespace(scope=lambda: SCOPE, DILNA=tmp_path, now=lambda: AT, _execute=None,
+                           Failure=opora_heart.Failure, log_run=lambda *args: None)
+    data = result()
+    monkeypatch.setattr(opora_research, 'find_browser', lambda: None)
+    monkeypatch.setattr(opora_research.research_desk, 'need_claude', lambda _: 'claude')
+    monkeypatch.setattr(opora_research.research_desk, 'run_desk', lambda *a, **kw: data)
+    monkeypatch.setattr(opora_research, 'heart_root', lambda *a: 'root')
+
+    def call(method, path, body=None, query=None):
+        calls.append((method, path, body))
+        if body and body.get('op') == 'research':
+            return {'fragment': {'id': 'original', 'revision': 1}}
+        saved = json.loads((tmp_path / 'out/research/original.json').read_text('utf-8'))
+        if path == mapping.API:
+            assert body['continuation']['finalization'] == saved['researchBatch']['continuation']['finalization']
+            return {'cards': [{'id': 'question'}]}
+        if method == 'GET':
+            return {'sourceRevision': 1}
+        assert body['op'] == 'research-update' and body['expectedRevision'] == 1
+        assert all(body[key] == value for key, value in saved['researchBatch']['continuation']['finalization'].items())
+        return {'fragment': {'id': 'original', 'revision': 2}}
+
+    tool.call = call
+    completed = opora_research.research(args(), tool)
+    assert completed['researchIds'] == ['question']
+    assert [(method, path) for method, path, _ in calls] == [
+        ('POST', '/api/brief-vault'), ('POST', mapping.API),
+        ('GET', mapping.API + '/originals/original'), ('POST', '/api/brief-vault')]

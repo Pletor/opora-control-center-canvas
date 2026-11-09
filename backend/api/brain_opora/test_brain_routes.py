@@ -70,7 +70,8 @@ def test_wall_end_to_end(tmp_path):
         closed = close_as(client, {**AGENT, tokens.HEADER: heart}, "agent")
         assert closed.status_code == 200, closed.text
         entry = next(item for item in agent_log(client) if item["path"] == "/api/desktop-v3/state")
-        assert entry["agent"] == "dev" and entry["autonomy"] == "full"
+        # A verified Heart token owns attribution; the caller cannot forge dev via its header.
+        assert entry["agent"] == "heart" and entry["autonomy"] == "full"
         # Srdce jiného projektu sem nesmí.
         other = client.post("/api/empty-project", headers=HEADERS, json={"name": "Jiný", "confirmed": True}).json()["id"]
         _, foreign = tokens.issue_heart(service, other, "draft")

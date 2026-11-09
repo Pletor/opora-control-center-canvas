@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import SaveHistoryPanel from "./SaveHistoryPanel";
 
 it("distinguishes agent, human and unknown version provenance", () => {
@@ -16,4 +16,17 @@ it("distinguishes agent, human and unknown version provenance", () => {
   expect(html).toContain("Změněné karty: 0");
   expect(html).toContain("Původce nedostupný");
   expect(html).toContain("Změněné karty: nedostupné");
+});
+
+
+it("selects the requested immutable version and shows its contents without restoring", () => {
+  const onRestore = vi.fn(); const onPrepareRestore = vi.fn();
+  const html = renderToStaticMarkup(createElement(SaveHistoryPanel, {
+    versions: [{ id: "a", author: "A", createdAt: "2026-10-07T10:00:00Z", nodeCount: 1 }],
+    initialSelected: "a", reviewNodes: [{ id: "n", name: "Exact historical card" }],
+    loading: false, error: "", disabled: false, onRestore, onPrepareRestore, onClose: () => {},
+  }));
+  expect(html).toContain('aria-selected="true"');
+  expect(html).toContain("Exact historical card");
+  expect(onRestore).not.toHaveBeenCalled(); expect(onPrepareRestore).not.toHaveBeenCalled();
 });

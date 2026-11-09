@@ -3,6 +3,7 @@ import type { ResearchCard, ResearchHeader, ResearchScope } from "../logic/resea
 import { decisionEvidence, decisionHubUrl, newResearchTask } from "../logic/research-decision";
 import { useResearchDecision } from "../logic/use-research-decision";
 import ResearchDecisionTasks from "./ResearchDecisionTasks";
+import ResearchReviewProposals from "./ResearchReviewProposals";
 import "../styles/research-decision.css";
 
 type Props = { scope: ResearchScope; card: ResearchCard; cards: ResearchHeader[]; nodeNames: Map<string, string>; readOnly: boolean; onOpenNode: (id: string) => void };
@@ -22,6 +23,7 @@ export default function ResearchDecision({ scope, card, cards, nodeNames, readOn
     {state.busy && <p role="status">Načítám nebo ukládám rozhodovací cestu…</p>}
     {state.error && <p role="alert">{state.error}</p>}
     {readOnly && <p>Tento pohled je pouze ke čtení.</p>}
+    <ResearchReviewProposals key={JSON.stringify([scope.project, scope.workspace, card.id])} scope={scope} decisionId={card.id} readOnly={readOnly || card.archived} onReviewed={state.receivedReview} />
     {!!state.reviews.length && <label>Zaznamenané posouzení<select value={state.selected} disabled={state.busy} onChange={event => void state.select(event.target.value)}>
       {state.reviews.map(item => <option key={item.id} value={item.id}>Revize {item.decision.revision} · {new Date(item.reviewedAt).toLocaleString("cs-CZ")}</option>)}
       {!currentReviewed && !readOnly && <option value="">Posoudit aktuální revizi {card.revision}</option>}

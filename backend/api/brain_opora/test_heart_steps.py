@@ -17,13 +17,13 @@ STEPS = {"goal": "python ukoly.py export zapíše úkoly do CSV.",
 
 def thin_card(tmp_path):
     """Přijatý plán ze vzoru a k němu tenká karta (jeden krok bez souborů), jakou budí krátký výslech."""
-    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")["refs"]
     step = [{"id": "s1", "order": 1, "title": "Export", "dependsOn": [], "acceptance": ["export funguje"]}]
     more = {"nodes": [{"ref": "export", "kind": "node", "parent": "@" + refs["mvp"], "name": "[task] Export do CSV",
                        "purpose": "Úkoly do souboru.", "card": {"layer": "backend", "status": "ready"},
                        "spec": {"goal": "Export.", "non_goals": "", "acceptance": "", "steps": step}}],
             "edges": []}
-    done = plan(tmp_path, more)
+    done = plan(tmp_path, more, "--accept")
     assert done.get("accepted") is True, done
     return done["refs"]["export"]
 

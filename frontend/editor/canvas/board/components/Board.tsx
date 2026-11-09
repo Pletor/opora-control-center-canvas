@@ -21,6 +21,7 @@ import {
   type Edge,
   type Connection,
   type Viewport,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import type { SurfaceSettings } from "@/shared/surface-settings/logic/workspace-settings";
 import type { Graph } from "@/shared/types/logic/types";
@@ -55,6 +56,11 @@ import { isBlockId, parseBlockId, type BlockPort, type OpenBlocks } from "@/edit
 import { isDeleteKey, reportsSelection, sameSelection, selectionIds } from "../logic/box-selection";
 import PortZoomVar from "@/shared/flow-ports/components/PortZoomVar";
 import { useBriefVault } from "@/editor/node-detail/brief-vault/logic/use-brief-vault";
+import SessionViewControl from "@/editor/canvas/session-view/components/SessionViewControl";
+import { useSessionView, type SessionView } from "@/editor/canvas/session-view/logic/use-session-view";
+import { visibleSelection, sameSelection as sameSessionSelection } from "@/editor/canvas/session-view/logic/apply-view";
+
+import type { StructureViewBridge } from "@/editor/canvas/session-view/logic/structure-view";
 
 const nodeTypes = { canvas: NodeCard, comment: CommentCard, area: AreaCard, ...blockNodeTypes };
 /** Nad tolika uzly vrstvy se MiniMap nekreslí: React Flow ji překresluje při každé změně uzlů. */
@@ -63,6 +69,7 @@ const MINIMAP_MAX = 500;
 export type { CardBlockEvent };
 
 export default function Board({
+  structureView,
   sourceStatuses,
   onRealizeSource,
   onAutonomy,
@@ -113,6 +120,7 @@ export default function Board({
   onCardHistory,
   onCardTrail,
 }: {
+  structureView?: StructureViewBridge;
   /** Klik na poslední změnu karty: rodič otevře záznam činnosti s filtrem této karty. */
   onCardHistory?: (id: string) => void;
   /** Klik na postup na tváři karty: rodič otevře boční menu se stopou práce karty. */
@@ -264,6 +272,8 @@ export default function Board({
   const latestNodes = useRef(nodes);
   latestNodes.current = nodes;
   const onNodesChange = (changes: Parameters<typeof applyNodeChanges>[0]) => {
+    if (changes.some(change => change.type === "select") && sessionIntent.current &&
+      !sameSessionSelection(selectionIds(applyNodeChanges(changes, latestNodes.current)), sessionIntent.current.selection)) sessionView.changed();
     setNodes((n) => applyNodeChanges(changes, n));
     if (!reportsSelection(changes)) return;
     const before = selectionIds(latestNodes.current);
@@ -296,6 +306,36 @@ export default function Board({
       return { x: 60, y: 90, zoom: 1 };
     }
   });
+  const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
+  const sessionIntent = useRef<SessionView | null>(null);
+  const [sessionFilter, setSessionFilter] = useState("");
+  const sessionView = useSessionView(sourceContext, async intent => {
+    if (!flow || !visibleSelection(intent, graph, parent)) return false;
+    if (intent.structureCollapsed !== undefined && !structureView) return false;
+    structureView?.apply(intent.structureCollapsed);
+    sessionIntent.current = intent;
+    setSessionFilter(intent.filter);
+    onMultiSelect(intent.selection);
+    if (intent.viewport) { await flow.setViewport(intent.viewport, { duration: 0 }); setViewport(intent.viewport); }
+    for (let frame = 0; frame < 10; frame++) {
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      const selectedIds = flow.getNodes().filter(node => node.selected && !isBlockId(node.id)).map(node => node.id);
+      const camera = flow.getViewport();
+      const filter = intent.filter.trim().toLocaleLowerCase();
+      const filterApplied = flow.getNodes().every(node => !!node.hidden === (!!filter && !graph.nodes.find(card => card.id === node.id)?.name.toLocaleLowerCase().includes(filter)));
+      if ((structureView?.observed(intent.structureCollapsed) ?? true) && filterApplied && sameSessionSelection(selectedIds, intent.selection) && (!intent.viewport ||
+        (camera.x === intent.viewport.x && camera.y === intent.viewport.y && camera.zoom === intent.viewport.zoom))) return true;
+    }
+    return false;
+  });
+  const sessionChanged = useRef(sessionView.changed); sessionChanged.current = sessionView.changed;
+  useEffect(() => {
+    if (!sessionView.attached) { structureView?.clear(); return; }
+    structureView?.registerChanged(() => sessionChanged.current());
+    return () => { structureView?.registerChanged(null); structureView?.clear(); };
+  }, [sessionView.attached, structureView]);
+  const privateFilter = sessionView.attached ? sessionFilter.trim().toLocaleLowerCase() : "";
+  const privateNodes = privateFilter ? nodes.map(node => ({ ...node, hidden: !graph.nodes.find(card => card.id === node.id)?.name.toLocaleLowerCase().includes(privateFilter) })) : nodes;
   const surface = useRef<HTMLDivElement>(null);
   // Sada vykreslených id se mění jen s přidáním nebo odebráním uzlu, ne v každém snímku tažení; klíč z id
   // drží memo vazeb stabilní, dokud se množina uzlů nezmění.
@@ -351,12 +391,13 @@ export default function Board({
         // Jen viditelné uzly od 80 uzlů vrstvy (`CULL_VISIBLE` v logic/layer-nodes.ts, docs/navrhy/2026-10-14-vykon-platna.md):
         // odmontovaná karta si rozepsaný text vezme zpět z `node-card/logic/block-drafts.ts`.
         onlyRenderVisibleElements={shouldCull(nodes.length)}
-        nodes={nodes}
+        nodes={privateNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         defaultViewport={viewport}
-        minZoom={0.15}
-        maxZoom={2}
+        minZoom={sessionView.attached ? 0.01 : 0.15}
+        maxZoom={sessionView.attached ? 10 : 2}
+        onInit={setFlow}
         nodesDraggable={!disabled}
         snapToGrid={settings.snap}
         snapGrid={[settings.gridSize, settings.gridSize]}
@@ -373,6 +414,7 @@ export default function Board({
         panOnDrag={[1, 2]}
         selectionMode={SelectionMode.Partial}
         onNodeClick={(event, n) => {
+          sessionView.changed();
           if (isBlockId(n.id)) return;
           // Komentář nemá bloky ani knihovnu: klik na něj jen vybere lístek, žádné směrování na blok.
           if (n.type === "comment") { onSelect(n.id); return; }
@@ -381,7 +423,7 @@ export default function Board({
           hit?.dataset.blockId ? onSelectBlock(n.id, hit.dataset.blockId) : onSelect(n.id);
         }}
         onEdgeClick={(_, edge) => !isBlockId(edge.target) && onSelectEdge(edge.id)}
-        onPaneClick={onClear}
+        onPaneClick={() => { sessionView.changed(); onClear(); }}
         onNodeDoubleClick={(_, n) => !isBlockId(n.id) && n.type !== "comment" && n.type !== "area" && onEnter(n.id)}
         onNodeDragStart={(_, dragged) => {
           const stored = graph.nodes.find((n) => n.id === dragged.id);
@@ -452,9 +494,13 @@ export default function Board({
           if (sourceIsArea !== targetIsArea) return;
           onConnect(c);
         }}
-        onMoveEnd={(_, v) => {
+        onMoveEnd={(event, v) => {
           setViewport(v);
-          localStorage.setItem("viewport:" + scope, JSON.stringify(v));
+          if (sessionView.attached) {
+            const desired = sessionIntent.current?.viewport;
+            if (desired ? v.x !== desired.x || v.y !== desired.y || v.zoom !== desired.zoom : !!event) sessionView.changed();
+          }
+          else localStorage.setItem("viewport:" + scope, JSON.stringify(v));
         }}
       >
         {settings.showGrid && <Background color="var(--canvas-dot)" gap={settings.gridSize} />}
@@ -477,6 +523,7 @@ export default function Board({
         <PortZoomVar />
       </ReactFlow>
       </CardActionsContext.Provider>
+      {sourceContext && <SessionViewControl view={sessionView} />}
       {!disabled && (
         <p className="board-hint" data-testid="board-hint">
           Tah po plátně = výběr · Delete = smazat vybrané · prostřední tlačítko nebo mezerník + tah = posun · dvojklik na prázdné plátno = nový uzel · dvojklik na kartu = do hloubky · z portu bloku se táhne vazba na jinou kartu

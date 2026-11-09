@@ -83,6 +83,18 @@ def create_brief_vault_router(service, desktop_state=None, mirror=None):
 
     @router.post("/brief-vault")
     def brief_vault_write(payload: dict, request: Request):
-        return _bad_request(lambda: vault.apply(payload, actor=request.state.actor, agent=request.state.agent))
+        from backend.brain_opora.determinism import gate, tokens
+        from backend.brain_opora.determinism.gate_payloads import GateError
+        session = None
+        if str(payload.get("op", "")).startswith("duel-") and (
+                request.headers.get(tokens.HEADER) or "delegatedRoles" in payload or "delegateRole" in payload):
+            try:
+                verified = gate.authenticate(service, request.headers.get(tokens.HEADER), payload.get("project"), ("heart", "worker"))
+                if verified["role"] == "heart" and verified["workspace_id"] == payload.get("workspace"):
+                    session = verified
+            except GateError as error:
+                return JSONResponse(error.body(), status_code=error.status)
+        return _bad_request(lambda: vault.apply(payload, actor=request.state.actor, agent=request.state.agent,
+                                                duel_session=session))
 
     return router

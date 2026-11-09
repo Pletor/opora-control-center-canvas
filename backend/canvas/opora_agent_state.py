@@ -135,9 +135,7 @@ class AgentState:
                                         "owner": record.get("owner"), "epoch": record.get("epoch")}
             if results:
                 # Výsledek zastará jen změnou výřezu karty (jako běh v `OporaExecutions.active`), ne posunem hlavy jinde.
-                latest[record["nodeId"]]["staleEvidence"] = (
-                    record["acceptedRevision"] != accepted if record["nodeId"] in closed
-                    else OporaExecutions(self.canvas).slice_changed(repo, record, accepted))
+                latest[record["nodeId"]]["staleEvidence"] = OporaExecutions(self.canvas).slice_changed(repo, record, accepted)
         return [latest[key] for key in sorted(latest)]
 
     def claims(self, project, workspace, cards):

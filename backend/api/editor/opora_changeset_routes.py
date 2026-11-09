@@ -5,6 +5,7 @@ from backend.canvas.activity_labels import proposal_trace
 from backend.canvas.activity_log import HumanRequired, note_from, require_authority
 from backend.canvas.opora_acceptance import OporaAcceptance
 from backend.canvas.opora_changesets import OporaChangesets
+from backend.canvas.opora_baseline_preparations import read as read_baseline_preparation
 
 
 def create_opora_changeset_router(service):
@@ -28,6 +29,11 @@ def create_opora_changeset_router(service):
     @router.post("/baselines")
     def baseline(payload: dict, request: Request):
         return changesets.baseline(payload, author(request, human=True))
+
+    @router.get("/baseline-preparations/{identifier}")
+    def baseline_preparation(identifier: str, project: str = Query(min_length=1, max_length=64),
+                             workspace: str = Query(min_length=1, max_length=64)):
+        return read_baseline_preparation(service, project, workspace, identifier)
 
     @router.get("/revisions/{identifier}")
     def revision(identifier: str, project: str = Query(min_length=1, max_length=64),

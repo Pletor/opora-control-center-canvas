@@ -19,7 +19,7 @@ def heart_writes(client):
 def test_heart_writes_carry_nodes_and_labels_and_latest_by_node_reads_them(heart):
     client, _, tmp_path = heart
     human_architecture(client)
-    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE)["refs"]
+    refs = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")["refs"]
     autonomy(client, True)
     done = order("--nodes", f"p_home=101,p_faq=102,{refs['mvp']}=201,{refs['model']}=202")
     assert done["accepted"] is True, done
@@ -40,7 +40,7 @@ def test_heart_writes_carry_nodes_and_labels_and_latest_by_node_reads_them(heart
     # Plán srdce v main přidal karty dávkou: záznam nese ID nových uzlů z odpovědi a souhrn dávky jako popisek.
     added = by_path["/api/canvas-plan"][0]
     assert added["label"] == "Plán: Přidá 1 sektor, 2 karty, 1 vazbu (next 1).", added
-    assert set(added["nodeIds"]) == set(refs.values()) and added["summary"] == added["label"] + " | digest,plan"
+    assert set(added["nodeIds"]) == set(refs.values()) and added["summary"] == added["label"] + " | digest,operationId,plan"
     assert all(len(entry["label"]) <= 120 for entry in writes)
 
     latest = client.get(f"{LOG}/latest-by-node", params=SCOPE).json()

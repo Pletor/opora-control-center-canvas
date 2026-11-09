@@ -1,0 +1,9 @@
+.working-review {padding: 20px; max-width: 1100px; margin: 0 auto; overflow-wrap: anywhere;}
+.working-review__impact {margin: 20px 0; padding: 16px; border: 1px solid var(--border, #9ba8ab); border-radius: 8px;}
+.working-review__impact ul {padding-left: 22px;}
+.working-review__impact li {margin: 10px 0;}
+.working-review details {margin: 12px 0;}
+.working-review summary {cursor: pointer;}
+.working-review > label {display: block; margin: 16px 0;}
+.working-review .graph-proposals__comparison {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));}
+@media (max-width: 620px) {.working-review {padding: 12px;}.working-review .graph-proposals__comparison {grid-template-columns: 1fr;}}

@@ -43,28 +43,41 @@ class OporaGraphProposals:
         scope({"project": project, "workspace": workspace})
         with self.service.lock_for(project):
             repo = self.repository(project, workspace)
-            return {**repo.read(record_id), "accepted": repo.accepted(record_id) is not None}
+            from backend.canvas.opora_graph_revise import lineage_status
+            return {**repo.read(record_id), "accepted": repo.accepted(record_id) is not None,
+                    **lineage_status(repo, record_id)}
 
     def list(self, project, workspace):
         scope({"project": project, "workspace": workspace})
         with self.service.lock_for(project):
-            return {"items": list(self.repository(project, workspace).summaries()),
+            from backend.canvas.opora_graph_revise import lineage_status
+            repo = self.repository(project, workspace)
+            return {"items": [{**item, **lineage_status(repo, item["id"])} for item in repo.summaries()],
                     "acceptedHead": self.specifications.repository(project, workspace).head()}
 
     def create(self, payload, by):
         from backend.canvas.opora_graph_change_plan import EDIT_KEYS
         from backend.canvas.opora_graph_changes import OporaGraphChanges
         plan = payload.get("plan")
+        from backend.canvas.opora_graph_complete_build import required
+        if required(plan):
+            return OporaGraphChanges(self.service).create(payload, by)
         if isinstance(plan, dict) and (set(plan) & EDIT_KEYS or "adoptArchitectureContext" in plan):
             return OporaGraphChanges(self.service).create(payload, by)
-        if set(payload) != {"project", "workspace", "parentRevision", "expectedGraphDigest", "subject", "plan"}:
+        if set(payload) - {"operationId"} != {"project", "workspace", "parentRevision", "expectedGraphDigest", "subject", "plan"}:
             raise ValueError("Invalid graph proposal fields.")
         project, workspace = scope(payload)
         author, label = _author(by, allow_agent=True), subject(payload)
+        from backend.canvas.operation_receipts import Receipt
+        receipt = Receipt(payload, "graph-proposal", author) if "operationId" in payload else None
         with self.service.graph_lock_for(project), self.service.lock_for(project):
             repo = self.repository(project, workspace)
             with repo.db:
                 repo.db.execute("BEGIN IMMEDIATE")
+                if receipt:
+                    replay = receipt.replay(repo.db)
+                    if replay is not None:
+                        return replay
                 context, graph, manifest, missing = self.current(project, workspace)
                 self.expect(context, payload["parentRevision"], payload["expectedGraphDigest"])
                 plan = payload["plan"]
@@ -77,7 +90,11 @@ class OporaGraphProposals:
                     additions = prepare(plan, graph, DesktopV3State(self.service).read(project, workspace)["state"])
                 record = self.record(project, workspace, context, graph, manifest, missing, additions, author, label)
                 validate_application(self.service, project, workspace, graph, record, combined(manifest) if manifest else None)
-                return {**repo.insert(record), "accepted": False}
+                result = {**repo.insert(record), "accepted": False}
+                if receipt:
+                    receipt.begin(repo.db)
+                    receipt.complete(repo.db, result)
+                return result
 
     @staticmethod
     def expect(context, parent, graph_digest):
@@ -91,6 +108,11 @@ class OporaGraphProposals:
                 "parentGraphManifestId": manifest["id"] if manifest else None, "baseGraph": deepcopy(graph),
                 "requiresBaseAdoption": manifest is None, "adoptionDocuments": missing if manifest is None else [],
                 "subject": label, "by": by, "createdAt": stamp(), "supersedes": supersedes, **additions}
+
+    def revise(self, record_id, payload, by):
+        from backend.canvas.opora_graph_changes import OporaGraphChanges
+        from backend.canvas.opora_graph_revise import revise
+        return revise(OporaGraphChanges(self.service), record_id, payload, by)
 
     def rebase(self, record_id, payload, by):
         from backend.canvas.opora_graph_changes import OporaGraphChanges

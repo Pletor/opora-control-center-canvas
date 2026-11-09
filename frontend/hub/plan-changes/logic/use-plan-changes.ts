@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { api, type CanvasNode, type SpecFields } from "@/shared/types/logic/types";
 import { ProposalRequests } from "@/hub/proposal-history/logic/proposals";
 import { changesetPayload, type PlanContext, type PlanChangeset, type PlanDocument } from "./plan-changes";
+import { samePinnedDocuments } from "./baseline-review";
 
-type State = { key: string; context: PlanContext | null; items: PlanChangeset[]; busy: boolean; error: string; notice: string };
+type BaselinePreparation = { operationId: string; documents: PlanDocument[]; payload: { project: string; workspace: string; subject: string; expectedAcceptedHead: null; expectedGraphDigest: string; expectedSpecificationsVersion: string } };
+type State = { key: string; context: PlanContext | null; items: PlanChangeset[]; busy: boolean; error: string; notice: string; preparation?: BaselinePreparation };
 const empty = (key: string): State => ({ key, context: null, items: [], busy: false, error: "", notice: "" });
 const message = (e: unknown) => e instanceof Error ? e.message : String(e);
 export function selectedPlanDocument(documents: PlanDocument[], selection: { key: string; node: string }, key: string) {
@@ -26,8 +28,17 @@ export function usePlanChanges(project: string, workspace: string, nodes: Canvas
   const [selection, setSelection] = useState({ key, node: "", proposal: "" });
   const [draft, setDraft] = useState<{ key: string; node: string; fields: SpecFields } | null>(null);
   const [title, setTitle] = useState({ key, text: "" });
-  const subject = title.key === key ? title.text : "";
+  const route = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
+  const linkedScope = route.get("project") === project && route.get("workspace") === workspace;
+  const baselineId = linkedScope ? route.get("ohBaseline") : null;
+  const changesetId = linkedScope ? route.get("ohChangeset") : null;
+  const preparation = shown.preparation;
+  const subject = baselineId ? preparation?.payload.subject ?? "" : title.key === key ? title.text : "";
   const context = shown.context;
+  const preparationMatches = !baselineId || !!preparation && preparation.operationId === baselineId && !!context
+    && context.acceptedHead === null && context.graphDigest === preparation.payload.expectedGraphDigest
+    && context.specificationsVersion === preparation.payload.expectedSpecificationsVersion
+    && samePinnedDocuments(context.documents, preparation.documents);
   const documents = context?.documents ?? [];
   const document = selectedPlanDocument(documents, selection, key);
   const missingDocument = selection.key === key && selection.node && !document ? selection.node : null;
@@ -43,11 +54,15 @@ export function usePlanChanges(project: string, workspace: string, nodes: Canvas
     Promise.all([
       api<PlanContext>(`/api/oporahub/changesets/context?${query}`),
       api<{ items: PlanChangeset[] }>(`/api/oporahub/changesets?${query}`),
-    ]).then(([context, history]) => {
-      if (valid()) setState({ ...empty(key), context, items: history.items });
+      baselineId ? api<{ result: BaselinePreparation }>(`/api/oporahub/baseline-preparations/${encodeURIComponent(baselineId)}?${query}`) : Promise.resolve(undefined),
+    ]).then(([context, history, stored]) => {
+      if (valid()) {
+        setState({ ...empty(key), context, items: history.items, preparation: stored?.result });
+        if (changesetId) setSelection({ key, node: "", proposal: changesetId });
+      }
     }).catch(error => { if (valid()) setState({ ...empty(key), error: message(error) }); });
     return () => requests.current.invalidate();
-  }, [key, enabled, query, attempt]);
+  }, [key, enabled, query, attempt, baselineId, changesetId]);
 
   async function write(path: string, payload: object, applies: boolean) {
     if (shown.busy || writing.current || readOnly || context?.readOnly || !context) return;
@@ -70,7 +85,8 @@ export function usePlanChanges(project: string, workspace: string, nodes: Canvas
   }
 
   function baseline() {
-    if (!context || context.acceptedHead || !subject.trim()) return;
+    if (!context || context.acceptedHead || !subject.trim() || !preparationMatches) return;
+    if (baselineId && preparation) { void write("/api/oporahub/baselines", preparation.payload, true); return; }
     void write("/api/oporahub/baselines", { project, workspace, subject: subject.trim(),
       expectedAcceptedHead: context.acceptedHead, expectedGraphDigest: context.graphDigest,
       expectedSpecificationsVersion: context.specificationsVersion }, true);
@@ -90,7 +106,7 @@ export function usePlanChanges(project: string, workspace: string, nodes: Canvas
     void write(`/api/oporahub/changesets/${encodeURIComponent(inspected.id)}/rebase`,
       { project, workspace, expectedAcceptedHead: context.acceptedHead }, false);
   }
-  return { ...shown, documents, document, missingDocument, fields, inspected, subject, readOnly: readOnly || !!context?.readOnly,
+  return { ...shown, documents, document, missingDocument, fields, inspected, subject, baselineId, preparationMatches, readOnly: readOnly || !!context?.readOnly,
     name: (nodeId: string) => nodes.find(node => node.id === nodeId)?.name ?? nodeId,
     setSubject: (text: string) => setTitle({ key, text }),
     selectDocument: (node: string) => { setDraft(null); setSelection({ key, node, proposal: "" }); },

@@ -29,6 +29,7 @@ def api(monkeypatch, tmp_path):
 
         monkeypatch.setattr(opora_heart, "call", call)
         monkeypatch.setenv("OPORA_PROJECT", pid)
+        monkeypatch.setenv("OPORA_WORKSPACE", "draft")  # Match the verified token, as in a real Heart batch.
         monkeypatch.chdir(tmp_path)
         yield c, pid
 

@@ -28,6 +28,7 @@ import uuid
 from backend.canvas.activity_log import require_authority
 from backend.editor.brief_vault.brief_vault_details import latest_details, write_details
 from backend.editor.brief_vault.brief_vault_duel_apply import apply_decision, fragment_ref
+from backend.editor.brief_vault.brief_vault_duel_delegation import authorize, participant
 from backend.editor.brief_vault.brief_vault_duel_math import (
     MAX_CLAIMS,
     MAX_ROUNDS,
@@ -65,13 +66,13 @@ from backend.editor.brief_vault.brief_vault_model import (
 from backend.editor.brief_vault.brief_vault_tree import live_ids
 
 OPS = {
-    "duel-open": ({"subject", "incumbent", "challenger", "scopeNodeId"}, {"discipline", "note"}),
-    "duel-turn": ({"fragmentId", "expectedRevision", "side", "kind", "text"}, {"refs", "evidence"}),
-    "duel-score": ({"fragmentId", "expectedRevision", "turnId", "strength", "supports"}, {"rebuttedBy", "evidenceOk"}),
+    "duel-open": ({"subject", "incumbent", "challenger", "scopeNodeId"}, {"discipline", "note", "delegatedRoles"}),
+    "duel-turn": ({"fragmentId", "expectedRevision", "side", "kind", "text"}, {"refs", "evidence", "delegateRole"}),
+    "duel-score": ({"fragmentId", "expectedRevision", "turnId", "strength", "supports"}, {"rebuttedBy", "evidenceOk", "delegateRole"}),
     # `synthesis` (volný text) už neplatí: syntéza je obhájená výměna `synthesisTurnId`; pole zůstává kvůli jasné 400.
     "duel-decide": ({"fragmentId", "expectedRevision"}, {"synthesis", "synthesisTurnId", "override"}),
     "vision-set": ({"scopeNodeId", "note"}, {"text", "fromDuel"}),
-    "vision-align": ({"score", "note", "scopeNodeId", "duelId"}, set()),
+    "vision-align": ({"score", "note", "scopeNodeId", "duelId"}, {"delegateRole"}),
 }
 # Založení představy hlídá handler (require_authority); změnu přes `fromDuel` nese rozhodnutí duelu, ne aktér.
 HUMAN_OPS: dict[str, str] = {}
@@ -181,6 +182,9 @@ def duel_open(w, payload, node_ids):
     vision = _vision_row(latest_rows(w.db, w.project, w.workspace), scope)
     if vision is not None:
         duel["visionRef"] = _vision_ref(vision, w.details(vision["fragment_id"]))
+    duel.update(authorize(w, payload))
+    if "delegation" in duel:
+        duel["challenger"].update({"delegateRole": "advocate_b", "principalSessionId": duel["delegation"]["sessionId"]})
     validate_duel(duel)
     row = w.new(parent=None, scope=scope, kind="duel", title=f"Duel: {text.strip()[:60]}", text=text,
                 note=payload.get("note") or "Duel otevřen.", discipline=discipline)
@@ -217,9 +221,9 @@ def _turn_rules(w, duel, turn, by_id):
     if side not in ("A", "B"):
         return
     other = "B" if side == "A" else "A"
-    if w.by in parties(duel)[other]:
+    if participant(turn) in parties(duel)[other]:
         bad_request(f"strana A a strana B mají různé aktéry; {w.by} už hájí stranu {other}.")
-    if kind != "note" and any(score["judge"] == w.by for score in duel["scores"]):
+    if kind != "note" and any(participant(score) == participant(turn) for score in duel["scores"]):
         bad_request(f"{w.by} v duelu soudí; za stranu smí psát jen note.")
     if kind == "claim":
         same = next((item for item in duel["turns"] if item["kind"] == "claim"
@@ -252,6 +256,7 @@ def duel_turn(w, payload, node_ids):
     refs = _refs(payload.get("refs", []), by_id)
     turn = {"id": uuid.uuid4().hex, "side": side, "kind": kind, "text": _text(payload["text"], MAX_TURN_TEXT, "text"),
             "refs": refs, "evidence": _evidence(payload.get("evidence", [])), **_stamp(w)}
+    turn.update(authorize(w, payload, duel))
     _turn_rules(w, duel, turn, by_id)
     status = duel["status"]
     if kind == "grill" and status == "open":
@@ -273,13 +278,15 @@ def duel_score(w, payload, node_ids):
     if payload["supports"] not in ("A", "B"):
         bad_request("supports musí být A nebo B.")
     strength = _score_of(payload["strength"], "strength")
+    metadata = authorize(w, payload, duel)
+    identity = participant({"by": w.by, **metadata})
     sides = parties(duel)
-    if w.by in sides["A"] | sides["B"]:
+    if identity in sides["A"] | sides["B"]:
         bad_request(f"soudce nesmí hájit žádnou stranu; {w.by} je aktér duelu.")
-    if any(score["turnId"] == turn["id"] and score["judge"] == w.by for score in duel["scores"]):
+    if any(score["turnId"] == turn["id"] and participant(score) == identity for score in duel["scores"]):
         fail(f"soudce {w.by} už výměnu {turn['id']} ohodnotil.")
     score = {"id": uuid.uuid4().hex, "turnId": turn["id"], "judge": w.by[:MAX_BY], "strength": strength,
-             "supports": payload["supports"], "actor": w.actor, "at": w.at}
+             "supports": payload["supports"], "actor": w.actor, "at": w.at, **metadata}
     if "evidenceOk" in payload:
         if type(payload["evidenceOk"]) is not bool:
             bad_request("evidenceOk musí být true nebo false.")
@@ -323,6 +330,7 @@ def duel_decide(w, payload, node_ids):
         bad_request("pole synthesis už neplatí: syntézu podej jako výměnu kind synthesis, nech ji ohodnotit soudcem "
                     "a pošli synthesisTurnId.")
     row, duel = _duel_row(w, payload)
+    authorize(w, payload, duel)
     state = duel_state(duel)
     ruled = state["rule"]
     outcome, reason, override = ruled["outcome"], ruled["reason"], None
@@ -433,8 +441,10 @@ def vision_align(w, payload, node_ids):
     if row is None:
         fail("rozsah nemá představu; založí ji člověk (op vision-set).")
     duel_row, duel = _decided_duel(w, payload["duelId"], scope)
+    metadata = authorize(w, payload, duel)
+    identity = participant({"by": w.by, **metadata})
     sides = parties(duel)
-    if w.by in sides["A"] | sides["B"]:
+    if identity in sides["A"] | sides["B"]:
         bad_request("shodu s představou po duelu nehodnotí strana duelu ani autor jeho challengeru.")
     point["duelId"] = duel_row["fragment_id"]
     fields = w.details(row["fragment_id"])
