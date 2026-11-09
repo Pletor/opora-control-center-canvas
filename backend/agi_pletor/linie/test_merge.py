@@ -89,7 +89,7 @@ def test_allow_merge_recovers_after_target_moved(setup):
     shown = work.get(service, "draft", tid)
     assert "allow_merge" in shown["allowed"] and "merge" not in shown["allowed"]
     assert shown["blocked"]["merge"].startswith("cíl develop se od povolení posunul (") and moved[:7] in shown["blocked"]["merge"]
-    assert shown["next"].startswith("Člověk povolí začlenění znovu")
+    assert shown["next"].startswith("Povolte začlenění znovu")
     again = work.allow_merge(service, "draft", tid, "develop", NOW)
     assert again["work"]["mergeAllowed"]["targetSha"] == moved and "merge" in again["allowed"]
     assert merge.merge(service, "draft", tid, NOW)["summary"]["key"] == "merged"

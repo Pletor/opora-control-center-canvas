@@ -166,3 +166,14 @@ def test_component_section_is_searchable_by_id_and_name():
     assert all("section" not in entry for entry in entries)
     assert [row["id"] for row in search(entries, "poptavkovy")["entries"]] == ["c"]
     assert [row["id"] for row in search(entries, "zmizela")["entries"]] == ["x"]
+
+
+def test_element_and_relation_are_searchable_without_workflow_retyping():
+    graph = {"nodes": [item("api", "Identity", element={"kind": "service"}), item("data", "Organization", element={"kind": "entity"})],
+             "edges": [{"id": "dependency", "source": "api", "target": "data", "relation": "requires", "reason": "Tenant isolation"}]}
+    entries = build_index(graph, {})
+    assert [entry["id"] for entry in search(entries, "service")["entries"]] == ["api"]
+    assert [entry["id"] for entry in search(entries, "requires isolation")["entries"]] == ["dependency"]
+    indexed = by_id(entries)
+    assert indexed["api"]["type"] is None
+    assert indexed["dependency"]["relation"] == "requires"

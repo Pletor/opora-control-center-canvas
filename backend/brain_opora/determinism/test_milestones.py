@@ -29,10 +29,15 @@ def service(tmp_path):
 
 def close(service, *cards):
     """Karty `cards` uzavřené na plátně (`done.confirmed`), ostatní otevřené."""
-    state = {"nodes": {card: {"done": {"confirmed": True}} for card in cards}}
+    from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
+    from copy import deepcopy
+    current = DesktopV3State(service).read("draft", "draft")
+    state = deepcopy(current["state"])
+    state["nodes"] = {card: {"done": {"confirmed": True}} for card in cards}
     db = service.db_for("draft")
     with db:
-        db.execute("INSERT OR REPLACE INTO desktop_v3_state VALUES('draft','draft',1,?,'t')", (json.dumps(state),))
+        db.execute("INSERT OR REPLACE INTO desktop_v3_state VALUES('draft','draft',?,?,?)",
+                   (current["revision"] + 1, json.dumps(state), f"t{current['revision'] + 1}"))
 
 
 def proposed(service, title="Spolehlivé hledání", criteria=CRITERIA):
@@ -98,10 +103,12 @@ def test_criterion_is_met_when_all_its_cards_are_closed_and_progress_averages_ca
     assert result["criteria"][0]["cards"] == [{"id": "n1", "done": True}, {"id": "n2", "done": False}]
     assert (result["done"], result["progress"]) == (False, 67)
     close(service, "n1", "n2", "n3")
-    assert milestones.evaluate(db, "draft", milestone)["done"] is True
+    evaluated = milestones.evaluate(db, "draft", milestone)
+    assert evaluated["closureDone"] is True and evaluated["done"] is False
+    assert evaluated["verification"]["reason"] == "integration_contract_missing"
 
 
-def test_reached_milestone_wakes_once_with_its_deferred_requirements(service):
+def test_closed_legacy_milestone_does_not_wake_without_integration_proof(service):
     made = proposed(service)
     db = service.db_for("draft")
     with db:
@@ -117,11 +124,10 @@ def test_reached_milestone_wakes_once_with_its_deferred_requirements(service):
         assert milestones.wakes(db, "draft", {"main"}, "t") == []  # jiný prostor
         found = milestones.wakes(db, "draft", {"draft"}, "t")
         again = milestones.wakes(db, "draft", None, "t")
-    assert found == [("draft", {"type": "milestoneDone", "milestoneId": made["id"], "title": "Spolehlivé hledání",
-                                "areaId": "a1", "deferred": [{"id": "rq_1", "title": "Hybridní"}]})]
+    assert found == []
     assert again == []  # jednou na stav (klíč trigger:milestone:<id>:done)
     assert IntakeRequirements(db).get("rq_1")["status"] == "deferred"  # stav požadavku rozhodne srdce
-    assert [item["milestone"]["id"] for item in milestones.reached(db, "draft", "draft")] == [made["id"]]
+    assert milestones.reached(db, "draft", "draft") == []
 
 
 def test_plan_groups_milestones_and_requirements_by_area(service):

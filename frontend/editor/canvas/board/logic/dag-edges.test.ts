@@ -19,4 +19,10 @@ describe("vazby next jako DAG", () => {
     expect(dagLook({ id: "e", source: "a", target: "b", port: "action" }, cards, new Set())).toBeNull();
     expect(dagLook({ id: "e", source: "a", target: "x" }, cards, new Set())).toBeNull();
   });
+  it("semantic relations do not inherit next predecessor styling", () => {
+    for (const relation of ["requires", "uses", "communicates_with", "evidences"] as const) {
+      expect(dagLook({ id: "e", source: "a", target: "b", relation }, cards, new Set())).toBeNull();
+      expect(dagLook({ id: "e", source: "a", target: "b", port: "next", relation }, cards, new Set())).toBeNull();
+    }
+  });
 });

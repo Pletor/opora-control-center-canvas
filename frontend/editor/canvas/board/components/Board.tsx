@@ -61,6 +61,9 @@ import { useSessionView, type SessionView } from "@/editor/canvas/session-view/l
 import { visibleSelection, sameSelection as sameSessionSelection } from "@/editor/canvas/session-view/logic/apply-view";
 
 import type { StructureViewBridge } from "@/editor/canvas/session-view/logic/structure-view";
+import MilestoneFocusControl from "@/editor/canvas/milestone-focus/components/MilestoneFocusControl";
+import { useMilestoneFocus } from "@/editor/canvas/milestone-focus/logic/use-milestone-focus";
+import { focusMilestoneNodes } from "@/editor/canvas/milestone-focus/logic/milestone-focus";
 
 const nodeTypes = { canvas: NodeCard, comment: CommentCard, area: AreaCard, ...blockNodeTypes };
 /** Nad tolika uzly vrstvy se MiniMap nekreslí: React Flow ji překresluje při každé změně uzlů. */
@@ -199,6 +202,7 @@ export default function Board({
   const changes = useChangeCount(graph, state);
   const stateKey = revision ?? `local:${changes}`;
   const workKey = `${digest ?? ""}:${stateKey}`;
+  const milestoneFocus = useMilestoneFocus(sourceContext, graph, workKey);
   const frontier = useFrontier(sourceContext, parent, true, stateKey);
   const checklists = useCardChecklist(sourceContext, parent, stateKey);
   // Plátno strom schránky nečte, jen požádá sdílený zdroj o obnovu (pro Schránku a detail karty), když se změní
@@ -228,9 +232,9 @@ export default function Board({
     onRuleWrite, onRuleReview, sourceContext });
   // Schopnosti rodiče jako booleany: nové inline callbacky v App vrstvu nepřestaví, jejich přítomnost ano.
   const can = { realize: !!onRealizeSource, rules: !!onRuleWrite && !!onRuleReview };
-  const make = (): Node[] => buildLayerNodes({ graph, state, index, parent, selected, multiSelected: multiSet, selectedBlock, editing,
+  const make = (): Node[] => focusMilestoneNodes(buildLayerNodes({ graph, state, index, parent, selected, multiSelected: multiSet, selectedBlock, editing,
     disabled, openBlocks, tagFilter, moved: movedSet, checklists, frontier: frontier.rows, work,
-    leases, sourceStatuses, agent, latest, sourceContext, can }).concat(blocks.nodes);
+    leases, sourceStatuses, agent, latest, sourceContext, can }).concat(blocks.nodes), milestoneFocus.members);
   const [nodes, setNodes] = useState<Node[]>(make);
   // Rostoucí oblast: při tahu karty přes hranu se v náhledu natahuje jen uzel domovské oblasti.
   const growth = useAreaGrowth(setNodes);
@@ -266,7 +270,7 @@ export default function Board({
     setNodes((previous) => reuseNodes(previous, make()));
   }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project,
     sourceContext?.workspace, frontier.rows, leases, sourceStatuses, work, movedCards,
-    checklists, agent, latest, can.realize, can.rules]);
+    checklists, agent, latest, can.realize, can.rules, milestoneFocus.members]);
   // Výběr hlášený nahoru: poslední známý výběr na plátně, aby změny během tahu obdélníku nebublaly
   // do App znovu a znovu, když se výběr nezměnil. Uzly samy dál jdou přes updater (tah karty).
   const latestNodes = useRef(nodes);
@@ -370,6 +374,7 @@ export default function Board({
       }}
     >
       <div className="board-bar nodrag nopan" role="toolbar" aria-label="Stav sektoru">
+        {sourceContext && <MilestoneFocusControl {...milestoneFocus} />}
         <FaceSummary title={parent ? index.byId.get(parent)?.name ?? "" : ""}
           faces={nodes.flatMap((n) => n.type === "canvas" && (n.data as NodeCardData).face ? [(n.data as NodeCardData).face!] : [])}
           nextEdges={edges.filter((e) => e.className?.includes("edge-port-next")).length} />

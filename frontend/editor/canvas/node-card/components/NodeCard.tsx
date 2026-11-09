@@ -12,6 +12,7 @@ import type { Rule } from "@/shared/desktop-state/logic/types";
 import type { SourceRef } from "@/shared/types/logic/types";
 import CardBody from "@/editor/canvas/node-card/components/CardBody";
 import CardComponent from "@/editor/canvas/node-card/components/CardComponent";
+import CardProgress from "./CardProgress";
 import CardBlocks, { type CardBlockHandlers } from "@/editor/canvas/node-card/components/CardBlocks";
 import CardFoot from "@/editor/canvas/node-card/components/CardFoot";
 import CardPorts, { type BlockPort } from "@/editor/canvas/node-card/components/CardPorts";
@@ -104,6 +105,7 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
     >
       {far ? <CardGlyph face={data.face!} name={view.name} /> : data.face ? <CardFace face={data.face} title={title} onHistory={on.history} onTrail={on.trail} /> : title}
       {!far && <CardComponent tech={view.tech} states={view.states} section={view.section} />}
+      {!far && <CardProgress view={view} face={data.face} />}
       <CardBlocks id={id} rows={view.rows} disabled={blocks.disabled} handlers={on.blocks} selectedBlockId={selectedBlockId} selected={selected}
         detail={selected ? detail : "far"} />
       {selected && <CardDetails id={id} data={data} actions={actions} release={data.releaseLease ? on.release : undefined} realize={on.realize} />}

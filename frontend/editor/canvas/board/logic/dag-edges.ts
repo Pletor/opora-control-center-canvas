@@ -6,7 +6,7 @@ import type { GraphEdge } from "@/shared/types/logic/types";
 import { carriesLook } from "@/shared/edge-carries/logic/edge-carries";
 
 export function dagLook(edge: GraphEdge, cards: ReadonlySet<string>, finished: ReadonlySet<string>): Partial<Edge> | null {
-  if ((edge.port ?? "next") !== "next" || !cards.has(edge.source) || !cards.has(edge.target)) return null;
+  if (edge.relation || (edge.port ?? "next") !== "next" || !cards.has(edge.source) || !cards.has(edge.target)) return null;
   // Druh toku (`carries`) drží barvu a háček třídy; stav závislosti říká jen čára: volno plná, čeká přerušovaná.
   const flow = carriesLook(edge.carries);
   const hook = flow ? " " + flow.className : "";

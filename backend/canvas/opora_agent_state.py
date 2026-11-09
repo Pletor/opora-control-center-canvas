@@ -19,6 +19,7 @@ from backend.canvas import opora_agent_state_guards as guards_state
 from backend.canvas import opora_agent_state_lease as lease_state
 from backend.canvas import opora_agent_state_map_gaps as map_gaps
 from backend.canvas import opora_agent_state_pulls as pulls
+from backend.canvas import opora_agent_state_progress as progress_evidence
 from backend.canvas import opora_agent_state_review_gates as review_gates
 from backend.canvas import opora_agent_state_reviews as reviews
 from backend.canvas import opora_agent_state_rules as rules
@@ -233,6 +234,7 @@ class AgentState:
         # Měřák a štítek (docs/navrhy/2026-10-30-metriky-a-spoustece.md §2–3): jen zobrazené karty, z načtených faktů.
         shown = card_gauge.attach(shown, graph, context["acceptedDocuments"], card_gauge.tally(history, linked),
                                   latest, now)
+        shown = progress_evidence.attach(db, project, workspace, shown, context["acceptedDocuments"], accepted)
         autonomy = project_autonomy(self.canvas, project)
         if autonomy["full"]:
             actions = _autonomous(actions)

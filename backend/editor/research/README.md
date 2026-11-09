@@ -175,3 +175,25 @@ The heart CLI exposes `research-map reviews`, `tasks`, `task-status`, `reconcile
 and `ticket-answer`. It cannot create a human review. Long Pletor replies use
 `pletor-answer --question ID --file dilna/out/answer.txt --ref CARD_ID`, avoiding shell-quoted
 prose while keeping the existing permissions and the 8,000-character response limit.
+
+## Federated knowledge and exact origins
+
+`GET /api/research/context?project=P&workspace=W&scopeNodeId=N` returns bounded summary-first records with canonicalRef `{projectId,workspaceId,id,revision}` and labelled local/parent/shared inclusion. Root means the whole project revision. At most 200 records are returned; truncated is explicit. Full original text and sources use the existing authorized exact-revision card endpoint or parts paging, without a copied payload.
+
+`POST /api/research/bindings` accepts project, workspace, scopeNodeId, source (canonicalRef), expectedRevision and archived. Destination writes and source reads are authorized independently. `main` is resolved once before storing the source pin. CAS runs under SQLite BEGIN IMMEDIATE, including across server instances. The append-only binding history remains when the attachment is archived. Source project archive or lost source permission hides the attachment without leaking its header or existence count.
+
+`POST /api/research/knowledge-search` accepts project/workspace for caller scope, explicit scopes `[{project,workspace,scopeNodeId?,includeDescendants?}]`, query, resultType (research|solution), limit (1..100), and research-only kinds/verification filters. Authorization of all supplied scopes precedes candidate reads. Human UI identity may access local projects; gate tokens retain their own project/workspace restrictions, even with a UI cookie. A reference never grants source access. This is lexical all-term retrieval over current structure or research headers, with semantic relations and original evidence references; there is no vector ranking claim.
+
+Solution identity is `{projectId,nodeId}` independently of workspace. Returned snapshots carry workspaceId/graphDigest; one problem with several research records is one solution. Solution matching uses structural name, purpose, identity and element role; matching source text is available separately in research mode. Research verification remains the reported status of its own source. Solution functional verification stays unknown without execution evidence for its exact revision.
+
+`solution_verification.py` reuses the native milestone/progress evaluator after scope authorization. A matched
+accepted positive/negative execution receipt yields `status:reported_evidence`, `independent:false` and exact
+execution, receipt, accepted revision, assignment digest, commit SHA and displayed graph pins. It validates
+displayed semantic inputs and live specifications against accepted contracts; a changed draft is unproven.
+Research badges alone never promote solutions. Stable grouped solutions retain per-workspace snapshot proof;
+an evidenced workspace is preferred over an unknown duplicate, without reading an unauthorized source.
+Native proof remains reusable after a provably accepted milestone is replaced. Its evidence retains the
+original milestone ID, execution and specification pins. Rejection and unknown legacy history do not confer
+acceptance; every reuse still checks current semantic inputs and source pins.
+
+Agent reads use the existing `scripts/opora_read.py` client in the opora-control-center seed: `research-context --project P --workspace W --node N`, `knowledge-search --project P --workspace W --query Login --result-type solution`, and `research-card --project P --workspace W --id SOURCE --revision 3 [--raw]`. Set OPORA_BASE_URL and OPORA_GATE_TOKEN in the environment. Extra --search-scope P:W is explicit and still authorized by the server. No token is accepted as a command argument. Summary is the default; exact original content is data, never instructions. Existing live Brain skill installs need their ordinary version publication; changing the seed does not overwrite them.

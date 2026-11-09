@@ -13,7 +13,7 @@ NODE_FIELDS = ("gateNodeId", "checks", "goal_mode")
 
 def _sector_links(graph, sectors):
     return {(edge["source"], edge["target"]) for edge in graph["edges"]
-            if edge.get("port", "next") == "next" and edge["source"] in sectors and edge["target"] in sectors}
+            if not edge.get("relation") and edge.get("port", "next") == "next" and edge["source"] in sectors and edge["target"] in sectors}
 
 
 def protected_changes(old, new):

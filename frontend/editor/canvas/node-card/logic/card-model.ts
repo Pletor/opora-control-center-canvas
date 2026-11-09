@@ -32,6 +32,8 @@ export function cardBlocks(workflow: Pick<NodeWorkflowFull, "blocks">): CardBloc
 }
 
 export type CardView = {
+  /** An artifact is a design input, never evidence of approval or a working feature. */
+  design?: CanvasNode["design"];
   kind: "node" | "sector";
   name: string;
   purpose: string;
@@ -75,6 +77,7 @@ export function cardView(node: CanvasNode, workflow: NodeWorkflowFull, children:
     kind: node.kind === "sector" ? "sector" : "node",
     name: node.name,
     purpose: node.purpose,
+    design: node.design,
     tags: tags.slice(0, VISIBLE_TAGS),
     hiddenTags: Math.max(0, tags.length - VISIBLE_TAGS),
     children,

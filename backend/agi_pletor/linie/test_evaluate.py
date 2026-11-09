@@ -113,7 +113,7 @@ def test_new_card_revision_with_same_sha_is_stale_plan():
             "mergeAllowed": {"sourceSha": H, "target": "develop"}}
     found = evaluate(work, card_revision=3)
     assert found["key"] == "stale_plan" and found["axes"]["acceptance"]["state"] == "stale_plan"
-    assert found["next"] == "Člověk potvrdí přijetí vůči nové revizi zadání (karta R3)."
+    assert found["next"] == "Potvrďte přijetí vůči nové revizi zadání (karta R3)."
     assert "accept" in found["allowed"] and "merge" not in found["allowed"]  # staré povolení začlenění neplatí
     assert evaluate(work, card_revision=2)["key"] == "accepted"
     assert evaluate(work)["key"] == "accepted"  # revize karty neznámá (bez karty / zdroj nedostupný) = nesoudí se

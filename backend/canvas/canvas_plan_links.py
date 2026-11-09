@@ -7,7 +7,7 @@ from backend.canvas.canvas_plan_fields import fail, fields, items_of, new_id, pl
 
 BLOCK_FIELDS = {"ref", "title", "text", "condition", "ports"}
 PORT_FIELDS = {"ref", "label", "status", "reason", "onMet"}
-EDGE_FIELDS = {"from", "to", "port", "block", "blockPort", "carries"}
+EDGE_FIELDS = {"from", "to", "port", "block", "blockPort", "carries", "relation", "reason", "requirement"}
 NO_BRANCH = {"kind": "none", "targetId": "", "note": ""}
 
 
@@ -42,6 +42,8 @@ def edge_of(built, item, label, resolve):
     source, target = resolve(item["from"], label), resolve(item["to"], label)
     port = item.get("port", "next")
     identity = json.dumps([item["from"], item["to"], port, item.get("block"), item.get("blockPort"), item.get("carries")], separators=(",", ":"), sort_keys=True)
+    if "relation" in item or "reason" in item:
+        identity = json.dumps([identity, {key: item[key] for key in ("relation", "reason", "requirement") if key in item}], separators=(",", ":"), sort_keys=True)
     ordinal = built.edge_identity_counts.get(identity, 0)
     built.edge_identity_counts[identity] = ordinal + 1
     edge = {"id": new_id(f"edge:{identity}:{ordinal}"), "source": source, "target": target, "port": port}
@@ -52,8 +54,9 @@ def edge_of(built, item, label, resolve):
     elif "block" in item or "blockPort" in item:
         fail(label, "block a blockPort patří jen k vazbě s portem block.")
     # Druh toku jen přenese, nikdy nedoplní; jeho hodnotu a port hlídá `validate_graph`.
-    if "carries" in item:
-        edge["carries"] = item["carries"]
+    for key in ("carries", "relation", "reason", "requirement"):
+        if key in item:
+            edge[key] = item[key]
     built.labels[edge["id"]] = label
     built.edges.append(edge)
 

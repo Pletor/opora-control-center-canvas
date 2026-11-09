@@ -7,6 +7,20 @@ import type { Graph } from "@/shared/types/logic/types";
 import { emptyDesktopState } from "@/shared/desktop-state/logic/types";
 import { setDone } from "@/editor/node-detail/tree/logic/tree-model";
 
+it("semantic next-port relations do not lock destination sectors", () => {
+  for (const relation of ["requires", "uses", "communicates_with", "evidences"] as const) {
+    const graph: Graph = { nodes: [
+      { id: "a", kind: "sector", parentId: null, name: "First", purpose: "", x: 0, y: 0 },
+      { id: "b", kind: "sector", parentId: null, name: "Second", purpose: "", x: 0, y: 0 },
+    ], edges: [{ id: "e", source: "a", target: "b", relation }] };
+    expect(sectorViews(graph, emptyDesktopState()).b.blockedBy).toEqual([]);
+    graph.edges[0].port = "next";
+    expect(sectorViews(graph, emptyDesktopState()).b.blockedBy).toEqual([]);
+    delete graph.edges[0].relation;
+    expect(sectorViews(graph, emptyDesktopState()).b.blockedBy).toEqual(["First"]);
+  }
+});
+
 it("matches API blockers for sectors without explicit gates and card-to-sector links", () => {
   const graph: Graph = { nodes: [
     { id: "a", kind: "sector", parentId: null, name: "First", purpose: "", x: 0, y: 0 },

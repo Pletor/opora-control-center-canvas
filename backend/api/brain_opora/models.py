@@ -252,9 +252,23 @@ class IntakeVerdictOut(BaseModel):
     requirementId: str | None = None
 
 
+class MilestoneTestCaseIn(BaseModel):
+    stepId: str
+    check: str
+    command: str
+
+
+class MilestoneVerificationIn(BaseModel):
+    nodeId: str
+    acceptedRevision: str
+    positive: MilestoneTestCaseIn
+    negative: MilestoneTestCaseIn
+
+
 class MilestoneCriterionIn(BaseModel):
     text: str
-    cards: list[str] = Field(..., description="ID karet, které kritérium dokládají (splněno = všechny done.confirmed).")
+    cards: list[str] = Field(..., description="ID dotčených karet včetně společné integrační karty. Uzavření není integrační ověření.")
+    verification: MilestoneVerificationIn | None = Field(None, description="Přesná přijatá revize a kladný i záporný test. Bez důkazu milník není splněný.")
 
 
 class MilestoneProposalIn(BaseModel):

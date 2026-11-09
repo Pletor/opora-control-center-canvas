@@ -3,7 +3,7 @@
 // (sektor vrstvy, vybraný cílový sektor, schopnost projektu `legacyFree`). Pravidla jsou přenesena
 // z App.tsx beze změny; nové je jen `missingFields` (co chybí u neaktivního „Vytvořit“), karta uzlu
 // a zadání sektoru.
-import type { CanvasNode, SpecFields } from "@/shared/types/logic/types";
+import type { CanvasNode, ElementKind, SpecFields } from "@/shared/types/logic/types";
 import { normalizeCard } from "@/shared/card-context/logic/card-context";
 import { emptyCard, type CardDraft } from "@/editor/canvas/create-dialog/logic/card-draft";
 
@@ -14,6 +14,7 @@ export type EntryKind = "directory" | "file";
 
 export type CreateForm = {
   kind: CreateKind;
+  elementKind: ElementKind | "";
   name: string;
   origin: CreateOrigin;
   /** Vybraný existující zdroj; `null` = ve stromu zatím nic nevybráno. */
@@ -41,6 +42,7 @@ export const emptySpec = (): SpecFields => ({ goal: "", non_goals: "", acceptanc
 
 export const emptyCreateForm = (kind: CreateKind): CreateForm => ({
   kind,
+  elementKind: "",
   name: "",
   origin: null,
   path: null,
@@ -180,6 +182,7 @@ export function buildCreated(
     y: Math.floor(siblings / 3) * 210,
     ...(sourceRef ? { sourceRef } : {}),
     ...(card ? { card } : {}),
+    ...(form.elementKind ? { element: { kind: form.elementKind } } : {}),
   };
   const spec = form.kind === "sector" ? trimSpec(form.spec) : null;
   return { node, spec };

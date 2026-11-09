@@ -49,3 +49,19 @@ def test_trigger_fires_once_per_key():
     assert triggers.fire("trigger:milestone:ms_1:done", "w", "t1")
     assert not triggers.fire("trigger:milestone:ms_1:done", "w", "t2")
     assert triggers.fired("trigger:milestone:ms_1:done") and not triggers.fired("trigger:milestone:ms_2:done")
+
+
+def test_only_real_active_replacement_creates_accepted_history_provenance():
+    repository = IntakeMilestones(store())
+    for identifier in ("first", "second", "third", "rejected", "legacy"):
+        repository.insert({**milestone(identifier), **({"status": "superseded", "replacedBy": "first"} if identifier == "legacy" else {})})
+    repository.activate("first")
+    repository.activate("second")
+    repository.activate("third")
+    repository.reject("rejected")
+    repository.reject("third")
+    assert repository.get("first")["replacedBy"] == "second"
+    assert repository.get("second")["replacedBy"] == "third"
+    assert "replacedBy" not in repository.get("legacy")  # insert cannot import acceptance provenance.
+    assert "replacedBy" not in repository.get("third")
+    assert [row["id"] for row in repository.proof_candidates("w")] == ["first", "second"]

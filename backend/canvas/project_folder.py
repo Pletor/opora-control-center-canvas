@@ -93,9 +93,11 @@ class ProjectFolder:
 
     def storyboard(self, workspace_id: str, node_id: str) -> Path:
         """Storyboard karty (momenty, komentáře a šipky člověka); patří do dat plátna."""
-        for value in (workspace_id, node_id):
+        for value in (workspace_id,):
             if not isinstance(value, str) or not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$", value):
                 raise ValueError("Neplatné ID pracovního prostoru nebo uzlu.")
+        if not isinstance(node_id, str) or re.fullmatch(r"[A-Za-z0-9_-]{1,80}", node_id) is None:
+            raise ValueError("Invalid storyboard node ID.")
         return self.canvas / "workspaces" / workspace_id / "storyboards" / f"{node_id}.json"
 
     def sector(self, sector_id: str) -> Path:

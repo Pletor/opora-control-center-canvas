@@ -19,7 +19,7 @@ from backend.editor.node.node_specs import EMPTY_FIELDS
 PLAN_KEYS = {"nodes", "edges", "decisions", "extend"}
 NODE_FIELDS = {"ref", "kind", "parent", "name", "purpose", "sourceRef", "size", "spec", "text",
                "agentRole", "blocks", "rules", "card", "position", "criteria", "site", "design", "gateNodeId", "checks", "goal_mode", "factRefs", "scenario", "downloadsUrl", "color", "fragmentRef", "memberOf", "order",
-               "briefGroup", "briefDiscipline"}
+               "briefGroup", "briefDiscipline", "element"}
 RULE_FIELDS = {"kind", "text"}
 DECISION_FIELDS = {"node", "text", "pinned"}
 MAX_NODES, MAX_EDGES = 200, 600
@@ -165,7 +165,7 @@ def _node(built, item, parents, kinds, existing):
         parent = existing[parent]["parentId"] if parent in existing else parents[parent]
     node = {"id": node_id, "parentId": parent, "kind": item["kind"], "name": item["name"],
             "purpose": item.get("purpose", ""), "x": 0, "y": 0}
-    for key in ("sourceRef", "size", "card", "site", "design", "checks", "goal_mode", "factRefs", "scenario", "color", "order"):
+    for key in ("sourceRef", "size", "card", "site", "design", "checks", "goal_mode", "factRefs", "scenario", "color", "order", "element"):
         if key in item:
             node[key] = item[key]
     if isinstance(item.get("card"), dict) and "section" in item["card"]:

@@ -4,15 +4,17 @@ Srdce milník oblasti jen navrhne (`propose`, `opora_heart.py milestone`, stav `
 aktivovat nebo zamítnout ho smí jen člověk (`decide`, `POST /api/intake/milestone`). Aktivace nahradí dosavadní
 aktivní milník oblasti (`superseded`, historie zůstává).
 
-Kritérium `{id, text, cards[]}` je splněné, když všechny jeho karty mají na plátně prostoru `done.confirmed`
-(jedno čtení stavu přes `opora_event_stage.confirmed_nodes`); milník je splněný, když jsou splněná všechna kritéria.
-Splnění i postup (`progress` = průměr % karet; karta zatím 0 nebo 100 podle `done.confirmed`) se počítají,
+Karty kritéria `{id, text, cards[], verification?}` jsou uzavřené, když mají na plátně `done.confirmed`.
+`closureDone` a `closureProgress` zachovávají uzavření; kompatibilní `progress` stále znamená uzavření.
+Funkční `done` navíc vyžaduje společný integrační běh se všemi kladnými i zápornými testy přesně přijatého
+zadání (`milestone_evidence.py`). Zdroj důkazů je Kancelář, nikoliv nezávislý ověřovatel. Výsledky se počítají,
 neukládají. Spouštěč `milestone.done` (`wakes`) srdce probudí jednou na milník (klíč `trigger:milestone:<id>:done`
 v `heart_triggers`) se seznamem odložených požadavků s podmínkou na ten milník; stav požadavků nemění.
 """
 import uuid
 
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
+from backend.brain_opora.determinism import milestone_evidence
 from backend.canvas.graph import valid_id
 from backend.canvas.opora_event_stage import confirmed_nodes
 from database.repositories.heart_triggers import HeartTriggers
@@ -41,8 +43,8 @@ def criteria_of(items, known):
         raise invalid(f"criteria je 1 až {CRITERIA} kritérií.", HINT)
     result = []
     for number, item in enumerate(items, 1):
-        if not isinstance(item, dict) or set(item) != {"text", "cards"}:
-            raise invalid("Kritérium je {text, cards[]}.", HINT)
+        if not isinstance(item, dict) or not {"text", "cards"} <= set(item) <= {"text", "cards", "verification"}:
+            raise invalid("Kritérium je {text, cards[], verification?}.", HINT)
         cards = item["cards"]
         if not isinstance(cards, list) or not 1 <= len(cards) <= CARDS or not all(isinstance(c, str) for c in cards):
             raise invalid(f"Kritérium dokládá 1 až {CARDS} karet (ID uzlů).", HINT)
@@ -51,7 +53,8 @@ def criteria_of(items, known):
             raise GateError(404, "card_not_found", f"Karty {', '.join(unknown)} na plátně prostoru nejsou.",
                             "ID karet najdete ve snímku nebo v ctx tree.")
         result.append({"id": f"c{number}", "text": _text(item["text"], TEXT, "text kritéria"),
-                       "cards": list(dict.fromkeys(cards))})
+                       "cards": list(dict.fromkeys(cards)),
+                       **({"verification": item["verification"]} if "verification" in item else {})})
     return result
 
 
@@ -64,8 +67,10 @@ def evaluate(db, project, milestone):
                 for criterion in milestone["criteria"]]
     unique = list(dict.fromkeys(cards))
     progress = round(100 * sum(card in closed for card in unique) / len(unique)) if unique else 0
-    return {**milestone, "criteria": criteria, "done": bool(criteria) and all(item["done"] for item in criteria),
-            "progress": progress}
+    closure_done = bool(criteria) and all(item["done"] for item in criteria)
+    verification = milestone_evidence.evaluate(db, project, milestone["workspaceId"], milestone["criteria"])
+    return {**milestone, "criteria": criteria, "done": closure_done and verification["verified"],
+            "closureDone": closure_done, "closureProgress": progress, "verification": verification, "progress": progress}
 
 
 def reached(db, project, workspace=None):
@@ -114,6 +119,10 @@ def propose(service, session, area, title, criteria, now):
     with service.lock_for(project):
         db = service.db_for(project)
         with db:
+            try:
+                milestone_evidence.validate_criteria(db, project, workspace, milestone["criteria"])
+            except (ValueError, TypeError, KeyError) as error:
+                raise invalid(str(error), "Připněte kladné i záporné testy přijatého integračního zadání.") from error
             IntakeMilestones(db).insert(milestone)
     return {key: milestone[key] for key in ("id", "status", "areaId", "title", "criteria")}
 

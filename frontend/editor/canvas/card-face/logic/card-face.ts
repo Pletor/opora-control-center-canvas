@@ -2,7 +2,7 @@
 // funkcí a bez času (odpočet lease počítá komponenta), aby `stable-nodes.ts` mohl tvář porovnat hluboce.
 // Na tváři je jen: druh, kdo kartu drží, název, JEDEN stavový řádek, postup kroků a nejvýš jedna patička.
 // Přednost stavu: hotovo > rozhodnutí člověka > agent drží lease > blokováno předchůdcem > brána > zdraví.
-import type { AgentCardStage, AgentDecision } from "@/hub/oporahub-agent-state/logic/agent-state";
+import type { AgentCardStage, AgentDecision, ProgressEvidence } from "@/hub/oporahub-agent-state/logic/agent-state";
 import { STAGE_WORD, gateWord, shortReason } from "./face-labels";
 import { prBadge, type PrBadge } from "@/shared/pr-badge/logic/pr-badge";
 import { changeOf, orderBadge, type FaceChange, type LatestChange } from "./face-change";
@@ -14,6 +14,7 @@ export type FaceFooter =
   | { kind: "blocked"; ids: string[]; text: string }
   | { kind: "decision"; id: string; actionId: string; text: string };
 export type CardFace = {
+  progressEvidence?: ProgressEvidence;
   nodeId: string; state: FaceState; kindChip: string;
   holder: { who: "agent" | "human"; name: string } | null;
   chip: { tone: FaceTone; glyph: string; word: string };
@@ -68,6 +69,7 @@ export function cardFace({ nodeId, card, sector, layer, decisions, nameOf, lates
   const lease = card?.lease ?? null;
   const gate = card?.gate ?? null;
   const base = {
+    ...(card?.progressEvidence ? { progressEvidence: card.progressEvidence } : {}),
     nodeId, kindChip: card?.kind || layer || (sector ? "sektor" : "uzel"), lease: null as CardFace["lease"],
     pr: card ? prBadge(card.stage, card.reason, card.pr, card.reason === "card_closed") : null,
     order: orderBadge(card?.order), change: changeOf(latest),

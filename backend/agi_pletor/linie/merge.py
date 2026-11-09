@@ -114,14 +114,14 @@ def _confirm(service, project, ticket_id, entry, now, git):
 def _precheck(git, work):
     head, accepted, allowed = work.get("headSha"), work.get("acceptance"), work.get("mergeAllowed")
     if not accepted:
-        raise WorkError("no_acceptance", 409, "Bez přijetí člověkem služba nic nezačlení.",
-                        "Člověk přijme revizi: POST /work/{ticketId}/accept.")
+        raise WorkError("no_acceptance", 409, "Bez přijetí ověřené revize služba nic nezačlení.",
+                        "Přijměte revizi: POST /work/{ticketId}/accept; agent s untested: true.")
     tip = _rev(git, work["repository"], work["branch"])
     if not head or accepted["sha"] != head or tip != head:
         raise WorkError("head_moved", 409, f"Hlava větve {work['branch']} ({(tip or '-')[:7]}) není přijatá revize "
-                        f"{accepted['sha'][:7]}.", "Člověk přijme aktuální revizi znovu.")
+                        f"{accepted['sha'][:7]}.", "Přijměte aktuální revizi znovu.")
     if not allowed or allowed.get("sourceSha") != head:
-        raise WorkError("not_allowed", 409, "Začlenění této revize člověk nepovolil.",
+        raise WorkError("not_allowed", 409, "Začlenění této revize není povoleno.",
                         "POST /work/{ticketId}/allow-merge {target}.")
     if not work_state.checks_for(work, head):
         raise WorkError("checks_missing", 409, f"Pro {head[:7]} nejsou žádné kontroly.", "Pošlete report s kontrolami.")

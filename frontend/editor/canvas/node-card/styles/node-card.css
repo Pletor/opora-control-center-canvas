@@ -752,3 +752,9 @@
 .node-card__bar-part--done { background: #22c55e; }
 .node-card__bar-part--blocked { background: #f87171; }
 .node-card__progress { width: 100%; height: 6px; accent-color: var(--accent); }
+/* Tři osy ukazují dostupný doklad zvlášť, aby hotový návrh nevypadal jako ověřená funkce. */
+.node-card__progress-axes { padding: 6px 12px; font-size: 10px; color: var(--text-muted); }
+.node-card__progress-axes dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; }
+.node-card__progress-axes dt { font-weight: 600; }
+.node-card__progress-axes dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.node-card__progress-axes p { margin: 5px 0 0; overflow-wrap: anywhere; }

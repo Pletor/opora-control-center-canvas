@@ -22,3 +22,9 @@ společným stolem), `Desk` (řádek karty), `WorkerChip` (čip pracovníka) a `
 vypnutou bránu (srdce neběží), jsou tlačítka „Posadit agenta“ vypnutá s důvodem v titulku. Styl
 v `styles/office.css` (BEM, bloky `office`, `office-header`, `office-department`, `office-room`,
 `office-desk`, `office-worker`, `office-reception`).
+
+## Working context
+
+Office follows the same WorkScope as Structure/Text/Research/Drawing/Storyboard. Root keeps the global project office. A nested scope includes itself, descendants and existing tickets whose explicit affectedNodeIds intersect that scope. Ancestor sectors only place desks; unrelated sibling cards and reception workers are hidden. A relevant ticket keeps one ticketId and one original object, even when it changes multiple elements.
+
+The server projects machine.affectedNodeIds from the accepted spec before claim, then from the frozen execution assignment after claim; machine.affectedScopeSource names the accepted revision/execution. This is a read projection, not another ticket store. Missing historical runs never fall back to a newer specification. Loose cards in a nested context get a presentation-only desk with their original identity and actual card state.

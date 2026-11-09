@@ -24,7 +24,7 @@ from backend.canvas.graph import CARD_VALUES
 from backend.canvas.site_metadata import card_section_error
 
 EXTEND_FIELDS = {"node", "expectedRevision", "blocks", "ports", "rules", "spec", "text", "parent", "columns", "color", "fragmentRef",
-                 "replaceBlocks", "layer", "memberOf", "tech", "states", "section", "briefGroup", "briefDiscipline"}
+                 "replaceBlocks", "layer", "memberOf", "tech", "states", "section", "briefGroup", "briefDiscipline", "element"}
 CARD_FIELDS = ("tech", "states", "section")
 MARKS = ("briefGroup", "briefDiscipline")
 
@@ -71,10 +71,15 @@ def extend_cards(built, extensions, existing):
             if built.state["nodes"].get(cursor, {}).get("done", {}).get("confirmed"):
                 fail(label, "uzavřenou kartu ani její potomky nelze rozšířit.")
             cursor = existing[cursor]["parentId"]
-        if not set(item).intersection({"blocks", "ports", "rules", "spec", "text", "parent", "fragmentRef", "layer", "memberOf",
+        if not set(item).intersection({"blocks", "ports", "rules", "spec", "text", "parent", "fragmentRef", "layer", "memberOf", "element",
                                        *CARD_FIELDS, *MARKS}):
             fail(label, "rozšíření neobsahuje žádný obsah.")
         _marks(built, item, existing[node_id], label)
+        if "element" in item:
+            if item["element"] is None:
+                existing[node_id].pop("element", None)
+            else:
+                existing[node_id]["element"] = item["element"]
         if "memberOf" in item:
             area = item["memberOf"]
             if area is None:

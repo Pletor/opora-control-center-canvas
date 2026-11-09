@@ -842,7 +842,7 @@ def submit_unlink(args):
     tokenem srdce jako `submit_addition`). Neznámá vazba = česká chyba bez zápisu; `--dry-run` jen ukáže, co by zmizelo."""
     context = call("GET", f"{GRAPH_PROPOSALS}/context", query=scope())
     edges = [edge for edge in call("GET", "/api/view", query=scope())["graph"]["edges"]
-             if edge["source"] == args.from_node and edge["target"] == args.to_node and edge.get("port", "next") == "next"]
+             if edge["source"] == args.from_node and edge["target"] == args.to_node and not edge.get("relation") and edge.get("port", "next") == "next"]
     if not edges:
         raise Failure({"error": f"Mezi {args.from_node} a {args.to_node} není vazba next (směr from → to).",
                        "code": "unlink_unknown_edge",

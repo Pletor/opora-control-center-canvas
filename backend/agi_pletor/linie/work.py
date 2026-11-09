@@ -3,7 +3,7 @@
 `view` skládá kuličku z jednoho `evaluate` (docs/navrhy/2026-11-06-linie-rebrand.md §2a, §4): osy, souhrn, `allowed` /
 `blocked`, `incomplete`, `evidence`; `accept` (a v routě `merge`) odmítne 409 `action_not_allowed`, když to pravidlo zakazuje.
 
-Ticket = kulička. `create` založí ticket `issued` s `work` (člověk z editoru), `attach` doplní `work` existujícímu
+Ticket = kulička. `create` založí ticket `issued` s `work` (člověk nebo identifikovaný agent), `attach` doplní `work` existujícímu
 ticketu (srdce vydává bránou). `report` ověří commit proti gitu a uloží `headSha` + kontroly k tomuto SHA; `accept`,
 `allow_merge`, `block`/`defer`/`resume` mění jen záznam. Začlenění provádí `merge.py`; `merged` nikdy nepíše klient.
 Každé odmítnutí je `WorkError` (kód, HTTP stav, česká zpráva) – podtřída `GateError`, takže ji brána vrací stejně.
@@ -365,7 +365,7 @@ def _new_work(service, project, root, work_in, ticket_id, auto_row=False):
             "merged": None, "blocked": None, "deferred": False, "requestId": work_in.get("requestId"), "attempts": []}
 
 
-def create(service, project, workspace, body, work_in, now, *, root=None, ticket_id=None):
+def create(service, project, workspace, body, work_in, now, *, root=None, ticket_id=None, by="human"):
     """Nový ticket `issued` s `work`; větev se nezakládá (založí ji agent z `baseBranch@baseSha`). `ticket_id`
     (z idempotenčního klíče): už založený ticket se jen vrátí."""
     worker_body = body_payload(body)
@@ -380,7 +380,7 @@ def create(service, project, workspace, body, work_in, now, *, root=None, ticket
     with store_for(service, project) as store:
         store.insert(new_id, workspace, "issued", worker_body, {"pins": []}, now)
         store.set_work(new_id, work, now)
-        journal.write(store.db, project, "linie.work.created", "human",
+        journal.write(store.db, project, "linie.work.created", by,
                       {"ticket": new_id, "request": work["requestId"]}, workspace, branch=work["branch"])
         return present(service, project, store.get(new_id))
 
@@ -489,7 +489,7 @@ def run(service, project, ticket_id, payload, now):
     return _change(service, project, ticket_id, now, change)
 
 
-def accept(service, project, ticket_id, sha, note, now, untested=False):
+def accept(service, project, ticket_id, sha, note, now, untested=False, *, by="human"):
     """Přijetí přesně aktuální hlavy (`sha` == skutečná špička větve, i zkrácené), s revizí zadání. Nic neslučuje.
     Hlava musí být vyzkoušená (`work.tried`), jinak 409 `not_tried`; `untested` = výslovně bez zkoušky."""
     def change(ticket):
@@ -501,6 +501,9 @@ def accept(service, project, ticket_id, sha, note, now, untested=False):
         require(shown, "accept")  # jen ověřenou revizi (checks.passed pro HEAD, L7 §8)
         tried = (work.get("tried") or {}).get("sha")
         # OP-43F5B0.7: přijímá se to, co člověk vyzkoušel; nevyzkoušené jen výslovně
+        if by != "human" and not untested:
+            raise WorkError("not_tried", 409, "Agent přijímá výslovně bez lidské zkoušky.",
+                            "Pošlete untested: true; lidskou zkoušku zapisuje jen člověk.")
         if tried != head and not untested:
             said = f"Vyzkoušeno na {tried[:7]}, hlava je {head[:7]}." if tried else f"Nevyzkoušeno, hlava je {head[:7]}."
             raise WorkError("not_tried", 409, said + " Vyzkoušejte hlavu v náhledu, nebo přijměte výslovně bez zkoušky.",
@@ -509,8 +512,8 @@ def accept(service, project, ticket_id, sha, note, now, untested=False):
         card = (shown["plan"] or {}).get("cardRevision")
         return {**_archived(work), "mergeAllowed": None,
                 "acceptance": {"sha": head, "cardRevision": card, "revision": ticket["machine"]["cardVersion"],
-                               "by": "human", "at": now, "note": note or "", "tested": None if untested else tried}}
-    return _change(service, project, ticket_id, now, change, "linie.accept", "human", sha=sha)
+                               "by": by, "at": now, "note": note or "", "tested": None if untested else tried}}
+    return _change(service, project, ticket_id, now, change, "linie.accept", by, sha=sha)
 
 
 def _archived(work):
@@ -526,7 +529,7 @@ def revoke_accept(service, project, ticket_id, now):
     return _change(service, project, ticket_id, now, change, "linie.accept.revoked", "human")
 
 
-def allow_merge(service, project, ticket_id, target, now):
+def allow_merge(service, project, ticket_id, target, now, *, by="human"):
     """Povolení začlenit přijatou hlavu do `target` se špičkou cíle v tuto chvíli (`targetSha`); špička cíle = origin."""
     def change(ticket):
         work = ticket["work"]
@@ -540,8 +543,8 @@ def allow_merge(service, project, ticket_id, target, now):
         if not top:
             raise WorkError("target_missing", 422, f"Cílová větev {aim} v repozitáři neexistuje.")
         return {**work, "target": aim, "mergeAllowed": {"target": aim, "targetSha": top, "sourceSha": work["headSha"],
-                                                        "by": "human", "at": now}}
-    return _change(service, project, ticket_id, now, change, "linie.merge.allowed", "human")
+                                                        "by": by, "at": now}}
+    return _change(service, project, ticket_id, now, change, "linie.merge.allowed", by)
 
 
 def abandon(service, project, ticket_id, sha, why, now, by):

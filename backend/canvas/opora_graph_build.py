@@ -10,14 +10,14 @@ from backend.editor.node.node_specs import EMPTY_FIELDS
 # Pole karty pro dělníka nese přírůstek stejně jako dávka plánu (`card` s effortem, `checks`, `goal_mode`);
 # hlídá je tatáž `validate_graph` (validate_card, validate_checks) jako `/api/canvas-plan`, žádné vlastní pravidlo.
 CARD_FIELDS = {"card", "checks", "goal_mode"}
-NODE_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf", "order", *CARD_FIELDS}
+NODE_KEYS = {"ref", "kind", "name", "parent", "purpose", "size", "position", "sourceRef", "spec", "memberOf", "order", "element", *CARD_FIELDS}
 # Uložený přidaný uzel (záznam návrhu přírůstku i změn grafu).
-PERSISTED_NODE_KEYS = {"id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf", "order", *CARD_FIELDS}
+PERSISTED_NODE_KEYS = {"id", "parentId", "kind", "name", "purpose", "x", "y", "size", "sourceRef", "memberOf", "order", "element", *CARD_FIELDS}
 # Přidaná vazba: `next`, nebo `block` z portu bloku zdroje (docs/karta-pro-agenty.md); blok a port musí už stát
 # ve stavu zdrojové karty (`canvas_plan_links._source_port`), tvar hlídá `validate_graph`.
 ADDITION_PORTS = EDGE_PORTS
-EDGE_KEYS = {"from", "to", "port", "carries", "block", "blockPort"}
-PERSISTED_EDGE_KEYS = {"id", "source", "target", "port", "carries", "sourceBlockId", "sourcePortId"}
+EDGE_KEYS = {"from", "to", "port", "carries", "block", "blockPort", "relation", "reason", "requirement"}
+PERSISTED_EDGE_KEYS = {"id", "source", "target", "port", "carries", "sourceBlockId", "sourcePortId", "relation", "reason", "requirement"}
 
 
 def persisted_edge(edge):

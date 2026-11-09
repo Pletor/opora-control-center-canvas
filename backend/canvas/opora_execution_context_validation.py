@@ -31,6 +31,8 @@ def _validate_context(canvas, repo, record):
         projection = project_sql_context(rows, project, workspace, record["nodeId"], metadata=pin["metadata"])
         if "researchEvidence" in record["assignment"]:
             projection["researchEvidence"] = record["assignment"]["researchEvidence"]
+        if "storyboards" in record["assignment"]:
+            projection["storyboards"] = record["assignment"]["storyboards"]
         return projection
 
     original = project_rows(pin["snapshot"]["rows"])
@@ -40,6 +42,13 @@ def _validate_context(canvas, repo, record):
     current = ChangesetRepository(repo.db, project, workspace).head()
     from backend.editor.research.execution_evidence import validate_assignment
     validate_assignment(repo.db, project, workspace, record)
+    if "storyboards" in record["assignment"]:
+        from backend.canvas.storyboard_evidence import validate as validate_storyboards
+        validate_storyboards(canvas, project, workspace, record["assignment"]["storyboards"])
+    if record["assignment"].get("requiredInputs"):
+        from backend.brain_opora.determinism.milestone_evidence import semantic_compatible
+        semantic_compatible(repo.db, project, workspace, pin["acceptedRevision"],
+                            [item["nodeId"] for item in record["assignment"]["requiredInputs"]])
     accepted = validate_accepted_lineage(repo.db, project, workspace, record["nodeId"],
                                         pin["acceptedRevision"], current)
     live = replay(repo.db, pin["snapshot"], project_rows)

@@ -69,9 +69,10 @@ def test_heart_proposes_a_milestone_and_only_a_human_activates_it(tmp_path):
                        " WHERE project_id='draft' AND workspace_id='draft'")
         active = client.get("/api/intake", params=SCOPE).json()["areas"][0]["milestone"]
         assert (active["done"], active["progress"], active["criteria"][0]["cards"]) == (
-            True, 100, [{"id": "n0", "done": True}])
+            False, 100, [{"id": "n0", "done": True}])
+        assert active["closureDone"] is True and active["verification"]["verified"] is False
         text = client.get("/api/brain/heart/snapshot", params=SCOPE).json()["snapshot"]
-        assert f"- milník {milestone['id']} „Stará oblast hotová“ splněn – odložené požadavky k otevření: žádné" in text
+        assert f"- milník {milestone['id']} „Stará oblast hotová“ splněn" not in text
 
 
 def test_agent_decides_a_milestone_only_with_full_autonomy(tmp_path):

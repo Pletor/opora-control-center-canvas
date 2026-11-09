@@ -11,7 +11,7 @@ from database.repositories.opora_graph_proposals import GraphProposals
 _REVISION_ID = re.compile(r"[a-f0-9]{40}\Z")
 
 
-def _read_revision_projection(db, repo, project, workspace, revision_id, node_id):
+def _read_revision_projection(db, repo, project, workspace, revision_id, node_id, *, include_affected=True):
     try:
         record = repo.read(revision_id)
         manifest_id = record.get("graphManifestId")
@@ -36,6 +36,13 @@ def _read_revision_projection(db, repo, project, workspace, revision_id, node_id
                                  key=lambda item: item["nodeId"]),
             "content": selected_content(db, project, workspace, record, selected_ids),
         }
+        if include_affected:
+            from backend.canvas.execution_write_set import resolve_affected
+            identifiers = resolve_affected(node_id, by_node.get(node_id, {}).get("fields", {}), graph, record["documents"])
+            if identifiers:
+                projection["affectedScopes"] = [
+                    {"nodeId": identifier, "digest": _read_revision_projection(db, repo, project, workspace,
+                        revision_id, identifier, include_affected=False)[1]} for identifier in identifiers]
         return record, digest(projection)
     except ValueError:
         raise

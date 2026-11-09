@@ -378,3 +378,31 @@ def test_node_brief_summary_carries_architecture_slice_only_when_present():
     data = {'node': {}, 'architecture': architecture}
     assert opora_read.summary('node-brief', data, None, None)['architecture'] == architecture
     assert 'architecture' not in opora_read.summary('node-brief', {'node': {}}, None, None)
+
+
+def test_knowledge_cli_uses_explicit_scope_and_environment_token(net, monkeypatch, capsys):
+    calls, answers = net
+    monkeypatch.setenv('OPORA_GATE_TOKEN','scoped-test-token')
+    answers['/api/research/context']={'records':[]}
+    code,out,_=run(monkeypatch,capsys,'research-context',*SCOPE,'--node','login')
+    assert code==0 and out=={'records':[]}
+    assert calls[-1]['query']['scopeNodeId']==['login']
+    assert calls[-1]['headers']['x-opora-gate-token']=='scoped-test-token'
+    code,out,_=run(monkeypatch,capsys,'knowledge-search',*SCOPE,'--query','Login')
+    assert code==0
+    assert calls[-1]['body']['scopes']==[{'project':'p1','workspace':'draft'}]
+    assert calls[-1]['body']['resultType']=='solution'
+
+
+def test_knowledge_cli_requires_token_and_pinned_original(net, monkeypatch, capsys):
+    calls, answers = net
+    monkeypatch.delenv('OPORA_GATE_TOKEN',raising=False)
+    code,_,error=run(monkeypatch,capsys,'research-context',*SCOPE)
+    assert code!=0 and not calls
+    monkeypatch.setenv('OPORA_GATE_TOKEN','scoped-test-token')
+    answers['/api/research/cards/source']={'card':{'title':'Original','content':'Exact body','sources':[],'revision':3}}
+    code,out,_=run(monkeypatch,capsys,'research-card',*SCOPE,'--id','source','--revision','3')
+    assert code==0 and out['contentLength']==10 and 'content' not in out
+    assert calls[-1]['query']['revision']==['3']
+
+    assert out['canonicalRef']=={'projectId':'p1','workspaceId':'draft','id':'source','revision':3}

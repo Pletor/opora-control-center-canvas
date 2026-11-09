@@ -56,7 +56,7 @@ export const nodeKinds = (nodes: Pick<CanvasNode, "id" | "kind">[]): ReadonlyMap
  *  Druhy uzlů přicházejí hotové (`nodeKinds`), aby se mapa nestavěla znovu pro každou vazbu. */
 export function handoffMark(edge: GraphEdge, state: DesktopState, kinds: ReadonlyMap<string, CanvasNode["kind"]>): "sent" | "missing" | null {
   const port = edge.port ?? "next";
-  if (port !== "next" && port !== "block") return null;
+  if (edge.relation || (port !== "next" && port !== "block")) return null;
   if (kinds.get(edge.source) !== "node" && kinds.get(edge.source) !== "sector") return null;
   if (state.edges?.[edge.id]?.handoff?.trim()) return "sent";
   const done = state.nodes[edge.source]?.done;

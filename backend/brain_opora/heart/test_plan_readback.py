@@ -10,7 +10,7 @@ def env(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("OPORA_PROJECT", "p")
     monkeypatch.setenv("OPORA_WORKSPACE", "main")
-    cli._override["workspace"] = None
+    monkeypatch.setitem(cli._override, "workspace", None)
     (tmp_path / cli.ACTIVE).write_text('{"workspace":"w"}')
 
 

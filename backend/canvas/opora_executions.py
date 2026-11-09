@@ -183,8 +183,23 @@ class OporaExecutions:
         # Profil běhu `run` (štítek, model, poradce) je rozhodnutí z claimu: platí ten připnutý, živý přepočet ho nemění;
         # běh převzatý před zavedením `run` ho v zadání nemá, a tak ho nemá ani porovnání.
         current = {key: value for key, value in current.items() if key != "run"}
+        if "storyboards" not in record["assignment"]:
+            current.pop("storyboards", None)  # Historical assignments did not capture this external input.
         if "run" in record["assignment"]:
             current["run"] = record["assignment"]["run"]
+        if "requiredInputs" in record["assignment"]:
+            from backend.brain_opora.determinism.milestone_evidence import semantic_compatible
+            semantic_compatible(repo.db, *repo.scope, record["acceptedRevision"],
+                                [item["nodeId"] for item in record["assignment"]["requiredInputs"]])
+            current["requiredInputs"] = record["assignment"]["requiredInputs"]
+        if "researchEvidence" in record["assignment"]:
+            from backend.editor.research.execution_evidence import validate_assignment
+            validate_assignment(repo.db, *repo.scope, record)
+            current["researchEvidence"] = record["assignment"]["researchEvidence"]
+        if "inputContextSchema" in record["assignment"]:
+            current["contextVersion"] = record["assignment"]["contextVersion"]
+        else:
+            current.pop("inputContextSchema", None)
         # Nepřijatá ruční změna grafu mimo výřez karty běh neukončí; zásah do výřezu změní otisk níže.
         # Přijatá hlava se posune s každou přijatou změnou plánu, i se vzdálenou. Běh hlídá jen výřez karty
         # (dokumenty, specifikace a kroky v zadání), proto se živé zadání porovná s hlavou z claimu.

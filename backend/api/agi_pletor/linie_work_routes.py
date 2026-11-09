@@ -1,7 +1,8 @@
 """Editor Linie a vynucení workflow (docs/navrhy/2026-11-06-linie-editor-a-vynuceni.md §3), prefix `/api/pletor/linie`.
 
-Všude `?project=`; `GET /board` a `POST /work` navíc `&workspace=`. Jen člověk: board, řádky, `POST /work`, attach,
-preview `{fresh?}`, tried, accept `{untested?}` (i DELETE), allow-merge, accept-merge `{untested?}`. Agent i člověk: `GET /work/{id}`, report, merge (provádí služba),
+Všude `?project=`; `GET /board` a `POST /work` navíc `&workspace=`. Jen člověk: board, řádky, attach,
+preview `{fresh:true}`, tried, DELETE accept, accept-merge. Agent i člověk: POST work, GET work/{id},
+preview bez fresh, accept (agent povinně `untested:true`), allow-merge, report, merge (provádí služba),
 block / defer / resume, run (relace LLM); čtení bez identity: `GET /commit/{sha}` a `GET /trace/{mark}` (cesta práce
 podle vodotisku OP-XXXXXX, 404 `mark_not_found`); agent se prokáže `X-Opora-Actor: agent; name=…` nebo tokenem brány `X-Opora-Gate-Token`
 (projekt i prostor ticketu musí sedět), bez identity 428. Odmítnutí je JSON `{error, code, hint}`.
@@ -75,7 +76,7 @@ HUMAN = "Tento krok Linie dělá jen člověk v UI."
 BODY = ("essence", "build", "doneCriteria")
 
 
-def origin(service, request, project, ticket_id=None):
+def origin(service, request, project, ticket_id=None, *, workspace=None):
     """Původce zápisu (`human` / `agent:<jméno>`) z tokenu brány nebo hlavičky; bez identity 428. S `ticket_id` musí
     token pracovníka patřit do prostoru ticketu."""
     _check(service, project, "main")
@@ -86,6 +87,9 @@ def origin(service, request, project, ticket_id=None):
                 and session.get("role") != "heart"):
             raise GateError(403, "gate_scope", "Ticket patří jinému pracovnímu prostoru.",
                             "Pracujte jen s tickety svého prostoru.")
+        if workspace and workspace != session["workspace_id"] and session.get("role") != "heart":
+            raise GateError(403, "gate_scope", "Práce patří jinému pracovnímu prostoru.",
+                            "Pracujte jen v prostoru svého tokenu.")
         return "agent:" + (session.get("worker_name") or session.get("role") or "?")
     if request.state.actor == "human":
         return "human"
@@ -174,10 +178,14 @@ def create_linie_work_router(service, pletor, root=None):
     @router.post("/work")
     def work_create(request: Request, body: LinieWorkIn, project: str = "", workspace: str = "main"):
         fields = body.model_dump(exclude={"idempotencyKey"})
-        return human(request, project, lambda: idempotency.once(
-            service, project, "work", body.idempotencyKey, {**fields, "workspace": workspace},
-            lambda ident: work.create(service, project, workspace, {key: fields[key] for key in BODY}, fields,
-                                      tokens.stamp(), root=root, ticket_id=ident and "tk_" + ident)), workspace)
+        def act():
+            by = origin(service, request, project, workspace=workspace)
+            _check(service, project, workspace)
+            return idempotency.once(
+                service, project, "work", body.idempotencyKey, {**fields, "workspace": workspace},
+                lambda ident: work.create(service, project, workspace, {key: fields[key] for key in BODY}, fields,
+                                          tokens.stamp(), root=root, ticket_id=ident and "tk_" + ident, by=by))
+        return answer(act)
 
     @router.post("/work/{ticket_id}/attach")
     def work_attach(request: Request, ticket_id: str, body: LinieAttachIn, project: str = ""):
@@ -251,14 +259,17 @@ def create_linie_work_router(service, pletor, root=None):
 
     @router.post("/work/{ticket_id}/preview")
     def work_preview(request: Request, ticket_id: str, body: LinieWorkPreviewIn | None = None, project: str = ""):
-        def act():
+        def act(by):
+            if by != "human" and body and body.fresh:
+                raise GateError(403, "human_required", "Obnovení náhledu vyžaduje člověka.",
+                                "Spusťte náhled bez fresh.")
             shown = work.get(service, project, ticket_id)
             work.require(shown, "preview")
             branch = shown["work"]["branch"]
             record = previews.start(pletor.folder, root, branch, project, service.root, tokens.stamp(),
                                     fresh=bool(body and body.fresh))
             return work.set_preview(service, project, ticket_id, record, tokens.stamp())
-        return human(request, project, act)
+        return anyone(request, project, ticket_id, act)
 
     @router.post("/work/{ticket_id}/tried")
     def work_tried(request: Request, ticket_id: str, project: str = ""):
@@ -267,8 +278,8 @@ def create_linie_work_router(service, pletor, root=None):
 
     @router.post("/work/{ticket_id}/accept")
     def work_accept(request: Request, ticket_id: str, body: LinieAcceptIn, project: str = ""):
-        return human(request, project, lambda: work.accept(service, project, ticket_id, body.sha, body.note,
-                                                           tokens.stamp(), body.untested))
+        return anyone(request, project, ticket_id, lambda by: work.accept(
+            service, project, ticket_id, body.sha, body.note, tokens.stamp(), body.untested, by=by))
 
     @router.delete("/work/{ticket_id}/accept")
     def work_revoke(request: Request, ticket_id: str, project: str = ""):
@@ -276,8 +287,8 @@ def create_linie_work_router(service, pletor, root=None):
 
     @router.post("/work/{ticket_id}/allow-merge")
     def work_allow(request: Request, ticket_id: str, body: LinieAllowIn, project: str = ""):
-        return human(request, project, lambda: work.allow_merge(service, project, ticket_id, body.target,
-                                                                tokens.stamp()))
+        return anyone(request, project, ticket_id, lambda by: work.allow_merge(
+            service, project, ticket_id, body.target, tokens.stamp(), by=by))
 
     @router.post("/work/{ticket_id}/accept-merge")
     def work_accept_merge(request: Request, ticket_id: str, body: LinieAcceptMergeIn, project: str = ""):

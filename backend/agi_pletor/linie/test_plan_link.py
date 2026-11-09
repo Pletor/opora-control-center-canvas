@@ -114,7 +114,7 @@ def test_attach_freezes_issued_and_accept_pairs_sha_with_card_revision(carded):
     stale = work.get(service, "draft", heart)
     assert stale["summary"]["key"] == "stale_plan" and stale["axes"]["acceptance"]["state"] == "stale_plan"
     assert "accept" in stale["allowed"] and "merge" not in stale["allowed"]
-    assert stale["summary"]["next"] == "Člověk potvrdí přijetí vůči nové revizi zadání (karta R3)."
+    assert stale["summary"]["next"] == "Potvrďte přijetí vůči nové revizi zadání (karta R3)."
     assert stale["plan"]["diff"] is True and stale["plan"]["cardRevision"] == 3
     again = work.accept(service, "draft", heart, head, "znovu", NOW, untested=True)
     assert again["work"]["acceptance"]["cardRevision"] == 3 and again["work"]["mergeAllowed"] is None
@@ -162,4 +162,3 @@ def test_group_puts_direction_above_plan_and_unverified_apart():
         ("dir:s", "dir", None, 0), ("plan:k1", "plan", "dir:s", 1), ("plan:k2", "plan", None, 0),
         ("plan:unverified", "plan", None, 0)]
     assert [b["rowId"] for b in grouped["balls"]] == ["plan:k1", "plan:unverified", "plan:k2"]
-

@@ -194,6 +194,9 @@ def collect(db, project, workspace, head, card_ids):
                 touched.update(doc["nodeId"] for doc in saved["canvasDraft"]["documents"])
                 add(source, touched & set(card_ids) & accepted_ids, operation_id=operation)
     result = {"coverage": "accepted-scoped-research", "records": records}
+    from backend.editor.research.scope_evidence import collect as scope_pins
+    canonical = scope_pins(db, project, workspace, card_ids)
+    result["canonicalScopes"] = canonical
     if legacy_fragments:
         result["legacyFragments"] = legacy_fragments
     validate(db, project, workspace, result)
@@ -202,6 +205,9 @@ def collect(db, project, workspace, head, card_ids):
 
 def validate(db, project, workspace, evidence):
     """Revision equality catches edit/restore and archive/unarchive, not merely current content."""
+    if "canonicalScopes" in evidence:
+        from backend.editor.research.scope_evidence import validate as validate_scopes
+        validate_scopes(db, project, workspace, evidence["canonicalScopes"])
     for record in evidence["records"]:
         if record["evidence"].get("originalOutput"):
             from backend.editor.research.finalization import validate_output

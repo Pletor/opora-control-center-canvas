@@ -5,7 +5,8 @@
 import { briefView, type BriefView } from "../brief-panel/logic/brief-model";
 
 export type IntakeCriterion = { id: string; text: string; cards: (string | { id: string; done: boolean })[]; done?: boolean };
-export type IntakeMilestone = { id: string; title: string; criteria: IntakeCriterion[]; status: string; progress?: number; done?: boolean };
+export type IntakeMilestone = { id: string; title: string; criteria: IntakeCriterion[]; status: string; progress?: number; done?: boolean;
+  closureProgress?: number; verification?: { verified: boolean; independent?: boolean; source?: string; acceptedRevision?: string; headSha?: string } };
 export type IntakeRequirement = { id: string; title: string; status: string; openCondition: string | null; milestoneId: string | null;
   brief?: unknown };
 export type IntakeArea = { id: string; name: string; milestone: IntakeMilestone | null; proposed: IntakeMilestone[];

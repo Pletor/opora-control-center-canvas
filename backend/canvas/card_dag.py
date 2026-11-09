@@ -19,7 +19,7 @@ def next_edges(graph):
     """Sorted unique `(source, target)` pairs of `next` edges between cards."""
     kinds = {node["id"]: node["kind"] for node in graph.get("nodes", [])}
     return sorted({(edge["source"], edge["target"]) for edge in graph.get("edges", [])
-                   if edge.get("port", "next") == "next"
+                   if edge.get("port", "next") == "next" and "relation" not in edge
                    and kinds.get(edge["source"]) in CARD_KINDS and kinds.get(edge["target"]) in CARD_KINDS})
 
 

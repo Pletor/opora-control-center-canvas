@@ -297,4 +297,6 @@ def list_tickets(service, project, workspace, status=None):
         raise GateError(404, "workspace_not_found", "Pracovní prostor v projektu neexistuje.",
                         "Použijte main, draft nebo ID pracovního prostoru projektu.")
     with service.reading(project):
-        return {"tickets": TicketStore(service.db_for(project), project).list(workspace, status or None)}
+        from backend.brain_opora.determinism.ticket_scope import project_scopes
+        db = service.db_for(project)
+        return {"tickets": project_scopes(db, project, workspace, TicketStore(db, project).list(workspace, status or None))}

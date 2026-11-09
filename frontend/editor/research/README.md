@@ -12,3 +12,9 @@ Samostatný tematický canvas mezi Velínem a Textem. Srdce ukládá zjištění
 API může přeložit `main` na aktivní pracovní prostor. UI uvádí efektivní prostor a používá ho pro detail, přílohy i archivaci. Změna projektu/prostoru remontuje pracovní plochu. Historie kartiček zobrazuje tehdejší obsah a současné vazby (výslovně označeno); historie hran zobrazuje původní význam a důvody. Rozhodnutí samo o sobě není dokladem schválení člověkem.
 
 Ruční změna obsahu není součástí této obrazovky; primárním autorem je srdce. Člověk může archivovat či obnovit kartičku nebo vazbu. Nedochází k mazání zjištění. Poloha je odvozena z významového grafu, nevytváří kopii struktury projektu.
+
+## Working context
+
+The application passes its entered scope to ResearchWorkspace. Root shows the workspace-wide project research; a nested scope shows only records explicitly linked through refs.nodeIds. Multiple node references reuse the same immutable record ID and revision, without copies. Shared records carry a badge. Switching context resets selection and filters; edges require both visible endpoints.
+
+POST /api/research accepts optional scopeNodeId. Scoped creation validates the node in the authorized workspace and adds that reference to each new card. Existing card updates preserve explicit caller-controlled references; the scope does not silently reassign an existing card. Existing payloads and replay hashes remain compatible.

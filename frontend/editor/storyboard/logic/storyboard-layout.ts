@@ -39,3 +39,8 @@ export function paintLayers(visible: ReadonlySet<string>): Set<string> {
   next.delete(ANNOTATION_LAYER);
   return next;
 }
+
+/** A tab follows the entered problem, never the transient selection on its parent canvas. */
+export function storyboardScope<T extends { id: string; kind: string }>(nodes: T[], scopeNodeId: string | null): T | null {
+  return nodes.find(node => node.id === scopeNodeId && (node.kind === "node" || node.kind === "sector")) ?? null;
+}

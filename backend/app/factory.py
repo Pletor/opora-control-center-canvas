@@ -27,6 +27,7 @@ from backend.api.editor.brief_vault_check_routes import create_brief_vault_check
 from backend.api.editor.brief_vault_routes import create_brief_vault_router
 from backend.api.editor.brief_vault_review_routes import create_brief_vault_review_router
 from backend.api.editor.research_routes import create_research_router
+from backend.api.editor.research_knowledge_routes import create_research_knowledge_router
 from backend.api.editor.research_ticket_routes import create_research_ticket_router
 from backend.api.editor.research_decision_routes import create_research_decision_router
 from backend.api.editor.research_review_proposal_routes import create_research_review_proposal_router
@@ -468,6 +469,7 @@ def create_app(data_root=None):
     app.include_router(create_brief_vault_router(service, desktop_state))
     app.include_router(create_brief_vault_review_router(service))
     app.include_router(create_research_router(service))
+    app.include_router(create_research_knowledge_router(service))
     app.include_router(create_research_ticket_router(service))
     app.include_router(create_research_decision_router(service))
     app.include_router(create_research_review_proposal_router(service))

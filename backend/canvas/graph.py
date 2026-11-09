@@ -8,6 +8,7 @@ from datetime import date
 from backend.canvas.card_agent_context import validate_agent_context
 from backend.canvas.card_checks import validate_checks
 from backend.canvas.design_metadata import validate_design
+from backend.canvas.element_metadata import validate_element, validate_relation, validate_requirement_cycles
 from backend.canvas.gate_scenario import validate_scenario
 from backend.canvas.project_facts import validate_fact_refs
 from backend.canvas.site_metadata import SECTION_ID, validate_sites
@@ -59,7 +60,7 @@ NODE_ORDER_MIN, NODE_ORDER_MAX = 1, 9999
 # Uzel má právě jeden základ klíčů a k němu libovolnou podmnožinu nepovinných klíčů.
 NODE_BASE_KEY_SETS = (NODE_KEYS, NODE_KEYS_WITH_SOURCE, NODE_KEYS_WITH_SIZE)
 NODE_OPTIONAL_KEYS = {"blockOffsets", "color", "card", "site", "design", "gateNodeId", "checks", "goal_mode",
-                      "factRefs", "realization", "scenario", "memberOf", "order"}
+                      "factRefs", "realization", "scenario", "memberOf", "order", "element"}
 
 
 def valid_node_keys(keys):
@@ -236,6 +237,7 @@ def validate_graph(value):
                 raise ValueError("Posun bloků má jen uzel nebo sektor.")
             validate_block_offsets(n["blockOffsets"])
         # Kartu (druh, stav, termín, model, effort) nese jen uzel; sektor, komentář ani oblast ne.
+        validate_element(n)
         validate_checks(n)
         validate_fact_refs(n)
         if "scenario" in n:
@@ -340,7 +342,7 @@ def validate_graph(value):
     for edge in edges:
         if (
             not isinstance(edge, dict)
-            or set(edge) not in EDGE_KEY_SETS
+            or set(edge) - {"relation", "reason", "requirement"} not in EDGE_KEY_SETS
             or ("port" in edge and edge["port"] not in EDGE_PORTS)
             or not valid_id(edge["id"])
             or edge["id"] in edge_ids
@@ -349,6 +351,7 @@ def validate_graph(value):
             or edge["source"] == edge["target"]
         ):
             raise ValueError("Neplatná vazba.")
+        validate_relation(edge)
         if carries_error := edge_carries_error(edge):
             raise ValueError(carries_error)
         source_kind, target_kind = kinds[edge["source"]], kinds[edge["target"]]
@@ -367,6 +370,7 @@ def validate_graph(value):
         if from_block and not (valid_id(edge["sourceBlockId"]) and valid_id(edge["sourcePortId"])):
             raise ValueError("Neplatný blok nebo port zdroje vazby.")
         edge_ids.add(edge["id"])
+    validate_requirement_cycles(edges, nodes)
     validate_sites(nodes)
     return value
 

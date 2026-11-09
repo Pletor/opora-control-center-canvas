@@ -46,7 +46,7 @@ def heart_scope(plan):
 def edge_update_fields(update):
     """Pole, která úprava vazby mění: zdroj, cíl a port vždy, druh toku `carries` jen když ho úprava uvádí
     (null ho odebere). Úprava bez `carries` dává stejná pole jako dřív, takže staré záznamy odvodí totéž."""
-    return ("source", "target", "port") + tuple(key for key in ("carries", "sourceBlockId", "sourcePortId") if key in update)
+    return ("source", "target", "port") + tuple(key for key in ("carries", "sourceBlockId", "sourcePortId", "relation", "reason", "requirement") if key in update)
 
 
 def normalize(plan):
@@ -63,7 +63,7 @@ def normalize(plan):
     for key in ("updateNodes", "updateEdges"):
         for item in result[key]:
             valid_shape = (isinstance(item, dict) and (set(item) == {"id", "fields"} if key == "updateNodes"
-                else EDGE_UPDATE_KEYS <= set(item) <= EDGE_UPDATE_KEYS | {"carries", "sourceBlockId", "sourcePortId"}))
+                else EDGE_UPDATE_KEYS <= set(item) <= EDGE_UPDATE_KEYS | {"carries", "sourceBlockId", "sourcePortId", "relation", "reason", "requirement"}))
             if not valid_shape or not valid_id(item["id"]):
                 raise ValueError("Invalid graph update fields or identity.")
             if key == "updateNodes":
@@ -107,7 +107,7 @@ def apply(graph, plan):
             for key, value in fields.items():
                 if kind == "edges" and key == "port" and target.get("port", "next") == value:
                     continue
-                if key in NODE_OPTIONAL_KEYS | {"sourceRef", "size", "carries", "sourceBlockId", "sourcePortId"} and value is None:
+                if key in NODE_OPTIONAL_KEYS | {"sourceRef", "size", "carries", "sourceBlockId", "sourcePortId", "relation", "reason", "requirement"} and value is None:
                     target.pop(key, None)
                 else:
                     target[key] = deepcopy(value)

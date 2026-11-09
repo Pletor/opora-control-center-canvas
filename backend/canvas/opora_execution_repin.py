@@ -77,6 +77,10 @@ def repin(executions, project, workspace, identifier, *, on_success=None):
             authenticated = dict(projection)
             if "researchEvidence" in record["assignment"]:
                 authenticated["researchEvidence"] = record["assignment"]["researchEvidence"]
+            if "storyboards" in record["assignment"]:
+                from backend.canvas.storyboard_evidence import validate as validate_storyboards
+                validate_storyboards(canvas, project, workspace, record["assignment"]["storyboards"])
+                authenticated["storyboards"] = record["assignment"]["storyboards"]
             opaque = token(private.key(repo.db, project), authenticated, pin["acceptedRevision"], binding)
             assignment = {**record["assignment"], "contextVersion": opaque,
                           "specification": {**redact_deep(projection), "schema": "opora.specification-context/2"}}

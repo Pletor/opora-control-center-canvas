@@ -54,6 +54,21 @@ def run(monkeypatch, capsys, server, cwd, *argv):
     return code, capsys.readouterr().out
 
 
+def test_accept_and_allow_merge_keep_explicit_agent_contract(repo, monkeypatch, capsys):
+    monkeypatch.setenv("OPORA_AGENT_NAME", "dev")
+    server = Server(repo, {("POST", f"/work/{TICKET}/accept"): {},
+                           ("POST", f"/work/{TICKET}/allow-merge"): {}})
+    code, _ = run(monkeypatch, capsys, server, repo, "accept", "--ticket", TICKET,
+                  "--untested", "--note", "Automated checks passed")
+    assert code == 0
+    assert server.calls[-1][2] == {"sha": git(repo, "rev-parse", "HEAD"),
+                                   "note": "Automated checks passed", "untested": True}
+    assert server.calls[-1][3]["X-opora-actor"].startswith("agent;")
+    code, _ = run(monkeypatch, capsys, server, repo, "allow-merge", "--ticket", TICKET,
+                  "--target", "develop")
+    assert code == 0 and server.calls[-1][2] == {"target": "develop"}
+
+
 def test_task_in_wrong_branch_or_directory_stops_with_exit_2_and_keeps_files(repo, tmp_path, monkeypatch, capsys):
     (repo / "a.txt").write_text("rozpracováno")
     git(repo, "switch", "-q", "-c", "feat/jina")

@@ -63,14 +63,38 @@ def assignment(canvas, project, workspace, node, context_version=1, require_grap
     captured = capture_specification(canvas, project, workspace, node)
     accepted = {item["nodeId"]: item for item in context["acceptedDocuments"]}
     live = {item["nodeId"]: item for item in context["documents"]}
-    relevant = [item["nodeId"] for item in captured["specification"]["cards"]]
+    from backend.canvas.execution_write_set import resolve_affected
+    affected = resolve_affected(node, accepted.get(node, {}).get("fields", {}), view["graph"], context["acceptedDocuments"])
+    affected_scopes = [capture_specification(canvas, project, workspace, identifier) for identifier in affected]
+    relevant = sorted({item["nodeId"] for scope in [captured, *affected_scopes] for item in scope["specification"]["cards"]})
     require_accepted_content(canvas, project, workspace, context["acceptedHead"], relevant, view["graph"])
     if any(key not in accepted or digest(accepted[key]) != digest(live.get(key)) for key in relevant):
         raise ValueError("Relevant specifications differ from their accepted revision.")
+    from backend.canvas.requirement_readiness import require_inputs
+    requirements = require_inputs(canvas, project, workspace, node, context["acceptedHead"], view["graph"], context["acceptedDocuments"]) if require_graph else []
+    if require_graph:
+        for identifier in affected:
+            requirements.extend(require_inputs(canvas, project, workspace, identifier, context["acceptedHead"], view["graph"], context["acceptedDocuments"]))
+        requirements = list({item["edgeId"]: item for item in requirements}.values())
+    affected_elements = [{"nodeId": identifier, "revision": accepted[identifier]["revision"],
+                          "documentDigest": digest(accepted[identifier]), "scope": scope}
+                         for identifier, scope in zip(affected, affected_scopes, strict=True)]
+    from backend.editor.research.execution_evidence import collect as research_evidence
+    research = research_evidence(canvas.db_for(project), project, workspace, context["acceptedHead"], relevant) if require_graph else None
+    from backend.canvas.storyboard_evidence import collect as storyboard_inputs
+    storyboards = storyboard_inputs(canvas, project, workspace, relevant, view["graph"])
+    from backend.canvas.opora_execution_input_version import SCHEMA, context_version as input_context_version
+    input_version = input_context_version({**captured, "inputContextSchema": SCHEMA,
+        "affectedElements": affected_elements, "researchEvidence": research,
+        "storyboards": storyboards}) if require_graph else captured["contextVersion"]
     # Accepted plan steps of the claimed card are pinned in the immutable snapshot (oporahub-plan-steps.md).
     steps = ordered(steps_of(accepted.get(node, {}).get("fields")))
     return {"acceptedRevision": context["acceptedHead"], "documents": [accepted[key] for key in relevant],
-            **captured, "steps": steps, "run": run_profile(target, view["graph"], steps)}
+            **captured, **({"requiredInputs": requirements} if requirements else {}),
+            **({"researchEvidence": research} if research and research.get("canonicalScopes") else {}),
+            "storyboards": storyboards,
+            "inputContextSchema": SCHEMA, "contextVersion": input_version,
+            **({"affectedElements": affected_elements} if affected_elements else {}), "steps": steps, "run": run_profile(target, view["graph"], steps)}
 
 
 def run_profile(target, graph, steps):

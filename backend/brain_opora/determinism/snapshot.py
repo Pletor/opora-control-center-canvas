@@ -22,6 +22,7 @@ import re
 import sqlite3
 
 from backend.brain_opora.determinism import brain_files, git_log, intake, milestones
+from backend.brain_opora.determinism import milestone_next_work
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.brain_opora.determinism.ticket import for_worker
 from backend.brain_opora.determinism.ticket_model import STATES
@@ -393,11 +394,13 @@ def collect(service, project, workspace):
         reached = milestones.reached(db, project, workspace)
         active = [item for item in (milestones.evaluate(db, project, found) for found in
                                     IntakeMilestones(db).list(workspace, ("active",))) if not item["done"]]
+        next_milestone_work = milestone_next_work.collect(service, project, workspace, active)
         wanted = IntakeRequirements(db).list(workspace, ("open", "deferred"))[-REQUIREMENTS:]
         work_tickets = TicketStore(db, project).list(workspace)
         conflicts, conflicts_total = _conflicts(db, project, workspace)
     runs = _runs(service, project, workspace, [card["id"] for card in cards])  # jen otevřené karty
     return {"workTickets": work_tickets, "conflicts": conflicts, "conflictsTotal": conflicts_total, "runs": runs, "intake": entries, "milestones": reached, "active_milestones": active, "requirements": wanted, "work": work, "blocked": blocked, "names": names, "project": project, "name": name, "workspace": workspace, "goal": goal, "pages": pages, "areas": areas, "sectors": sectors, "cards": cards,
+            "nextMilestoneWork": next_milestone_work,
             "tickets": tickets, "escalations": escalations, "checks": [tuple(row) for row in checks], "messages": messages,
             "rules": rules, "decisions": decisions, "journal": journal, "scripts": scripts,
             "research": _research(service, project, workspace), "vault": _vault(service, project, workspace),
@@ -707,6 +710,7 @@ def render(facts, limit=LIMIT):
     """Text snímku podle §3, §3a, §3b a §3c; delší než `limit` znaků se ořízne a označí."""
     lines = [f"PROJEKT {_short(facts['name'], 120)} ({facts['project']}) · workspace {facts['workspace']}",
              f"ZÁMĚR: {_intent(facts) or '—'}", *_memory_lines(facts), *_escalation_lines(facts),
+             *milestone_next_work.lines(facts.get("nextMilestoneWork", [])),
              "PLÁN:", *_plan(facts), *_intent_lines(facts), *_design_lines(facts), *_library_lines(facts), *_work_ticket_lines(facts), *_vault_lines(facts), "LÍSTKY ČEKAJÍCÍ:"]
     tickets = facts["tickets"][:TICKETS]
     lines += [f"- {t['ticketId']} {t['kind']} {_short(json.dumps(t['body'], ensure_ascii=False, sort_keys=True), 200)}" for t in tickets] or ["- žádné"]

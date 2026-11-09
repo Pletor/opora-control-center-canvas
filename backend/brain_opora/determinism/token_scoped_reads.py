@@ -1,5 +1,6 @@
 """Bounded legacy GET routes whose native handler consumes explicit project scope."""
 PATHS = (
+    '/api/research/context',
     '/api/oporahub/executions',
     '/api/oporahub/executions/context',
     '/api/oporahub/executions/{identifier}/assignment',

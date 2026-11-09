@@ -71,6 +71,7 @@ export default function NodeSpecEditor({ project, workspace, nodeId, disabled, o
   }, [project, workspace, nodeId, reload, refreshRevision]);
   useEffect(() => { onStored?.({ key, fields: stored ? stored.fields : null, error: !stored && error ? error : "" }); }, [stored, error]); // eslint-disable-line react-hooks/exhaustive-deps
   const dirty = !!stored && !sameFields(fields, stored.fields);
+  const affectedNodeIds = (stored?.fields as (SpecFields & { affectedNodeIds?: string[] }) | undefined)?.affectedNodeIds ?? [];
   useSaveParticipant({ id: "spec:" + key, project, workspace, label: "Zadání uzlu " + nodeId, dirty, pending: saving, retainOnUnmount: true, isDirty: () => drafts.has(key), isPending: () => pendingSaves.has(key), flush: async () => { await persistSpec(key); setReload((value) => value + 1); }, discard: () => { drafts.delete(key); setReload((value) => value + 1); } });
   async function save(propagate = false) {
     if (!stored || stored.readOnly || loading || saving || disabled) { if (propagate) throw new Error("Zadání není připravené k uložení."); return; }
@@ -93,6 +94,11 @@ export default function NodeSpecEditor({ project, workspace, nodeId, disabled, o
   }
   return <section className="node-spec" aria-label="Zadání uzlu">
     <h3>Zadání pro práci</h3>
+    {affectedNodeIds.length > 0 && <section aria-label="Dotčené prvky realizace">
+      <h4>Jedna realizace mění tyto prvky</h4>
+      <p>Odkazy jsou součástí verzovaného zadání. Kancelář připne jejich přijaté revize ke stejnému běhu.</p>
+      <ul>{affectedNodeIds.map(identifier => <li key={identifier}><code>{identifier}</code></li>)}</ul>
+    </section>}
     <p className="spec-state" data-testid="spec-status" role="status">
       {loading ? "Načítám zadání…" : saving ? "Ukládám zadání…" : dirty ? "Neuložené změny" : stored?.revision ? `Uloženo · verze ${stored.revision}` : "Zadání zatím nebylo uloženo"}
     </p>

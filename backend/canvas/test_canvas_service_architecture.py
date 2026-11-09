@@ -168,3 +168,24 @@ def test_restore_is_blocked_when_a_worktree_uses_the_dropped_page(project):
     current = s.architecture.read(pid)
     with pytest.raises(ValueError, match="odkazují"):
         s.architecture.restore({"project": pid, "revision": 1, "digest": current["digest"]})
+
+
+def test_non_ui_elements_share_architecture_and_identity_across_workspaces(project):
+    s, pid, a, b = project
+    parent = {**node("system"), "kind": "sector"}
+    service = {**node("identity", parent_id="system"), "element": {"kind": "service"}}
+    entity = {**node("organization", parent_id="system"), "element": {"kind": "entity"}}
+    relation = {"id": "identity_data", "source": "identity", "target": "organization", "relation": "uses"}
+    add(s, pid, a, parent, service, entity, edges=[relation])
+    assert node_ids(s.view(pid, b)) == ["system", "identity", "organization"]
+    assert s.view(pid, b)["graph"]["edges"] == [relation]
+    stored = json.loads(s.graph_file(pid, a).read_text(encoding="utf-8"))
+    assert stored == {"nodes": [], "edges": []}
+    # Rename and reparent preserve the project-owned element identity in another workspace.
+    current = s.view(pid, b)
+    changed = {"nodes": [{**n, "name": "Tenant", "parentId": None} if n["id"] == "organization" else n
+                         for n in current["graph"]["nodes"]], "edges": [relation]}
+    s.save_graph(pid, b, changed, current["digest"], actor="human")
+    shared = next(n for n in s.view(pid, a)["graph"]["nodes"] if n["id"] == "organization")
+    assert shared["name"] == "Tenant" and shared["parentId"] is None
+    assert shared["element"] == {"kind": "entity"}

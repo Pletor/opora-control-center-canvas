@@ -211,6 +211,13 @@ def report(cwd, args):
     return post(cwd, args, "report", body)
 
 
+def accept(cwd, args):
+    sha = git(cwd, "rev-parse", args.sha or "HEAD")
+    if not sha:
+        raise Stop(EXIT_CONTEXT, "Revize pro přijetí neexistuje.")
+    return post(cwd, args, "accept", {"sha": sha, "note": args.note or "", "untested": args.untested})
+
+
 def trace(cwd, args):
     mark = args.mark or (call(cwd, "GET", f"/work/{quote(find_ticket(cwd, args))}").get("work") or {}).get("mark")
     if not mark:
@@ -243,7 +250,8 @@ def trace(cwd, args):
     return "\n".join(out + ["", t.get("sentence") or ""]).rstrip()
 
 
-COMMANDS = {"task": task, "status": status, "board": board, "report": report, "trace": trace,
+COMMANDS = {"task": task, "status": status, "board": board, "report": report, "trace": trace, "accept": accept,
+            "allow-merge": lambda cwd, args: post(cwd, args, "allow-merge", {"target": args.target}),
             "block": lambda cwd, args: post(cwd, args, "block", {"reason": args.reason})}
 COMMANDS |= {action: lambda cwd, args, action=action: post(cwd, args, action)
              for action in ("preview", "merge", "defer", "resume", "forget")}
@@ -256,6 +264,12 @@ def parser():
         command = sub.add_parser(name)
         for option in ("--ticket", "--project", "--workspace"):
             command.add_argument(option)
+        if name == "accept":
+            command.add_argument("--sha", help="výchozí HEAD")
+            command.add_argument("--note")
+            command.add_argument("--untested", action="store_true", help="výslovně bez lidské zkoušky")
+        if name == "allow-merge":
+            command.add_argument("--target")
         if name == "report":
             command.add_argument("--check", action="append", default=[], help='"npm test=green"')
             command.add_argument("--sha", help="výchozí HEAD")

@@ -1,6 +1,6 @@
 """Architektura a obsah jednoho plátna: rozdělení, složení a hledání odkazů (`docs/domeny-a-worktree.md` §4).
 
-Architektura = uzly se `site` (domény a stránky) a všichni jejich předkové (strukturní sektory mezi
+Architektura = uzly se `site` nebo `element` (domény a stránky) a všichni jejich předkové (strukturní sektory mezi
 nimi), hrany mezi dvěma uzly architektury. Všechno ostatní je obsah pracovního prostoru. Uzel, který
 `site` ztratí a nikomu se `site` už není předkem, se při dalším uložení vrátí do obsahu.
 
@@ -24,11 +24,11 @@ def check_shape(value):
 
 
 def architecture_ids(graph):
-    """ID uzlů architektury: uzly se `site` a celý řetěz jejich předků."""
+    """ID uzlů architektury: uzly se `site` nebo `element` a celý řetěz jejich předků."""
     by_id = {node["id"]: node for node in graph["nodes"]}
     owned = set()
     for node in graph["nodes"]:
-        if "site" not in node:
+        if "site" not in node and "element" not in node:
             continue
         cursor = node["id"]
         while cursor is not None and cursor in by_id and cursor not in owned:

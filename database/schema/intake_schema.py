@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS intake_milestones(
     id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, area_id TEXT NOT NULL, title TEXT NOT NULL,
     criteria TEXT NOT NULL DEFAULT '[]',
     status TEXT NOT NULL CHECK(status IN ('proposed','active','done','superseded')),
-    created_at TEXT NOT NULL);
+    created_at TEXT NOT NULL, replaced_by TEXT);
 """
 MILESTONES_INDEX = """
 CREATE UNIQUE INDEX IF NOT EXISTS intake_milestones_one_active

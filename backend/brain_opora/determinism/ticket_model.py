@@ -121,7 +121,7 @@ def neighbors(graph, card_id):
     if card_id not in nodes:
         return found
     for edge in graph.get("edges", []):
-        if edge.get("port", "next") not in WORK_PORTS:
+        if "relation" in edge or edge.get("port", "next") not in WORK_PORTS:
             continue
         for key, mine, other in (("successors", "source", "target"), ("predecessors", "target", "source")):
             node = nodes.get(edge[other])

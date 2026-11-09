@@ -7,7 +7,7 @@ případně nakreslí šipky a poznámky; agent je dostane v `node-brief`. Kontr
 Rozvržení (mřížka `bar / layers strip / layers stage form / layers timeline form`): nahoře lišta, pod ní pás momentů, vlevo pás vrstev,
 uprostřed snímek s osou, vpravo formulář momentu, v rohu snímku malý náhled celku.
 
-- `components/StoryboardWorkspace.tsx` – rodič módu: výběr karty (`selectedNode` aplikace, změna → `onOpenNode`), značky karet se storyboardem.
+- `components/StoryboardWorkspace.tsx` – rodič módu: aktuální zanoření (`scopeNodeId`), změna roletky mění stejný kontext ostatních pohledů. Karta i sektor mají vlastní storyboard, kořen nabízí přehled karet. Výběr karty na rodičovském plátně kontext nemění.
 - `components/StoryboardEditor.tsx` – editor jedné karty: drží koncept, čas, přehrávání (jediný `requestAnimationFrame`), výběr momentu, nástroj a viditelné vrstvy; jen on ukládá.
 - `components/StoryboardBar.tsx` – lišta: výběr karty, nástroje plátna, Uložit (hned; jinak se ukládá samo), Načíst znovu / Obnovit, Otevřít v okně, Kreslit k momentu, Stáhnout, Smazat, stav.
 - `components/CardPicker.tsx`, `components/StoryboardStart.tsx` – roletka karet; výběr animace a „Založit storyboard“.

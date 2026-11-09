@@ -137,16 +137,25 @@ def apply(service, payload, actor, agent=None):
     """Trusted internal entrypoint; HTTP router authenticates heart/human before invoking."""
     if actor not in ("human", "agent"):
         model.fail("Research writes require an authenticated human or heart.", 403, "research_writer")
-    model.shape(payload, {"project", "workspace", "key", "operations"}, {"continuation"})
+    model.shape(payload, {"project", "workspace", "key", "operations"}, {"continuation", "scopeNodeId"})
     project, workspace = payload["project"], payload["workspace"]
     model.text(payload["key"], "key", 200, False)
     ops = payload["operations"]
     if not isinstance(ops, list) or not 1 <= len(ops) <= 1000:
         model.fail("operations must contain 1 to 1000 entries.")
-    hashed = {"operations": ops, "continuation": payload["continuation"]} if "continuation" in payload else ops
+    scope_node = payload.get("scopeNodeId")
+    if scope_node is not None:
+        model.identifier(scope_node)
+    hashed = {"operations": ops, **{key: payload[key] for key in ("continuation", "scopeNodeId") if key in payload}} if any(key in payload for key in ("continuation", "scopeNodeId")) else ops
     digest = hashlib.sha256(_json(hashed).encode()).hexdigest()
     with service.graph_lock_for(project):
-        _scope(service, project, workspace)
+        view = _scope(service, project, workspace)
+        if scope_node is not None:
+            if not any(n["id"] == scope_node and n["kind"] in ("node", "sector") for n in view["graph"]["nodes"]):
+                model.fail("Research scope node does not exist in this workspace.", 404, "research_scope")
+            ops = [{**op, "refs": {**op["refs"], "nodeIds": op["refs"]["nodeIds"] + ([] if scope_node in op["refs"]["nodeIds"] else [scope_node])}}
+                   if op.get("op") == "card" and op.get("expectedRevision") == 0 and isinstance(op.get("refs"), dict)
+                   and isinstance(op["refs"].get("nodeIds"), list) else op for op in ops]
         db = service.db_for(project)
         with service.lock_for(project), db:
             db.execute("BEGIN IMMEDIATE")

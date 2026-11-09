@@ -106,14 +106,14 @@ def _rule(work, ax, live, target_sha=None, card_revision=None):
     if acc["state"] == "stale":
         return ("stale", f"přijato pro starší {_short(acc['sha'])}",
                 f"checks.passed({h7}) & acceptance.accepted({_short(acc['sha'])} ≠ HEAD {h7})",
-                f"Člověk znovu přijme HEAD {h7}.", ["accept"])
+                f"Přijměte aktuální HEAD {h7}; agent výslovně bez lidské zkoušky.", ["accept"])
     if acc["state"] == "stale_plan":
         return ("stale_plan", f"přijato {h7} pro starší zadání R{acc['cardRevision']}",
                 f"checks.passed({h7}) & acceptance.accepted({h7}, R{acc['cardRevision']} ≠ karta R{card_revision})",
-                f"Člověk potvrdí přijetí vůči nové revizi zadání (karta R{card_revision}).", ["accept"])
+                f"Potvrďte přijetí vůči nové revizi zadání (karta R{card_revision}).", ["accept"])
     if acc["state"] == "pending":
         return ("pending", f"čeká na přijetí {h7}", f"checks.passed({h7}) & acceptance.pending",
-                f"Člověk rozhodne o přijetí {h7}.", ["accept"])
+                f"Přijměte ověřenou revizi {h7}; agent přes accept --untested.", ["accept"])
     if integ["state"] == "unconfirmed":  # started bez finished: merge se stejným op jen ověří výsledek v gitu (§5a)
         return ("accepted", f"začlenění {h7} zahájeno, výsledek neověřen",
                 f"checks.passed({h7}) & acceptance.accepted({h7}) & integration.unconfirmed",
@@ -122,11 +122,11 @@ def _rule(work, ax, live, target_sha=None, card_revision=None):
     allowed = work.get("mergeAllowed") or {}
     if allowed.get("sourceSha") != head:  # služba bez povolení pro HEAD nezačlení (merge.py)
         return ("accepted", f"přijato {h7}, čeká na povolení začlenění", reason + " & mergeAllowed chybí",
-                f"Člověk povolí začlenění do {target} (allow-merge).", ["allow_merge"])
+                f"Povolte začlenění do {target} (allow-merge).", ["allow_merge"])
     if target_sha and allowed.get("targetSha") != target_sha:  # povolení platí jen pro špičku cíle v době povolení
         aim, moved = allowed.get("target") or target, f"{_short(allowed.get('targetSha'))} → {_short(target_sha)}"
         return ("accepted", f"přijato {h7}, cíl {aim} se posunul", reason + f" & mergeAllowed.targetSha ({moved})",
-                f"Člověk povolí začlenění znovu (allow-merge do {aim}).", ["allow_merge"],
+                f"Povolte začlenění znovu (allow-merge do {aim}).", ["allow_merge"],
                 {"merge": f"cíl {aim} se od povolení posunul ({moved})"})
     return ("accepted", f"přijato {h7}, čeká na začlenění", reason + " & mergeAllowed(HEAD)",
             f"Služba začlení (merge) do {target} a znovu ověří.", ["merge"], {"allow_merge": "už povoleno pro HEAD"})

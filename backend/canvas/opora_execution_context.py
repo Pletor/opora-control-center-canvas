@@ -81,10 +81,20 @@ def _collect(canvas, db, project, workspace, node):
     validate_accepted_lineage(db, project, workspace, node, head, head)
     require_accepted_graph(canvas, project, workspace, head, graph)
     require_accepted_content(canvas, project, workspace, head, projection["selection"]["cardIds"], graph)
+    from backend.canvas.requirement_readiness import require_inputs
+    requirements = require_inputs(canvas, project, workspace, node, head, graph, context["acceptedDocuments"])
     accepted = {item["nodeId"]: item for item in context["acceptedDocuments"]}
+    from backend.canvas.execution_write_set import resolve_affected
+    affected = resolve_affected(node, accepted.get(node, {}).get("fields", {}), graph, context["acceptedDocuments"])
+    for identifier in affected:
+        requirements.extend(require_inputs(canvas, project, workspace, identifier, head, graph, context["acceptedDocuments"]))
+    requirements = list({item["edgeId"]: item for item in requirements}.values())
     selected = []
-    owners = {item["nodeId"]: item["specWorkspace"] for item in projection["owners"]}
-    for card in projection["cards"]:
+    scopes = [projection, *projection.get("affectedScopes", [])]
+    owners = {item["nodeId"]: item["specWorkspace"] for scope in scopes for item in scope["owners"]}
+    cards = {item["nodeId"]: item for scope in scopes for item in scope["cards"]}
+    require_accepted_content(canvas, project, workspace, head, sorted(cards), graph)
+    for card in cards.values():
         actual = {"nodeId": card["nodeId"], "ownerWorkspace": owners[card["nodeId"]],
                   "revision": card["spec"]["revision"], "fields": card["spec"]["fields"]}
         if accepted.get(card["nodeId"]) != actual:
@@ -94,13 +104,17 @@ def _collect(canvas, db, project, workspace, node):
     if before != after:
         raise ValueError("Registry source binding changed during context capture.")
     from backend.editor.research.execution_evidence import collect as research_evidence
-    evidence = research_evidence(db, project, workspace, head, projection["selection"]["cardIds"])
-    opaque = token(private.key(db, project), {**projection, "researchEvidence": evidence}, head, before)
+    evidence = research_evidence(db, project, workspace, head, sorted(cards))
+    from backend.canvas.storyboard_evidence import collect as storyboard_inputs
+    storyboards = storyboard_inputs(canvas, project, workspace, sorted(cards), graph)
+    opaque = token(private.key(db, project), {**projection, "researchEvidence": evidence, "storyboards": storyboards}, head, before)
     steps = ordered(steps_of((accepted.get(node) or {}).get("fields")))  # pinned plan (oporahub-plan-steps.md)
     assignment = {"acceptedRevision": head, "documents": redact_deep(selected), "contextVersion": opaque,
                   "contextProtocolVersion": 2, "steps": redact_deep(steps), "run": run_profile(target, graph, steps),
                   "specification": {**redact_deep(projection), "schema": "opora.specification-context/2"},
-                  "researchEvidence": evidence}
+                  "researchEvidence": evidence, "storyboards": storyboards, **({"requiredInputs": requirements} if requirements else {}),
+                  **({"affectedElements": [{"nodeId": identifier, "revision": accepted[identifier]["revision"],
+                     "documentDigest": digest(accepted[identifier])} for identifier in affected]} if affected else {})}
     kit_of_assignment(assignment, node)  # Validate transported content before issuing an execution pin.
     pin = {"schemaVersion": 1, "snapshot": snapshot, "metadata": metadata, "binding": before,
            "nodeId": node, "acceptedRevision": head, "contextVersion": opaque,

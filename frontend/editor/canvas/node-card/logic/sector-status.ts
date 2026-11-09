@@ -46,7 +46,7 @@ export function sectorViews(graph: Graph, state: DesktopState, index?: BoardInde
       gateName: gateNode?.name ?? "Nenastavena", blockedBy: [] };
   }
   // Vazby `next` mířící do sektoru: bez indexu se filtrují znovu pro každý sektor, s indexem jednou.
-  const intoSector = (e: Graph["edges"][number]) => (e.port ?? "next") === "next" && nodeOf(e.target)?.kind === "sector";
+  const intoSector = (e: Graph["edges"][number]) => !e.relation && (e.port ?? "next") === "next" && nodeOf(e.target)?.kind === "sector";
   const sectorEdges = index ? graph.edges.filter(intoSector) : null;
   for (const sector of sectors) {
     const scope = new Set<string>([sector.id]);

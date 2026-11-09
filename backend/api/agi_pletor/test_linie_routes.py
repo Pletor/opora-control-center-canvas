@@ -96,15 +96,17 @@ def test_linie_work_flow(tmp_path, repo):
         assert client.get(work, headers={**AGENT, "X-Opora-Gate-Token": "spatny"}, params=q).status_code == 401
         early = client.post(f"{work}/merge", headers=AGENT, params=q)  # L7 §2a: pending merge nepovoluje
         assert early.status_code == 409 and early.json()["code"] == "action_not_allowed"
-        for path, payload in (("/accept", {"sha": head}), ("/allow-merge", {"target": "develop"}),
-                              ("/accept-merge", {"sha": head})):  # L7g: přijmout a začlenit jen člověk
+        for path, payload in (("/accept-merge", {"sha": head}),):  # L7g: přijmout a začlenit jen člověk
             assert client.post(work + path, headers=AGENT, params=q, json=payload).status_code == 403
-        assert client.post(f"{work}/accept", headers=HEADERS, params=q,
-                           json={"sha": head, "untested": True}).json()["work"][
-            "acceptance"]["sha"] == head
+        untried = client.post(f"{work}/accept", headers=AGENT, params=q, json={"sha": head})
+        assert untried.status_code == 409 and untried.json()["code"] == "not_tried"
+        acceptance = client.post(f"{work}/accept", headers=AGENT, params=q,
+                                 json={"sha": head, "untested": True}).json()["work"]["acceptance"]
+        assert acceptance["sha"] == head and acceptance["by"] == "agent:dev" and acceptance["tested"] is None
         drawn = client.get(f"{BASE}/graph", headers=HEADERS, params=q).json()
         assert next(lane for lane in drawn["lanes"] if lane["name"] == "feat/uzel")["acceptance"]["valid"] is True
-        assert client.post(f"{work}/allow-merge", headers=HEADERS, params=q, json={}).status_code == 200
+        allowed = client.post(f"{work}/allow-merge", headers=AGENT, params=q, json={})
+        assert allowed.status_code == 200 and allowed.json()["work"]["mergeAllowed"]["by"] == "agent:dev"
         merged = client.post(f"{work}/merge", headers=AGENT, params=q)
         assert merged.status_code == 200 and merged.json()["state"] == "merged"
         assert merged.json()["work"]["merged"]["sha"] == run(repo, "rev-parse", "origin/develop")
@@ -173,11 +175,8 @@ def test_linie_work_refusals(tmp_path, repo):
     q = {"project": "draft"}
     with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
         for method, path, payload in (("get", "/board", None), ("post", "/rows", {"name": "x", "type": "work"}),
-                                      ("post", "/work", {**ATTACH, "title": "t", "essence": "e", "build": "b",
-                                                         "doneCriteria": ["d"]}),
-                                      ("post", "/work/tk_1/accept", {"sha": "abc1234"}),
-                                      ("delete", "/work/tk_1/accept", None), ("post", "/work/tk_1/allow-merge", {}),
-                                      ("post", "/work/tk_1/preview", None), ("post", "/work/tk_1/attach", ATTACH)):
+                                      ("delete", "/work/tk_1/accept", None),
+                                      ("post", "/work/tk_1/attach", ATTACH)):
             assert client.request(method, BASE + path, headers=AGENT, params=q, json=payload).status_code == 403, path
         assert client.get(f"{BASE}/board", headers=HEADERS, params={"project": "nikde"}).status_code == 404
         client.cookies.clear()  # bez relačního dokladu UI a bez hlavičky agenta
@@ -315,7 +314,7 @@ def test_linie_trial_preview_tried_and_accept(tmp_path, repo, monkeypatch):
         assert starts == []  # první spuštění je akce člověka
         none = client.post(f"{work}/tried", headers=JSON, params=q)
         assert none.status_code == 409 and none.json()["code"] == "preview_not_running"
-        assert client.post(f"{work}/preview", headers=AGENT, params=q, json={}).status_code == 403
+        assert client.post(f"{work}/preview", headers=AGENT, params=q, json={"fresh": True}).status_code == 403
         shown = client.post(f"{work}/preview", headers=JSON, params=q, json={"fresh": True}).json()
         assert starts == [("feat/uzel", True)] and shown["work"]["preview"]["state"] == "running"
         assert shown["trial"]["state"] == "current" and shown["trial"]["url"] == "http://127.0.0.1:8790/"
@@ -325,6 +324,8 @@ def test_linie_trial_preview_tried_and_accept(tmp_path, repo, monkeypatch):
         assert client.post(f"{work}/tried", headers=AGENT, params=q).status_code == 403
         tried = client.post(f"{work}/tried", headers=JSON, params=q).json()
         assert tried["work"]["tried"]["sha"] == head and tried["trial"]["triedCurrent"] is True
+        assert client.post(f"{work}/accept", headers=AGENT, params=q,
+                           json={"sha": head}).json()["code"] == "not_tried"
         newer = agent_commit(repo, name="v.txt")
         far = client.post(f"{work}/report", headers=AGENT, params=q,
                           json={"sha": newer, "tryout": {"at": "https://evil.example/?a=1", "steps": []}})
@@ -346,3 +347,34 @@ def test_linie_trial_preview_tried_and_accept(tmp_path, repo, monkeypatch):
         done = client.post(f"{BASE}/work/{tid}/accept-merge", headers=JSON, params=q,
                            json={"sha": newer, "untested": True}).json()
         assert done["summary"]["key"] == "merged" and done["work"]["acceptance"]["tested"] is None
+
+
+def test_agent_creates_work_with_identity_scope_and_idempotency(tmp_path, repo):
+    q = {"project": "draft", "workspace": "main"}
+    body = {"title": "Autonomous", "essence": "Why", "build": "Task", "doneCriteria": ["tests"],
+            "branch": "feat/autonomous", "idempotencyKey": "autonomous-create"}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        client.cookies.clear()
+        assert client.post(f"{BASE}/work", headers=JSON, params=q, json=body).status_code == 428
+        created = client.post(f"{BASE}/work", headers=AGENT, params=q, json=body)
+        assert created.status_code == 200
+        repeated = client.post(f"{BASE}/work", headers=AGENT, params=q, json=body)
+        assert repeated.status_code == 200 and repeated.json()["ticketId"] == created.json()["ticketId"]
+        conflict = client.post(f"{BASE}/work", headers=AGENT, params=q, json={**body, "title": "Changed"})
+        assert conflict.status_code == 409 and conflict.json()["code"] == "idempotency_conflict"
+        events = client.get(f"{BASE}/journal", params=q).json()["events"]
+        made = [event for event in events if event["kind"] == "linie.work.created"]
+        assert len(made) == 1 and made[0]["by"] == "agent:dev"
+        token = client.post("/api/gate/sessions", headers=AGENT,
+            json={"project": "draft", "workspace": "main", "worker": {"name": "office-1"}}).json()["token"]
+        gated = {**AGENT, "X-Opora-Gate-Token": token}
+        payload = {**body, "branch": "feat/token", "idempotencyKey": "token-create"}
+        assert client.post(f"{BASE}/work", headers=gated, params={**q, "workspace": "draft"},
+                           json=payload).json()["code"] == "gate_scope"
+        assert client.post(f"{BASE}/work", headers={**AGENT, "X-Opora-Gate-Token": "invalid"}, params=q,
+                           json=payload).status_code == 401
+        accepted = client.post(f"{BASE}/work", headers=gated, params=q, json=payload)
+        assert accepted.status_code == 200
+        events = client.get(f"{BASE}/journal", params=q).json()["events"]
+        assert next(event for event in events if event["kind"] == "linie.work.created"
+                    and event["by"] == "agent:office-1")

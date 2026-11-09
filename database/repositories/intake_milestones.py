@@ -3,18 +3,22 @@
 Srdce milník navrhne (`proposed`), člověk ho aktivuje nebo zamítne. Aktivní je v oblasti nejvýš jeden (unikátní
 index `intake_milestones_one_active`): `activate` nejdřív nahradí dosavadní aktivní (`superseded`, řádek zůstává
 jako historie). Zamítnutý návrh je také `superseded`. Kritéria jsou JSON `[{id, text, cards[]}]`; splnění se
-počítá z plátna, neukládá se. Transakci vlastní volající."""
+počítá z plátna, neukládá se. `replaced_by` zapisuje pouze aktivace skutečného nástupce dosavadního aktivního
+milníku. Odlišuje přijatou minulou mapu od zamítnutého návrhu; NULL ve staré historii nic nedokládá.
+Transakci vlastní volající."""
 import json
 
 COLUMNS = ("id", "workspace_id", "area_id", "title", "criteria", "status", "created_at")
 KEYS = ("id", "workspaceId", "areaId", "title", "criteria", "status", "createdAt")
-SELECT = "SELECT " + ",".join(COLUMNS) + " FROM intake_milestones"
+SELECT = "SELECT " + ",".join(COLUMNS) + ",replaced_by FROM intake_milestones"
 
 
 def public(row):
     if row is None:
         return None
     milestone = dict(zip(KEYS, tuple(row)))
+    if row[7] is not None:
+        milestone["replacedBy"] = row[7]
     return {**milestone, "criteria": json.loads(milestone["criteria"] or "[]")}
 
 
@@ -47,6 +51,15 @@ class IntakeMilestones:
         return public(self.db.execute(SELECT + " WHERE workspace_id=? AND area_id=? AND status='active'",
                                       (workspace, area)).fetchone())
 
+    def proof_candidates(self, workspace):
+        """Only active mappings and proven formerly active replacements, never rejected/unknown history."""
+        rows = self.list(workspace)
+        by_id = {row["id"]: row for row in rows}
+        return [row for row in rows if row["status"] == "active" or (
+            row["status"] == "superseded" and row.get("replacedBy") in by_id
+            and by_id[row["replacedBy"]]["areaId"] == row["areaId"]
+            and row["replacedBy"] != row["id"])]
+
     def activate(self, milestone_id):
         """Navržený milník → `active`, dosavadní aktivní milník oblasti → `superseded`.
         Vrací `(True, ID nahrazeného nebo None)`; `(False, None)`, když milník není `proposed`."""
@@ -55,13 +68,14 @@ class IntakeMilestones:
             return False, None
         previous = self.active(milestone["workspaceId"], milestone["areaId"])
         if previous is not None:
-            self.db.execute("UPDATE intake_milestones SET status='superseded' WHERE id=?", (previous["id"],))
+            self.db.execute("UPDATE intake_milestones SET status='superseded',replaced_by=? WHERE id=? AND status='active'",
+                            (milestone_id, previous["id"]))
         self.db.execute("UPDATE intake_milestones SET status='active' WHERE id=?", (milestone_id,))
         return True, previous["id"] if previous else None
 
     def reject(self, milestone_id):
         """Navržený nebo aktivní milník → `superseded` (zamítnutý zůstává v historii, oblast pak nemá aktivní milník);
         True, když se změnil."""
-        cursor = self.db.execute("UPDATE intake_milestones SET status='superseded' WHERE id=? AND status IN ('proposed','active')",
+        cursor = self.db.execute("UPDATE intake_milestones SET status='superseded',replaced_by=NULL WHERE id=? AND status IN ('proposed','active')",
                                  (milestone_id,))
         return cursor.rowcount == 1

@@ -1,5 +1,49 @@
 # determinism: layer 1 of the brain
 
+## Milestone integration evidence
+
+`milestone_evidence.py` reads existing accepted specifications, execution assignments and result receipts.
+An optional criterion `verification` names `{nodeId, acceptedRevision, positive, negative}`; each test case
+names `{stepId, check, command}`. The integration card must be among the criterion's cards; positive and
+negative cases must be distinct accepted `kind:test` steps, and each criterion has its own cases. All
+criteria share one integration card/revision/execution. Submit this mapping through the existing heart
+milestone proposal API, then activate the proposal using existing authority rules. No new task store exists.
+
+The latest execution must pin its exact accepted revision and immutable assignment. Historical evidence
+survives only while relevant accepted document fields, semantic node metadata, content and transitive
+`requires` / `uses` / `communicates_with` contracts remain equal. Unrelated edits, names and positions
+preserve proof. Hierarchy moves require equivalent inherited constraints; without accepted rule snapshots,
+a changed ancestor scope remains unproven. The original
+`acceptedRevision` remains on the evidence; `currentAcceptedRevision` identifies the compared head. Its single
+result receipt must report both test steps done, matching passed `selfChecks` with exact declared commands,
+nonempty output and one full commit SHA also present in both steps' evidence. A newer unreported attempt,
+wrong revision, missing negative case, prototype or bare `done:true` cannot satisfy the milestone.
+Evidence is worker-reported (`level:reported_evidence`, `independent:false`); the server validates pin
+consistency and contract coverage, and does not rerun tests independently.
+The evaluator also validates the assignment's native research pins: changed selected bindings invalidate
+the proof. A deliberately pinned immutable source revision remains valid when a newer source version appears.
+Card/solution progress may reuse an old accepted mapping after ordinary milestone replacement. Existing
+`intake_milestones.replaced_by` is nullable lifecycle provenance: only activation replacing a real active
+milestone writes it, atomically with successor activation. Rejected proposals, explicitly rejected active
+milestones and legacy superseded rows without provenance never provide proof. Replacement does not bypass
+native semantic, research, storyboard or receipt checks. Evidence identifies its source milestone.
+
+The lifecycle schema change is expand-only and idempotent: original rows and criteria remain unchanged;
+legacy provenance stays NULL. Old binaries name the original columns and can continue reading/writing,
+but cannot invent replacement provenance. Rollback leaves the column in place; no data contraction occurs.
+
+`milestones.evaluate` preserves `progress` as card closure percentage and exposes `closureProgress`,
+`closureDone`, and `verification`. Functional `done`, `reached` and wake triggers require closure AND
+the integration evidence. Legacy closed milestones remain visible but cannot automatically open later work.
+
+`milestone_next_work.py` derives bounded `nextMilestoneWork` for the heart snapshot from active criteria,
+accepted specifications, existing leases and required input readiness. It ranks the active result ahead of
+unrelated expansion, reports missing specification/steps, blocked inputs and integration evidence gaps,
+and directs an active lease to inspection rather than duplicate work. Snapshot text includes this section
+before the general plan; the existing heart batch consumes that exact text. Nothing executes or creates tasks.
+Readiness uses the native execution context, including accepted/live graph, document and content checks.
+An already reported current result is directed to `inspect_result`, not another realization.
+
 This is the first layer of the brain. It answers without a model, at once and for free. It serves the gate for worker
 sessions, the wall, and the facts the heart wakes up to.
 

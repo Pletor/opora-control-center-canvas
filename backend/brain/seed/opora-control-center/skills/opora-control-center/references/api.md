@@ -450,3 +450,12 @@ načti jeho skutečné `latestProposalId` stejnou operací; nevymýšlej endpoin
 Pro ostatní funkce nejprve `canvas discover` a `canvas describe CAPABILITY`. `implemented:false` je výslovná mezera,
 nikoliv důvod tvrdit, že jiné již implementované čtení neexistuje. Hash důkazu vždy vztahuj ke konkrétnímu souboru
 a bajtům: hash celé HTTP obálky není hash vyjmutého CLI `input` souboru.
+## Kontext znalostí a přesný původ
+
+Čtecí příkazy `opora_read.py`: `research-context` načte zanoření, `knowledge-search` hledá řešení nebo podklady, `research-card` čte přesnou původní revizi. Příklady a hranice oprávnění jsou v `knowledge-context.md`.
+
+| Cesta | Kontrakt |
+|---|---|
+| `GET /api/research/context` | `project`, `workspace`, `scopeNodeId`; stručné lokální/rodičovské/sdílené reference |
+| `POST /api/research/knowledge-search` | Explicitní oprávněné `scopes`, `query`, `resultType`, volitelné filtry; řešení má stabilní `(projectId,nodeId)` |
+| `POST /api/research/bindings` | Oprávněný cíl i původ, `source` s přesnou revizí, `expectedRevision`, `archived`; CAS reference bez kopie obsahu |

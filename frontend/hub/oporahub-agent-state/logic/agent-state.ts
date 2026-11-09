@@ -8,6 +8,9 @@ export const HEALTHS = ["ok", "waiting", "blocking", "not_connected"] as const;
 export type Health = typeof HEALTHS[number];
 export type AgentStage = { id: StageId; count: number; health: Health; reason: string };
 export type AgentBudget = { remainingAttempts: number | null; remainingRepairRounds: number | null };
+export type ProgressEvidence = { acceptedRevision: string | null; designAccepted: boolean;
+  verification?: { verified: boolean; independent: false; level: "reported_evidence"; source: string;
+    acceptedRevision: string; currentAcceptedRevision?: string; assignmentDigest: string; headSha: string; executionId: string; receiptId: string } };
 export type AgentAction = {
   id: string; verb: string; method: string; path: string; targetId: string | null;
   preconditions: Record<string, unknown>; status: "ready" | "blocked"; blockReason?: string; budget?: AgentBudget;
@@ -16,6 +19,7 @@ export type AgentAction = {
 };
 /** Etapa jedné karty (`cards[]`): kde ve smyčce karta stojí; plátno z ní kreslí odznak. */
 export type AgentCardStage = {
+  progressEvidence?: ProgressEvidence;
   nodeId: string; stage: StageId; health: Health; reason: string; executionId: string | null;
   /** Graf karet a postup (vlna DAG / kroky plánu / lease); starší server pole nemá, UI je bere jako volitelná. */
   kind?: string | null; layer?: string | null; blockedBy?: string[]; topoIndex?: number | null; nextActionId?: string | null;
@@ -86,7 +90,13 @@ function action(value: unknown): value is AgentAction {
 const decision = (value: unknown): value is AgentDecision => object(value) && text(value.id) && text(value.kind)
   && nullableText(value.targetId) && text(value.title) && text(value.actionId);
 const optional = (value: unknown, check: (item: unknown) => boolean) => value === undefined || value === null || check(value);
+const progressProof = (value: unknown) => object(value) && nullableText(value.acceptedRevision)
+  && typeof value.designAccepted === "boolean" && (value.verification === undefined || (object(value.verification)
+    && value.verification.verified === true && value.verification.independent === false
+    && value.verification.level === "reported_evidence" && ["source", "acceptedRevision", "assignmentDigest", "headSha", "executionId", "receiptId"]
+      .every(key => text(value.verification && (value.verification as Record<string, unknown>)[key]))));
 const cardExtras = (value: Record<string, unknown>) => optional(value.kind, text) && optional(value.layer, text)
+  && optional(value.progressEvidence, progressProof)
   && (value.blockedBy === undefined || (Array.isArray(value.blockedBy) && value.blockedBy.every(text)))
   && optional(value.topoIndex, count) && optional(value.nextActionId, text)
   && optional(value.gate, item => object(item) && text(item.status) && nullableText(item.rule))

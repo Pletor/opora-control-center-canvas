@@ -1,3 +1,4 @@
+from database.schema.research_knowledge_schema import SCHEMA as KNOWLEDGE_SCHEMA, TABLES as KNOWLEDGE_TABLES
 """SQL schéma po tabulkách: registr projektů (registry.sqlite) a databáze jednoho projektu (project.sqlite).
 
 Každá tabulka má jednoho vlastníka v backendu; ten ji čte a píše, ale nevytváří. Vytváření je jen zde.
@@ -371,11 +372,12 @@ CREATE TABLE IF NOT EXISTS ticket_feedback(
 CREATE INDEX IF NOT EXISTS ticket_feedback_ticket ON ticket_feedback(ticket_id, seq);
 """
 PROJECT_SCHEMA += GATE_SCHEMA + RESEARCH_SCHEMA + RESEARCH_DECISIONS_SCHEMA + RESEARCH_EVENTS_SCHEMA + CANVAS_OPERATION_SCHEMA
-PROJECT_SCHEMA += RESEARCH_REVIEW_PROPOSALS_SCHEMA
+PROJECT_SCHEMA += RESEARCH_REVIEW_PROPOSALS_SCHEMA + KNOWLEDGE_SCHEMA
 PROJECT_SCHEMA += CANVAS_SESSION_SCHEMA + RESEARCH_CONTINUATIONS_SCHEMA + CANVAS_VIEW_ATTACHMENTS_SCHEMA
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
+    **{table: "project_id" for table in KNOWLEDGE_TABLES},
     **{table: "project_id" for table in (*CANVAS_SESSION_TABLES, *RESEARCH_CONTINUATIONS_TABLES, *CANVAS_VIEW_ATTACHMENTS_TABLES)},
     **{table: "project_id" for table in CANVAS_OPERATION_TABLES},
     **{table: "project_id" for table in RESEARCH_TABLES},

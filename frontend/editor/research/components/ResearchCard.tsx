@@ -9,6 +9,7 @@ export default function ResearchCard({ data: { card }, selected }: NodeProps<Res
     <div className="research-card__topic" title={topicLabel(card.topicPath)}>{topicLabel(card.topicPath)}</div>
     <h3>{card.title}</h3><p>{card.summary}</p>
     <div className="research-card__badges"><span className={`research-badge research-badge--${card.verification.status}`}>{VERIFICATION_LABELS[card.verification.status]}</span>
+      {card.refs.nodeIds.length > 1 && <span className="research-badge" title="Jeden podklad připojený k více pracovním kontextům">Sdílený podklad</span>}
       {card.platforms.slice(0, 4).map(platform => <span className="research-badge" key={platform}>{platform}</span>)}
       {card.platforms.length > 4 && <span className="research-badge">+{card.platforms.length - 4} dalších</span>}
     </div>

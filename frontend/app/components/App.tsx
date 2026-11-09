@@ -1,3 +1,4 @@
+import KnowledgeDrawer, { knowledgeAvailable } from "@/editor/research/components/KnowledgeDrawer";
 import DesktopReview from "@/editor/canvas/desktop-review/DesktopReview";
 import VaultOperationReview from "@/editor/brief-vault-dock/components/VaultOperationReview";
 import { saveCanvasGraph } from "@/editor/canvas/board/logic/graph-positions";
@@ -177,6 +178,7 @@ export default function App() {
     sequence: number;
   }>({ type: "selection", sequence: 0 });
   const [drawingReady, setDrawingReady] = useState(false);
+  const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [mode, setEditorMode] = useState<WorkspaceMode>(
     () => initialModeEnvironment.mode,
   );
@@ -224,7 +226,7 @@ export default function App() {
   const [textSubtab, setTextSubtab] = useState<TextSubtab>("user");
   const [textRevision, setTextRevision] = useState(0);
   const [planAppliedRevision, setPlanAppliedRevision] = useState(0);
-  const [parent, setParent] = useState<string | null>(initial.get("layer"));
+  const [parent, setParent] = useState<string | null>(initial.get("layer") ?? (initial.get("mode") === "storyboard" ? initial.get("node") : null));
   const initialNode = initial.get("node");
   // Klik na poslední změnu na tváři karty: záznam činnosti se otevře s filtrem této karty.
   const [activityRequest, setActivityRequest] = useState<{ nodeId: string; seq: number } | null>(null);
@@ -469,7 +471,7 @@ export default function App() {
     // Proposal restoration runs after async scope loading; retain its exact scoped URL until then.
     if (currentRoute.get("project") === project && currentRoute.get("workspace") === workspace && currentRoute.has("ohGraph")) q.set("ohGraph", currentRoute.get("ohGraph")!);
     if (currentRoute.get("project") === project && currentRoute.get("workspace") === workspace) {
-      for (const key of ["researchCard", "researchReview", "researchDigest", "ohChangeset", "ohBaseline", "vaultReview"]) if (currentRoute.has(key)) q.set(key, currentRoute.get(key)!);
+      for (const key of ["researchCard", "researchReview", "researchDigest", "researchSource", "researchRevision", "ohChangeset", "ohBaseline", "vaultReview"]) if (currentRoute.has(key)) q.set(key, currentRoute.get(key)!);
     }
     // Zanoření Studia (`studioFocus`, docs/studio.md §2) drží Studio samo; platí jen v jeho záložce a v tomtéž prostoru.
     if (!switchedScope && projectMapKind === "studio" && currentRoute.has("studioFocus")) q.set("studioFocus", currentRoute.get("studioFocus")!);
@@ -869,7 +871,7 @@ export default function App() {
   /** Dvojklik na kartu otevře jednotný detail; sektor a stránka dál vedou do vnitřního plátna. */
   function enterOrDetail(id: string) {
     const target = graph.nodes.find((n) => n.id === id);
-    if (target?.kind === "node" && !target.site) { openNode(id); openCardDrawer(id); return; }
+    if (target?.kind === "node" && !target.site && !target.element) { openNode(id); openCardDrawer(id); return; }
     enter(id);
   }
   // Potvrzení navrženého uzavření karty (starší desktop-v3 tok, akce karty `confirm`).
@@ -1170,6 +1172,7 @@ export default function App() {
       {environment === "editor" && <div className="environment-toolbar v3-toolbar" role="toolbar" aria-label="Nástroje Editoru" inert={saveAllBusy}>
         <MenuButton open={dock.rail} onToggle={dock.toggleMenu} />
         <ModeRail mode={mode} onMode={setMode} />
+        {knowledgeAvailable(mode) && <button type="button" aria-expanded={knowledgeOpen} onClick={() => setKnowledgeOpen(value => !value)}>{"Podklady a hled\u00e1n\u00ed"}</button>}
         <span className="v3-grow" />
         <div className="v3-tool-group" role="group" aria-label="Pohled">
           {/* Lišta stojí i během ukládání (jen zešedne), aby při každém kroku neproblikla. */}
@@ -1196,6 +1199,7 @@ export default function App() {
       {environment === "project" ? <ProjectWorkspace project={project} workspace={workspace} mapKind={projectMapKind} intentPage={intentPage} onCloseIntent={() => setProjectMapKind("architecture")} libraryFlow={libraryFlow} projects={projects} onOpenLibraryFlow={(flowId) => setLibraryFlow(flowId)} onCloseSite={() => setProjectMapKind("architecture")} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpenEditor={openArchitectureNode} onOpenArchitecture={openStudioInArchitecture} architectureLive={architectureLive} onOpenAssistant={() => setAssistantOpen(true)} onGraphChanged={() => { reloadCanvas(); desktop.reload(); }}/> :
       environment === "hub" ? <OporaHubWorkspace onDetailOpenChange={setHubDetailOpen} view={syncBoard} onRefresh={sync.refresh} proposals={proposals} changes={planChanges} contentChanges={contentChanges} proposalReview={proposalReview} evidence={gitEvidence} executions={executionReceipts} executionObservations={executionObservations} budgets={executionBudgets} formalVerification={formalVerification} graphProposals={graphProposals} reviewPolicy={reviewPolicy} reconciliation={reconciliation} /> :
       <div className={"workspace-shell " + mode + "-mode" + (mode === "map" || mode === "office" || mode === "storyboard" ? " no-inspector" : "") + " no-context" + (!inspectorShown ? " inspector-hidden" : "")}>
+        <KnowledgeDrawer open={knowledgeOpen} mode={mode} scope={{projectId: project, nodeId: parent}} scopeLabel={parent ? graph.nodes.find(node => node.id === parent)?.name : projects.find(item => item.id === project)?.name ?? draftProject?.name} workspace={workspace} projects={projects.some(item => item.id === project) ? projects : [{id: project, name: draftProject?.name ?? project}, ...projects]} onClose={() => setKnowledgeOpen(false)} />
         <main className="canvas-area">
           {!artifactMapOpen && <div className="content-head">
             <nav aria-label="Cesta plátnem" className="crumbs">
@@ -1232,12 +1236,12 @@ export default function App() {
               ) : mode === "map" ? (
                 <ControlTower key={project} project={project} workspace={workspace} graph={graph} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onOpen={(id) => { openCardDrawer(id); }} onOpenMap={() => openDomainMap(null)} onOpenVault={openVault} worktreeLive={capabilities.worktreeLive} autonomy={agentAutonomy.autonomy} />
               ) : mode === "research" ? (
-                <ResearchWorkspace key={JSON.stringify([project, workspace])} project={project} workspace={workspace} nodes={graph.nodes} readOnly={!!view?.readOnly} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onDraw={(id) => { enter(id); setMode("drawing"); }} />
+                <ResearchWorkspace key={JSON.stringify([project, workspace, parent])} workScope={{ projectId: project, nodeId: parent }} project={project} workspace={workspace} nodes={graph.nodes} readOnly={!!view?.readOnly} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onDraw={(id) => { enter(id); setMode("drawing"); }} />
               ) : mode === "office" ? (
-                <OfficeWorkspace key={`${project}:${workspace}`} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }}
+                <OfficeWorkspace workScope={{ projectId: project, nodeId: parent }} key={`${project}:${workspace}`} project={project} workspace={workspace} graph={graph} state={desktop.state} onOpenNode={(id) => { openNode(id); setMode("structure"); }} onEnterLayer={(id) => { enter(id); setMode("structure"); }}
                   onAskHeart={askHeart} />
               ) : mode === "storyboard" ? (
-                <StoryboardWorkspace key={JSON.stringify([project, workspace])} project={project} workspace={workspace} graph={graph} selectedNode={selected} readOnly={!!view?.readOnly} onOpenNode={(id) => { openNode(id); }} onDraw={(id) => { enter(id); setMode("drawing"); }} />
+                <StoryboardWorkspace key={JSON.stringify([project, workspace])} project={project} workspace={workspace} graph={graph} scopeNodeId={parent} readOnly={!!view?.readOnly} onOpenNode={enter} onDraw={(id) => { enter(id); setMode("drawing"); }} />
               ) : mode === "drawing" ? (
                 <WorkspaceBoundary
                   key={JSON.stringify([project, workspace, parent, mode])}
@@ -1504,6 +1508,8 @@ export default function App() {
             ) : panels.inspector === "edge" && edge ? (
               <EdgeReportPanel
                 key={project + ":" + workspace + ":" + edge.id}
+                edge={edge}
+                onEdgeChange={(changed) => { void save({ ...graph, edges: graph.edges.map(item => item.id === edge.id ? changed : item) }); }}
                 view={edgeReportView(edge, graph.nodes, nodeWorkflowOf(desktop.state, edge.source))}
                 report={reportOf(desktop.state, edge.id)}
                 readOnly={!!view?.readOnly || desktop.readOnly}

@@ -39,6 +39,11 @@ def select_scope(graph, node_id):
                 if descendants.intersection((edge["source"], edge["target"]))]
     predicates.append({"type": "incident", "nodeIds": sorted(descendants),
                        "edgeIds": sorted(edge["id"] for edge in incident)})
+    inherited = [edge for edge in index.edges if edge.get("relation") == "requires" and edge["source"] in lineage]
+    if inherited:
+        predicates.append({"type": "inherited-requires", "nodeIds": sorted(lineage),
+                           "edgeIds": sorted(edge["id"] for edge in inherited)})
+        incident = list({edge["id"]: edge for edge in [*incident, *inherited]}.values())
     for edge in incident:
         edges.add(edge["id"])
         for endpoint in (edge["source"], edge["target"]):
@@ -47,7 +52,7 @@ def select_scope(graph, node_id):
     sectors = [identifier for identifier in lineage
                if index.by_id[identifier]["kind"] == "sector"]
     incoming = [edge for edge in index.edges
-                if edge["target"] in sectors and edge.get("port", "next") == "next"]
+                if edge["target"] in sectors and "relation" not in edge and edge.get("port", "next") == "next"]
     # One record per sector also witnesses an empty incoming-edge selector.
     for identifier in sorted(sectors):
         predicates.append({"type": "incoming-next", "nodeId": identifier,

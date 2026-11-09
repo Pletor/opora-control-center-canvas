@@ -142,7 +142,8 @@ def capture_specification(canvas, project, workspace, node_id):
                     pending.append(child["id"])
         related.update(descendants)
         for edge in graph["edges"]:
-            if descendants.intersection((edge["source"], edge["target"])):
+            if (descendants.intersection((edge["source"], edge["target"]))
+                    or edge.get("relation") == "requires" and edge["source"] in lineage):
                 related.update((edge["source"], edge["target"]))
         config = canvas.project_hub.settings(project)
         stored = DesktopV3State(canvas).read(project, workspace)
@@ -178,4 +179,8 @@ def capture_specification(canvas, project, workspace, node_id):
             "referencesPolicy": "reference-only; external content is not captured or verified",
         }), "cards": cards, "drawings": drawings}
         specification = scoped_specification(specification)
+        from backend.canvas.storyboard_evidence import collect as storyboard_inputs
+        storyboards = [item for item in storyboard_inputs(canvas, project, workspace, related, graph) if item["revision"] > 0]
+        if storyboards:
+            specification["storyboards"] = storyboards
         return {"contextVersion": digest(specification), "specification": specification}

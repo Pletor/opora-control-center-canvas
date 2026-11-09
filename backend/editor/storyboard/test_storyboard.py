@@ -102,8 +102,6 @@ def test_save_read_revision_conflict_and_delete(service):
 def test_save_rejects_bad_targets_and_payloads(service):
     with pytest.raises(ValueError, match="neexistuje"):
         service.save(payload(board(), node="zadny"))
-    with pytest.raises(ValueError, match="kartě"):
-        service.save(payload(board(), node="sektor"))
     with pytest.raises(ValueError, match="formát"):
         service.save({"project": "draft"})
     with pytest.raises(ValueError):
@@ -418,3 +416,11 @@ def test_brief_carries_revision_and_saved_time_for_stale_comment_warning(tmp_pat
     assert "19:46:49" in flow["next"] and "revize 3" in flow["next"] and "Uložit" in flow["next"]
     with_comment = _workflow([{"t": 1, "title": "A", "comment": "x", "annotations": [], "answered": False}], [], "2026-10-16T19:46:49Z", 3)
     assert with_comment["openComments"] == 1 and "naposledy" not in with_comment["next"]
+
+
+def test_sector_and_child_have_independent_storyboards(service):
+    assert service.read("draft", "draft", "sektor")["storyboard"] is None
+    saved = service.save(payload(board(title="Sector journey"), node="sektor"))
+    assert saved == {"revision": 1}
+    assert service.read("draft", "draft", "karta")["storyboard"] is None
+    assert service.read("draft", "draft", "sektor")["storyboard"]["title"] == "Sector journey"

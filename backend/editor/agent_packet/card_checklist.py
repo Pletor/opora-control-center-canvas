@@ -32,7 +32,7 @@ class EdgeIndex:
             self.touching.setdefault(source, []).append(e)
             if target != source:
                 self.touching.setdefault(target, []).append(e)
-            if e.get("port", "next") in ("next", "block"):
+            if not e.get("relation") and e.get("port", "next") in ("next", "block"):
                 self.outgoing.setdefault(source, []).append(e)
 
 

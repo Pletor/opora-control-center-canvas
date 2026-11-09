@@ -59,7 +59,12 @@ export type PageSectionRole = "hero" | "cta" | "form" | "content" | "gallery" | 
 export type PageSection = { id: string; role: PageSectionRole; name: string; intent: string; moves?: string };
 /** Stránka: záměr píše člověk (`goal`, `feel`, `navLabel`); vše nepovinné, prázdné pole se neukládá. */
 export type PageSite = { kind: "page"; path: string; goal?: string; feel?: string; navLabel?: string; sections?: PageSection[] };
+export type ElementKind = "page" | "form" | "overview" | "dialog" | "action" | "service" | "process" | "entity" | "relationship" | "storage" | "condition" | "permission" | "constraint" | "input" | "output" | "event" | "api_contract";
+export type ElementMetadata = { kind: ElementKind };
+export type EdgeRelation = "uses" | "communicates_with" | "requires" | "evidences";
 export type CanvasNode = {
+  /** Persistent domain role, independent of graphical kind and workflow. */
+  element?: ElementMetadata;
   gateNodeId?: string;
   /** Výslovné logické členství v oblasti se stejným rodičem (H01, `docs/kontrakt-identity.md`); ne poloha. */
   memberOf?: string;
@@ -93,7 +98,12 @@ export type EdgePort = "next" | "action" | "rule" | "flow";
 export const EDGE_PORTS: EdgePort[] = ["next", "action", "rule", "flow"];
 /** Port vazby včetně `block`: vazba nevede z hrany karty, ale z tlačítka bloku v kartě. */
 export type GraphEdgePort = EdgePort | "block";
+export type RequirementTestCase = { stepId: string; check: string; command: string };
+export type InputRequirement = { readiness: "design" | "implemented" | "verified"; revision: number; verification?: { positive: RequirementTestCase; negative: RequirementTestCase } };
 export type GraphEdge = {
+  requirement?: InputRequirement;
+  relation?: EdgeRelation;
+  reason?: string;
   id: string;
   source: string;
   target: string;

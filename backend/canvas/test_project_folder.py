@@ -53,3 +53,15 @@ def test_workspace_graph_and_external_task_stay_inside_project_data(tmp_path):
             folder.workspace_graph(bad)
         with pytest.raises(ValueError):
             folder.external_task("w1", bad)
+
+
+def test_storyboard_accepts_graph_node_ids_without_path_escape(tmp_path):
+    folder = ProjectFolder(tmp_path, "p1")
+    node = "_" + "a" * 79
+    assert folder.storyboard("w1", node) == folder.canvas / "workspaces" / "w1" / "storyboards" / f"{node}.json"
+    for bad in ("", "..", "a/b", "a\\b", "a.b", "a" * 81, None):
+        with pytest.raises(ValueError):
+            folder.storyboard("w1", bad)
+    for bad in ("../w", "_w", "a/b", None):
+        with pytest.raises(ValueError):
+            folder.storyboard(bad, node)

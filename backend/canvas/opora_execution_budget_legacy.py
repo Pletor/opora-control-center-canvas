@@ -4,6 +4,7 @@ import json
 import re
 
 from backend.canvas.graph import digest
+from backend.canvas.opora_execution_input_version import context_version
 from backend.canvas.opora_execution_budget_validation import execution_id, finite
 from backend.canvas.opora_hub_store import content_id
 from backend.canvas.opora_review_policy_validation import timestamp
@@ -35,7 +36,7 @@ def seed_legacy(repo, accepted):
                 or not isinstance(value.get("token"), str)
                 or re.fullmatch("[a-f0-9]{64}", value["token"]) is None
                 or value["assignment"]["contextVersion"]
-                != digest(value["assignment"]["specification"])
+                != context_version(value["assignment"])
                 or value["assignment"]["specification"]["scope"]
                 != {"project": pid, "workspace": wid, "nodeId": node}
             ):

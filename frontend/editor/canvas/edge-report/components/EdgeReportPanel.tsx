@@ -1,6 +1,8 @@
 // Panel vybrané vazby: odkud kam vede, z jakého portu (u vazby z bloku i z kterého tlačítka) a pět
 // pojmenovaných polí zprávy, kterou tam agent nebo člověk nechává pro dalšího v řadě. Dílek nic neukládá:
 // rozepsaný text drží u sebe a po opuštění pole ho ohlásí nahoru přes onChange; ukládá rodič (App).
+import EdgeRelationEditor from "@/editor/canvas/edge-report/components/EdgeRelationEditor";
+import type { GraphEdge } from "@/shared/types/logic/types";
 import { useState } from "react";
 import type { EdgeReport, EdgeReportField } from "@/shared/desktop-state/logic/types";
 import { EDGE_REPORT_FIELDS, MAX_REPORT_FIELD } from "@/shared/desktop-state/logic/types";
@@ -17,7 +19,11 @@ export default function EdgeReportPanel({
   onChange,
   onDue,
   onDelete,
+  edge,
+  onEdgeChange,
 }: {
+  edge?: GraphEdge;
+  onEdgeChange?: (edge: GraphEdge) => void;
   view: EdgeReportView;
   /** From / To: název a adresa obou karet z `edgeRoute`. */
   route: EdgeRoute;
@@ -54,6 +60,7 @@ export default function EdgeReportPanel({
         Zpráva na vazbě je paměť mezi kartami: co se udělalo, co z toho platí a na co si má dát pozor další agent.
         Vyplněno <b>{filledFields(report)} / {EDGE_REPORT_FIELDS.length}</b>. Identifikátor vazby: <code>{view.edgeId}</code>
       </p>
+      {edge && onEdgeChange && <EdgeRelationEditor key={edge.id} edge={edge} readOnly={readOnly} busy={busy} onSave={onEdgeChange} />}
       <EdgeReportMeta route={route} sentAt={report.sentAt} due={report.due} readOnly={readOnly} busy={busy} onDue={onDue} />
       <div className="edge-report__fields">
         {EDGE_REPORT_FIELDS.map((field) => (

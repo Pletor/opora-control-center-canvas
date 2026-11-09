@@ -4,6 +4,7 @@
 // formulář drží u sebe; hotový uzel a zadání ohlásí přes onCreate. Nic neukládá — to dělá App.
 import { useState } from "react";
 import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
+import ElementKindField from "@/editor/canvas/create-dialog/components/ElementKindField";
 import AgentFields from "@/editor/canvas/create-dialog/components/AgentFields";
 import CreateSourceFields from "@/editor/canvas/create-dialog/components/CreateSourceFields";
 import FoldSection from "@/editor/canvas/create-dialog/components/FoldSection";
@@ -89,6 +90,8 @@ export default function CreateDialog({
         <input aria-label={nameLabel(kind)} value={form.name} required maxLength={160} autoFocus
           onChange={(e) => setForm({ ...form, name: e.target.value })} />
       </label>
+      <ElementKindField value={form.elementKind} disabled={busy}
+        onChange={elementKind => setForm({ ...form, elementKind })} />
       {showTarget && (
         <label className="field">
           Cílový sektor

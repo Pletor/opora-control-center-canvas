@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { kulicka } from "./animations/kulicka";
-import { ANNOTATION_LAYER, cardsForPicker, defaultVisible, layersOf, paintLayers, toggleLayer } from "./storyboard-layout";
+import { ANNOTATION_LAYER, storyboardScope, cardsForPicker, defaultVisible, layersOf, paintLayers, toggleLayer } from "./storyboard-layout";
 
 describe("rozvržení storyboardu", () => {
   it("do výběru jdou jen karty, abecedně", () => {
@@ -30,4 +30,12 @@ describe("rozvržení storyboardu", () => {
     expect(paintLayers(defaultVisible(kulicka)).has(ANNOTATION_LAYER)).toBe(false);
     expect(paintLayers(defaultVisible(kulicka)).has("kulicka")).toBe(true);
   });
+});
+
+it("keeps the entered scope independently of a selected child and preserves root overview", () => {
+  const nodes = [{ id: "login", kind: "node" }, { id: "tenant", kind: "node" }, { id: "area", kind: "sector" }];
+  expect(storyboardScope(nodes, "login")).toBe(nodes[0]);
+  expect(storyboardScope(nodes, "tenant")).toBe(nodes[1]);
+  expect(storyboardScope(nodes, "area")).toBe(nodes[2]);
+  expect(storyboardScope(nodes, null)).toBeNull();
 });

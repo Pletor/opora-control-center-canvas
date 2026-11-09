@@ -1,0 +1,4 @@
+/* Context knowledge opens over the editor only on request; the canvas keeps its full size when closed. */
+.knowledge-drawer { position: absolute; z-index: 45; top: 8px; right: 8px; bottom: 8px; width: min(520px, calc(100% - 16px)); overflow: auto; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 32px #0003; }
+.knowledge-drawer > header { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; gap: 8px; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.knowledge-drawer .research-knowledge[open] { max-height: none; overflow: visible; }

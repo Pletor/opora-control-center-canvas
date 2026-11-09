@@ -24,7 +24,7 @@ def table_sql(db):
 
 
 def insert(db, *row):
-    db.execute("INSERT INTO intake_milestones VALUES(?,?,?,?,?,?,?)", row)
+    db.execute("INSERT INTO intake_milestones(id,workspace_id,area_id,title,criteria,status,created_at) VALUES(?,?,?,?,?,?,?)", row)
 
 
 def assert_rules(db):
@@ -45,7 +45,7 @@ def test_old_database_keeps_rows_and_accepts_proposed_twice_without_change():
     db.commit()
     initialize_project_schema(db)
     assert "'proposed'" in table_sql(db)
-    assert db.execute("SELECT * FROM intake_milestones ORDER BY id").fetchall() == sorted(ROWS)
+    assert db.execute("SELECT id,workspace_id,area_id,title,criteria,status,created_at FROM intake_milestones ORDER BY id").fetchall() == sorted(ROWS)
     assert db.execute("SELECT name FROM sqlite_master WHERE name='intake_milestones_old'").fetchone() is None
     rebuilt = table_sql(db)
     ensure_milestone_proposed(db)  # druhé spuštění: CHECK už `proposed` zná

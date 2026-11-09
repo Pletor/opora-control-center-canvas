@@ -63,7 +63,7 @@ def _card_text(entry, node_state, card, section=()):
         blocks += [todo.get("text", "") for todo in block.get("todos", [])]
     return _lines(
         entry["address"], entry["type"] or "", LAYER_LABELS.get(entry["layer"], ""), entry["name"], entry["purpose"], entry["sourcePath"],
-        card.get("tech"), *card.get("states", []), *section,
+        (entry.get("element") or {}).get("kind"), card.get("tech"), *card.get("states", []), *section,
         *blocks,
         *(item.get("text", "") for item in node_state.get("criteria", [])),
         *(item.get("text", "") for item in node_state.get("steps", [])),
@@ -89,6 +89,7 @@ def build_index(graph, state):
         addresses[node["id"]] = address
         entry = {
             "id": node["id"],
+            **({"element": node["element"]} if "element" in node else {}),
             "kind": node["kind"],
             "name": node["name"],
             "type": effective_type(node) if node["kind"] == "node" else None,
@@ -114,7 +115,7 @@ def build_index(graph, state):
             "id": edge["id"],
             "kind": "edge",
             "port": edge.get("port", "next"),
-            **({"carries": edge["carries"]} if "carries" in edge else {}),
+            **{key: edge[key] for key in ("carries", "relation", "reason", "requirement") if key in edge},
             "from": edge["source"],
             "to": edge["target"],
             "fromName": source["name"],
@@ -128,7 +129,7 @@ def build_index(graph, state):
         }
         entry["text"] = _lines(
             entry["fromAddress"], entry["toAddress"], entry["fromName"], entry["toName"],
-            entry["summary"], entry["handoff"],
+            entry.get("relation"), entry.get("reason"), entry["summary"], entry["handoff"],
         )
         entries.append(entry)
     return entries

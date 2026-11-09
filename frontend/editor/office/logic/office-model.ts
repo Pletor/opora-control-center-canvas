@@ -15,7 +15,7 @@ import type { CardLease } from "@/editor/canvas/node-card/logic/use-leases";
 /** Ticket z `GET /api/brain/tickets`, jen pole, která Kancelář čte (`WorkTicket` je splňuje). */
 export type OfficeTicket = {
   ticketId: string; seq?: number; status: string; sessionId: string | null; updatedAt: string;
-  body: { build: string }; machine: { cardId: string | null };
+  body: { build: string }; machine: { cardId: string | null; affectedNodeIds?: string[] };
 };
 /** Pracovník: relace brány (`id` = `sessionId`) a ticket, který drží. */
 export type Worker = { id: string; ticketId: string; title: string; nodeId: string | null; updatedAt: string };
@@ -55,7 +55,7 @@ export function workersOf(tickets: OfficeTicket[]): Worker[] {
   return workers;
 }
 
-function deskOf(card: CanvasNode, input: OfficeInput): Omit<Desk, "workers"> {
+export function deskOf(card: CanvasNode, input: OfficeInput): Omit<Desk, "workers"> {
   const flow = nodeWorkflowOf(input.state, card.id);
   const closed = !!flow.done?.confirmed;
   const own = input.state.nodes[card.id];

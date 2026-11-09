@@ -41,7 +41,7 @@ class FrontierIndex:
             self.children.setdefault(n.get('parentId'), []).append(n)
         self.incoming = {}
         for e in graph.get('edges', []):
-            if e.get('port', 'next') == 'next':
+            if not e.get('relation') and e.get('port', 'next') == 'next':
                 self.incoming.setdefault(e.get('target'), []).append(e.get('source'))
         self._sector_edges = None
 

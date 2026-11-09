@@ -70,7 +70,7 @@ def _memory(state, cards, paths, upstream):
                           if item.get("by") != "agent" or item.get("nodeId") in upstream]}
 
 
-def project_sql_context(rows, project, workspace, node_id, *, metadata):
+def project_sql_context(rows, project, workspace, node_id, *, metadata, _include_affected=True):
     """Return raw semantic data, never suitable for an unauthenticated/public response.
 
     Caller supplies a bounded transaction snapshot and frozen registry identity. Registry
@@ -119,6 +119,15 @@ def project_sql_context(rows, project, workspace, node_id, *, metadata):
         **_memory(state, cards, paths, upstream), "cards": documents, "drawings": drawings,
         "eligibility": {"facts": facts, "blockers": sector_blockers(graph, state, node_id, statuses)},
         "referencesPolicy": "reference-only; external content is not captured or verified"}
+    if _include_affected:
+        from backend.canvas.execution_write_set import affected_ids
+        own = next(item for item in documents if item["nodeId"] == node_id)
+        affected = affected_ids(own["spec"]["fields"])
+        if any(identifier == node_id or by_id.get(identifier, {}).get("kind") not in ("node", "sector") for identifier in affected):
+            raise ValueError("Affected element is missing from the execution graph.")
+        if affected:
+            result["affectedScopes"] = [project_sql_context(rows, project, workspace, identifier,
+                metadata=metadata, _include_affected=False) for identifier in affected]
     return copy.deepcopy(result)
 
 

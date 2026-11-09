@@ -85,7 +85,7 @@ class SectorEdges:
         self.into = {}
         for position, edge in enumerate(graph["edges"]):
             source, target = self.by_id.get(edge["source"], {}), self.by_id.get(edge["target"], {})
-            if edge.get("port", "next") != "next" or target.get("kind") != "sector":
+            if "relation" in edge or edge.get("port", "next") != "next" or target.get("kind") != "sector":
                 continue
             self.into.setdefault(edge["target"], []).append((position, edge["source"], source))
 

@@ -347,7 +347,7 @@ class DesktopV3Packets:
                     {**summary(nid), "status": stored["state"]["nodes"].get(nid, {}).get("phase"),
                      "statusSource": "desktop-v3/state", "stateRevision": stored["revision"]}
                     for nid in sorted({edge["source"] for edge in graph["edges"]
-                                       if edge["target"] == node and edge_port(edge) == "next"})
+                                       if edge["target"] == node and not edge.get("relation") and edge_port(edge) == "next"})
                 ],
                 # Co má agent na uzlu vykonat (pipeline v pořadí) a jaká pravidla pro uzel platí.
                 "actions": memory["actions"],
@@ -360,7 +360,7 @@ class DesktopV3Packets:
                 "next": [
                     {"nodeId": edge["target"], "name": by_id[edge["target"]]["name"], "edgeId": edge["id"], "port": "next"}
                     for edge in graph["edges"]
-                    if edge["source"] == node and edge_port(edge) == "next" and edge["target"] in by_id
+                    if edge["source"] == node and not edge.get("relation") and edge_port(edge) == "next" and edge["target"] in by_id
                 ],
             },
             "context": {

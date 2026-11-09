@@ -429,8 +429,8 @@ class StoryboardService:
         node = next((n for n in view["graph"]["nodes"] if n["id"] == node_id), None)
         if node is None:
             raise ValueError("Uzel v tomto pracovním prostoru neexistuje.")
-        if node.get("kind") != "node":
-            raise ValueError("Storyboard patří jen kartě (uzel druhu node).")
+        if node.get("kind") not in ("node", "sector"):
+            raise ValueError("Storyboard patří kartě nebo sektoru pracovního kontextu.")
         return view
 
     @staticmethod

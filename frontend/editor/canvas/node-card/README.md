@@ -9,3 +9,6 @@ Smazáno 2026-10-15 ráno: editor důkazů na kartě (`EvidenceEditor`, akce `sa
 Smazáno jako nepoužívané podle měření na živých datech 2026-10-15: čip fáze v hlavě, scénář (`CardScenario`, polling historie), fakta projektu (`CardFacts`), odkaz na návrh (`CardDesign`) a přepínač stahování z URL (`InputSecurity`); kontrola bezpečného odkazu pro důkazy, logy a PR zůstala v `logic/safe-url.ts`.
 
 Porty (2026-10-27): všechny úchyty karty i bloků jsou `PortHandle` ze `shared/flow-ports` (zásahová plocha 26 px, kulička 10 px, stálá velikost při zoomu přes `--rf-inv-zoom`, český tooltip a fokus z klávesnice; Enter / mezerník na portu bloku ho otevře). Styl karty dodává jen výšku a barvu přes `--port-fill` / `--port-ring` / `--port-glow`.
+# Oddělené osy postupu
+
+`CardProgress` promítá návrh, realizaci a ověření samostatně. Artefakt je pouze podklad, nikoliv přijetí návrhu. Realizace používá běh a stav začlenění z již načtené tváře agent-state; prototyp, rešerše ani výslech se neoznačují za realizovanou funkci. Karta z těchto vstupů nemá doklad funkční zkoušky připnuté revize, proto ověření zůstává „Nedoloženo“ i při splněné technické bráně a uzavřené práci. Další krok a blokující předchůdci pocházejí ze stejné serverové tváře. Osy se ručně neupravují a nespouštějí další dotazy za každou kartu.
