@@ -6,6 +6,7 @@ import ResearchCard, { type ResearchFlowNode } from "./ResearchCard";
 import ResearchInspector from "./ResearchInspector";
 import { RELATION_LABELS, researchLayout, topicLabel } from "../logic/research-model";
 import { useResearch, useResearchDetail, useResearchEdge } from "../logic/use-research";
+import { reviewRoute } from "../logic/review-route";
 import "../styles/research.css";
 type Props = { project: string; workspace: string; nodes: { id: string; name: string }[]; readOnly?: boolean; onOpenNode: (id: string) => void; onDraw: (id: string) => void };
 const nodeTypes = { research: ResearchCard };
@@ -19,6 +20,11 @@ function Workspace({ project, workspace, nodes: structureNodes, readOnly = false
   const [selected, setSelected] = useState<{ kind: "card" | "edge"; id: string } | null>(null); const [revision, setRevision] = useState<number>();
   const data = useResearch(scope, archived);
   const effectiveScope = { project, workspace: data.workspace ?? workspace };
+  useEffect(() => {
+    const target = reviewRoute(window.location.search, { project, workspace });
+    setSelected(target ? { kind: "card", id: target.card } : null);
+    setRevision(undefined);
+  }, [project, workspace]);
   const currentCard = data.cards.find(card => selected?.kind === "card" && card.id === selected.id);
   const currentEdge = data.edges.find(edge => selected?.kind === "edge" && edge.id === selected.id);
   const detail = useResearchDetail(effectiveScope, selected?.kind === "card" ? selected.id : null, revision, currentCard?.revision);

@@ -31,3 +31,11 @@ Předávky znovupoužijí existující packet, assignment snapshot, lease a exec
 - Durable návaznost výzkumu může být úzkým receipt stavu navázaným na existující HeartDriver a flow_runs. Vstupní klíč projekt/prostor/výzkum/revize; backlog musí obnovit i výsledek, který nebyl potvrzen před restartem. Emise samotné události nestačí, protože paměťová pending fronta a počáteční cursor nedohánějí tyto ztráty. Potvrzení výsledku ověří server proti uloženému nativnímu návrhu, ne proti tvrzení modelu.
 - `wall.py` záměrně dovoluje obecné GET/HEAD; specifické context a gate cesty mají vlastní scoped kontroly. Katalog čtení musí použít ověřenou identitu Heart a porovnat projekt/prostor včetně vlastníka ID-only objektů. Opora v současném schématu nemá organizace ani členství; neuvádět smyšlený orgId ani tvrzení o prokázané organizační izolaci. Ample má vlastní tenant model, který je samostatným předmětem V1.
 - Katalog popisuje konečné pojmenované operace a jejich skutečnou implementaci. Volající nemůže zvolit libovolnou HTTP cestu, metodu ani Python funkci. Identifikátor schopnosti a identifikátor opakování požadavku jsou rozdílné pojmy. Nepřipojený pohled UI nesmí vracet applied; kameru přijímá pouze konkrétní relace a nemění sdílené pozice.
+
+## Zjištěná hranice úplného přijetí a předávky
+
+Test skutečného přijetí V3 a následného nativního spuštění odhalil neúplný content manifest: chybějící výchozí text/kresba nových uzlů a globální kresba; starší přijatá hlava navíc nemusí mít content manifest vůbec. Samotné uložení grafu a zadání nestačí pro `require_accepted_content`. Kontrola se nesmí vypnout.
+
+Kompatibilní oprava vychází z existujícího přijetí základního obsahu. Návrh připne přesný snímek a digest případného převzetí původního obsahu a zobrazuje je jako součást požadovaného přijetí; před přijetím žádnou autoritu nemění. Je-li převzetí nezbytné, přijetí musí nést odpovídající výslovnou podmínku/digest podle nativního kontraktu. Změna pracovního obsahu mezitím vyvolá konflikt. U existujícího manifestu zůstávají nedotčené přijaté položky zachované. Nejde o povolení potichu přijmout libovolný živý obsah.
+
+Povinný důkaz: přijatý úplný návrh v izolovaném projektu projde do skutečného execution assignmentu, zadání odpovídá přijatým dokumentům a opakování nezaloží další práci. Původní Ample návrhy se kvůli tomuto testu nepřijímají.

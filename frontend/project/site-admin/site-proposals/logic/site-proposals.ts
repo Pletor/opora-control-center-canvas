@@ -4,8 +4,11 @@ import { api } from "@/shared/types/logic/types";
 import type { SiteSaved } from "../../logic/site-admin-api";
 
 export type ProposalChange = { path: string; before: unknown; after: unknown };
+export type ProposalAttachment = { kind: "asset" | "font"; op: "put" | "delete"; path: string; name: string;
+  baseDigest: string | null; sha256: string | null; size: number; type: string | null };
 export type SiteProposal = { id: string; status: string; baseRevision: number; diff: ProposalChange[]; diffTotal: number;
-  notes: string[]; note: string; by: string; at: string };
+  notes: string[]; note: string; by: string; at: string; attachments?: ProposalAttachment[]; recoveryNeeded?: boolean;
+  recoveryTargets?: { path: string; state: "before" | "after" | "conflict"; actual: string | null }[] };
 export type DiffLine = { path: string; before: string; after: string };
 
 const BASE = "/api/site-admin/proposals";
@@ -23,6 +26,19 @@ export const loadProposal = (project: string) => api<unknown>(`${BASE}?${query(p
 export const acceptProposal = (project: string, id: string, expectedRevision: number) =>
   api<SiteSaved>(`${BASE}/${encodeURIComponent(id)}/accept`, { project, expectedRevision });
 export const rejectProposal = (project: string, id: string) => api<unknown>(`${BASE}/${encodeURIComponent(id)}/reject`, { project });
+export const attachmentUrl = (project: string, id: string, index: number) =>
+  `${BASE}/${encodeURIComponent(id)}/attachments/${index}?${query(project)}`;
+
+export async function downloadAttachment(url: string, name: string): Promise<void> {
+  await api("/api/access/ui-session");
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Přílohu nelze stáhnout (HTTP ${response.status}).`);
+  const objectUrl = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = objectUrl; link.download = name;
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
 
 /** Hodnota listu rozdílu jako krátký text: chybějící „—“, text v uvozovkách, zbytek JSON; delší než `limit` se zkrátí. */
 export function valueText(value: unknown, limit = 80): string {

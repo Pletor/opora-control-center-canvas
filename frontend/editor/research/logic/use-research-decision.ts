@@ -46,5 +46,6 @@ export function useResearchDecision(scope: ResearchScope, decisionId: string) {
     if (active()) setProposal(receipt);
   });
   const refresh = () => select(selected);
-  return { reviews, selected, proposal, busy, error, select, review, propose, refresh, reconcile };
+  const receivedReview = (value: DecisionReview) => { setReviews(current => [...current.filter(item => item.id !== value.id), value]); setSelected(value.id); setProposal(null); };
+  return { reviews, selected, proposal, busy, error, select, review, propose, refresh, reconcile, receivedReview };
 }

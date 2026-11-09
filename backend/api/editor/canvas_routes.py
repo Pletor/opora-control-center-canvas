@@ -81,7 +81,11 @@ def create_canvas_router(service):
         # Dávka plánu (docs/davka-planu.md §3): jen přidává, atomicky; `dryRun` nic nezapíše.
         name = getattr(request.state, "agent", None)
         operation_actor = {"kind": request.state.actor, "name": name or ""}
-        if request.state.actor != "agent" or not isinstance(name, str) or not name.strip():
+        if "operationId" in payload:
+            owner = "agent:" + name if request.state.actor == "agent" and isinstance(name, str) and name.strip() else None
+            result = apply_plan(service, payload, actor=request.state.actor, operation_actor=operation_actor,
+                                repin_owner=owner)
+        elif request.state.actor != "agent" or not isinstance(name, str) or not name.strip():
             result = apply_plan(service, payload, actor=request.state.actor, operation_actor=operation_actor)
         else:
             # Vlastní dávka agenta přepne kontext jeho živých běhů (re-pin, zefektivneni-opory.md §3.3).

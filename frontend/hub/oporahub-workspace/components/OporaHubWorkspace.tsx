@@ -35,6 +35,13 @@ export default function OporaHubWorkspace(models: OverviewModels) {
   useEffect(() => {
     const id = scopedProposalLink(location.search, project, workspace);
     if (id) setSelection({ scope, target: { kind: "graph", id, title: "Uložený návrh plánu" } });
+    else {
+      const params = new URLSearchParams(location.search);
+      if (params.get("project") === project && params.get("workspace") === workspace) {
+        const changeset = params.get("ohChangeset"), baseline = params.get("ohBaseline");
+        if (changeset || baseline) setSelection({ scope, target: { kind: "changes", ...(changeset ? { id: changeset } : {}), title: "Uložený návrh zadání" } });
+      }
+    }
   }, [scope, project, workspace]);
   const onDetailOpenChange = models.onDetailOpenChange;
   useEffect(() => { onDetailOpenChange?.(!!detail); }, [!!detail, onDetailOpenChange]);
@@ -48,6 +55,9 @@ export default function OporaHubWorkspace(models: OverviewModels) {
     if (target.kind === "graph" && target.id) {
       url.searchParams.set("ohGraph", target.id); url.searchParams.set("project", project); url.searchParams.set("workspace", workspace);
     } else url.searchParams.delete("ohGraph");
+    if (target.kind === "changes" && target.id) url.searchParams.set("ohChangeset", target.id);
+    else url.searchParams.delete("ohChangeset");
+    url.searchParams.delete("ohBaseline");
     history.replaceState(history.state, "", url);
     if (target.id) {
       if (target.kind === "graph") models.graphProposals.inspect(target.id);
@@ -62,7 +72,7 @@ export default function OporaHubWorkspace(models: OverviewModels) {
     if (target.kind === "card") { const card = target.id || defaultCard(agent.state, models.executions.choices); if (card) openCardDrawer(card); return; }
     setSelection({ scope, target });
   }
-  function close() { const url = new URL(location.href); url.searchParams.delete("ohGraph"); history.replaceState(history.state, "", url);
+  function close() { const url = new URL(location.href); for (const key of ["ohGraph", "ohChangeset", "ohBaseline"]) url.searchParams.delete(key); history.replaceState(history.state, "", url);
     models.proposalReview?.reset(); models.contentChanges?.cancel(); models.budgets.cancel(); models.executions.dismissCancel(); models.reviewPolicy.cancel(); models.reconciliation.cancel(); models.graphProposals.acknowledge(false); setSelection(null); }
   function refresh() {
     agent.refresh(); models.graphProposals.refresh(); models.changes.refresh(); models.executions.refresh(); models.executionObservations?.refresh();

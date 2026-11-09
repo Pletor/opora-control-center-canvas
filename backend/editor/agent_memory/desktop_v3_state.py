@@ -789,7 +789,7 @@ class DesktopV3State:
                               actor=actor, base=stored["state"], slim=True, execution_actor=execution_actor)
         return {**saved, "nodeId": node_id, "node": node}
 
-    def set_autonomy(self, payload):
+    def prepare_autonomy(self, payload):
         """Člověk svěří sektoru autonomii do času `until` (prázdné `until` ji odebere).
 
         Agent pak smí v tomto sektoru kartu se všemi bloky `met` uzavřít sám (agent-output);
@@ -820,5 +820,11 @@ class DesktopV3State:
         else:
             grants[sector_id] = {"until": until, "grantedAt": now(), "note": note, "grantedBy": granted_by}
         state = {key: value for key, value in stored["state"].items() if key != "autonomy"}
-        return self.save({"project": project, "workspace": workspace,
-                          "expectedRevision": payload["expectedRevision"], "state": state}, autonomy=grants)
+        if stored["readOnly"] or type(payload["expectedRevision"]) is not int or stored["revision"] != payload["expectedRevision"]:
+            raise ValueError("Autonomy preparation requires the current writable state revision.")
+        return {"payload": {"project": project, "workspace": workspace,
+                            "expectedRevision": payload["expectedRevision"], "state": state}, "grants": grants}
+
+    def set_autonomy(self, payload):
+        prepared = self.prepare_autonomy(payload)
+        return self.save(prepared["payload"], autonomy=prepared["grants"])

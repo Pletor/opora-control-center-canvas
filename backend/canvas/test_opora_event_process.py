@@ -46,3 +46,16 @@ def test_stored_office_fields_win():
     result = derive(stored)
     assert (result["phase"], result["state"], result["title"]) == ("work", "progress", "Upravuje soubor")
     assert result["eventId"] == "office:f1:3" and result["refs"] == {"project": "p1", "workspace": "w1"}
+
+
+def test_research_request_is_visible_pending_plan_without_second_heart_wake():
+    from backend.canvas.opora_events import QUIET
+    from backend.flow.catalogs.heart.inputs import wake_input
+    source = event('research.planning.requested', nodeId=None, executionId=None,
+                   data={'continuationId': 'rp_fixture', 'researchId': 'rc_fixture', 'researchRevision': 1})
+    result = derive(source)
+    assert (result['phase'], result['state']) == ('plan', 'wait')
+    assert result['title'] == 'Naplánováno pokračování po rešerši'
+    assert result['refs'] == {'project': 'p1', 'workspace': 'w1'}
+    assert source['kind'] in QUIET  # No unrelated card-stage refresh.
+    assert wake_input(source) is None  # Only durable continuation reconciliation schedules the run.

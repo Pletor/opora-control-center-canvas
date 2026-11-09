@@ -1,9 +1,10 @@
 import type { Graph, SpecFields } from "@/shared/types/logic/types";
 import { fieldKeys, fieldLabels } from "@/hub/plan-changes/logic/plan-changes";
 import type { GraphProposalsView } from "../logic/use-graph-proposals";
-import { graphProposalStale } from "../logic/graph-proposals";
+import { graphProposalStale, isGraphChange } from "../logic/graph-proposals";
 import GraphChangeReview from "./GraphChangeReview";
 import GraphProposalCanvas from "./GraphProposalCanvas";
+import GraphProposalContent from "./GraphProposalContent";
 import { CARRIES_LABEL } from "@/shared/edge-carries/logic/edge-carries";
 import ProposalReview from "@/hub/proposal-review/components/ProposalReview";
 import { reviewReady } from "@/hub/proposal-review/logic/proposal-review";
@@ -33,11 +34,16 @@ export default function GraphProposalDetails({ model, review }: { model: GraphPr
   const proposal = model.inspected;
   if (!proposal) return null;
   const stale = !model.context || graphProposalStale(model.context, proposal);
-  const changes = proposal.schemaVersion === 2;
-  const incomplete = changes && (!proposal.changes || !proposal.stateEffects);
+  const superseded = !!proposal.supersededBy;
+  const changes = isGraphChange(proposal);
+  const incomplete = changes && (!proposal.changes || !proposal.stateEffects || (proposal.schemaVersion === 3 && !proposal.contentEffects));
   return <section className="graph-proposals__details" aria-label="Obsah návrhu rozšíření">
     <h3>{proposal.subject}</h3>
-    <p role="status" className="graph-proposals__preview-status">{proposal.accepted ? "Návrh byl přijat" : "Návrh – čeká na přijetí"}</p>
+    <p role="status" className="graph-proposals__preview-status">{proposal.accepted ? "Návrh byl přijat" : superseded ? "Návrh byl nahrazen" : "Návrh – čeká na přijetí"}</p>
+    {superseded && <p className="graph-proposals__warning">Tato verze zůstává v historii. Přijetí a převod na nový základ jsou zablokované.
+      {" "}<button type="button" disabled={model.busy} onClick={() => model.inspect(proposal.latestProposalId || proposal.supersededBy!)}>Otevřít aktuální návrh</button>
+      {" "}<code>{proposal.latestProposalId || proposal.supersededBy}</code>
+    </p>}
     <dl className="graph-proposals__identity">
       <dt>Neměnná revize návrhu</dt><dd><code>{proposal.id}</code></dd>
       <dt>Přijatá výchozí revize</dt><dd><code>{proposal.parentRevision ?? "První plán bez přijaté revize"}</code></dd>
@@ -46,6 +52,7 @@ export default function GraphProposalDetails({ model, review }: { model: GraphPr
       <dt>Autor a čas</dt><dd>{proposal.by.name} ({proposal.by.kind}) · {new Date(proposal.createdAt).toLocaleString("cs-CZ")}</dd>
     </dl>
     <GraphProposalCanvas key={proposal.id} proposal={proposal} />
+    <GraphProposalContent proposal={proposal} />
     {proposal.supersedes && <p>Nový návrh odvozený z <code>{proposal.supersedes}</code>. Původní návrh zůstává v historii.</p>}
     <ul>{Object.entries(proposal.refs).map(([ref, id]) => <li key={ref}>Značka <code>{ref}</code> → ID <code>{id}</code></li>)}</ul>
     <ul>{Object.entries(proposal.inside).map(([id, area]) => <li key={id}>Prvek <code>{id}</code> bude uvnitř oblasti <code>{area}</code>.</li>)}</ul>
@@ -57,25 +64,25 @@ export default function GraphProposalDetails({ model, review }: { model: GraphPr
     {!!proposal.architectureDocuments?.length && <section aria-label="Přebíraná zadání architektury"><h4>Přebíraná zadání kontextu architektury</h4>
       <p>Tyto přesné revize a texty budou součástí přijatého kontextu. Sdílená zadání se nepřepisují.</p><Documents documents={proposal.architectureDocuments} /></section>}
     {changes && !proposal.accepted && <label className="graph-proposals__ack"><input type="checkbox" checked={model.acknowledged}
-      disabled={model.disabled || stale || incomplete} onChange={event => model.acknowledge(event.target.checked)} />
+      disabled={model.disabled || superseded || stale || incomplete} onChange={event => model.acknowledge(event.target.checked)} />
       Zkontroloval/a jsem všechny úpravy, odstranění a jejich dopady a výslovně přijímám změny návrhu <code>{proposal.id}</code>.
     </label>}
     {proposal.requiresBaseAdoption ? <section className="graph-proposals__adoption" aria-label="Převzetí výchozího grafu">
-      <h4>První převzetí existujícího grafu a zadání</h4>
-      <p>Přijetí zahrne také následující výchozí graf a uložená zadání. Zkontrolujte celý obsah, nikoli jen nové prvky.</p>
+      <h4>{proposal.schemaVersion === 4 ? "První převzetí existujícího grafu" : "První převzetí existujícího grafu a zadání"}</h4>
+      <p>{proposal.schemaVersion === 4 ? "Zkontrolujte celý výchozí i navržený graf. Uložená zadání a další obsah karet tento návrh nepřebírá." : "Přijetí zahrne také následující výchozí graf a uložená zadání. Zkontrolujte celý obsah, nikoli jen nové prvky."}</p>
       <GraphContents graph={proposal.baseGraph} />
       <Documents documents={proposal.adoptionDocuments} />
       {!proposal.accepted && <label className="graph-proposals__ack"><input type="checkbox" checked={model.acknowledged}
-        disabled={model.disabled || stale} onChange={event => model.acknowledge(event.target.checked)} />
-        Zkontroloval/a jsem výchozí graf i zadání a výslovně přebírám otisk <code>{proposal.graphDigest}</code>.
+        disabled={model.disabled || superseded || stale} onChange={event => model.acknowledge(event.target.checked)} />
+        Zkontroloval/a jsem {proposal.schemaVersion === 4 ? "výchozí graf" : "výchozí graf i zadání"} a výslovně přebírám otisk <code>{proposal.graphDigest}</code>.
       </label>}
     </section> : <details><summary>Výchozí graf návrhu</summary><GraphContents graph={proposal.baseGraph} /></details>}
     {proposal.accepted ? <p role="status">Tento návrh byl přijat.</p> : <>
-      {stale && model.context && <p className="graph-proposals__warning">Návrh vznikl nad jiným kontextem. Převod vytvoří nový neměnný návrh, který je nutné znovu zkontrolovat.</p>}
+      {!superseded && stale && model.context && <p className="graph-proposals__warning">Návrh vznikl nad jiným kontextem. Převod vytvoří nový neměnný návrh, který je nutné znovu zkontrolovat.</p>}
       <p>{changes ? "Přijetí provede pouze uvedené změny a odstranění v přijatém plánu i pracovním Canvasu." : "Přijetí přidá uvedené prvky, vazby a zadání do Canvasu."} Nepotvrzuje implementaci ani dokončení práce.</p>
       <div className="graph-proposals__actions">
-        <button type="button" disabled={model.disabled || (!stale && !changes)} onClick={model.rebase}>Vytvořit návrh nad aktuálním základem</button>
-        <button type="button" disabled={model.disabled || stale || incomplete || ((changes || proposal.requiresBaseAdoption) && !model.acknowledged) || !reviewReady(review, { proposalKind: changes ? "graph-change" : "graph-addition", proposalId: proposal.id }, model.context?.acceptedHead ?? null)} onClick={model.accept}>{changes ? "Přijmout úpravy plánu" : "Přijmout rozšíření plánu"}</button>
+        <button type="button" disabled={model.disabled || superseded || proposal.schemaVersion === 4 || (!stale && !changes)} onClick={model.rebase}>Vytvořit návrh nad aktuálním základem</button>
+        <button type="button" disabled={model.disabled || superseded || stale || incomplete || ((changes || proposal.requiresBaseAdoption) && !model.acknowledged) || !reviewReady(review, { proposalKind: changes ? "graph-change" : "graph-addition", proposalId: proposal.id }, model.context?.acceptedHead ?? null)} onClick={model.accept}>{changes ? "Přijmout úpravy plánu" : "Přijmout rozšíření plánu"}</button>
       </div>
     </>}
   </section>;

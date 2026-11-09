@@ -17,7 +17,12 @@ class OporaGraphChangeAcceptance(OporaGraphAcceptance):
         self.service, self.proposals = service, OporaGraphChanges(service)
 
     def accept(self, proposal_id, payload, by):
-        exact_fields(payload, {"project", "workspace", "expectedAcceptedHead", "expectedGraphDigest",
+        with self.service.lock_for(payload.get("project")):
+            record = self.proposals.repository(payload.get("project"), payload.get("workspace")).read(proposal_id)
+        if record.get("schemaVersion") == 4:
+            from backend.canvas.opora_graph_candidate_acceptance import accept
+            return accept(self.service, proposal_id, payload, by)
+        exact_fields({key: value for key, value in payload.items() if key != "adoptBaseContentDigest"}, {"project", "workspace", "expectedAcceptedHead", "expectedGraphDigest",
                                "adoptBaseGraphDigest", "reviewedChangesId"},
                      "Přijetí změn grafu", {"project": "<projectId>", "workspace": "draft",
                                              "expectedAcceptedHead": "<heads.acceptedHead>",
@@ -38,6 +43,17 @@ class OporaGraphChangeAcceptance(OporaGraphAcceptance):
                 previous = repo.accepted(proposal_id)
                 if previous:
                     return accepted_record(specs, previous)
+                if proposal["schemaVersion"] == 3:
+                    from backend.canvas.opora_graph_revise import require_latest
+                    require_latest(repo, proposal_id)
+                    base = proposal.get("contentBase")
+                    if base is None:
+                        raise ValueError("Complete proposal requires an explicit reviewed content baseline; recreate it.")
+                    required_digest = base["digest"] if base["requiresAdoption"] else None
+                    if payload.get("adoptBaseContentDigest") != required_digest:
+                        raise ValueError("Explicit adoption of the complete displayed base content is required.")
+                elif "adoptBaseContentDigest" in payload:
+                    raise ValueError("Legacy graph proposal cannot adopt content.")
                 context, graph, manifest = self.proposals.current_change(project, workspace, proposal["plan"]["removeNodes"],
                                                                         proposal["plan"]["adoptArchitectureContext"])
                 self.proposals.expect(context, payload["expectedAcceptedHead"], payload["expectedGraphDigest"])
@@ -55,7 +71,12 @@ class OporaGraphChangeAcceptance(OporaGraphAcceptance):
                     removed.update(node["id"] for node in manifest["architectureContext"]["nodes"])
                 documents = {item["nodeId"]: item for item in context["acceptedDocuments"] if item["nodeId"] not in removed}
                 documents.update({item["nodeId"]: item for item in proposal["architectureDocuments"]})
-                for item in proposal["specifications"]:
+                content_manifest = preserved_content_manifest(specs, context["acceptedHead"])
+                if proposal["schemaVersion"] == 3:
+                    from backend.canvas.opora_graph_complete_acceptance import persist
+                    content_manifest = persist(self.service, repo.db, project, workspace, proposal, documents, specs,
+                                               actor=author["kind"])
+                for item in ([] if proposal["schemaVersion"] == 3 else proposal["specifications"]):
                     saved = self.service.specs.save_in_transaction((project, workspace, item["nodeId"]), 0, item["fields"])
                     documents[item["nodeId"]] = {"nodeId": item["nodeId"], "ownerWorkspace": workspace,
                                                  "revision": saved["revision"], "fields": saved["fields"]}
@@ -65,7 +86,7 @@ class OporaGraphChangeAcceptance(OporaGraphAcceptance):
                 result = specs.insert({"project": project, "workspace": workspace, "kind": "graph-acceptance",
                     "parentRevision": context["acceptedHead"], "proposalId": proposal_id, "subject": proposal["subject"],
                     "by": author, "createdAt": stamp(), "graphManifestId": accepted_manifest["id"],
-                    **preserved_content_manifest(specs, context["acceptedHead"]),
+                    **content_manifest,
                     "documents": [documents[key] for key in sorted(documents)]})
                 specs.advance(context["acceptedHead"], result["id"])
                 seal(repo.db, project, workspace, authorization, result)

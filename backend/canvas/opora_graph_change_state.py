@@ -4,6 +4,7 @@ from copy import deepcopy
 from backend.canvas.authority import acts_as_human
 from backend.canvas.architecture_graph import split
 from backend.canvas.graph import digest, encode, valid_id
+from backend.canvas.card_dag import check_save
 from backend.canvas.opora_graph_change_safety import preflight
 from backend.editor.agent_memory.decision_versions import preserve_versions
 from backend.editor.agent_memory.desktop_v3_state import (
@@ -64,6 +65,9 @@ def prepare_state(canvas, project, workspace, acceptedGraph, workingGraph, resul
     before = deepcopy(stored["state"])
     checked, memberships = preflight(acceptedGraph, workingGraph, resultGraph, acceptedResultGraph,
                                      before, nodes, edges, adopt_architecture=adopt_architecture)
+    # OP-B171BE.graph: enforce next-only DAG on creation/acceptance, while old history remains readable.
+    check_save(acceptedGraph, acceptedResultGraph)
+    check_save(workingGraph, resultGraph)
     changed_edges = set()
     for old, new in ((acceptedGraph, acceptedResultGraph), (workingGraph, resultGraph)):
         old_edges = {item["id"]: item for item in old["edges"]}

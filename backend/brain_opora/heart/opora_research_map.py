@@ -19,6 +19,21 @@ REFS = ("nodeIds", "questionIds", "ticketIds", "sessionIds", "fragmentIds", "att
 RUNTIME_GUIDANCE = """
 
 ## Plán po výzkumu: návrh, přijetí a realizace jsou různé kroky
+Než oznámíš, že úprava nemá nástroj, použij `python opora_heart.py canvas discover` a
+`python opora_heart.py canvas describe ID_SCHOPNOSTI`. Čti skutečný kontrakt, neodhaduj pole.
+Volání: `python opora_heart.py canvas invoke ID_SCHOPNOSTI --file dilna/out/input.json`;
+zápis navíc se stabilním `--request-id`. Soubor obsahuje jen input kontraktu, scope a autora dodá nástroj.
+`ctx plan-of` je orientační projekce, ne podklad pro úplný přepis. Autoritativní zadání čti přes
+`node_routes.node_spec` (input node); graf/status přes `canvas_routes.view`; přijetí, digest a revizi stavu
+přes `opora_graph_routes.context`. Zachovej ID, původ i ostatní obsah a přečti celé vrácené dokumenty.
+Bez přijatého základu lze změnit zadání existujícího uzlu přes `canvas_routes.canvas_plan`:
+parentRevision null, aktuální expectedGraphDigest, plan.extend s node @ID, expectedRevision stavu
+a spec {expectedRevision dokumentu, fields}. Prázdné files výzkumného kroku jsou nativně přípustné.
+Stav card.status existující karty mění `canvas_routes.graph`: úplný aktuální graph se zachovanými ID,
+digest a expectedAcceptedHead null. Nejprve describe obou operací; žádné domýšlení podporovaných polí.
+Tyto dva zápisy jsou oddělené, nejsou atomické. Každý má vlastní request-id, CAS a plný readback;
+při konfliktu zastav a přiznej již uloženou část. Nad přijatým základem používej nativní návrhy pro lidskou
+kontrolu, nepřepisuj přijatou autoritu. Omezení příkazu steps neobcházej vymyšlenou cestou.
 Pokud člověk žádá plán, samotné `needs_info`, výzkum ani `decide` nejsou uložený návrh plánu.
 Zjištěný rozpor (například doména nebo autentizace) blokuje pouze závislé rozhodnutí a realizaci.
 Před odpovědí ulož smysluplnou nezávislou část návrhu a explicitní otevřené otázky s podklady;
@@ -110,7 +125,12 @@ def run(args, tool):
     if args.action == "show":
         query = {**scope, **({"revision": args.revision} if args.revision is not None else {})}
         entity = "edges" if args.entity == "edge" else "cards"
-        return {**tool.call("GET", f"{API}/{entity}/{quote(args.id, safe='')}", query=query), "scope": scope}
+        try:
+            return {**tool.call("GET", f"{API}/{entity}/{quote(args.id, safe='')}", query=query), "scope": scope}
+        except tool.Failure as error:
+            if entity != "cards" or error.payload.get("status") != 404:
+                raise
+            return {**tool.call("GET", f"{API}/originals/{quote(args.id, safe='')}", query=query), "scope": scope}
     if args.action == "attach":
         return attach(args.file, tool)
     data = read_file(args.file, tool)
@@ -119,10 +139,40 @@ def run(args, tool):
             raise tool.Failure({"code": "research_scope", "error": "Výstup nepatří aktuálnímu projektu a prostoru.",
                                 "hint": "Použijte původní scope a nezměněný výstup research s researchBatch."})
         data = data["researchBatch"]
-    if set(data) != {"key", "operations"}:
-        raise tool.Failure({"code": "research_batch", "error": "Soubor dávky musí obsahovat právě key a operations.",
+    if not {"key", "operations"} <= set(data) or set(data) - {"key", "operations", "continuation"}:
+        raise tool.Failure({"code": "research_batch", "error": "Soubor dávky vyžaduje key, operations a volitelný continuation.",
                             "hint": "Scope dodává token a prostředí srdce, ne soubor dávky."})
-    return {**tool.call("POST", API, {**data, **scope}), "scope": scope}
+    saved = tool.call("POST", API, {**data, **scope})
+    if args.action == "import" and data.get("continuation", {}).get("finalization") is not None:
+        saved = {**saved, "finalization": finalize(data["continuation"], tool, scope)}
+    return {**saved, "scope": scope}
+
+
+def finalize(intent, tool, scope):
+    """Native CAS only; an advanced original is read back, never rewritten on retry."""
+    identifier, revision = intent["sourceFragmentId"], intent["sourceRevision"]
+    fields = intent["finalization"]
+    route = f"{API}/originals/{quote(identifier, safe='')}"
+
+    def read():
+        return tool.call("GET", route, query=scope)
+
+    def already(value):
+        actual = value.get("original", {}).get("details", {}).get("research", {})
+        if value.get("sourceRevision", 0) > revision and all(actual.get(key) == expected for key, expected in fields.items()):
+            return {"sourceRevision": value["sourceRevision"], "alreadyFinalized": True}
+        raise tool.Failure({"code": "research_finalization_conflict",
+                            "error": "Původní rešerše se změnila a neobsahuje přesný uložený výsledek.",
+                            "hint": "Zachovejte výstupní soubor; vyřešte rozdíl původní rešerše, nespouštějte výzkum znovu."})
+
+    current = read()
+    if current.get("sourceRevision") != revision:
+        return already(current)
+    try:
+        return tool.call("POST", "/api/brief-vault", {**scope, "op": "research-update", "fragmentId": identifier,
+                         "expectedRevision": revision, "note": "Výsledek výzkumného stolu srdce.", **fields})
+    except tool.Failure:
+        return already(read())  # Includes a committed update whose HTTP response was lost.
 
 
 def attach(filename, tool):

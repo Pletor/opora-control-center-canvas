@@ -37,7 +37,7 @@ export default function SiteAdmin({ project, onBack }: { project: string; onBack
       </label>}
       <SiteSaveBar revision={state.revision} dirty={state.dirty} saving={state.saving} disabled={!state.draft || state.loading} onSave={state.save}/>
     </header>
-    {proposals.proposal && <SiteProposals proposal={proposals.proposal} busy={proposals.busy} onAccept={accept} onReject={() => void proposals.reject()}/>}
+    {proposals.proposal && <SiteProposals project={project} proposal={proposals.proposal} busy={proposals.busy} onAccept={accept} onReject={() => void proposals.reject()}/>}
     {proposals.error && <div className="site-admin__alert" role="alert">Návrh srdce: {proposals.error}</div>}
     {state.conflict && <div className="site-admin__alert" role="alert">
       Správu webu mezitím někdo uložil (jiná revize). Tvoje změny jsou zachované.

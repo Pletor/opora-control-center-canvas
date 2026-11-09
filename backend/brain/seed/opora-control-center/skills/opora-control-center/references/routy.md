@@ -258,3 +258,59 @@ chybný vstup 422, neznámý záznam 404, již existující název 409. Generov�
 | POST `/api/pletor/workshop/tools/{name}/measure` | změří uložené případy; vrací počty, chyby, dobu a determinismus | člověk |
 | GET/POST `/api/pletor/workshop/skills` | GET seznam skillů a souborů; POST `{name}` vytvoří skill | člověk |
 | GET/PUT `/api/pletor/workshop/skills/{name}/file` | GET `path=SKILL.md` vrátí soubor; PUT `{path, content}` uloží jeho obsah v mezích úložiště | člověk |
+## Rešerše a navazující plánování
+
+Připravené posouzení není lidské rozhodnutí ani přijetí plánu. Agent ukládá neměnný návrh s přesnými revizemi otázky, rozhodnutí a zdrojů; člověk jej čte v panelu rozhodnutí Rešerše. Změna libovolného podkladu blokuje potvrzení. Záznam lidského posouzení a stav návrhu se potvrzují v jedné SQL transakci; staré návrhy i původní přímé lidské posouzení zůstávají čitelné.
+
+| Cesta | K čemu, kdy | Kdo |
+|---|---|---|
+| POST `/api/research/review-proposals` | `{project, workspace, review, requestId}` připraví přesný návrh; stejný klíč vrací původní záznam, jiný obsah pod stejným klíčem 409 | člověk nebo ověřené Srdce stejného rozsahu |
+| GET `/api/research/review-proposals` | `project, workspace, decisionId` → návrhy a historie pro dané rozhodnutí | oprávněný čtenář rozsahu |
+| GET `/api/research/review-proposals/{identifier}` | `project, workspace` → celý neměnný podklad a stav lidského rozhodnutí | oprávněný čtenář rozsahu |
+| POST `/api/research/review-proposals/{identifier}/{action}` | `{project, workspace, digest}`; `accept` uloží nativní lidské posouzení, `reject` zachová zamítnutou historii; přijetí plánu je samostatné | pouze ověřený člověk |
+
+Soukromé připojení pohledu vyžaduje ověřenou lidskou relaci prohlížeče. Připojovací tajemství zůstává v dané záložce; samotný požadavek Srdce neznamená vykreslení. Stav `applied` potvrzuje až přesná revize a pohled skutečně převzaté UI.
+
+| Cesta | K čemu, kdy | Kdo |
+|---|---|---|
+| GET `/api/canvas-view-attachments/sessions` | `project, workspace` → dostupné relace Srdce ve zvoleném rozsahu, bez tokenů | ověřený lidský prohlížeč |
+| POST `/api/canvas-view-attachments/{action}` | `attach`, `poll`, `ack`, `pending`, `detach`; vždy `project, workspace, sessionId`, po připojení také `attachmentId, secret`, při `ack` přesné `revision, view, renderEpoch`; expirace a nahrazení ruší staré potvrzení | ověřený lidský prohlížeč |
+| GET `/api/site-admin/proposals/{proposal_id}/attachments/{index}` | `project` → neměnné bajty přílohy návrhu s ověřeným SHA256; bezpečné stažení, nikoli zveřejnění ani přijetí | ověřený člověk nebo Srdce s tokenem stejného projektu |
+
+| Cesta | K čemu, kdy | Kdo |
+|---|---|---|
+| GET `/api/research/continuations` | `project, workspace` → trvalé stavy navazujícího plánování; dokončení dokládá uložený nativní návrh, nikoli pouze úspěšný běh LLM | oprávněný člověk/agent ve stejném rozsahu |
+| GET `/api/research/originals/{identifier}` | `project, workspace, revision?` → původní rešerše, její revize, historie a odkazy na mapu; původní stav se nemění | oprávněný člověk/agent ve stejném rozsahu |
+| POST `/api/research/originals/{identifier}/materialize` | `{project, workspace, revision, detailsRevision}` → stabilní karta původní rešerše; opakování je idempotentní, starší revize vrací 409, ruční vazby zůstávají | oprávněný člověk/agent ve stejném rozsahu |
+| GET `/api/brain/canvas/capabilities` | `project, workspace` → konečný seznam schopností Srdce v přesném rozsahu včetně nepodporovaných operací | Srdce s tokenem daného rozsahu |
+| GET `/api/brain/canvas/capabilities/{operation_id}` | `project, workspace` → typovaný nativní kontrakt zvolené operace | Srdce s tokenem daného rozsahu |
+| POST `/api/brain/canvas/invoke` | `{project, workspace, capability, input, requestId?}` → pouze implementované adaptéry; stabilní `requestId` chrání opakování změny, nepodporovaná operace vrací 409; lidské rozhodnutí se jen připraví, relace vrací `applied:false` | Srdce s tokenem přesného rozsahu |
+
+| POST `/api/oporahub/graph-proposals/{identifier}/revise` | `project, workspace, expectedAcceptedHead, expectedGraphDigest, subject, plan, observeResearchSources: true, operationId` -> immutable superseding V3 proposal; retained server-owned identities, explicitly refreshed source pins, scoped replay; no acceptance | Verified scoped Heart or native authorized proposal actor; superseded drafts cannot be accepted or revised again under a new operation |
+
+
+### Library review
+
+| GET | `/api/oporahub/baseline-preparations/{identifier}` | Scoped immutable baseline preparation receipt with exact pinned documents/context; read only. Human acceptance remains `/api/oporahub/baselines` with native CAS. |
+
+| Method | Route | Contract |
+| --- | --- | --- |
+| GET | `/api/library/reviews` | Scoped project/workspace native reviews; human session or scoped token. |
+| GET | `/api/library/reviews/{identifier}` | Immutable input and preimage, current review decision and native result. |
+| POST | `/api/library/reviews/{identifier}/{action}` | Human-only accept/reject, scoped body project/workspace; native CAS and atomic registry write. |
+
+| GET | `/api/flow/review` | Scoped native Flow review: `project`, `workspace`, `operation`, `identifier`; exact immutable version/run plus current review digest. Authenticated Heart may read its authorized scope; this endpoint never approves or activates. |
+
+| GET | `/api/desktop-reviews/{identifier}` | Human or scoped Heart reads immutable preparation by exact ID; project/workspace required, returns pinned parameters and current freshness. |
+| POST | `/api/desktop-reviews/{identifier}/apply` | Human-only apply of immutable preparation, project/workspace/digest required. Graph and state pins checked under native locks; stale or edited preparation rejected. Native state remains applied truth. |
+
+| GET | `/api/working-reviews/{operation}/{identifier}` | Exact scoped immutable native working graph/removal/recovery preparation and separate application readback; project/workspace required. No acceptance. |
+| POST | `/api/working-reviews/{operation}/{identifier}/apply` | Authenticated human applies the exact scoped native preparation under its pinned preconditions; payload project/workspace. Native graph/removal/recovery validation and authority remain unchanged. |
+
+
+| Route | Contract | Authority |
+| --- | --- | --- |
+| GET `/api/brief-vault/reviews/{identifier}` | `project,workspace` -> immutable native vault intent, exact preimage and separate decision receipt | Authenticated human or scoped agent; no decision |
+| POST `/api/brief-vault/reviews/{identifier}/{action}` | `{project,workspace,digest}`, action accept/reject -> native operation or rejection with durable replay; stale preimage conflicts | Authenticated human only; full agent authority cannot impersonate a human |
+
+Vault capability `brief_vault_routes.brief_vault_write` exposes the finite27-operation matrix in `backend/editor/brief_vault/operation_review_contracts.py`; tests `test_operation_review_workflows.py`, `test_operation_review_placement.py`, `test_operation_review_duel.py`, `test_operation_reviews.py` and `test_canvas_capability_brief_operations.py` distinguish native agent operations from actual human review.

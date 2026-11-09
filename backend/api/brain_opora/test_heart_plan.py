@@ -207,9 +207,18 @@ def test_vault_batch_over_the_accepted_graph_keeps_the_brief_and_wires_an_existi
     assert dry["ok"] is True and dry["dryRun"] is True, dry
     done = plan(tmp_path, batch, "--accept")
     assert done["accepted"] is True, done
-    assert done["acceptSteps"] == ["graph_addition", "accept", "card_state", "graph_addition", "accept"]
+    assert done["acceptSteps"] == ["graph_addition", "accept"]
+    assert len(call_history(heart)) == before[1] + 1
+    saved = call("GET", "/api/oporahub/graph-proposals/" + done["proposalId"], query=SCOPE)
+    assert saved["schemaVersion"] == 3 and saved["accepted"] is True
+    assert saved["refs"] == done["refs"]
+    accepted_head = call("GET", "/api/oporahub/graph-proposals/context", query=SCOPE)["acceptedHead"]
+    accepted = call("GET", "/api/oporahub/revisions/" + accepted_head, query=SCOPE)
+    assert accepted["proposalId"] == saved["id"] and accepted["parentRevision"] == saved["parentRevision"]
+    assert accepted["graphManifestId"] and accepted["contentManifestId"]
     new = done["refs"]
     nodes = call("GET", "/api/desktop-v3/state", query=SCOPE)["state"]["nodes"]
+    assert nodes == saved["contentEffects"]["after"]["nodes"]
     assert [item["fragmentId"] for item in nodes[new["f1"]]["fragmentRefs"]] == [fragment_id]
     assert [block["title"] for block in nodes[new["f1"]]["blocks"]] == [block["title"] for block in batch["nodes"][2]["blocks"]]
     assert (nodes[new["a1"]]["briefGroup"], nodes[new["s1"]]["briefDiscipline"]) == ("logika", "be")

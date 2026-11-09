@@ -19,7 +19,7 @@ class Receipt:
         self.author = _json(author)
         self.digest = hashlib.sha256(_json(payload).encode()).hexdigest()
 
-    def replay(self, db):
+    def replay(self, db, *, allow_pending=False):
         row = db.execute("SELECT author,request_hash,status,response FROM canvas_operation_receipts WHERE "
                          "project_id=? AND workspace_id=? AND operation_kind=? AND operation_id=?", self.scope).fetchone()
         if row is None:
@@ -28,9 +28,16 @@ class Receipt:
             raise NextStep("Operation ID is already bound to a different request or author.",
                            code="operation_conflict", hint="Use the original request and author, or a new operationId.")
         if row[2] != "complete":
+            if allow_pending:
+                return {"pending": json.loads(row[3]) if row[3] else None}
             raise NextStep("Operation has an incomplete write receipt; it must not be repeated blindly.",
                            code="operation_incomplete", hint="Read the Canvas and reconcile the pending operation before retrying.")
         return json.loads(row[3])
+
+    def progress(self, db, prepared):
+        db.execute("UPDATE canvas_operation_receipts SET response=? WHERE "
+                   "project_id=? AND workspace_id=? AND operation_kind=? AND operation_id=? AND status='pending'",
+                   (_json(prepared), *self.scope))
 
     def begin(self, db, prepared=None):
         db.execute("INSERT INTO canvas_operation_receipts VALUES(?,?,?,?,?,?,?,?)",

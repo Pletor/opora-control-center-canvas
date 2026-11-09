@@ -3,7 +3,7 @@ import type { Graph } from "@/shared/types/logic/types";
 
 /** Only project the immutable server proposal; v2 result is authoritative, never replay edits here. */
 export function proposalPreview(proposal: GraphProposal): Graph | null {
-  if (proposal.schemaVersion === 2) return proposal.resultGraph ?? null;
+  if ([2, 3, 4].includes(proposal.schemaVersion ?? 1)) return proposal.resultGraph ?? null;
   return { nodes: [...proposal.baseGraph.nodes, ...proposal.additions.nodes],
     edges: [...proposal.baseGraph.edges, ...proposal.additions.edges] };
 }

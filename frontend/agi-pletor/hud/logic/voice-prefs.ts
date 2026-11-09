@@ -10,7 +10,7 @@
 export const VOICE_PREFS_KEY = "opora:pletor:voice:v1";
 
 export type VoicePrefs = { conversation: boolean; voice: boolean; ttsVoice: string | null; bargeIn: boolean; endpointMs: 0 | 4000 | 8000 | 12000 };
-export const DEFAULT_VOICE_PREFS: VoicePrefs = { conversation: false, voice: false, ttsVoice: null, bargeIn: true, endpointMs: 8000 };
+export const DEFAULT_VOICE_PREFS: VoicePrefs = { conversation: false, voice: false, ttsVoice: null, bargeIn: true, endpointMs: 0 };
 
 export function parseVoicePrefs(raw: string | null): VoicePrefs {
   try {
@@ -18,7 +18,8 @@ export function parseVoicePrefs(raw: string | null): VoicePrefs {
     if (value && typeof value === "object")
       return { conversation: value.conversation === true, voice: value.voice === true,
         ttsVoice: typeof value.ttsVoice === "string" ? value.ttsVoice : null, bargeIn: value.bargeIn !== false,
-        endpointMs: [0, 4000, 8000, 12000].includes(value.endpointMs) ? value.endpointMs : 8000 };
+        // Old stored timeouts include implicit defaults: migrate them to explicit completion.
+        endpointMs: value.completionVersion === 2 && [0, 4000, 8000, 12000].includes(value.endpointMs) ? value.endpointMs : 0 };
   } catch {
     /* Poškozené preference nejsou data projektu. */
   }
@@ -35,7 +36,7 @@ export function readVoicePrefs(): VoicePrefs {
 
 export function writeVoicePrefs(prefs: VoicePrefs): void {
   try {
-    localStorage.setItem(VOICE_PREFS_KEY, JSON.stringify(prefs));
+    localStorage.setItem(VOICE_PREFS_KEY, JSON.stringify({ ...prefs, completionVersion: 2 }));
   } catch {
     /* Bez úložiště volba platí jen do zavření stránky. */
   }

@@ -74,6 +74,12 @@ Neodhadovat neznámé produktové rozhodnutí. Technické skutečnosti dohledat 
 
 Pokud jsou tři rozumné cesty, zachytit je jako alternativy s důsledky a doporučením. Neoznačit všechny za požadované funkce. Položit nejdůležitější blokující otázku a současně zpracovat části, které na odpovědi nezávisí. Nedokončený návrh smí být užitečný, nesmí se tvářit jako připravený k realizaci.
 
+Existující cestu uvádět pouze po čtení zdroje v konkrétní revizi; nově navržený soubor výslovně označit jako návrh,
+nikoli nalezený soubor. Bez dostupného zdroje projektu nevymýšlet cesty pro `files` ani tvrdit připravenost.
+Pro objevovací/designový návrh dávky `plan` použít `files: []`, `card.status: draft` a výslovný předpoklad:
+nejprve zpřístupnit a prohlédnout zdroj. Zachovat konkrétní scénář a kritérium ověření, ale nepovyšovat
+neověřenou hypotézu na fakt. Samotné uložení návrhu není přijetí ani povolení vydat ticket nebo spustit práci.
+
 ## 6. Odvodit milníky a předávku
 
 Definovat milník jako ověřitelný výsledek, ne název oblasti ani počet úkolů. Uvést:

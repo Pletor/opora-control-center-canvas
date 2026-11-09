@@ -98,10 +98,10 @@ export default function PletorSettingsPanel({ voice, brain, onBrain, onClose }: 
         </div>
         <label className="pletor-settings__endpoint">Dokončení myšlenky
           <select value={voice.prefs.endpointMs} onChange={event => voice.setPrefs({ endpointMs: Number(event.target.value) as VoicePrefs["endpointMs"] })}>
+            <option value={0}>Až stisknu Domluvil jsem (výchozí)</option>
             <option value={4000}>Po 4 sekundách ticha</option>
             <option value={8000}>Po 8 sekundách ticha</option>
             <option value={12000}>Po 12 sekundách ticha</option>
-            <option value={0}>Až stisknu Domluvil jsem</option>
           </select>
         </label>
       </div>}

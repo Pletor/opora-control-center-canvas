@@ -435,3 +435,18 @@ curl -s "$OPORA/api/desktop-v3/agent-messages?project=P&workspace=W&nodeId=NODE&
 | 403 `humanRequired` | akce patří člověku | nezkoušej jinou cestou; napiš člověku, co je potřeba |
 | 428 | chybí doklad identity (UI) | agentní skript posílá `X-Opora-Actor` sám; z prohlížeče obnov stránku |
 | 409 lease | kartu drží jiný platný lease, nebo chybí `OPORA_LEASE_TOKEN` | vezmi jinou kartu, nebo pošli svůj token |
+
+<a id="srdce-katalog"></a>
+
+### Srdce: čtení uloženého návrhu přes nativní katalog
+
+Pokud běžíš jako Srdce a máš runtime pomocníka `opora_heart.py`, použij jeho existující příkazy:
+`canvas describe opora_graph_routes.read`, potom `canvas invoke opora_graph_routes.read --file INPUT.json`.
+Tento konkrétní CLI vyžaduje vstupní JSON soubor s jediným polem `{"identifier":"ID_NÁVRHU"}`; nedávej do něj
+obálku `capability/input`, projekt, workspace ani autora. Ty dodá ověřený runtime. Jde o čtení, bez `--request-id`
+a bez `proposal --accept`. Plný návratový objekt `result` obsahuje `latestProposalId` / `supersedes`, jsou-li
+přítomny, a uložené `contentInputs.researchEvidenceByNode`. Chceš-li aktuální pokračování historického návrhu,
+načti jeho skutečné `latestProposalId` stejnou operací; nevymýšlej endpoint ani nepovažuj absenci pole za chybu API.
+Pro ostatní funkce nejprve `canvas discover` a `canvas describe CAPABILITY`. `implemented:false` je výslovná mezera,
+nikoliv důvod tvrdit, že jiné již implementované čtení neexistuje. Hash důkazu vždy vztahuj ke konkrétnímu souboru
+a bajtům: hash celé HTTP obálky není hash vyjmutého CLI `input` souboru.

@@ -13,7 +13,7 @@ def test_facts_read_a_real_accepted_plan_and_the_heart_acceptance_is_not_a_human
     """Skutečná aplikace: plán srdce přijatý tokenem srdce → první karta `ready` s profilem, druhá blokovaná;
     přijetí srdcem (`by.kind == agent`) spouštěč ruční změny nebudí."""
     client, _, tmp_path = heart
-    done = plan(tmp_path, opora_heart.PLAN_EXAMPLE)
+    done = plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")
     service = client.app.state.service
     with service.reading("draft"):
         assert triggers.spaces(service.db_for("draft"), "draft") == ["draft"]
@@ -36,7 +36,7 @@ def test_idle_reads_the_real_agent_state_and_a_ready_card_is_not_an_empty_fronti
     from backend.flow.catalogs.heart.inputs import idle_wakes
 
     client, _, tmp_path = heart
-    plan(tmp_path, opora_heart.PLAN_EXAMPLE)
+    plan(tmp_path, opora_heart.PLAN_EXAMPLE, "--accept")
     service = client.app.state.service
     state, questions, since = idle.facts(service, "draft", "draft")
     assert state["heads"]["acceptedHead"] and questions == 0 and since is not None

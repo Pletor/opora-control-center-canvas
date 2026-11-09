@@ -50,12 +50,57 @@ def test_missing_kit_is_explicit_and_changed_accepted_or_working_context_refused
         preview(canvas, current)
 
 
-def test_preview_digest_matches_actual_claim_including_predecessor_handoff(sparse):
+def test_preview_digest_matches_actual_claim_including_predecessor_handoff(sparse, monkeypatch):
+    from copy import deepcopy
+    from backend.library import harness_preflight
+    captured = []
+    native_digest = harness_preflight.digest
+    def observe(value):
+        if "documents" in value:
+            captured.append(deepcopy(value))
+        return native_digest(value)
+    monkeypatch.setattr(harness_preflight, "digest", observe)
     payload = request(sparse)
     result = preview(sparse[0].service, payload)
     lease = claimed(sparse)
     assert "handoff" in lease["assignment"]
+    assert "codeContext" in lease["assignment"]
+    assert captured == [lease["assignment"]]
     assert result["assignmentDigest"] == lease["assignmentDigest"]
+
+
+def test_preview_observes_code_change_and_resume_without_mutating_stored_assignment(sparse, monkeypatch):
+    from copy import deepcopy
+    from backend.canvas import opora_execution_code_context
+    canvas = sparse[0].service
+    current = {"available": True, "worktree": "synthetic", "headSha": "a" * 40, "branch": "main"}
+    scopes = []
+    def capture(service, project, workspace):
+        assert service is canvas
+        scopes.append((project, workspace))
+        return dict(current)
+    monkeypatch.setattr(opora_execution_code_context, "capture", capture)
+    payload = request(sparse)
+    first_preview = preview(canvas, payload)
+    first = claimed(sparse)
+    original = deepcopy(first["assignment"])
+    assert first_preview["assignmentDigest"] == first["assignmentDigest"]
+    db = canvas.db_for("draft")
+    with db:
+        db.execute("UPDATE card_leases SET expires_at=0")  # Isolated fixture simulates a crashed worker.
+    current["headSha"] = "b" * 40
+    tables = ("opora_execution_context_pins", "opora_execution_epochs", "card_leases", "opora_executions")
+    before = {table: list(db.execute(f"SELECT * FROM {table}")) for table in tables}
+    resumed_preview = preview(canvas, payload)
+    assert before == {table: list(db.execute(f"SELECT * FROM {table}")) for table in tables}
+    assert resumed_preview["contextVersion"] == first_preview["contextVersion"]
+    assert resumed_preview["assignmentDigest"] != first_preview["assignmentDigest"]
+    resumed = claimed(sparse, request="resume")
+    assert resumed_preview["assignmentDigest"] == resumed["assignmentDigest"]
+    assert resumed["assignment"]["resumedFrom"]["executionId"] == first["executionId"]
+    assert resumed["assignment"]["codeContext"]["headSha"] == "b" * 40
+    assert first["assignment"] == original
+    assert set(scopes) == {("draft", "draft")}
 
 
 def test_registered_route_bounds_identity_and_stale_context(sparse):

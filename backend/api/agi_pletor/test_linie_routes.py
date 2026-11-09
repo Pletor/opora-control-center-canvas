@@ -83,6 +83,13 @@ def test_linie_work_flow(tmp_path, repo):
                                                         "worker": {"name": "office-1"}}).json()["token"]
         gated = client.get(work, headers={**AGENT, "X-Opora-Gate-Token": token}, params=q)
         assert gated.status_code == 200 and gated.json()["work"]["headSha"] == head
+        # The global token read guard must preserve native ticket ownership checks.
+        wrong_workspace = client.post("/api/gate/sessions", headers=AGENT,
+            json={"project": "draft", "workspace": "draft", "worker": {"name": "outside"}}).json()["token"]
+        denied = client.get(work, headers={**AGENT, "X-Opora-Gate-Token": wrong_workspace}, params=q)
+        assert denied.status_code == 403 and denied.json()["code"] == "gate_scope"
+        foreign_query = client.get(work, headers={**AGENT, "X-Opora-Gate-Token": token}, params={"project": "foreign"})
+        assert foreign_query.status_code == 403 and foreign_query.json()["code"] == "gate_scope"
         off = client.post(f"{work}/report", headers={**AGENT, "X-Opora-Gate-Token": token}, params=q,
                           json={"sha": run(repo, "rev-parse", "feat/a")})
         assert off.status_code == 409 and off.json()["code"] == "work_mismatch"

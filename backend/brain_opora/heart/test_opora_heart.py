@@ -496,31 +496,19 @@ BLOCKED = {"nodes": [{"ref": "a", "kind": "node", "name": "A", "blocks": [
               {"from": "@old", "to": "b", "port": "block", "block": "blk_old", "blockPort": "ok"}]}
 
 
-def test_later_plan_places_blocks_on_accepted_cards_and_wires_their_ports(server, capsys, tmp_path):
+def test_later_plan_saves_all_blocks_and_wires_in_one_pending_proposal(server, capsys, tmp_path):
     Handler.manifest = "m1"
-    (tmp_path / "blocks.json").write_text(json.dumps(BLOCKED, ensure_ascii=False), encoding="utf-8")
-    result = json.loads(run(capsys, "plan", "--accept", "--file", "blocks.json")[1])
-    assert result["accepted"] is True and result["blocks"] == {"@n_a/pick": "blk_pick"}
-    assert result["acceptSteps"] == ["graph_addition", "accept", "card_state", "graph_addition", "accept"]
-    check, *posts = [call for call in Handler.calls if call["method"] == "POST"]
-    # Celá dávka se nejdřív ověří bez zápisu, ať chybný port nenechá přijaté karty bez stavu.
-    assert check["path"] == "/api/canvas-plan" and check["body"]["dryRun"] is True and check["body"]["plan"] == BLOCKED
-    assert [call["path"] for call in posts] == ["/api/oporahub/graph-proposals", "/api/oporahub/graph-proposals/gp2/accept",
-                                                "/api/canvas-plan", "/api/oporahub/graph-proposals",
-                                                "/api/oporahub/graph-proposals/gp2/accept"]
-    cards = posts[0]["body"]["plan"]
-    assert cards["nodes"] == [{"ref": "a", "kind": "node", "name": "A"}, {"ref": "b", "kind": "node", "name": "B"}]
-    assert cards["edges"] == [{"from": "a", "to": "b", "port": "next"}]
-    assert posts[2]["body"]["plan"] == {"extend": [{"node": "@n_a", "expectedRevision": 5,
-                                                    "blocks": BLOCKED["nodes"][0]["blocks"]}]}
-    assert posts[3]["body"]["plan"] == {"nodes": [], "edges": [
-        {"from": "@n_a", "to": "@n_b", "port": "block", "block": "blk_pick", "blockPort": "yes"},
-        {"from": "@old", "to": "@n_b", "port": "block", "block": "blk_old", "blockPort": "ok"}]}
+    (tmp_path / "blocks.json").write_text(json.dumps(BLOCKED), encoding="utf-8")
+    result = json.loads(run(capsys, "plan", "--file", "blocks.json")[1])
+    assert result["accepted"] is False and result["verified"] is True
+    posts = [call for call in Handler.calls if call["method"] == "POST"]
+    assert [call["path"] for call in posts] == ["/api/oporahub/graph-proposals"]
+    assert posts[0]["body"]["plan"] == {**BLOCKED, "extend": [], "draftVersion": 3}
     Handler.calls = []
     dry = json.loads(run(capsys, "plan", "--file", "blocks.json", "--dry-run")[1])
     sent = [call for call in Handler.calls if call["method"] == "POST"]
     assert dry["dryRun"] is True and [call["path"] for call in sent] == ["/api/canvas-plan"]
-    assert sent[0]["body"]["plan"] == BLOCKED  # celá dávka s bloky i vazbami block projde validací bez zápisu
+    assert sent[0]["body"]["plan"] == {**BLOCKED, "extend": []}
 
 
 def vault_batch():
@@ -534,59 +522,33 @@ def vault_batch():
     return batch
 
 
-def test_vault_batch_over_an_accepted_graph_keeps_card_state_and_extends_an_existing_card(server, capsys, tmp_path):
+def test_vault_batch_over_accepted_graph_keeps_complete_pending_content(server, capsys, tmp_path):
     Handler.manifest = "m1"
     batch = vault_batch()
-    (tmp_path / "vault.json").write_text(json.dumps(batch, ensure_ascii=False), encoding="utf-8")
-    result = json.loads(run(capsys, "plan", "--accept", "--file", "vault.json")[1])
-    assert result["accepted"] is True, result
-    assert result["acceptSteps"] == ["graph_addition", "accept", "card_state", "graph_addition", "accept"]
-    check, proposal, _, state, wired, _ = [call for call in Handler.calls if call["method"] == "POST"]
-    assert check["body"]["plan"]["extend"] == [{"expectedRevision": 5, **batch["extend"][0]}]
-    # Návrh grafu nese jen graf: stav karty (text, fragmentRef, bloky, značky) z něj vypadne.
-    by_ref = {node["ref"]: node for node in batch["nodes"]}
-    assert all(not set(node) & set(opora_heart.CARD_STATE) for node in proposal["body"]["plan"]["nodes"])
-    assert [edge["port"] for edge in proposal["body"]["plan"]["edges"]] == ["next"]
-    extend = {item["node"]: item for item in state["body"]["plan"]["extend"]}
-    card = extend["@n_f1"]
-    assert card["fragmentRef"] == by_ref["f1"]["fragmentRef"] and card["blocks"] == by_ref["f1"]["blocks"]
-    assert card["text"] == {"expectedRevision": 0, "text": by_ref["f1"]["text"]} and card["expectedRevision"] == 5
-    assert extend["@n_a1"] == {"node": "@n_a1", "expectedRevision": 5, "briefGroup": "logika"}
-    assert extend["@n_s1"] == {"node": "@n_s1", "expectedRevision": 5, "briefDiscipline": "be"}
-    assert extend["@old"] == {"expectedRevision": 5, **batch["extend"][0]}
-    assert wired["body"]["plan"]["edges"] == [
-        {"from": "@old", "to": "@n_f1", "port": "block", "block": "blk_pick", "blockPort": "yes"}]
+    (tmp_path / "vault.json").write_text(json.dumps(batch), encoding="utf-8")
+    result = json.loads(run(capsys, "plan", "--file", "vault.json")[1])
+    assert result["accepted"] is False and result["verified"] is True
+    posts = [call for call in Handler.calls if call["method"] == "POST"]
+    assert len(posts) == 1 and posts[0]["path"] == "/api/oporahub/graph-proposals"
+    assert posts[0]["body"]["plan"] == {**batch, "draftVersion": 3,
+        "extend": [{"expectedRevision": 5, **batch["extend"][0]}]}
 
 
-def test_existing_cards_only_need_no_card_proposal(server, capsys, tmp_path):
+def test_existing_cards_content_only_still_requires_pending_proposal(server, capsys, tmp_path):
     Handler.manifest = "m1"
-    only = {"nodes": [], "extend": [{"node": "@old", "blocks": [{"ref": "pick", "title": "Varianta",
-                                                                 "ports": [{"ref": "yes"}]}]}],
-            "edges": [{"from": "@old", "to": "@other", "port": "block", "block": "pick", "blockPort": "yes"}]}
-    (tmp_path / "only.json").write_text(json.dumps(only), encoding="utf-8")
-    result = json.loads(run(capsys, "plan", "--accept", "--file", "only.json")[1])
-    assert result["acceptSteps"] == ["card_state", "graph_addition", "accept"], result
-    posts = [call["path"] for call in Handler.calls if call["method"] == "POST"]
-    assert posts == ["/api/canvas-plan", "/api/canvas-plan", "/api/oporahub/graph-proposals",
-                     "/api/oporahub/graph-proposals/gp2/accept"]
+    only = {"extend": [{"node": "@old", "text": {"expectedRevision": 0, "text": "Proposed"}}]}
+    (tmp_path / "extend.json").write_text(json.dumps(only), encoding="utf-8")
+    result = json.loads(run(capsys, "plan", "--file", "extend.json")[1])
+    assert result["accepted"] is False and result["proposalId"]
+    posts = [call for call in Handler.calls if call["method"] == "POST"]
+    assert len(posts) == 1 and posts[0]["body"]["plan"]["extend"][0]["text"] == only["extend"][0]["text"]
 
 
-def test_addition_refuses_fields_a_graph_proposal_cannot_carry(server, capsys, tmp_path):
+def test_addition_accepts_full_content_but_refuses_unknown_edge_kind(server, capsys, tmp_path):
     Handler.manifest = "m1"
-    bad = {"nodes": [{"ref": "a", "kind": "node", "name": "A", "rules": [{"kind": "must", "text": "R"}]}]}
-    (tmp_path / "bad.json").write_text(json.dumps(bad), encoding="utf-8")
-    result = json.loads(run(capsys, "plan", "--accept", "--file", "bad.json")[1])
-    assert result["code"] == "plan_shape" and "rules" in result["error"] and "návrh grafu" in result["hint"]
     edge = {"nodes": [], "edges": [{"from": "a", "to": "b", "port": "rule"}]}
     (tmp_path / "edge.json").write_text(json.dumps(edge), encoding="utf-8")
-    assert json.loads(run(capsys, "plan", "--accept", "--file", "edge.json")[1])["code"] == "plan_shape"
-    (tmp_path / "blocks.json").write_text(json.dumps(BLOCKED), encoding="utf-8")
-    result = json.loads(run(capsys, "plan", "--file", "blocks.json", "--no-accept")[1])
-    assert result["code"] == "plan_shape" and "přijaté karty" in result["error"]
-    spec = {"nodes": [], "extend": [{"node": "@old", "spec": {"expectedRevision": 1, "fields": {}}, "layer": "backend"}]}
-    (tmp_path / "spec.json").write_text(json.dumps(spec), encoding="utf-8")
-    result = json.loads(run(capsys, "plan", "--accept", "--file", "spec.json")[1])
-    assert result["code"] == "plan_shape" and "layer, spec" in result["error"] and "steps --node" in result["hint"]
+    assert json.loads(run(capsys, "plan", "--file", "edge.json")[1])["code"] == "plan_shape"
     assert not [call for call in Handler.calls if call["method"] == "POST"]
 
 

@@ -15,7 +15,7 @@ export type VoiceInputEvents = {
   /** Logický poslech skončil; interní restart ani stop callback nevyvolají. */
   onEnd: () => void;
 };
-/** continuous allows multiple thoughts; endpointMs defaults to 8000, zero requires finish(). */
+/** continuous allows multiple thoughts; endpointMs defaults to zero (explicit finish). */
 export type VoiceInput = { supported: boolean; start: (events: VoiceInputEvents, options?: { continuous?: boolean; endpointMs?: number }) => void; stop: () => void; finish: () => void; setEndpointMs: (value: number) => void };
 
 type Alternative = { transcript: string };
@@ -52,7 +52,7 @@ export function createVoiceInput(Ctor: RecognitionCtor | null = recognitionCtor(
     const rec = current; current = null;
     try { rec?.abort(); } catch { /* already ended */ }
   };
-  const start: VoiceInput["start"] = (events, { continuous = false, endpointMs = 8000 } = {}) => {
+  const start: VoiceInput["start"] = (events, { continuous = false, endpointMs = 0 } = {}) => {
     stop();
     if (!Ctor) { events.onError("not-supported"); events.onEnd(); return; }
     const run = generation;

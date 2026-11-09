@@ -53,6 +53,10 @@ class OporaGraphChanges(OporaGraphProposals):
         return context, graph, manifest
 
     def derive(self, project, workspace, graph, manifest, plan, previous=None):
+        from backend.canvas.opora_graph_complete_build import required
+        if (previous and previous.get("schemaVersion") == 3) or required(plan):
+            from backend.canvas.opora_graph_complete import derive
+            return derive(self.service, project, workspace, graph, manifest, plan, previous)
         state = DesktopV3State(self.service).current(project, workspace)["state"]
         record = build(combined(manifest), graph, plan, state, previous=previous)
         context = self.specifications.context(project, workspace)
@@ -69,7 +73,7 @@ class OporaGraphChanges(OporaGraphProposals):
 
     @staticmethod
     def change_record(project, workspace, context, manifest, derived, author, label, supersedes=None):
-        return {"schemaVersion": 2, "kind": "graph-changes", "project": project, "workspace": workspace,
+        return {"schemaVersion": 3 if "contentEffects" in derived else 2, "kind": "graph-changes", "project": project, "workspace": workspace,
                 "parentRevision": context["acceptedHead"], "parentGraphManifestId": manifest["id"],
                 "graphDigest": context["graphDigest"], "requiresBaseAdoption": False, "adoptionDocuments": [],
                 "subject": label, "by": author, "createdAt": stamp(), "supersedes": supersedes, **derived}
@@ -79,7 +83,9 @@ class OporaGraphChanges(OporaGraphProposals):
         if set(payload) - {"operationId"} != {"project", "workspace", "parentRevision", "expectedGraphDigest", "subject", "plan"}:
             raise ValueError("Invalid graph change proposal fields.")
         project, workspace = scope(payload)
-        author, label, plan = _author(by, allow_agent=True), subject(payload), normalize(payload["plan"])
+        from backend.canvas.opora_graph_complete_build import normalize_complete, required
+        normalizer = normalize_complete if required(payload["plan"]) else normalize
+        author, label, plan = _author(by, allow_agent=True), subject(payload), normalizer(payload["plan"])
         from backend.canvas.operation_receipts import Receipt
         receipt = Receipt(payload, "graph-proposal", author) if "operationId" in payload else None
         with self.service.graph_lock_for(project), self.service.lock_for(project):
@@ -110,8 +116,13 @@ class OporaGraphChanges(OporaGraphProposals):
             with repo.db:
                 repo.db.execute("BEGIN IMMEDIATE")
                 old = repo.read(record_id)
+                if old["schemaVersion"] == 4:
+                    raise ValueError("Full graph candidates require a new explicitly reviewed current snapshot.")
                 if old["kind"] != "graph-changes" or repo.accepted(record_id):
                     raise ValueError("Rebase requires an unaccepted graph change proposal.")
+                if old["schemaVersion"] == 3:
+                    from backend.canvas.opora_graph_revise import require_latest
+                    require_latest(repo, record_id)
                 context, graph, manifest = self.current_change(project, workspace, old["plan"]["removeNodes"], old["plan"]["adoptArchitectureContext"])
                 self.expect(context, payload["expectedAcceptedHead"], payload["expectedGraphDigest"])
                 derived = self.derive(project, workspace, graph, manifest, old["plan"], previous=old)

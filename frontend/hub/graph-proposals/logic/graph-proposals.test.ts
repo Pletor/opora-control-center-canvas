@@ -5,6 +5,21 @@ import { postGraphProposal } from "./graph-api";
 const context: GraphContext = { acceptedHead: null, graphDigest: "digest", graphManifestId: null, readOnly: false, requiresBaseAdoption: true, adoptionDocuments: [] };
 const proposal = { id: "proposal", parentRevision: null, graphDigest: "digest", requiresBaseAdoption: true, accepted: false, adoptionDocuments: [] } as unknown as GraphProposal;
 describe("graph proposal input and explicit adoption", () => {
+  it("reviews a full graph snapshot without adopting task documents or rebasing it silently", () => {
+    const full = { ...proposal, schemaVersion: 4, changes: {}, stateEffects: { revision: 2 } } as GraphProposal;
+    const current = { ...context, stateRevision: 2, adoptionDocuments: [{ nodeId: "unapproved" }] } as GraphContext;
+    expect(graphProposalStale(current, full)).toBe(false);
+    expect(() => graphActionPayload("p", "w", current, full, "accept", "")).toThrow();
+    expect(graphActionPayload("p", "w", current, full, "accept", full.id)).toEqual({ project: "p", workspace: "w",
+      expectedAcceptedHead: null, expectedGraphDigest: "digest", adoptBaseGraphDigest: "digest", reviewedChangesId: full.id });
+    expect(() => graphActionPayload("p", "w", current, full, "rebase", full.id)).toThrow("Úplný snímek");
+    expect(graphProposalStale({ ...current, stateRevision: 3 }, full)).toBe(true);
+  });
+  it("refuses accepting and rebasing superseded history even with matching context and acknowledgement", () => {
+    const replaced = { ...proposal, supersededBy: "child", latestProposalId: "leaf" };
+    for (const action of ["accept", "rebase"] as const)
+      expect(() => graphActionPayload("p", "w", context, replaced, action, adoptionKey(replaced))).toThrow("nahrazen");
+  });
   it("can bootstrap a first plan and projects only allowed input fields", () => {
     const node = { ...newDraftNode("task"), name: " Task ", goal: "Goal", id: "forged", x: 500, by: { kind: "human" } };
     expect(graphPayload("p", "w", " First plan ", context, [node], [])).toEqual({ project: "p", workspace: "w", subject: "First plan", parentRevision: null,

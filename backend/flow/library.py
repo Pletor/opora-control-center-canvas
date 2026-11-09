@@ -13,6 +13,8 @@ import re
 import sqlite3
 import uuid
 
+from backend.flow.transactions import transaction
+
 from backend.flow.brief import brief
 from backend.flow.graph_check import FlowInvalid
 from backend.flow.workflows import (
@@ -59,7 +61,7 @@ def seed_folders(db):
     """Výchozí složky člověka, jen když část člověka ještě žádnou složku nemá (smazaná se nevrací)."""
     if db.execute("SELECT 1 FROM flow_library_folders WHERE owner='human'").fetchone():
         return
-    with db:
+    with transaction(db):
         for order, (slug, title) in enumerate(DEFAULT_FOLDERS):
             db.execute("INSERT OR IGNORE INTO flow_library_folders(id,owner,slug,title,ord,created_at) "
                        "VALUES(?,?,?,?,?,?)", (uuid.uuid4().hex, "human", slug, title, order, _now()))
@@ -83,7 +85,7 @@ def create_folder(db, part, slug, title, description="", order=None):
     folder = {"id": uuid.uuid4().hex, "owner": part, "slug": _slug(slug), "title": title.strip(),
               "description": description or "", "ord": order, "created_at": _now()}
     try:
-        with db:
+        with transaction(db):
             db.execute("INSERT INTO flow_library_folders(id,owner,slug,title,description,ord,created_at) "
                        "VALUES(:id,:owner,:slug,:title,:description,:ord,:created_at)", folder)
     except sqlite3.IntegrityError as error:
@@ -96,7 +98,7 @@ def update_folder(db, folder_id, title=None, description=None, order=None):
     folder = get_folder(db, folder_id)
     if title is not None and not title.strip():
         raise FlowInvalid("Složka potřebuje titulek.")
-    with db:
+    with transaction(db):
         db.execute("UPDATE flow_library_folders SET title=?, description=?, ord=? WHERE id=?",
                    ((title or folder["title"]).strip(), folder["description"] if description is None else description,
                     folder["order"] if order is None else order, folder_id))
@@ -116,7 +118,7 @@ def delete_folder(db, folder_id):
     folder = get_folder(db, folder_id)
     if _flows(db, folder["owner"], folder["slug"]):
         raise FlowConflict("Složka má plátna toku; nejdřív je přesuňte.", "folder_not_empty")
-    with db:
+    with transaction(db):
         db.execute("DELETE FROM flow_library_folders WHERE id=?", (folder_id,))
     return {"deleted": folder_id}
 
@@ -253,7 +255,7 @@ def promote(db, workflow_id, folder_id=None):
     if folder["owner"] != "human":
         raise FlowInvalid("Povýšení míří do složky člověka.")
     try:
-        with db:
+        with transaction(db):
             db.execute("UPDATE flow_workflows SET owner_ref=? WHERE id=?",
                        (owner_ref("human", folder["slug"], match.group(3)), workflow_id))
     except sqlite3.IntegrityError as error:

@@ -23,19 +23,21 @@ export default function PlanChanges({ model, review, acceptancePolicy }: { model
     {model.context && <>
       <p>Přijatá revize zadání: <code>{model.context.acceptedHead?.slice(0, 12) ?? "zatím nezaložena"}</code></p>
       <label className="plan-changes__field">Důvod změny nebo založení základu
-        <input value={model.subject} maxLength={200} disabled={disabled}
+        <input value={model.subject} maxLength={200} disabled={disabled || !!model.baselineId}
           onChange={event => model.setSubject(event.target.value)} placeholder="Proč má být zadání změněno?" />
       </label>
       {!model.context.acceptedHead ? <div className="plan-changes__baseline">
+        {model.baselineId && <p>Uložený návrh základu: <code>{model.baselineId}</code>. Přijetí použije přesně připnuté zadání.</p>}
+        {model.baselineId && !model.preparationMatches && <p role="alert">Připnutý základ se neshoduje s aktuálním zadáním. Nelze jej přijmout; připravte nový návrh.</p>}
         {acceptancePolicy?.context?.policy?.enabled && <p>Aktivní pravidla: první základ může použít pouze výslovnou bootstrap výjimku bez dřívější přijaté historie. Uloží vlastní doklad; nejde o schválení pozdějších návrhů.</p>}
         <h3>Výchozí zadání</h3><p>První přijetí zahrne všechna níže uvedená uložená zadání tohoto prostoru. Prohlédněte jejich obsah.</p>
         {!model.context.documents.length && <p>Nejprve vytvořte v Canvasu oblast, sektor nebo uzel. Prázdný základ nelze založit.</p>}
-        {model.context.documents.map(document => <details key={document.nodeId} className="plan-changes__document">
+        {(model.baselineId ? model.preparation?.documents ?? [] : model.context.documents).map(document => <details key={document.nodeId} className="plan-changes__document">
           <summary>{model.name(document.nodeId)} · revize {document.revision}</summary>
           {fieldKeys.map(field => <div key={field}><h4>{fieldLabels[field]}</h4><pre>{document.fields[field] || "(prázdné)"}</pre></div>)}
           <HarnessKit after={document.fields} />
         </details>)}
-        <button type="button" disabled={disabled || !model.subject.trim() || !model.context.documents.length}
+        <button type="button" disabled={disabled || !model.subject.trim() || !model.context.documents.length || !model.preparationMatches}
           onClick={model.baseline}>Přijmout tato uložená zadání jako výchozí základ</button>
       </div> : <>
         {model.context.workingDiffers && <p className="plan-changes__warning">Uložená zadání v Canvasu se liší od přijaté revize. Editor níže ukazuje uložené zadání. Návrh umožní přijmout jednotlivou upravenou kartu; další souběžnou změnu dotčené karty server odmítne. Žádná pracovní změna se zde nepřijímá automaticky.</p>}

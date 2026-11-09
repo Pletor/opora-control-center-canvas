@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -15,15 +16,22 @@ from backend.api.app_routes import create_app_router
 from backend.api.brain_opora.brain_routes import create_brain_router
 from backend.api.brain_opora.gate_routes import create_gate_router
 from backend.api.brain_opora.heart_routes import create_heart_router
+from backend.api.brain_opora.canvas_capability_routes import create_canvas_capabilities_router
+from backend.api.brain_opora.canvas_view_attachment_routes import create_canvas_view_attachment_router
+from backend.api.editor.research_continuation_routes import create_research_continuation_router
 from backend.api.brain_opora.intake_routes import create_intake_router
 from backend.api.brain_opora.jev_routes import create_jev_router
 from backend.api.editor.activity_log_routes import create_activity_log_router
 from backend.api.editor.agent_message_routes import create_agent_message_router
 from backend.api.editor.brief_vault_check_routes import create_brief_vault_check_router
 from backend.api.editor.brief_vault_routes import create_brief_vault_router
+from backend.api.editor.brief_vault_review_routes import create_brief_vault_review_router
 from backend.api.editor.research_routes import create_research_router
 from backend.api.editor.research_ticket_routes import create_research_ticket_router
 from backend.api.editor.research_decision_routes import create_research_decision_router
+from backend.api.editor.research_review_proposal_routes import create_research_review_proposal_router
+from backend.api.editor.desktop_review_routes import create_desktop_review_router
+from backend.api.editor.working_review_routes import create_working_review_router
 from backend.api.editor.research_read_routes import create_research_read_router
 from backend.api.editor.canvas_routes import create_canvas_router
 from backend.api.editor.canvas_version_routes import create_canvas_version_router
@@ -77,6 +85,7 @@ from backend.api.editor.sync_routes import create_sync_router
 from backend.api.brain.brain_registry_routes import create_brain_registry_router
 from backend.api.flow.flow_routes import create_flow_router
 from backend.api.flow.library_routes import create_library_router
+from backend.api.flow.library_review_routes import create_library_review_router
 from backend.api.agi_pletor.pletor_routes import create_pletor_router
 from backend.api.agi_pletor.dashboard_routes import create_dashboard_router
 from backend.api.agi_pletor.linie_routes import create_linie_router
@@ -109,6 +118,8 @@ from backend.app.remote_access import (
 from backend.brain import local_skills
 from backend.brain_opora.determinism import tokens as gate_tokens
 from backend.brain_opora.determinism import wall as brain_wall
+from backend.brain_opora.determinism import token_read_scope
+from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas import authority as authority_context
 from backend.flow.catalogs.heart.driver import HeartDriver
 from backend.flow.catalogs.heart.heart import Heart
@@ -173,6 +184,8 @@ def create_app(data_root=None):
     block_access = BlockAccess(service, desktop_state)
     agent_workspace = AgentWorkspace(service, desktop_state)
     service.agent_workspace = agent_workspace
+    service.node_briefs = node_briefs
+    service.desktop_packets = desktop_packets
     identity = build_identity(service.root)
     map_refresh = MapRefresh(service)
     reconciliation = ReconciliationManager(service)
@@ -320,13 +333,14 @@ def create_app(data_root=None):
                 return JSONResponse(
                     {"error": "Zápisy vyžadují stejný Origin a JSON."}, status_code=403
                 )
-            # Obrázek kresby a asset Správy webu (do 10 MB, v base64 o třetinu víc) mají vlastní strop; ostatní zápisy 2 MB.
+            # Binární soubory a návrhy balíků mají strop pro base64; doménové limity kontrolují dekódované bajty.
             # Dávka plánu (docs/davka-planu.md §3) smí mít celé 2 MiB.
             limit = (OBSERVER_BODY_LIMIT if request.url.path.startswith("/api/oporahub/execution-observers/")
                      else VERIFICATION_BODY_LIMIT if request.url.path.startswith("/api/oporahub/verifications/")
                      else CONTENT_BODY_LIMIT if request.url.path == "/api/oporahub/content-changes" or request.url.path.startswith("/api/oporahub/content-changes/")
+                     else 140 * 1024 * 1024 if request.url.path in ("/api/site-admin/proposals", "/api/brain/canvas/invoke")
                      else 14_500_000 if request.url.path in ("/api/drawing-file", "/api/site-admin/assets",
-                                                             "/api/site-admin/fonts")
+                                                             "/api/site-admin/fonts", "/api/brain/canvas/invoke")
                      else PREVIEW_BODY_LIMIT if request.url.path == "/api/oporahub/review-jobs/preview"
                      else 2 * 1024 * 1024 if request.url.path == "/api/canvas-plan" else 2000000)
             body = bytearray()
@@ -335,11 +349,26 @@ def create_app(data_root=None):
                     return JSONResponse({"error": "Požadavek je příliš velký."}, status_code=413)
                 body.extend(chunk)
             request._body = bytes(body)
+            request.state.received_body_bytes = len(body)
+        # OP-B171BE: dodaný token omezuje i čtení a nesmí převzít identitu z UI cookie.
+        gate_header = request.headers.get(gate_tokens.HEADER)
+        if gate_header:
+            try:
+                scoped_body = json.loads(getattr(request, "_body", b"") or b"{}")
+            except (ValueError, UnicodeDecodeError):
+                scoped_body = None  # Neplatné tělo odmítne validátor konkrétního rozhraní.
+            try:
+                session = await run_in_threadpool(
+                    token_read_scope.enforce, service, request.method, request.url.path,
+                    gate_header, dict(request.query_params), scoped_body)
+            except GateError as error:
+                return JSONResponse(error.body(), status_code=error.status)
+            if session:
+                request.state.actor, request.state.agent = "agent", session["worker_name"]
         # Oprávnění odděleně od původce (docs/plna-autonomie-agenta.md §2): agent dostane `human`
         # jen v projektu požadavku, kterému člověk zapnul plnou autonomii.
         request.state.authority = _authority(request)
         # Zeď brány mozku (docs/brain-gate.md §3); projekt s vypnutou bránou ji nevidí.
-        gate_header = request.headers.get(gate_tokens.HEADER)
         request.state.heart_project = ""  # jen zeď po ověření tokenu srdce (docs/brain-heart.md §5)
         verdict = brain_wall.ALLOW
         if brain_wall.relevant(request.method, request.state.actor, gate_header):
@@ -437,10 +466,15 @@ def create_app(data_root=None):
     app.include_router(create_node_router(service))
     # Schránka zadání: doslovné verzované fragmenty a odkazy karet (docs/navrh-schranka-zadani.md)
     app.include_router(create_brief_vault_router(service, desktop_state))
+    app.include_router(create_brief_vault_review_router(service))
     app.include_router(create_research_router(service))
     app.include_router(create_research_ticket_router(service))
     app.include_router(create_research_decision_router(service))
+    app.include_router(create_research_review_proposal_router(service))
+    app.include_router(create_desktop_review_router(service))
+    app.include_router(create_working_review_router(service))
     app.include_router(create_research_read_router(service))
+    app.include_router(create_research_continuation_router(service))
     # Poradní kontrola brány přes Jev; jen s povolením člověka pro projekt a poskytovatele (§9 bod 10)
     app.include_router(create_brief_vault_check_router(service, settings=app_settings, provider=jev_provider))
     app.include_router(create_desktop_v3_router(desktop_state, desktop_packets, node_briefs, agent_output, block_access, agent_workspace, memory_service=memory_service))
@@ -496,10 +530,13 @@ def create_app(data_root=None):
     app.include_router(create_opora_history_router(service))
     app.include_router(create_flow_router(service))  # engine toků (docs/navrhy/2026-11-03-novy-zaklad.md §3.1)
     app.include_router(create_library_router(service))  # knihovna pláten toku (docs/navrhy/2026-11-04-knihovna-…)
+    app.include_router(create_library_review_router(service))
     app.include_router(create_brain_registry_router(service))  # registr Brainu a eval gate (tamtéž §3.4)
     app.include_router(create_gate_router(service, heart))  # brána mozku (docs/brain-gate.md §4)
     app.include_router(create_brain_router(service))  # přepínač brány (docs/brain-gate.md §1)
     app.include_router(create_heart_router(service, heart))  # srdce mozku (docs/brain-heart.md §1)
+    app.include_router(create_canvas_capabilities_router(service))
+    app.include_router(create_canvas_view_attachment_router(service))
     app.include_router(create_pletor_router(service, app.state.pletor))  # Pletor, P1
     app.include_router(create_workshop_router(service))  # Dílna D0 (docs/navrhy/2026-11-05-dilna-skillu.md)
     app.include_router(create_dashboard_router(service, heart, app.state.pletor))  # velín Pletora V2/V3, jen čtení

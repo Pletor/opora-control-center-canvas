@@ -142,7 +142,7 @@ def run(vault, payload, view, node_ids, make_write, actor):
         done["result"] = gates.gate(w, payload, node_ids)
 
     applied = apply_plan(canvas, {"project": project, "workspace": payload["workspace"], "digest": view["digest"],
-                                  "plan": plan}, actor=actor, after_write=after_write)
+                                  "plan": plan}, actor=actor, after_write=after_write, verify_write=True)
     return {"ok": True, "op": "gate", **done["result"],
             "placement": {"planId": stored["planId"], "refs": applied["refs"], "summary": applied["summary"],
                           "digest": applied["digest"], "revision": applied["revision"]}}

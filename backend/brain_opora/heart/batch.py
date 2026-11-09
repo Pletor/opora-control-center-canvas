@@ -90,6 +90,16 @@ def _flow_context(context):
 
 def _input_line(item):
     kind = item.get("type")
+    if kind == "researchPlanning":
+        return (f"- RESEARCH PLANNING {item['continuationId']}: read research-map show {item['researchId']} "
+                f"--revision {item['researchRevision']}. Create only a pending native proposal using plan --no-accept "
+                f"--workspace {item['workspace']} --operation-id {item['operationId']}. "
+                f"The plan must include draftVersion:3 and researchSource:{json.dumps(item['researchSource'])}. "
+                "Preserve source revisions, uncertainties and existing tasks. Missing evidence blocks only dependent work. "
+                "Do not launch more research or accept/execute tasks. Reuse the same operation and request after interruption; "
+                "a conflict requires reconciliation. With no accepted head, the same command saves an initial unaccepted "
+                "canvas draft with pinned researchSource. Completion requires native proposal or initial draft readback, "
+                "not this run ending.")
     if kind == "message":
         return f"- ZPRÁVA ČLOVĚKA: {item['text']}{_intake(item)}{_flow_context(item.get('context'))}"
     if kind == "ticket":

@@ -43,18 +43,25 @@ class OporaGraphProposals:
         scope({"project": project, "workspace": workspace})
         with self.service.lock_for(project):
             repo = self.repository(project, workspace)
-            return {**repo.read(record_id), "accepted": repo.accepted(record_id) is not None}
+            from backend.canvas.opora_graph_revise import lineage_status
+            return {**repo.read(record_id), "accepted": repo.accepted(record_id) is not None,
+                    **lineage_status(repo, record_id)}
 
     def list(self, project, workspace):
         scope({"project": project, "workspace": workspace})
         with self.service.lock_for(project):
-            return {"items": list(self.repository(project, workspace).summaries()),
+            from backend.canvas.opora_graph_revise import lineage_status
+            repo = self.repository(project, workspace)
+            return {"items": [{**item, **lineage_status(repo, item["id"])} for item in repo.summaries()],
                     "acceptedHead": self.specifications.repository(project, workspace).head()}
 
     def create(self, payload, by):
         from backend.canvas.opora_graph_change_plan import EDIT_KEYS
         from backend.canvas.opora_graph_changes import OporaGraphChanges
         plan = payload.get("plan")
+        from backend.canvas.opora_graph_complete_build import required
+        if required(plan):
+            return OporaGraphChanges(self.service).create(payload, by)
         if isinstance(plan, dict) and (set(plan) & EDIT_KEYS or "adoptArchitectureContext" in plan):
             return OporaGraphChanges(self.service).create(payload, by)
         if set(payload) - {"operationId"} != {"project", "workspace", "parentRevision", "expectedGraphDigest", "subject", "plan"}:
@@ -101,6 +108,11 @@ class OporaGraphProposals:
                 "parentGraphManifestId": manifest["id"] if manifest else None, "baseGraph": deepcopy(graph),
                 "requiresBaseAdoption": manifest is None, "adoptionDocuments": missing if manifest is None else [],
                 "subject": label, "by": by, "createdAt": stamp(), "supersedes": supersedes, **additions}
+
+    def revise(self, record_id, payload, by):
+        from backend.canvas.opora_graph_changes import OporaGraphChanges
+        from backend.canvas.opora_graph_revise import revise
+        return revise(OporaGraphChanges(self.service), record_id, payload, by)
 
     def rebase(self, record_id, payload, by):
         from backend.canvas.opora_graph_changes import OporaGraphChanges

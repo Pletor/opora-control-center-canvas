@@ -148,10 +148,29 @@ def test_plan_in_a_workspace_adopts_architecture_changed_behind_its_back(heart):
                        "site": {"kind": "page", "path": "/o-nas"}}], "edges": []}
     call("POST", "/api/canvas-plan", {**main, "digest": call("GET", "/api/view", query=main)["digest"], "plan": page})
     assert claims(call, pid, wid)[0]["heads"]["workingDiffers"] is True
+    scope = {"project": pid, "workspace": wid}
+    head_before = call("GET", "/api/oporahub/graph-proposals/context", query=scope)["acceptedHead"]
+    pending = tool("plan", "--workspace", wid,
+                   plan={"nodes": [card("pata", "@" + web, "[task] Patička")], "edges": []})
+    assert pending["accepted"] is False
+    assert call("GET", "/api/oporahub/graph-proposals/context", query=scope)["acceptedHead"] == head_before
     second = tool("plan", "--accept", "--workspace", wid,
                   plan={"nodes": [card("pata", "@" + web, "[task] Patička")], "edges": []})
     assert second["accepted"] is True, second
-    assert second["acceptSteps"] == ["adopt_architecture", "accept", "graph_addition", "accept"]
+    assert second["proposalId"] == pending["proposalId"]
+    assert second["acceptSteps"] == ["graph_addition", "accept"]
+    scope = {"project": pid, "workspace": wid}
+    saved = call("GET", "/api/oporahub/graph-proposals/" + second["proposalId"], query=scope)
+    assert saved["schemaVersion"] == 3 and saved["accepted"] is True
+    assert saved["plan"]["adoptArchitectureContext"] is True
+    native_ids = {node["id"] for node in saved["acceptedResultGraph"]["nodes"]}
+    assert {first["refs"]["hero"], second["refs"]["pata"]} <= native_ids
+    main_ids = {node["id"] for node in call("GET", "/api/view", query=main)["graph"]["nodes"]}
+    assert main_ids <= native_ids
+    accepted_head = call("GET", "/api/oporahub/graph-proposals/context", query=scope)["acceptedHead"]
+    accepted = call("GET", "/api/oporahub/revisions/" + accepted_head, query=scope)
+    assert accepted["proposalId"] == saved["id"] and accepted["parentRevision"] == saved["parentRevision"]
+    assert accepted["graphManifestId"] and accepted["contentManifestId"]
     state, ready = claims(call, pid, wid)
     assert state["heads"]["workingDiffers"] is False
     assert {ready[first["refs"]["hero"]]["status"], ready[second["refs"]["pata"]]["status"]} == {"ready"}
@@ -183,4 +202,5 @@ def test_ctx_plan_of_dumps_another_workspace_plan_into_the_workshop(heart):
     main = tool("ctx", "plan-of", "--project", pid, "--workspace", "main")  # explicit main: jen architektura
     assert main["items"] == 3
     assert tool("ctx", "plan-of")["code"] == "plan_of_project"
-    assert tool("ctx", "plan-of", "--project", "nikde")["code"] == "project_not_found"
+    # A scoped token cannot probe whether a foreign project exists.
+    assert tool("ctx", "plan-of", "--project", "nikde")["code"] == "gate_scope"

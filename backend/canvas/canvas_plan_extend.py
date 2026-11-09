@@ -123,9 +123,9 @@ def extend_cards(built, extensions, existing):
                 fields(port, PORT_FIELDS, {"ref"}, port_label)
                 block.setdefault("ports", []).append({"id": plan_ref(port["ref"], port_label), "label": port.get("label", ""),
                                                        **{key: port[key] for key in ("status", "reason", "onMet") if key in port}})
-        for rule in items_of(item.get("rules", []), label, "rules"):
+        for rule_index, rule in enumerate(items_of(item.get("rules", []), label, "rules")):
             fields(rule, {"text", "kind"}, {"text", "kind"}, label)
-            built.state["rules"].append({"id": new_id(), **rule, "scope": "node", "target": node_id})
+            built.state["rules"].append({"id": new_id(f"rule:{target}.rules[{rule_index}]"), **rule, "scope": "node", "target": node_id})
         for key in ("spec", "text"):
             if key in item:
                 value_key = "fields" if key == "spec" else "text"

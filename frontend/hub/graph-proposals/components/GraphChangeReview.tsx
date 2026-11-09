@@ -15,13 +15,24 @@ const effectNames: Record<string, string> = { removedNodes: "Odstraněné aktuá
   clearedEdgeReports: "Zneplatněné reporty přepojených vazeb", removedRules: "Odstraněná pravidla", removedDecisions: "Odstraněná rozhodnutí",
   removedAutonomy: "Odstraněné granty autonomie", unassignedTickets: "Zachované tickety s odebraným přiřazením", areaMembershipChanges: "Změny příslušnosti k oblastem" };
 export default function GraphChangeReview({ proposal }: { proposal: GraphProposal }) {
-  if (proposal.schemaVersion !== 2) return null;
+  if (![2, 3, 4].includes(proposal.schemaVersion ?? 1)) return null;
   if (!proposal.changes || !proposal.stateEffects) return <p role="alert">Návrh neobsahuje úplné podklady pro kontrolu změn. Nelze jej přijmout.</p>;
   const removed = proposal.changes.nodes.filter(item => item.operation === "remove").length;
   const removedEdges = proposal.changes.edges.filter(item => item.operation === "remove").length;
   return <section aria-label="Kontrola úprav a odstranění" className="graph-proposals__change-review">
+    {proposal.contentBase?.requiresAdoption && <section className="graph-proposals__adoption">
+      <h4>Výslovné převzetí výchozího obsahu</h4>
+      <p>Přijetím tohoto návrhu převezmete také celý níže uložený obsah původních karet a kreseb jako první přijatý základ. Zkontrolujte jej před potvrzením všech změn.</p>
+      <p>Otisk obsahu: <code>{proposal.contentBase.digest}</code></p>
+      <details><summary>Výchozí obsah k převzetí ({proposal.contentBase.entries.length} položek)</summary>
+        {proposal.contentBase.entries.map(entry => <article key={`${entry.kind}:${entry.target}:${entry.field}`}>
+          <h5>{proposal.baseGraph.nodes.find(node => node.id === entry.target)?.name ?? (entry.target || "Celé plátno")} · {entry.kind} · {entry.field}</h5>
+          {entry.revision !== undefined && <p>Revize {entry.revision}</p>}<EvidenceValue value={entry.value} />
+        </article>)}
+      </details>
+    </section>}
     <h4>Kontrola změn přijatého i pracovního grafu</h4>
-    <p>Každé vybrané pole se mění v obou grafech. Nepřijaté pracovní odlišnosti ostatních polí zůstávají jen v pracovním Canvasu.</p>
+    <p>{proposal.schemaVersion === 4 ? "Přijímáte úplný zobrazený snímek grafu, včetně pracovních odlišností a změn sdílené architektury. Dokumenty karet, jejich stav a historie prostoru zůstávají beze změny; tento krok neschvaluje jejich obsah pro realizaci." : "Každé vybrané pole se mění v obou grafech. Nepřijaté pracovní odlišnosti ostatních polí zůstávají jen v pracovním Canvasu."}</p>
     {proposal.changes.architectureContext && <section className="graph-proposals__adoption"><h4>Výslovné převzetí kontextu sdílené architektury</h4>
       <p>Mění se přijatý kontext závislostí; sdílená architektura se nepřepisuje.</p>
       <div className="graph-proposals__comparison">{columns.map(([key, title]) => <section key={key}><h5>{title}</h5><EvidenceValue value={proposal.changes!.architectureContext![key]} /></section>)}</div>

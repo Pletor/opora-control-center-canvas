@@ -1,5 +1,7 @@
 # Heart / Canvas operation inventory
 
+This table is the historical baseline inventory, not the current implementation status. The current finite catalog has183 operations, including the subsequently discovered native review and research lifecycle routes. Its authoritative runtime contracts and implementation/test references are in `backend/brain_opora/canvas_capabilities/catalog.py`, [README](../../backend/brain_opora/canvas_capabilities/README.md) and [remaining-status record](../../backend/brain_opora/canvas_capabilities/REMAINING.md). The current acceptance evidence, including failures and pending whole-suite checks, is in [the verification record](2026-11-08-srdce-canvas-amplelab-overeni.md). Historical “gap” cells below must not be read as current missing implementations.
+
 OP-086DEE; audited base `70131036`, 2026-11-08. This is an inventory of existing code, not a claim that every operation has a working Heart adapter. No product plan was accepted by this audit. LSP unavailable; source and AST inspected directly.
 
 ## Finite scope and contract legend

@@ -95,7 +95,7 @@ def _steps(fields):
 
 
 def _spec(fields):
-    steps = [{key: step.get(key) for key in ("id", "order", "title", "acceptance", "dependsOn") if key in step}
+    steps = [{key: step.get(key) for key in ("id", "order", "title", "acceptance", "dependsOn", "kind", "files") if key in step}
              for step in _steps(fields)][:PLAN_OF_STEPS]
     return {"goal": _clip(fields.get("goal")), "non_goals": _clip(fields.get("non_goals")),
             "acceptance": _clip(fields.get("acceptance")), "steps": steps}

@@ -59,7 +59,9 @@ Chyba vrátí `code` a `hint`; oprav argumenty podle `hint` a zkus to jednou zno
 
 ## Plán
 Práci vydáváš **jen jako ticket** (`task`): kancelář i pracovníci berou tickety, ničím jiným práci nedostanou.
-Karta na plátně (`plan`) je mapa a pořadí; ke každé kartě práce vydej jeden ticket s `--node <ID karty>`.
+Karta na plátně (`plan`) je mapa a pořadí; samotný návrh není oprávnění spustit práci.
+Ticket s `--node <ID karty>` vydej pouze pro přijaté, připravené zadání a autorizovanou realizaci.
+Z rešeršního návrhu automaticky nevydávej ticket ani nespouštěj pracovníka.
 Karta bez ticketu nikoho nedostane. Vydané tickety a jejich stav jsou v sekci TICKETY PRÁCE snímku.
 Kartu stavíš příkazem
 `plan`: plán ulož nástrojem Write jako JSON objekt dávky (`nodes`, `edges`) do `dilna/out/<jméno>.json`, nejdřív ho
@@ -72,7 +74,7 @@ opravou nebo výzkumem. Kartu uzavírá člověk.
 Tvar dávky (celý kontrakt `docs/davka-planu.md` §3; tentýž vzor vypíše `plan --example`). Uzel má jen tato pole:
 `ref` (a-z, 0-9, -), `kind` (`sector` = skupina, `node` = karta), `parent` (`ref` z dávky, `"@<id>"` existujícího
 uzlu, nebo `null`), `name` (`[task] …`), `purpose`, `card` {`layer` frontend|backend|database|library, `status`
-`ready`, `effort` low|medium|high|max}, `spec` {`goal`, `non_goals`, `acceptance` (text), `steps`}, `checks`. Vazba `next` = pořadí karet.
+`draft`|`ready`, `effort` low|medium|high|max}, `spec` {`goal`, `non_goals`, `acceptance` (text), `steps`}, `checks`. Vazba `next` = pořadí karet.
 ```json
 {"nodes": [
  {"ref": "mvp", "kind": "sector", "parent": null, "name": "MVP seznam úkolů", "purpose": "První použitelná verze aplikace."},
@@ -99,9 +101,16 @@ mechanická změna jednoho souboru (přejmenování, konstanta, doc); `medium` =
 `high` = oprava chyby v existujícím kódu, migrace, bezpečnost, souběh, víc modulů; `max` jen výjimečně, když návrh nejde
 rozdělit na menší karty. Podle toho kancelář vybere model a úsilí dělníka.
 Realizační karta má 2–8 kroků `spec.steps`; každý krok má `kind` (code|test|docs|design|research) a `files`
-(odhad dotčených cest). Z nich měřák určí model a úsilí; karta bez kroků a souborů dostane štítek „?“.
-Odmítnutá dávka vrátí v `hint` text serveru: oprav jen to pole. Ostrý `plan` plán sám přijme (`accepted: true`, karty
-jdou orchestrátorovi); `accepted: false` s `hint` znamená, že přijetí zůstalo na člověku: neopakuj dávku.
+(dotčené cesty). Existující cestu uváděj pouze po čtení zdroje v konkrétní revizi; nově navržený soubor
+výslovně označ v zadání jako návrh, nikoli nalezený soubor. Nevymýšlej cesty kvůli měřáku.
+Bez dostupného zdroje projektu nebo ověřeného umístění použij pro objevovací/designové kroky dávky `plan`
+`files: []`, `card.status: draft` a do zadání napiš předpoklad: nejprve zpřístupnit a prohlédnout zdroj.
+Takový ohraničený návrh je užitečný, ale není připraven k realizaci; chybějící soubory nejsou důkaz hotovosti.
+Samostatný příkaz `steps` vyžaduje neprázdné files pro realizační kartu; neobcházej jej vymyšlenou cestou.
+Odmítnutá dávka vrátí v `hint` text serveru: oprav jen to pole. Výchozí ostrý `plan` ukládá nepřijatý návrh;
+první pracovní plátno je `canvasDraft`, nad přijatým grafem vzniká návrh grafu. Přesný `resultKind`, přijetí
+a readback oznam podle skutečné odpovědi, nic nedovozuj z úspěšného zápisu. `--accept` použij jen při výslovně
+autorizovaném přijetí, které dovoluje nativní autorita; výsledek `accepted: false` není důvod dávku duplikovat.
 Další plán nad už přijatým grafem jde jako návrh grafu: pole ze vzoru včetně `card` (i `card.effort`),
 `checks` a `spec.steps` stejně jako první plán, vazby jen
 `next`, existující kartu odkazuj `"@<id>"` z PLÁNU snímku.
@@ -300,7 +309,7 @@ chování pokryté testem jiného úkolu, má ten test rovnou ve `--file`.
 3. Selhaný ticket je už uzavřený (`cancel` na něj nevolej). Ze zadání a odevzdání ve vstupu zjisti příčinu
    (často test jiného úkolu) a vydej nový ticket, menší a přesnější i s opravou příčiny.
    Eskaluj jen podle pravidla výše.
-4. Nový záměr: naplánuj karty (`plan`) a ke každé kartě práce vydej ticket (`task --node`), nejdřív to, na čem
-   ostatní stojí. Neduplikuj karty z PLÁNU ani tickety z TICKETY PRÁCE. Sloučení a nové commity: přečti změnu ve
+4. Nový záměr: naplánuj návrh karet (`plan`); ticket (`task --node`) až pro přijaté, připravené zadání
+   s autorizovanou realizací, nejdřív to, na čem ostatní stojí. Neduplikuj karty z PLÁNU ani tickety z TICKETY PRÁCE. Sloučení a nové commity: přečti změnu ve
    zdroji a navaž (část Plán).
 5. Vždy skonči `python opora_heart.py done --summary "…"` (jedna věta: co jsi udělalo).

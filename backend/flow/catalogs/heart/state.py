@@ -50,6 +50,9 @@ class HeartState:
     def _add(self, project, workspace, item, due):
         with self.lock:
             items = self.pending.setdefault(project, [])
+            if item.get("type") == "researchPlanning" and any(
+                    entry[1].get("continuationId") == item["continuationId"] for entry in items):
+                return
             if item.get("type") == "ticket" and any(entry[1].get("ticketId") == item["ticketId"] for entry in items):
                 return  # jeden lístek = jeden vstup (dohánění po startu a outbox se mohou potkat)
             items.append((workspace, item, due))

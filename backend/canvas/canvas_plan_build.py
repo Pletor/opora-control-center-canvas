@@ -38,6 +38,7 @@ class Built:
         self.positions = {}  # explicit catalog drop points; absent means existing auto-layout
         self.specs, self.texts = {}, {}
         self.refs, self.blocks = {}, {}
+        self.edge_identity_counts = {}
         self.labels = {}  # nové id → jméno položky v dávce (pro hlášení chyb)
         self.extend_revisions, self.documents = [], []
         self.spec_revisions, self.text_revisions = {}, {}
@@ -74,7 +75,7 @@ def build(plan, graph, state):
         ref = plan_ref(item["ref"], f"nodes[{index}]")
         if ref in built.refs:
             fail(ref, "duplicitní ref.")
-        built.refs[ref] = new_id()
+        built.refs[ref] = new_id("node:" + ref)
         built.labels[built.refs[ref]] = ref
     kinds = {key: node["kind"] for key, node in existing.items()}
     kinds.update({built.refs[item["ref"]]: item["kind"] for item in nodes_in})
@@ -114,7 +115,7 @@ def build(plan, graph, state):
         label = f"decisions[{index}]"
         fields(item, DECISION_FIELDS, {"text"}, label)
         node = item.get("node")
-        decision_id = new_id()
+        decision_id = new_id(label)
         built.labels[decision_id] = label
         built.state["decisions"].append({
             "id": decision_id, "text": item["text"], "pinned": item.get("pinned", False), "path": "",
@@ -184,7 +185,7 @@ def _node(built, item, parents, kinds, existing):
     for index, rule in enumerate(items_of(item.get("rules", []), ref, "rules")):
         label = f"{ref}.rules[{index}]"
         fields(rule, RULE_FIELDS, RULE_FIELDS, label)
-        rule_id = new_id()
+        rule_id = new_id("rule:" + label)
         built.labels[rule_id] = label
         built.state["rules"].append({"id": rule_id, "text": rule["text"], "kind": rule["kind"],
                                      "scope": "node", "target": node_id})
@@ -194,7 +195,7 @@ def _node(built, item, parents, kinds, existing):
     if {"blocks", "agentRole", "criteria", "downloadsUrl", "fragmentRef"} & set(item):
         criteria = []
         for index, text in enumerate(items_of(item.get("criteria", []), ref, "criteria")):
-            criterion_id = new_id()
+            criterion_id = new_id(f"criterion:{ref}:{index}")
             built.labels[criterion_id] = f"{ref}.criteria[{index}]"
             criteria.append({"id": criterion_id, "text": text, "checked": False})
         state_node = {"phase": "discover", "criteria": criteria, "steps": [],
@@ -205,7 +206,9 @@ def _node(built, item, parents, kinds, existing):
             from backend.editor.agent_memory.input_security import security_block
             state_node["downloadsUrl"] = item["downloadsUrl"]
             if item["downloadsUrl"]:
-                state_node["blocks"].append(security_block(len(state_node["blocks"]) + 1))
+                block = security_block(len(state_node["blocks"]) + 1)
+                block["id"] = new_id("security:" + ref).replace("-", "")
+                state_node["blocks"].append(block)
         built.state["nodes"][node_id] = state_node
         built.state_changed = True
     if "briefGroup" in item or "briefDiscipline" in item:

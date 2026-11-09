@@ -24,7 +24,8 @@ export default function GraphProposals({ model, review }: { model: GraphProposal
     <ul className="graph-proposals__history">{model.items.map(item => <li key={item.id}
       className={["graph-proposals__entry", model.flashOf(item.id)].filter(Boolean).join(" ")} onAnimationEnd={() => model.endFlash(item.id)}>
       <button type="button" disabled={model.busy} aria-pressed={model.inspected?.id === item.id} onClick={() => model.inspect(item.id)}>{item.subject}</button>
-      <span>{item.nodeCount} prvků · {item.edgeCount} vazeb · {item.accepted ? "Přijato" : "Navrženo"} · {item.by.name}</span>
+      <span>{item.nodeCount} prvků · {item.edgeCount} vazeb · {item.accepted ? "Přijato" : item.supersededBy ? "Nahrazeno" : "Navrženo"} · {item.by.name}</span>
+      {item.supersededBy && <button type="button" disabled={model.busy} onClick={() => model.inspect(item.latestProposalId || item.supersededBy!)}>Otevřít aktuální návrh</button>}
     </li>)}</ul>
     {model.detailBusy && <p role="status">Načítám přesný obsah návrhu…</p>}
     {model.detailError && <p role="alert">{model.detailError}</p>}

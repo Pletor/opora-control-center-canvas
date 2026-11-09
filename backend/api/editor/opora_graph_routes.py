@@ -45,6 +45,14 @@ def create_opora_graph_router(service):
     def rebase(identifier: str, payload: dict, request: Request):
         return proposals.rebase(identifier, payload, author(request))
 
+    @router.post("/{identifier}/revise")
+    def revise(identifier: str, payload: dict, request: Request):
+        if heart_project(request):
+            heart_scope(payload.get("plan"))
+        result = proposals.revise(identifier, payload, author(request))
+        note(request, created_nodes(result))
+        return result
+
     @router.post("/{identifier}/accept")
     def accept(identifier: str, payload: dict, request: Request):
         result = acceptance.accept(identifier, payload, author(request, human=True))

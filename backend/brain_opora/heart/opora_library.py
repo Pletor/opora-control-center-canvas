@@ -41,11 +41,17 @@ def _flow(flow):
     return out
 
 
+def scoped_read(tool, operation, data):
+    """Published library graphs retain only lineage visible to this authenticated project."""
+    return tool.call("POST", "/api/brain/canvas/invoke", {**tool.scope(),
+        "capability": "library_routes." + operation, "input": data})["result"]
+
+
 def show(tool, owner, folder):
     parts = [owner] if owner else ["human", "agent"]
     out = {}
     for part in parts:
-        folders = [f for f in tool.call("GET", "/api/library", query={"owner": part})["folders"]
+        folders = [f for f in scoped_read(tool, "library_list", {"owner": part})["folders"]
                    if not folder or f["slug"] == folder]
         out[part] = {"folders": [{"slug": f["slug"], "title": f["title"], "flows": [_flow(x) for x in f["flows"]]}
                                  for f in folders if f["flows"]],
@@ -54,7 +60,7 @@ def show(tool, owner, folder):
 
 
 def get(tool, flow_id, n):
-    detail = tool.call("GET", f"/api/library/flows/{_q(flow_id)}")
+    detail = scoped_read(tool, "flow_detail", {"workflow_id": flow_id})
     versions = detail["versions"]
     version = (next((v for v in versions if v["n"] == n), None) if n is not None else
                next((v for v in versions if v["status"] == "active"), None) or (versions[-1] if versions else None))
@@ -93,10 +99,10 @@ def _learned(tool, raw):
 def save(tool, args):
     graph = _graph(tool, args.file)
     learned = _learned(tool, args.learned_from)
-    folders = tool.call("GET", "/api/library", query={"owner": "agent"})["folders"]
+    folders = scoped_read(tool, "library_list", {"owner": "agent"})["folders"]
     folder = next((f for f in folders if f["slug"] == args.folder), None)
     if folder is None:
-        human = tool.call("GET", "/api/library", query={"owner": "human"})["folders"]
+        human = scoped_read(tool, "library_list", {"owner": "human"})["folders"]
         title = next((f["title"] for f in human if f["slug"] == args.folder), args.folder)
         folder = {**tool.call("POST", "/api/library/folders", {"owner": "agent", "slug": args.folder, "title": title}),
                   "flows": []}
@@ -113,7 +119,7 @@ def save(tool, args):
 
 
 def propose(tool, flow_id, path, note):
-    detail = tool.call("GET", f"/api/library/flows/{_q(flow_id)}")
+    detail = scoped_read(tool, "flow_detail", {"workflow_id": flow_id})
     if not detail["ownerRef"].startswith("opora:library:human:"):
         raise tool.Failure({"error": f"Plátno {flow_id} není v knihovně člověka.", "code": "library_not_human",
                             "hint": "Do knihovny agenta piš rovnou: python opora_heart.py library save …"})

@@ -323,13 +323,13 @@ class BriefVault(VaultReader):
         # Zrcadlo (docs/zrcadlo.md): `mirror(project)` vrací klienta, nebo None; výchozí čte prostředí při každém volání.
         self.mirror = mirror or (lambda project: mirror_client.client_for(project))
 
-    def apply(self, payload, *, actor="unknown", agent="", intake=True):
+    def apply(self, payload, *, actor="unknown", agent="", intake=True, duel_session=None):
         """Jedna operace schránky v jedné transakci; ValueError = nic se nezapsalo (HTTP 409).
         `intake=False`: nové fragmenty `brief` / `question` nezaloží vstup vstupní brány (zápis k existujícímu
         požadavku, jinak by z výslechu vznikl nový požadavek a smyčka).
 
         Po potvrzení transakce (mimo zámek) volá Zrcadlo; jeho výsledek ani porucha odpověď nemění."""
-        result = self._apply(payload, actor=actor, agent=agent, intake=intake)
+        result = self._apply(payload, actor=actor, agent=agent, intake=intake, duel_session=duel_session)
         vault_mirror.after_gate(self.canvas, payload, result, self.mirror)
         return result
 
@@ -337,7 +337,7 @@ class BriefVault(VaultReader):
         """Přesnost Zrcadla po disciplínách a poslední hormony pro Přehled Schránky (docs/zrcadlo.md)."""
         return vault_mirror.overview(self.canvas, project, workspace, self.mirror(project))
 
-    def _apply(self, payload, *, actor, agent, intake=True):
+    def _apply(self, payload, *, actor, agent, intake=True, duel_session=None):
         op = _payload(payload)
         if op in HUMAN_OPS:
             require_authority(actor, HUMAN_OPS[op])
@@ -349,7 +349,9 @@ class BriefVault(VaultReader):
             node_ids = {node["id"] for node in view["graph"]["nodes"]}
 
             def make_write(db):
-                return _Write(db, project, workspace, actor, agent, self.state, intake)
+                write = _Write(db, project, workspace, actor, agent, self.state, intake)
+                write.duel_session = duel_session
+                return write
 
             if placement.wants(payload):
                 # Brány plánu: plán a zápis na plátno skládá server mimo transakci schránky (§9 body 1–2).

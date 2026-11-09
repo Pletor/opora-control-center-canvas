@@ -69,7 +69,7 @@ def _set_status(db, run_id, status, now):
         append(db, run_id, None, "run.status", {"status": status}, moment=now)
 
 
-def start_run(db, version_id, trigger=None, registry=NODE_TYPES, now=None, parent_run_id=None):
+def start_run(db, version_id, trigger=None, registry=NODE_TYPES, now=None, parent_run_id=None, *, run_id=None):
     """Vytvoří běh z verze a spouštěče `{node_id?, payload?, source?}` a hned ho posune. Záměr stránky se nespouští."""
     trigger = dict(trigger or {})
     version = get_version(db, version_id)
@@ -81,7 +81,12 @@ def start_run(db, version_id, trigger=None, registry=NODE_TYPES, now=None, paren
     if node_id not in triggers:
         raise FlowInvalid("Spouštěč musí být uzel typu spouštěč v této verzi.")
     trigger["node_id"] = node_id
-    run_id = uuid.uuid4().hex
+    run_id = run_id or uuid.uuid4().hex
+    existing = db.execute("SELECT * FROM flow_runs WHERE id=?", (run_id,)).fetchone()
+    if existing is not None:
+        if existing["workflow_version_id"] != version_id or json.loads(existing["trigger"]) != trigger:
+            raise FlowConflict("Run identity already belongs to another request.")
+        return get_run(db, run_id)  # Never re-execute a previously started run on lost response.
     with db:
         append(db, run_id, None, "run.created",
                {"workflow_version_id": version_id, "trigger": trigger, "parent_run_id": parent_run_id}, moment=now)

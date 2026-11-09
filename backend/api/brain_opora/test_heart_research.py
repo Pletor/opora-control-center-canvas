@@ -52,7 +52,7 @@ class FakeClaude:
             return 0, claude_json(json.dumps({"findings": self.findings}), 0.05), "", False
         if input_text.startswith("Jsi syntetik výzkumu"):
             return 0, claude_json(json.dumps(self.digest) if self.digest else "Nevím.", 0.01), "", False
-        if "Jsi nezávislý soudce" in input_text:
+        if "Simuluješ roli soudce" in input_text:
             ids = re.search(r"těchto výměn: ([^\n]+)\.", input_text).group(1).split(", ")
             scores = [{"turnId": turn, "strength": 8, "supports": "A"} for turn in ids]
             return 0, claude_json("Hodnocení: " + json.dumps({"scores": scores}), 0.01), "", False
@@ -159,6 +159,7 @@ def test_research_writes_the_vault_and_a_duel_reaches_a_decision(heart, monkeypa
     roots = [r for r in call("GET", "/api/brief-vault", query=SCOPE)["roots"] if r["title"] == opora_research.ROOT_TITLE]
     assert len(roots) == 1
 
+    accepted_before_duel = call("GET", "/api/oporahub/graph-proposals/context", query=SCOPE)["acceptedHead"]
     fake = FakeClaude()
     result = run(fake, monkeypatch, ["duel", "--subject", done["fragmentId"], "--a", "Hero podle vzoru.",
                                      "--b", "Statická stránka bez komponent."])
@@ -167,8 +168,13 @@ def test_research_writes_the_vault_and_a_duel_reaches_a_decision(heart, monkeypa
     duel = call("GET", "/api/brief-vault/duel", query={**SCOPE, "id": result["duelId"]})["duel"]
     assert duel["status"] == "decided" and duel["decision"]["outcome"] == "keep"
     assert {(t["side"], t["by"]) for t in duel["turns"]} == {
-        ("B", "heart"), ("A", "srdce-obhajce-a"), ("B", "srdce-obhajce-b")}
-    assert {s["judge"] for s in duel["scores"]} == {"srdce-soudce-1", "srdce-soudce-2"}
+        ("B", "heart"), ("A", "heart")}
+    assert {s["judge"] for s in duel["scores"]} == {"heart"}
+    assert {s["delegateRole"] for s in duel["scores"]} == {"judge_1", "judge_2"}
+    assert result["delegation"] == duel["delegation"]
+    assert result["delegation"]["mode"] == "single-principal-role-simulation"
+    assert call("GET", "/api/oporahub/graph-proposals/context", query=SCOPE)["acceptedHead"] == accepted_before_duel
+    assert {t["delegateRole"] for t in duel["turns"]} == {"advocate_a", "advocate_b"}
     assert [t["kind"] for t in duel["turns"]].count("grill") == 4 and "skipped" not in result
 
     runs = [json.loads(line) for line in (brain / "dilna" / "runs.jsonl").read_text(encoding="utf-8").splitlines()]
@@ -176,6 +182,7 @@ def test_research_writes_the_vault_and_a_duel_reaches_a_decision(heart, monkeypa
         ("research", 2, 0.06), ("research", 2, 0.06), ("duel", 9, 0.09)]
 
     text = client.get("/api/brain/heart/snapshot", params=SCOPE).json()["snapshot"]
+    assert "single-principal-role-simulation (not independent review)" in text
     section = text.split("VÝZKUM:")[1]
     assert f"- duel Duel: Statická stránka bez komponent. ({result['duelId']}) · keep · p " in section
     assert f"- výzkum Hero ({done['fragmentId']}) · feasible/medium · next plan · done" in section

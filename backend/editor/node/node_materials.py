@@ -25,6 +25,22 @@ FILE_NAME = re.compile(r"^[0-9]{8}-[0-9]{6}-[a-f0-9]{8}\.(png|jpg|gif|webp|svg)$
 DATA_URL = re.compile(r"^data:(image/(?:png|jpeg|gif|webp|svg\+xml));base64,([A-Za-z0-9+/=\s]+)$")
 
 
+def decode_upload(data_url):
+    if not isinstance(data_url, str):
+        raise ValueError("Podklad musí být obrázek jako data URL.")
+    match = DATA_URL.match(data_url)
+    if not match:
+        raise ValueError("Podklad musí být obrázek (png, jpg, gif, webp, svg) jako data URL.")
+    mime, encoded = match.groups()
+    try:
+        content = base64.b64decode(encoded, validate=False)
+    except ValueError as error:
+        raise ValueError("Obrázek se nepodařilo dekódovat.") from error
+    if not content or len(content) > MAX_BYTES:
+        raise ValueError("Obrázek je prázdný nebo větší než 8 MB.")
+    return mime, content
+
+
 class NodeMaterials:
     def __init__(self, canvas):
         self.canvas = canvas
@@ -38,18 +54,7 @@ class NodeMaterials:
         if not isinstance(payload, dict) or set(payload) != {"project", "workspace", "nodeId", "dataUrl"}:
             raise ValueError("Neplatný formát nahrání podkladu.")
         project, workspace, node_id, data_url = (payload[k] for k in ("project", "workspace", "nodeId", "dataUrl"))
-        if not isinstance(data_url, str):
-            raise ValueError("Podklad musí být obrázek jako data URL.")
-        match = DATA_URL.match(data_url)
-        if not match:
-            raise ValueError("Podklad musí být obrázek (png, jpg, gif, webp, svg) jako data URL.")
-        mime, encoded = match.groups()
-        try:
-            content = base64.b64decode(encoded, validate=False)
-        except ValueError as error:
-            raise ValueError("Obrázek se nepodařilo dekódovat.") from error
-        if not content or len(content) > MAX_BYTES:
-            raise ValueError("Obrázek je prázdný nebo větší než 8 MB.")
+        mime, content = decode_upload(data_url)
         with self.canvas.graph_lock_for(project):
             view = self.canvas.view(project, workspace)
             if not valid_id(node_id) or not any(n["id"] == node_id for n in view["graph"]["nodes"]):

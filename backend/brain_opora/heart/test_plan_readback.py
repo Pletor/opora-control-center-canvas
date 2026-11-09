@@ -94,3 +94,50 @@ def test_operation_retry_hint_does_not_hide_main_workspace_guidance():
     cli.plan_hint(failure, cli.MAIN_SHAPE)
     assert "--workspace" in failure.payload["hint"]
     assert failure.payload["hint"].endswith(retry)
+
+
+@pytest.mark.parametrize("research,accepted,tamper", [(False, False, False), (True, False, False),
+                                                       (True, True, False), (True, True, True)])
+def test_initial_v3_marker_and_research_acceptance_readback(env, monkeypatch, tmp_path, research, accepted, tamper):
+    from backend.canvas.graph import digest
+    source = {"continuationId": "c", "researchId": "r", "researchRevision": 1,
+              "sourceFragmentId": "f", "sourceRevision": 1}
+    plan = {"draftVersion": 3, "nodes": [{"ref": "task", "kind": "node", "name": "Initial draft", "text": "Evidence"}]}
+    if research:
+        plan["researchSource"] = source
+    filename = tmp_path / "initial.json"
+    filename.write_text(json.dumps(plan))
+    writes = []
+    state = {"nodes": {}}
+    draft = {"stateDigest": digest(state), "documents": [
+        {"nodeId": "n", "kind": "text", "revision": 1, "contentDigest": digest("Evidence")}]}
+
+    def call(method, path, body=None, query=None):
+        if path.endswith("/context"):
+            return {"graphManifestId": None, "acceptedHead": "human-head" if writes and accepted else None}
+        if method == "POST":
+            assert path == "/api/canvas-plan"
+            assert "draftVersion" not in body["plan"] and "researchSource" not in body["plan"]
+            assert body["plan"]["nodes"][0]["text"] == "Evidence"
+            writes.append(body)
+            result = {"ok": True, "refs": {"task": "n"}, "digest": "d", "revision": 1}
+            if research:
+                assert body["researchSource"] == source
+                result.update(canvasDraft=draft, researchSource=source, acceptedHeadAtWrite=None)
+            return result
+        if path == "/api/view":
+            return {"digest": "d", "graph": {"nodes": [{"id": "n"}]}}
+        if path == "/api/desktop-v3/state":
+            return {"revision": 1, "state": state}
+        assert path == "/api/node-text"
+        return {"revision": 1, "text": "Changed" if tamper else "Evidence"}
+
+    monkeypatch.setattr(cli, "call", call)
+    result = cli.run(cli.parser().parse_args(["plan", "--file", str(filename), "--workspace", "w"]))
+    assert len(writes) == 1 and result["verified"] is not tamper
+    if research and not tamper:
+        assert result["readback"]["acceptedHeadAtReadback"] == ("human-head" if accepted else None)
+        assert "acceptedAtReadback" not in result["readback"]
+        assert result["acceptedHeadAtWrite"] is None
+    if tamper:
+        assert result["code"] == "plan_readback_failed"

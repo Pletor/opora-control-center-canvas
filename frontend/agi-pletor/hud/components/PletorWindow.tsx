@@ -54,7 +54,7 @@ export default function PletorWindow({ mode, project, projectName, workspace, on
   const listener = listening && (
     <PletorListener state={state} label={label} level={voice.level} interim={voice.interim} messages={pletor.messages}
       error={pletor.failure || voice.error} onListening={(on) => onListening(on)} onInterrupt={voice.interrupt} onFullscreen={() => onMode("hud")}
-      settings={gear("dark")} voiceListening={voice.phase === "listening"} manual={voice.prefs.endpointMs === 0} onFinish={voice.finish} />
+      settings={gear("dark")} voiceListening={voice.phase === "listening"} manual={voice.prefs.endpointMs === 0} endpointMs={voice.prefs.endpointMs} onFinish={voice.finish} />
   );
   if (mode === "closed") return <>{listener}{panel}</>;
   const mic = <PletorMicButton phase={voice.phase} supported={voice.supported} blocked={voice.blocked} disabled={thinking || !project} onToggle={voice.toggle} />;
@@ -88,7 +88,7 @@ export default function PletorWindow({ mode, project, projectName, workspace, on
         </div>
         {pletor.failure && <p className="pletor__failure" role="alert">{pletor.failure}</p>}
         {voiceError}
-        <PletorVoiceDraft listening={voice.phase === "listening"} draft={voice.interim} manual={voice.prefs.endpointMs === 0} onFinish={voice.finish} />
+        <PletorVoiceDraft listening={voice.phase === "listening"} draft={voice.interim} manual={voice.prefs.endpointMs === 0} endpointMs={voice.prefs.endpointMs} onFinish={voice.finish} />
         <PletorHeartPanel status={pletor.heartStatus} answered={pletor.answered} place="window" />
         <PletorQuestionLine text={pletor.question} />
         {log && <PletorMessages messages={pletor.messages} sending={pletor.sending} />}

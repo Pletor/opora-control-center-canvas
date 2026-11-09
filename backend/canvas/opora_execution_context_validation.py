@@ -28,13 +28,18 @@ def _validate_context(canvas, repo, record):
         raise ValueError("Sparse execution source binding changed.")
 
     def project_rows(rows):
-        return project_sql_context(rows, project, workspace, record["nodeId"], metadata=pin["metadata"])
+        projection = project_sql_context(rows, project, workspace, record["nodeId"], metadata=pin["metadata"])
+        if "researchEvidence" in record["assignment"]:
+            projection["researchEvidence"] = record["assignment"]["researchEvidence"]
+        return projection
 
     original = project_rows(pin["snapshot"]["rows"])
     opaque = token(private.key(repo.db, project), original, pin["acceptedRevision"], pin["binding"])
     if not hmac.compare_digest(opaque, pin["contextVersion"]):
         raise ValueError("Sparse execution origin context token does not match.")
     current = ChangesetRepository(repo.db, project, workspace).head()
+    from backend.editor.research.execution_evidence import validate_assignment
+    validate_assignment(repo.db, project, workspace, record)
     accepted = validate_accepted_lineage(repo.db, project, workspace, record["nodeId"],
                                         pin["acceptedRevision"], current)
     live = replay(repo.db, pin["snapshot"], project_rows)

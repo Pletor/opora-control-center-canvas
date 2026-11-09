@@ -209,18 +209,21 @@ where the human sees them. A change of direction goes through a **duel** (`docs/
      Cost goes to `runs.jsonl` (`script: research`) and so to `subCostUsd`.
 - **`duel --subject F --a TEXT --b TEXT`** (A = current direction, B = the parallel path):
   1. opens a duel on fragment `F` (`duel-open`);
-  2. runs it deterministically: B's claim from the heart; A's defence, grills and answers from two independent
-     Haiku sub-calls (actors `srdce-obhajce-a`, `srdce-obhajce-b`); every turn scored by two independent Haiku
-     judges (`srdce-soudce-1`, `srdce-soudce-2`); at most 2 rounds, about 12 sub-calls. Order: B claim (heart),
+  2. runs it deterministically under one authenticated Heart principal: separate Haiku sub-calls simulate
+     `advocate_a`, `advocate_b`, `judge_1`, and `judge_2`. These are roles, not independent authenticated
+     agents or human reviewers; at most 2 rounds, about 12 sub-calls. Order: B claim (heart),
      A claim + grill, B answer + grill, judges; A answer + grill, B answer + grill, A answer, judges; each judge
      scores all turns it has not scored yet in one sub-call. When the rule says synthesis, side A proposes a
      synthesis and the judges score it (decided only when defended, average ≥ 6). Hard caps: 12 sub-calls and
-     9 min; all writes use the heart token with the actor's name in `X-Opora-Actor` (the server keeps sides and
-     judges apart). A refused turn or score is skipped and listed in `skipped`; the cost goes to `runs.jsonl`
+     9 min; `duel-open` explicitly requests `delegatedRoles:true`. The server pins the verified Heart principal
+     and session; every turn/score retains that identity and a validated `delegateRole`. Another session,
+     an unknown role, a side/judge mismatch or duplicate judge score is rejected. Legacy duels still require
+     distinct actors. A refused turn or score is skipped and listed in `skipped`; the cost goes to `runs.jsonl`
      (`script: duel`);
   3. calls `duel-decide` when the server says `canDecide`, and prints `probability`, the outcome
      (keep / adopt / synthesis) and the duel id. The server's rule stays: adopt needs p ≥ 0.75;
-     only the human may override.
+     only the human may override. Results and stored context label `single-principal-role-simulation`;
+     this verdict does not authorize native product-plan acceptance.
 - **Snapshot** gets `VÝZKUM` (last section): live `research` and `duel` fragments whose first revision the
   heart wrote, newest first (title, id, verdict/confidence and status, or outcome and p; ≤ 10).
 - **Prompt** (part "Výzkum"): research before planning a feature the project source does not show how to do,

@@ -137,13 +137,14 @@ def apply(service, payload, actor, agent=None):
     """Trusted internal entrypoint; HTTP router authenticates heart/human before invoking."""
     if actor not in ("human", "agent"):
         model.fail("Research writes require an authenticated human or heart.", 403, "research_writer")
-    model.shape(payload, {"project", "workspace", "key", "operations"})
+    model.shape(payload, {"project", "workspace", "key", "operations"}, {"continuation"})
     project, workspace = payload["project"], payload["workspace"]
     model.text(payload["key"], "key", 200, False)
     ops = payload["operations"]
     if not isinstance(ops, list) or not 1 <= len(ops) <= 1000:
         model.fail("operations must contain 1 to 1000 entries.")
-    digest = hashlib.sha256(_json(ops).encode()).hexdigest()
+    hashed = {"operations": ops, "continuation": payload["continuation"]} if "continuation" in payload else ops
+    digest = hashlib.sha256(_json(hashed).encode()).hexdigest()
     with service.graph_lock_for(project):
         _scope(service, project, workspace)
         db = service.db_for(project)
@@ -156,6 +157,9 @@ def apply(service, payload, actor, agent=None):
                     model.fail("Idempotency key already used with different operations.", 409, "research_key_conflict")
                 return json.loads(prior[1])
             result = _batch(db, project, workspace, ops, actor, agent)
+            if "continuation" in payload:
+                from backend.editor.research.continuations import create
+                result["continuation"] = create(db, project, workspace, payload["continuation"], result, actor, agent)
             events.record(db, project, workspace, payload["key"], result, actor, agent)
             db.execute("INSERT INTO research_batches VALUES (?,?,?,?,?)",
                        (project, workspace, payload["key"], digest, _json(result)))

@@ -1,3 +1,5 @@
+import DesktopReview from "@/editor/canvas/desktop-review/DesktopReview";
+import VaultOperationReview from "@/editor/brief-vault-dock/components/VaultOperationReview";
 import { saveCanvasGraph } from "@/editor/canvas/board/logic/graph-positions";
 import { fetchState } from "@/shared/desktop-state/logic/api";
 import { confirmSector } from "@/editor/canvas/sector-proposals/logic/sector-proposals";
@@ -35,6 +37,7 @@ import { clampAreaResize } from "@/editor/canvas/board/logic/solid-bodies";
 import EdgeReportPanel from "@/editor/canvas/edge-report/components/EdgeReportPanel";
 import { edgeReportView, edgeRoute, reportOf, setEdgeReport } from "@/editor/canvas/edge-report/logic/edge-report-model";
 import BlockPanelDrawer from "@/editor/block-panel/components/BlockPanelDrawer";
+import { useStructureView } from "@/editor/canvas/session-view/logic/use-structure-view";
 import StructurePanel from "@/layout/structure-panel/components/StructurePanel";
 import { useStructurePanel } from "@/layout/structure-panel/logic/use-structure-panel";
 import { useCanvasIndex } from "@/layout/structure-panel/logic/use-canvas-index";
@@ -241,6 +244,7 @@ export default function App() {
   // Struktura (sekce menu): jedno rozhraní pro celou aplikaci — filtr, hledání a sbalené skupiny drží
   // hook pod jediným klíčem `opora:structure-panel:v1`, nikdy s klíčem projektu.
   const structurePanel = useStructurePanel();
+  const privateStructure = useStructureView(JSON.stringify([project, workspace]));
   // Schránka v menu s rozepsaným textem zůstává namountovaná (jen skrytá), aby se text neztratil.
   const [vaultDirty, setVaultDirty] = useState(false);
   // Menu Editoru (docs/menu-a-katalog.md, část A): ☰ vysune u levého okraje lištu ikon a vedle ní
@@ -249,6 +253,8 @@ export default function App() {
   // a Esc drží hook. Úvodní obrazovka menu nekreslí, proto tam zkratky nic nepřepínají.
   const loadsCanvas = screen === "canvas";
   const dock = usePanelDock(environment === "editor" && screen === "canvas");
+  useEffect(() => { privateStructure.invalidate(); },
+    [dock.rail, dock.section, structurePanel.state.tab, structurePanel.state.filter, structurePanel.state.query]);
   // Profil patří projektu: načte se z /api/project-settings při otevření sekce a ukládá ho jen App
   // s očekávanou revizí.
   const projectProfile = useProjectProfile(project, dock.section);
@@ -458,10 +464,17 @@ export default function App() {
     }
     // Otevřený detail karty (`openCardDrawer`) si drží vlastní parametry; v tomtéž prostoru je nepřepisujeme.
     if (!switchedScope) for (const name of ["ohCard", "ohTab"]) if (currentRoute.has(name)) q.set(name, currentRoute.get(name)!);
+    if (currentRoute.get("project") === project && currentRoute.get("workspace") === workspace && currentRoute.has("canvasVersion")) q.set("canvasVersion", currentRoute.get("canvasVersion")!);
+    if (currentRoute.get("project") === project && currentRoute.get("workspace") === workspace && currentRoute.has("desktopReview")) q.set("desktopReview", currentRoute.get("desktopReview")!);
     // Proposal restoration runs after async scope loading; retain its exact scoped URL until then.
     if (currentRoute.get("project") === project && currentRoute.get("workspace") === workspace && currentRoute.has("ohGraph")) q.set("ohGraph", currentRoute.get("ohGraph")!);
+    if (currentRoute.get("project") === project && currentRoute.get("workspace") === workspace) {
+      for (const key of ["researchCard", "researchReview", "researchDigest", "ohChangeset", "ohBaseline", "vaultReview"]) if (currentRoute.has(key)) q.set(key, currentRoute.get(key)!);
+    }
     // Zanoření Studia (`studioFocus`, docs/studio.md §2) drží Studio samo; platí jen v jeho záložce a v tomtéž prostoru.
     if (!switchedScope && projectMapKind === "studio" && currentRoute.has("studioFocus")) q.set("studioFocus", currentRoute.get("studioFocus")!);
+    if (!switchedScope && projectMapKind === "library" && currentRoute.has("libraryReview")) q.set("libraryReview", currentRoute.get("libraryReview")!);
+    if (!switchedScope && projectMapKind === "library") for (const key of ["flowReview", "flowOperation", "workingReview", "workingOperation"]) if (currentRoute.has(key)) q.set(key, currentRoute.get(key)!);
     history.replaceState(null, "", "/?" + q);
   }, [project, workspace, parent, selected, mode, screen, wireframeMode, environment, projectMapKind, intentPage, libraryFlow]);
   const completed = jobs
@@ -1090,8 +1103,8 @@ export default function App() {
   const panels: Panels = mode === "drawing" ? { drawer: null, inspector: "scope" } : mode === "research" ? { drawer: null, inspector: null } : panelsFor(selection, mode, !!layer, node?.kind);
   const inspectorShown = panels.inspector !== null;
   const structureSection = <StructurePanel
-    state={structurePanel.state} nodes={graph.nodes} closed={closedNodeIds} matches={pageMatches}
-    onTab={structurePanel.tab} onFilter={structurePanel.filter} onSearch={structurePanel.search} onToggleGroup={structurePanel.group}
+    state={privateStructure.groups === undefined ? structurePanel.state : { ...structurePanel.state, collapsed: privateStructure.groups }} nodes={graph.nodes} closed={closedNodeIds} matches={pageMatches}
+    onTab={structurePanel.tab} onFilter={structurePanel.filter} onSearch={structurePanel.search} onToggleGroup={privateStructure.groups === undefined ? structurePanel.group : privateStructure.toggle}
     onOpenLayer={(id) => { setEditorMode("structure"); setTagFilter(""); openNode(id); }}
     actions={<SkeletonActions key={project + ":" + workspace} nodes={graph.nodes} selected={selected}
       readOnly={!editable || desktop.readOnly || selectedClosed} busy={busy} onAdd={addSkeleton}
@@ -1116,7 +1129,7 @@ export default function App() {
     <SaveScopeProvider project={project} workspace={workspace}><div className="app desktop-v2 desktop-v3">
       <TopBar
         onHome={() => setScreen("home")}
-        trailing={<><PletorButton open={pletorMode !== "closed"} onToggle={(full) => setPletorMode(full || pletorMode === "window" ? "hud" : "window")} /><PletorListenSwitch tone="bar" on={pletorListen.on} error={pletorListen.error} onChange={(on) => onPletorListen(on)} /><PletorSettingsButton tone="bar" open={pletorSettings} onToggle={() => setPletorSettings((open) => !open)} /><AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} request={activityRequest} />}{versionsEnabled && <SaveVersionsTools key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
+        trailing={<><PletorButton open={pletorMode !== "closed"} onToggle={(full) => setPletorMode(full || pletorMode === "window" ? "hud" : "window")} /><PletorListenSwitch tone="bar" on={pletorListen.on} error={pletorListen.error} onChange={(on) => onPletorListen(on)} /><PletorSettingsButton tone="bar" open={pletorSettings} onToggle={() => setPletorSettings((open) => !open)} /><AssistantButton open={assistantOpen} onToggle={() => setAssistantOpen((v) => !v)} />{versionsEnabled && <ActivityLogTools key={"activity:" + project + ":" + workspace} project={project} workspace={workspace} nodes={graph.nodes} selectedNodeId={selected} refreshKey={(view?.digest ?? "") + ":" + desktop.revision} onOpenNode={(id) => { openNode(id); setMode("structure"); }} request={activityRequest} />}{versionsEnabled && <SaveVersionsTools project={project} workspace={workspace} key={project + ":" + workspace} versions={{ ...canvasVersions, dirty: canvasVersions.dirty || saveScope.dirty, saving: canvasVersions.saving || saveAllBusy }} disabled={!view || view.readOnly || desktop.readOnly} onSave={saveVersion} onRestore={restoreVersion} onPrepareRestore={prepareRestore} onReloadExternal={reloadExternalSaveState}/>}</>}
         projectNavigation={environment === "project" ? <ProjectMapNavigation value={projectMapKind} onChange={(kind) => { if (!saveAllBusy) setProjectMapKind(kind); }}/> : null}
         projects={projects}
         draftProject={draftProject}
@@ -1252,6 +1265,7 @@ export default function App() {
                 </WorkspaceBoundary>
               ) : (<>
                 <Board
+                  structureView={privateStructure.bridge}
                   heightsRef={cardHeights}
                   revision={desktop.revision}
                   digest={view?.digest}
@@ -1752,6 +1766,8 @@ export default function App() {
           </section>
         </div>
       )}
+      <DesktopReview key={"desktop-review:" + project + ":" + workspace} project={project} workspace={workspace} />
+      <VaultOperationReview key={"vault-review:" + project + ":" + workspace} project={project} workspace={workspace} />
       <AssistantPanel open={assistantOpen} scope={{ projectId: project, workspace }} nodes={graph.nodes} onClose={() => setAssistantOpen(false)} />
       {pletorLayer}
     </div></SaveScopeProvider>

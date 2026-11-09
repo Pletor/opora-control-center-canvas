@@ -4,6 +4,7 @@ import type { GraphProposal } from "../logic/graph-proposals";
 import { proposalFocus, proposalPreview } from "../logic/proposal-preview";
 import { fieldKeys, fieldLabels } from "@/hub/plan-changes/logic/plan-changes";
 import { CARRIES_LABEL } from "@/shared/edge-carries/logic/edge-carries";
+import GraphProposalContent from "./GraphProposalContent";
 
 /** Snapshot renderer: selection and zoom stay local; this component has no mutation callbacks. */
 export default function GraphProposalCanvas({ proposal }: { proposal: GraphProposal }) {
@@ -32,8 +33,9 @@ export default function GraphProposalCanvas({ proposal }: { proposal: GraphPropo
     {node && <article className="graph-proposals__preview-detail" aria-label="Detail prvku návrhu">
       <h4>{node.name}</h4><p>ID <code>{node.id}</code> · rodič <code>{node.parentId ?? "kořen"}</code></p>
       {node.purpose && <p>{node.purpose}</p>}
-      {spec ? fieldKeys.map(field => <div key={field}><strong>{fieldLabels[field]}</strong><pre>{spec.fields[field] || "(prázdné)"}</pre></div>)
-        : <p>Návrh pro tento prvek neobsahuje nové zadání.</p>}
+      <GraphProposalContent proposal={proposal} nodeId={node.id} />
+      {proposal.schemaVersion !== 3 && (spec ? fieldKeys.map(field => <div key={field}><strong>{fieldLabels[field]}</strong><pre>{spec.fields[field] || "(prázdné)"}</pre></div>)
+        : <p>Návrh pro tento prvek neobsahuje nové zadání.</p>)}
     </article>}
   </section>;
 }

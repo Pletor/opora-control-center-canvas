@@ -23,12 +23,24 @@ function events(): VoiceInputEvents & Record<string, ReturnType<typeof vi.fn>> {
 
 describe("thought aggregation", () => {
   afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
-  function begin(options = {}) {
+  function begin(options: { endpointMs?: number; continuous?: boolean } = { endpointMs: 8000 }) {
     vi.useFakeTimers(); const on = events(); const input = createVoiceInput(Ctor);
     input.start(on, options); return { on, input, rec: FakeRecognition.last };
   }
   it("uses continuous Czech recognition even for a single manually started thought", () => {
     const {rec} = begin(); expect([rec.lang,rec.interimResults,rec.continuous]).toEqual(["cs-CZ",true,true]);
+  });
+  it("default keeps a sixty-second thinking pause and browser rollover until explicit finish", () => {
+    vi.useFakeTimers(); const on = events(); const input = createVoiceInput(Ctor);
+    input.start(on); const first = FakeRecognition.last;
+    first.say([["First part", true]]); first.onend?.();
+    vi.advanceTimersByTime(60000);
+    expect(on.onFinal).not.toHaveBeenCalled();
+    const next = FakeRecognition.last;
+    next.say([["and the complete intention", true]]);
+    vi.advanceTimersByTime(60000); expect(on.onFinal).not.toHaveBeenCalled();
+    input.finish(); input.finish();
+    expect(on.onFinal).toHaveBeenCalledExactlyOnceWith("First part and the complete intention");
   });
   it("combines final segments and interim into one thought after eight seconds", () => {
     const {on,rec} = begin(); rec.say([["First sentence.",true]]);

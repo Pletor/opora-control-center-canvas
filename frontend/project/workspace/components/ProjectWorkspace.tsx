@@ -4,6 +4,9 @@ import Studio from '@/project/studio/components/Studio';
 import IntentCanvas from '@/project/intent-canvas/components/IntentCanvas';
 import SiteAdmin from '@/project/site-admin/components/SiteAdmin';
 import LibraryCanvas from '@/project/library-canvas/components/LibraryCanvas';
+import FlowReview from '@/project/flow-review/components/FlowReview';
+import WorkingReview from '@/project/working-review/WorkingReview';
+import LibraryReviews from '@/project/library-canvas/library-reviews/components/LibraryReviews';
 import type {Project} from '@/shared/types/logic/types';
 
 /** Hlavní stránka skládá hotové komponenty; kontext a dokumentový editor zůstávají v Editoru. */
@@ -31,12 +34,15 @@ export default function ProjectWorkspace({project,workspace,mapKind,intentPage,o
   architectureLive:ArchitectureLiveProps;
 }){
   // Studio jen čte; worktree mění data, proto je klíčované projektem i prostorem.
+  if (mapKind === 'library' && new URLSearchParams(location.search).has('workingReview')) return <WorkingReview key={project+':'+workspace} project={project} workspace={workspace} onBack={()=>{const q=new URLSearchParams(location.search);q.delete('workingReview');q.delete('workingOperation');history.replaceState(null,'','/?'+q);onCloseSite?.();}}/>;
   if (mapKind === 'studio') return <Studio key={JSON.stringify([project,workspace])} project={project} workspace={workspace} worktreeLive={architectureLive.worktreeLive} onOpenArchitecture={onOpenArchitecture}/>;
   // Záměr stránky (plátno 2) patří jedné stránce projektu; zpět vede do Architektury s jejím zachovaným rozsahem.
   if (mapKind === 'intent' && intentPage) return <IntentCanvas key={project+':'+intentPage} project={project} page={intentPage} onBack={()=>onCloseIntent?.()}/>;
   // Správa webu: jeden dokument na projekt (design systém a nastavení webu), sdílený všemi doménami.
   // Plátno toku v knihovně: globální (napříč projekty), otevřené z panelu Komponenty nebo od domény či stránky.
+  if (mapKind === 'library' && new URLSearchParams(location.search).has('flowReview')) return <FlowReview key={project+':'+workspace} project={project} workspace={workspace} onBack={()=>{const q=new URLSearchParams(location.search);q.delete('flowReview');q.delete('flowOperation');history.replaceState(null,'','/?'+q);onCloseSite?.();}}/>;
   if (mapKind === 'library' && libraryFlow) return <LibraryCanvas key={libraryFlow} flowId={libraryFlow} project={project} workspace={workspace} onOpenAssistant={onOpenAssistant} projects={projects} onOpenFlow={(id)=>onOpenLibraryFlow?.(id)} onBack={()=>onCloseSite?.()}/>;
+  if (mapKind === 'library') return <LibraryReviews key={project+':'+workspace} project={project} workspace={workspace} onBack={()=>onCloseSite?.()}/>;
   if (mapKind === 'site') return <SiteAdmin key={project} project={project} onBack={()=>onCloseSite?.()}/>;
   // Editor architektury se klíčuje jen projektem: přepnutí worktree nechá otevřenou doménu i stránku a jen znovu načte obsah (docs/domeny-a-worktree.md §10).
   return <ArchitectureEditor key={JSON.stringify([project])} project={project} workspace={workspace} projectName={projectName} onGraphChanged={onGraphChanged} onOpenEditor={onOpenEditor} live={architectureLive}/>;

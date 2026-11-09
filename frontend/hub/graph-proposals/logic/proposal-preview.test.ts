@@ -37,4 +37,9 @@ describe("saved proposal canvas projection", () => {
     expect(scopedProposalLink("?project=other&workspace=w&ohGraph=abc", "p", "w")).toBe("");
     expect(scopedProposalLink("?project=p&workspace=w&ohGraph=../bad", "p", "w")).toBe("");
   });
+  it("uses v3 authoritative edits and fails closed when its result is absent", () => {
+    const p = { schemaVersion: 3, baseGraph: graph("base"), additions: graph("addition"), resultGraph: graph("edited") } as GraphProposal;
+    expect(proposalPreview(p)).toBe(p.resultGraph);
+    expect(proposalPreview({ ...p, resultGraph: undefined })).toBeNull();
+  });
 });

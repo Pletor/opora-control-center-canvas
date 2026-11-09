@@ -28,7 +28,8 @@ from backend.brain_opora.determinism import gate, tokens, wall
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.activity_log import require_human
 from backend.canvas.canvas_service import ProjectNotFound
-from backend.flow import interpreter, page_intents, workflows
+from backend.flow import interpreter, page_intents, workflows, review
+from backend.flow.inputs import CandidateIn, CanvasLogIn, RunIn
 from backend.flow.canvas_log import log_canvas
 from backend.flow.graph_check import FlowInvalid, graph_errors, node_ports
 from backend.flow.node_types import catalog
@@ -62,10 +63,6 @@ class DraftIn(BaseModel):
     learnedFrom: LearnedFrom | None = None
 
 
-class CandidateIn(BaseModel):
-    eval_run_id: str | None = None
-
-
 class GraphCheckIn(BaseModel):
     kind: Kind
     graph: Any
@@ -89,20 +86,8 @@ class SimulateIn(BaseModel):
     case: dict[str, Any] | None = None
 
 
-class RunIn(BaseModel):
-    payload: Any = None
-    node_id: str | None = None
-
-
 class RejectIn(BaseModel):
     reason: str = Field(min_length=1, max_length=2000)
-
-
-class CanvasLogIn(BaseModel):
-    project: str = Field(min_length=1, max_length=64)
-    canvas: Literal[2, 3, 4]
-    kind: str = Field(min_length=3, max_length=64, pattern=r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
-    payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class DecisionIn(BaseModel):
@@ -130,6 +115,22 @@ def create_flow_router(service):
             with service.registry_lock:
                 return action(service.db, *args)
         return guarded(locked)
+
+    def reviewed(request, operation, identifier, action):
+        def locked():
+            with service.registry_lock:
+                review.check(service.db, operation, identifier, request.query_params.get("expectedReviewDigest"))
+                return action(service.db)
+        return guarded(locked)
+
+    @router.get("/review")
+    def workflow_review(request: Request, project: str, workspace: str, operation: str, identifier: str):
+        from backend.api.editor.research_routes import _authorize
+        try:
+            _authorize(service, request, project, workspace)
+            return call(review.observe, operation, identifier, project)
+        except GateError as error:
+            return JSONResponse(error.body(), status_code=error.status)
 
     def walled(request, proposal=False, **ids):
         """Zeď brány pro zápis podle ID: projekt se dohledá z workflow; odmítnutí = odpověď, jinak None.
@@ -231,13 +232,13 @@ def create_flow_router(service):
     def version_candidate(version_id: str, request: Request, body: CandidateIn | None = None):
         if refused := walled(request, version_id=version_id):
             return refused
-        return call(workflows.set_candidate, version_id, body.eval_run_id if body else None)
+        return reviewed(request, "version_candidate", version_id, lambda db: workflows.set_candidate(db, version_id, body.eval_run_id if body else None))
 
     @router.post("/versions/{version_id}/activate")
     def version_activate(version_id: str, request: Request):
         if refused := walled(request, version_id=version_id):
             return refused
-        return call(workflows.activate, version_id)
+        return reviewed(request, "version_activate", version_id, lambda db: workflows.activate(db, version_id))
 
     @router.post("/versions/{version_id}/approve")
     def version_approve(version_id: str, request: Request):
@@ -245,18 +246,18 @@ def create_flow_router(service):
         require_human(getattr(request.state, "actor", None), "Záměr stránky schvaluje jen člověk v UI.")
         owner = call(page_intents.owner_of, version_id)
         digest = page_intents.current_digest(accepted_graph(owner[0]), owner[1]) if owner else None
-        return call(workflows.approve, version_id, "human", digest)
+        return reviewed(request, "version_approve", version_id, lambda db: workflows.approve(db, version_id, "human", digest))
 
     @router.post("/versions/{version_id}/reject")
     def version_reject(version_id: str, body: RejectIn, request: Request):
         require_human(getattr(request.state, "actor", None), "Záměr stránky i návrh plátna toku zamítá jen člověk v UI.")
-        return call(workflows.reject, version_id, body.reason, "human")
+        return reviewed(request, "version_reject", version_id, lambda db: workflows.reject(db, version_id, body.reason, "human"))
 
     @router.post("/workflows/{workflow_id}/rollback")
     def version_rollback(workflow_id: str, request: Request):
         if refused := walled(request, workflow_id=workflow_id):
             return refused
-        return call(workflows.rollback, workflow_id)
+        return reviewed(request, "version_rollback", workflow_id, lambda db: workflows.rollback(db, workflow_id))
 
     @router.post("/versions/{version_id}/runs")
     def run_manual(version_id: str, request: Request, body: RunIn | None = None):
@@ -289,7 +290,7 @@ def create_flow_router(service):
     @router.post("/node-runs/{node_run_id}/decision")
     def approval_decision(node_run_id: str, body: DecisionIn, request: Request):
         require_human(getattr(request.state, "actor", None), "Krok schvaluje jen člověk v UI.")
-        return call(interpreter.decide, node_run_id, body.decision, "human")
+        return reviewed(request, "approval_decision", node_run_id, lambda db: interpreter.decide(db, node_run_id, body.decision, "human"))
 
     @router.post("/log")
     def canvas_log_create(body: CanvasLogIn, request: Request):

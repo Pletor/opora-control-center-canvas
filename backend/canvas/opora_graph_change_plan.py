@@ -2,11 +2,11 @@
 
 from copy import deepcopy
 
-from backend.canvas.graph import EDGE_CARRIES, NODE_ORDER_MAX, NODE_ORDER_MIN, valid_id
+from backend.canvas.graph import EDGE_CARRIES, EDGE_PORTS, NODE_OPTIONAL_KEYS, NODE_ORDER_MAX, NODE_ORDER_MIN, valid_id
 from backend.canvas.opora_graph_build import validate_plan
 from backend.canvas.payload_errors import NextStep
 
-FIELDS = {"name", "purpose", "parentId", "sourceRef", "x", "y", "size", "memberOf", "order"}
+FIELDS = {"name", "purpose", "parentId", "sourceRef", "x", "y", "size", "memberOf", "order", "color"} | NODE_OPTIONAL_KEYS
 EDIT_KEYS = {"updateNodes", "removeNodes", "updateEdges", "removeEdges"}
 EDGE_UPDATE_KEYS = {"id", "source", "target", "port"}
 # Úprava existujícího uzlu od srdce (docs/brain-heart-orchestrator.md §3): jen členství v oblasti (`member`)
@@ -26,6 +26,11 @@ def heart_scope(plan):
     Tvar plánu dál ověřuje `normalize`; tady jde jen o to, co srdce smí měnit."""
     if not isinstance(plan, dict):
         return
+    if type(plan.get("draftVersion")) is int and plan["draftVersion"] == 3:
+        # OP-B171BE: proposal-only capability, never an acceptance or live-write authorization.
+        from backend.canvas.opora_graph_complete_build import normalize_complete
+        normalize_complete(plan)
+        return
     hint = ("Srdce mění u existujícího uzlu jen členství v oblasti (memberOf, opora_heart.py member) a pořadí "
             "podle záměru (order, opora_heart.py order); jiné úpravy uzlů a vazeb navrhuje člověk v UI.")
     if plan.get("updateEdges"):
@@ -41,7 +46,7 @@ def heart_scope(plan):
 def edge_update_fields(update):
     """Pole, která úprava vazby mění: zdroj, cíl a port vždy, druh toku `carries` jen když ho úprava uvádí
     (null ho odebere). Úprava bez `carries` dává stejná pole jako dřív, takže staré záznamy odvodí totéž."""
-    return ("source", "target", "port", "carries") if "carries" in update else ("source", "target", "port")
+    return ("source", "target", "port") + tuple(key for key in ("carries", "sourceBlockId", "sourcePortId") if key in update)
 
 
 def normalize(plan):
@@ -57,8 +62,9 @@ def normalize(plan):
     validate_plan({key: result[key] for key in ("nodes", "edges")})
     for key in ("updateNodes", "updateEdges"):
         for item in result[key]:
-            allowed = ({"id", "fields"},) if key == "updateNodes" else (EDGE_UPDATE_KEYS, EDGE_UPDATE_KEYS | {"carries"})
-            if not isinstance(item, dict) or set(item) not in allowed or not valid_id(item["id"]):
+            valid_shape = (isinstance(item, dict) and (set(item) == {"id", "fields"} if key == "updateNodes"
+                else EDGE_UPDATE_KEYS <= set(item) <= EDGE_UPDATE_KEYS | {"carries", "sourceBlockId", "sourcePortId"}))
+            if not valid_shape or not valid_id(item["id"]):
                 raise ValueError("Invalid graph update fields or identity.")
             if key == "updateNodes":
                 fields = item["fields"]
@@ -72,8 +78,8 @@ def normalize(plan):
                     type(fields["order"]) is not int or not NODE_ORDER_MIN <= fields["order"] <= NODE_ORDER_MAX
                 ):
                     raise ValueError("Node order must be an integer 1–9999 or null.")
-            elif item["port"] != "next" or not all(valid_id(item[field]) for field in ("source", "target")):
-                raise ValueError("Only plain next edge updates with existing references are supported.")
+            elif item["port"] not in EDGE_PORTS or not all(valid_id(item[field]) for field in ("source", "target")):
+                raise ValueError("Edge updates require a native port and existing references.")
             elif "carries" in item and item["carries"] is not None and item["carries"] not in EDGE_CARRIES:
                 raise ValueError("Unknown edge carries value.")
     for kind in ("Nodes", "Edges"):
@@ -97,19 +103,15 @@ def apply(graph, plan):
                 raise ValueError("Updated graph identity is absent from accepted or working context.")
             if kind == "nodes" and target["kind"] not in ("node", "sector", "area"):
                 raise ValueError("Shared architecture and special nodes cannot be edited.")
-            if kind == "edges" and target.get("port", "next") != "next":
-                raise ValueError("Only plain next edges can be updated.")
             fields = update["fields"] if kind == "nodes" else {key: update[key] for key in edge_update_fields(update)}
             for key, value in fields.items():
                 if kind == "edges" and key == "port" and target.get("port", "next") == value:
                     continue
-                if key in ("sourceRef", "size", "memberOf", "order", "carries") and value is None:
+                if key in NODE_OPTIONAL_KEYS | {"sourceRef", "size", "carries", "sourceBlockId", "sourcePortId"} and value is None:
                     target.pop(key, None)
                 else:
                     target[key] = deepcopy(value)
         removed = set(plan[f"remove{suffix}"])
-        if kind == "edges" and any(item["id"] in removed and item.get("port", "next") != "next" for item in result[kind]):
-            raise ValueError("Only plain next edges can be removed.")
         if kind == "nodes":
             if any(item["id"] in removed and item["kind"] not in ("node", "sector", "area") for item in result[kind]):
                 raise ValueError("Shared architecture and special nodes cannot be removed.")

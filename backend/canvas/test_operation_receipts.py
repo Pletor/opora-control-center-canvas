@@ -68,15 +68,23 @@ def test_interrupted_canvas_retains_pending_and_never_duplicates(tmp_path, monke
         monkeypatch.setattr(service, "save_graph", fail)
     else:
         monkeypatch.setattr("backend.canvas.operation_readback.verify_plan", fail)
-    with pytest.raises(RuntimeError, match="injected"):
+    with pytest.raises(NextStep, match="incomplete") as error:
         apply_plan(service, body, **kwargs)
+    assert error.value.code == "operation_incomplete" and body["operationId"] in error.value.hint
     after = service.view("draft", "draft")["graph"]
     assert (after == before) == (phase != "readback")
     assert [row[0] for row in receipts(service)] == ["pending"]
-    with pytest.raises(NextStep) as error:
-        apply_plan(service, body)
-    assert error.value.code == "operation_incomplete"
-    assert service.view("draft", "draft")["graph"] == after
+    monkeypatch.undo()
+    if phase == "after_write":
+        with pytest.raises(NextStep) as error:
+            apply_plan(service, body)
+        assert error.value.code == "operation_incomplete"
+        assert service.view("draft", "draft")["graph"] == after
+    else:
+        recovered = apply_plan(service, body)
+        assert apply_plan(service, body) == recovered
+        assert service.texts.read(('draft', 'draft', recovered['refs']['task']))['revision'] == 1
+        assert [row[0] for row in receipts(service)] == ['complete']
 
 
 def proposal_body(client, key="proposal-1", plan=None):

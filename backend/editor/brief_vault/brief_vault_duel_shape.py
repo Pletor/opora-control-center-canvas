@@ -7,6 +7,7 @@ uložený tvar (zápis i obnova verze plátna přes `validate_details`); pravidl
 a zda už jde rozhodnout. `open_duels` vrací otevřené duely prostoru pro frontu `/next`.
 """
 
+from backend.editor.brief_vault.brief_vault_duel_delegation import ROLES, participant
 from backend.editor.brief_vault.brief_vault_duel_math import (
     MAX_ROUNDS,
     decide,
@@ -49,6 +50,14 @@ def _signed(value, label):
     text_of(value["at"], 40, f"{label}.at", allow_empty=False)
 
 
+def _delegated(value):
+    if "delegateRole" not in value and "principalSessionId" not in value:
+        return
+    if not isinstance(value.get("delegateRole"), str) or value["delegateRole"] not in ROLES:
+        fail("Invalid delegated role.")
+    text_of(value.get("principalSessionId"), 200, "principalSessionId", allow_empty=False)
+
+
 def _subject(value):
     _keys(value, {"kind", "id"}, set(), "subject")
     if value["kind"] not in SUBJECT_KINDS:
@@ -57,7 +66,8 @@ def _subject(value):
 
 
 def _turn(turn):
-    _keys(turn, TURN_KEYS, set(), "výměna duelu")
+    _keys(turn, TURN_KEYS, {"delegateRole", "principalSessionId"}, "výměna duelu")
+    _delegated(turn)
     if turn["side"] not in SIDES or turn["kind"] not in TURN_KINDS:
         fail("výměna duelu má neplatnou stranu nebo druh.")
     text_of(turn["id"], 64, "turn.id", allow_empty=False)
@@ -74,7 +84,8 @@ def _turn(turn):
 
 
 def _score(score):
-    _keys(score, SCORE_KEYS, {"rebuttedBy", "evidenceOk"}, "skóre duelu")
+    _keys(score, SCORE_KEYS, {"rebuttedBy", "evidenceOk", "delegateRole", "principalSessionId"}, "skóre duelu")
+    _delegated(score)
     if "evidenceOk" in score and type(score["evidenceOk"]) is not bool:
         fail("score.evidenceOk musí být true nebo false.")
     _score_value(score["strength"], "strength")
@@ -111,7 +122,13 @@ def _decision(value):
 
 def validate_duel(value):
     """Uložený stav duelu (`fields.duel`); vrací ho beze změny."""
-    _keys(value, DUEL_KEYS, {"visionRef"}, "duel")
+    _keys(value, DUEL_KEYS, {"visionRef", "delegation"}, "duel")
+    if "delegation" in value:
+        owner = _keys(value["delegation"], {"mode", "principal", "sessionId"}, set(), "delegation")
+        if owner["mode"] != "single-principal-role-simulation":
+            fail("Invalid delegation mode.")
+        text_of(owner["principal"], 120, "principal", allow_empty=False)
+        text_of(owner["sessionId"], 200, "sessionId", allow_empty=False)
     if "visionRef" in value:
         ref = _keys(value["visionRef"], {"fragmentId", "revision"}, set(), "visionRef")
         text_of(ref["fragmentId"], 64, "visionRef.fragmentId", allow_empty=False)
@@ -124,7 +141,8 @@ def validate_duel(value):
         ref = _keys(value["incumbent"]["ref"], {"fragmentId", "revision"}, set(), "incumbent.ref")
         if type(ref["revision"]) is not int or ref["revision"] < 1:
             fail("incumbent.ref.revision musí být kladné celé číslo.")
-    _keys(value["challenger"], {"text", "by", "actor", "at"}, set(), "challenger")
+    _keys(value["challenger"], {"text", "by", "actor", "at"}, {"delegateRole", "principalSessionId"}, "challenger")
+    _delegated(value["challenger"])
     text_of(value["challenger"]["text"], MAX_DIRECTION, "challenger.text", allow_empty=False)
     _signed(value["challenger"], "challenger")
     if not isinstance(value["turns"], list) or len(value["turns"]) > MAX_TURNS:
@@ -135,6 +153,17 @@ def validate_duel(value):
         _turn(turn)
     for score in value["scores"]:
         _score(score)
+    for item in [value["challenger"], *value["turns"], *value["scores"]]:
+        owner = value.get("delegation")
+        if owner:
+            if (item.get("by", item.get("judge")) != owner["principal"] or item["actor"] != "agent"
+                    or item.get("principalSessionId") != owner["sessionId"] or item.get("delegateRole") not in ROLES):
+                fail("Delegated participant must retain the recorded principal and session.")
+            expected = item.get("side", "judge" if "judge" in item else "B")
+            if ROLES[item["delegateRole"]] != expected:
+                fail("Delegated participant role does not match side.")
+        elif "delegateRole" in item or "principalSessionId" in item:
+            fail("Role metadata requires explicit duel delegation.")
     if value["status"] not in STATUSES:
         fail("duel.status musí být open, grill, synthesis nebo decided.")
     if (value["status"] == "decided") != (value["decision"] is not None):
@@ -166,10 +195,10 @@ def validate_vision(value):
 def parties(duel):
     """Aktéři stran {A: {by}, B: {by}}; autor challengeru patří ke straně B. `note` za stranu není argument, aktéra
     ke straně nepřipíše (soudce smí za stranu psát jen note, docs/schranka-duel.md §2)."""
-    found = {"A": set(), "B": {duel["challenger"]["by"]}}
+    found = {"A": set(), "B": {participant(duel["challenger"])}}
     for turn in duel["turns"]:
         if turn["side"] in found and turn["kind"] != "note":
-            found[turn["side"]].add(turn["by"])
+            found[turn["side"]].add(participant(turn))
     return found
 
 
@@ -183,7 +212,7 @@ def defended_syntheses(duel):
         if turn["kind"] != "synthesis":
             continue
         values = [score["strength"] for score in duel["scores"]
-                  if score["turnId"] == turn["id"] and score["judge"] not in inside]
+                  if score["turnId"] == turn["id"] and participant(score) not in inside]
         if values and sum(values) / len(values) >= DEFENDED_AT:
             found[turn["id"]] = sum(values) / len(values)
     return found
@@ -205,7 +234,8 @@ def summary(duel):
     decision = duel["decision"]
     p = decision["p"] if decision else duel_probability(duel["turns"], duel["scores"])["p"]
     return {"status": duel["status"], "subject": dict(duel["subject"]), "turns": len(duel["turns"]),
-            "scores": len(duel["scores"]), "p": p, "outcome": (decision or {}).get("outcome")}
+            "scores": len(duel["scores"]), "p": p, "outcome": (decision or {}).get("outcome"),
+            **({"delegation": dict(duel["delegation"])} if "delegation" in duel else {})}
 
 
 def open_duels(rows, details, live):

@@ -277,50 +277,13 @@ class RemovalService:
         Import je až tady ze stejného důvodu jako u `forget_workspaces`."""
         if not node_ids and not edge_ids:
             return
-        from backend.editor.agent_memory.block_access import _default_branch
         from backend.editor.agent_memory.desktop_v3_state import DesktopV3State
-
+        from backend.editor.node.removal_projection import removed_state
         store = DesktopV3State(self.canvas)
         with self.canvas.lock_for(project):
             current = store.current(project, workspace)
         state = current["state"]
-        removed_nodes, removed_edges = set(node_ids), set(edge_ids)
-
-        def clean(branch):
-            if branch["kind"] == "node" and branch["targetId"] in removed_nodes:
-                return _default_branch()
-            return branch
-
-        new_nodes = {}
-        for node_id, node in state["nodes"].items():
-            if node_id in removed_nodes:
-                continue
-            blocks = node.get("blocks")
-            if blocks:
-                node = {
-                    **node,
-                    "blocks": [
-                        {
-                            **block,
-                            "state": {
-                                **block["state"],
-                                "onMet": clean(block["state"]["onMet"]),
-                                "onUnmet": clean(block["state"]["onUnmet"]),
-                            },
-                        }
-                        for block in blocks
-                    ],
-                }
-            new_nodes[node_id] = node
-        new_edges = {
-            edge_id: report for edge_id, report in state["edges"].items() if edge_id not in removed_edges
-        }
-        new_state = {
-            **state, "nodes": new_nodes, "edges": new_edges,
-            "rules": [rule for rule in state["rules"]
-                      if not (rule["scope"] == "node" and rule["target"] in removed_nodes)],
-            "decisions": [item for item in state["decisions"] if item["nodeId"] not in removed_nodes],
-        }
+        new_state = removed_state(state, node_ids, edge_ids)
         if new_state == state:
             return
         store.save(

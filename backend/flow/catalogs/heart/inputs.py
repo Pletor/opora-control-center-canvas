@@ -197,6 +197,12 @@ def resolve(service, project, items):
         tickets, work = GateTicketStore(db, project), TicketStore(db, project)
         for item in items:
             kind = item.get("type")
+            if kind == "researchPlanning":
+                from backend.editor.research.continuations import listing
+                receipts = listing(service, project, item["workspace"])
+                if not any(r["id"] == item["continuationId"] and r["status"] in ("pending", "running")
+                           for r in receipts):
+                    continue
             value = (_ticket(tickets, item, db) if kind == "ticket" else _failed(work, item) if kind == "workFailed"
                      else _work(tickets, work, item) if kind in WORK_INPUTS.values() else item)
             if value is not None:

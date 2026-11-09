@@ -25,9 +25,11 @@ def change(edits, plan):
 
 def approve(edits, item, **overrides):
     context = edits.specifications.context("draft", "draft")
+    base = item.get("contentBase", {})
     return OporaGraphChangeAcceptance(edits.service).accept(item["id"], {**SCOPE,
         "expectedAcceptedHead": context["acceptedHead"], "expectedGraphDigest": context["graphDigest"],
-        "adoptBaseGraphDigest": None, "reviewedChangesId": item["id"], **overrides}, HUMAN)
+        "adoptBaseGraphDigest": None, "reviewedChangesId": item["id"],
+        **({"adoptBaseContentDigest": base["digest"]} if base.get("requiresAdoption") else {}), **overrides}, HUMAN)
 
 
 def working_edit(service, node_id, **fields):
