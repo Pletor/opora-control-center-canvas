@@ -36,7 +36,7 @@ def test_all_three_kinds_require_exact_human_review_and_full_baseline_adoption(s
     item = propose(sparse, [change("text", refs["a"], "text", "Accepted article"),
                            change("drawing", "", "scene", {"elements": []}),
                            change("config", refs["a"], "rules", [{"id": "r", "text": "Must test", "kind": "must"}])])
-    assert item["requiresBaseContentAdoption"] and len(item["baseContent"]) == 15
+    assert item["requiresBaseContentAdoption"] and len(item["baseContent"]) == 17
     assert authority.canvas.texts.read(("draft", "draft", refs["a"]))["revision"] == 0
     with pytest.raises(ValueError, match="adoption"):
         accepted(sparse, item, adoptBaseContentDigest=None)
@@ -51,7 +51,7 @@ def test_all_three_kinds_require_exact_human_review_and_full_baseline_adoption(s
     assert result["graphManifestId"] and result["contentManifestId"]
     assert authority.canvas.texts.read(("draft", "draft", refs["a"]))["text"] == "Accepted article"
     manifest = ContentRecords(authority.canvas.db_for("draft"), "draft", "draft").read(result["contentManifestId"], manifest=True)
-    assert len(manifest["entries"]) == 15
+    assert len(manifest["entries"]) == 17
 
 
 def test_independent_first_proposals_rebase_after_explicit_baseline_adoption(sparse):

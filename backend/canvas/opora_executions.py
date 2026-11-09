@@ -94,7 +94,7 @@ class OporaExecutions:
                 captured = assignment(self.canvas, project, workspace, node)
                 from backend.editor.research.execution_evidence import collect as research_evidence
                 relevant = [item["nodeId"] for item in captured["documents"]]
-                if research_evidence(repo.db, project, workspace, captured["acceptedRevision"], relevant)["records"]:
+                if research_evidence(repo.db, project, workspace, captured["acceptedRevision"], relevant, canvas=self.canvas)["records"]:
                     raise ValueError("Research-derived tasks require prepared contextProtocolVersion 2.")
             if (captured["acceptedRevision"] != payload["expectedAcceptedHead"]
                     or captured["contextVersion"] != payload["expectedContextVersion"]):
@@ -185,6 +185,10 @@ class OporaExecutions:
         current = {key: value for key, value in current.items() if key != "run"}
         if "storyboards" not in record["assignment"]:
             current.pop("storyboards", None)  # Historical assignments did not capture this external input.
+        elif any(pin.get("acceptance") == "accepted-content" for pin in record["assignment"]["storyboards"]):
+            from backend.canvas.storyboard_evidence import validate as validate_storyboards
+            validate_storyboards(self.canvas, *repo.scope, record["assignment"]["storyboards"])
+            current["storyboards"] = record["assignment"]["storyboards"]
         if "run" in record["assignment"]:
             current["run"] = record["assignment"]["run"]
         if "requiredInputs" in record["assignment"]:

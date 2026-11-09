@@ -26,7 +26,7 @@ export default function ContentDetail({ model, currentAcceptedHead, review }: { 
     <p role="status">{detail.accepted ? `Přijato v revizi ${detail.accepted}` : !headKnown ? "Aktuální společný základ není doložen. Přijetí je vypnuté." : stale ? "Návrh má starší základ. Před přijetím jej převeďte na aktuální hlavu." : "Základ návrhu odpovídá načtené přijaté revizi."}</p>
     <button type="button" onClick={download}>Stáhnout úplný JSON návrhu</button>
     {item.changes.map(change => <section className="content-changes__change" key={JSON.stringify([change.kind, change.target, change.field])}>
-      <header><h4>{change.kind === "text" ? "Text" : change.kind === "drawing" ? "Kresba" : "Konfigurace"} · {change.field === "downloadsUrl" ? "Úloha stahuje URL" : change.field}</h4>
+      <header><h4>{change.kind === "text" ? "Text" : change.kind === "drawing" ? "Kresba" : change.kind === "storyboard" ? "Storyboard" : "Konfigurace"} · {change.field === "downloadsUrl" ? "Úloha stahuje URL" : change.field}</h4>
         <p>{change.target || "Kořenová kresba"} · vlastník {change.observedOwner} · {change.observedRevision !== undefined ? `zdrojová revize ${change.observedRevision} · ` : ""}kolo {change.observedRound ?? "neuvedeno"}</p></header>
       <div className="content-changes__diff"><Value title="Přijatý obsah" value={change.acceptedBefore?.value ?? (change.acceptedBefore ? null : undefined)} />
         <Value title="Pozorovaný pracovní stav" value={change.before} /><Value title="Navržená hodnota" value={change.value} /></div>

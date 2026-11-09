@@ -1,8 +1,8 @@
 """SQL byte preflight for native content capture before scene materialization."""
 
 
-def preflight_source_bytes(db, project, workspace, node_ids, text_owners, limit):
-    source_bytes = 0
+def preflight_source_bytes(db, project, workspace, node_ids, text_owners, limit, extra_bytes=0):
+    source_bytes = extra_bytes
     for owner in sorted(set(text_owners.values())):
         placeholders = ",".join("?" for _ in node_ids)
         source_bytes += db.execute(
@@ -14,6 +14,13 @@ def preflight_source_bytes(db, project, workspace, node_ids, text_owners, limit)
             (project, owner, *node_ids),
         ).fetchone()[0]
     drawing_ids = ["", *node_ids]
+    placeholders = ",".join("?" for _ in node_ids)
+    source_bytes += db.execute(
+        f"""SELECT COALESCE(SUM(length(CAST(s.record AS BLOB))),0) FROM storyboard_revisions s
+            WHERE s.project_id=? AND s.workspace_id=? AND s.node_id IN ({placeholders})
+            AND s.revision=(SELECT MAX(x.revision) FROM storyboard_revisions x
+                WHERE x.project_id=s.project_id AND x.workspace_id=s.workspace_id AND x.node_id=s.node_id)""",
+        (project, workspace, *node_ids)).fetchone()[0]
     placeholders = ",".join("?" for _ in drawing_ids)
     source_bytes += db.execute(
         f"""SELECT COALESCE(SUM(length(CAST(d.scene AS BLOB))),0) FROM drawing_revisions d

@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from backend.brain import registry
+from backend.brain import operational_eval
 from backend.brain.store import Store
 
 DEFAULT_MAX_USD = 1.0
@@ -76,19 +77,27 @@ def _run_row(row):
 
 
 def get_run(db, run_id):
-    row = db.execute("SELECT * FROM brain_eval_runs WHERE id=?", (run_id,)).fetchone()
+    row = db.execute("SELECT r.*,a.plugin FROM brain_eval_runs r JOIN brain_artifact_versions v ON v.id=r.version_id "
+                     "JOIN brain_artifacts a ON a.id=v.artifact_id WHERE r.id=?", (run_id,)).fetchone()
     return _run_row(row) if row else None
 
 
 def latest(db, version_id):
-    row = db.execute("SELECT * FROM brain_eval_runs WHERE version_id=? ORDER BY created_at DESC, rowid DESC LIMIT 1",
+    row = db.execute("SELECT r.*,a.plugin FROM brain_eval_runs r JOIN brain_artifact_versions v ON v.id=r.version_id "
+                     "JOIN brain_artifacts a ON a.id=v.artifact_id WHERE r.version_id=? ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1",
                      (version_id,)).fetchone()
     return _run_row(row) if row else None
 
 
-def passed(run):
+def passed(run, plugin=None):
+    report = (run or {}).get("report")
+    candidate = report.get("candidate") if isinstance(report, dict) else None
+    operational = candidate.get("operational") if isinstance(candidate, dict) else None
+    if (plugin or (run or {}).get("plugin")) == "opora-control-center" and not operational_eval.passed(operational):
+        return False
     return bool(run) and run["status"] == "ok" and run["score"] is not None and run["baseline_score"] is not None \
-        and run["score"] >= run["baseline_score"]
+        and run["score"] >= run["baseline_score"] \
+        and (operational is None or isinstance(operational, dict) and operational.get("passed") is True)
 
 
 def _insert(db, version, status):
@@ -135,13 +144,16 @@ def _checkout(store, plugin, sha, target):
 def _summary(report):
     return {"costUsd": report.get("costUsd"), "partial": report.get("partial"),
             "aggregates": report.get("aggregates"),
+            **({"operational": report["operational"], "nativeAggregates": report.get("nativeAggregates")} if "operational" in report else {}),
             "cases": [{"name": case.get("name"), "aggregates": case.get("aggregates")}
                       for case in report.get("cases") or []]}
 
 
-def _eval(claude, plugin_dir, out, budget, ablation, runner):
+def _eval(claude, plugin_dir, out, budget, ablation, runner, keep_temp=False):
     args = [claude, "plugin", "eval", str(plugin_dir), "--json", str(out), "--ablation", ablation,
             "--max-cost-usd", f"{budget:.2f}", "-j", "2", "--threshold", "0", "--trust-plugin", "--no-publish"]
+    if keep_temp:
+        args.append("--keep-temp")
     done = runner(args, str(plugin_dir.parent), TIMEOUT_SECONDS)
     if not out.is_file():
         raise RuntimeError(f"claude plugin eval skončil kódem {done.returncode}: {(done.stderr or '')[-500:]}")
@@ -168,10 +180,13 @@ def execute(service, run_id, runner=None):
                 raise RuntimeError("Plugin nemá sadu evals/.")
             shutil.rmtree(base / EVALS, ignore_errors=True)
             shutil.copytree(cand / EVALS, base / EVALS)
+            specification = operational_eval.contract(cand, candidate["plugin"])
             budget = max_usd()
-            first = _eval(claude, cand, folder / "candidate.json", budget, "with-without", runner)
+            first = _eval(claude, cand, folder / "candidate.json", budget, "with-without", runner, specification is not None)
             spent = float(first.get("costUsd") or 0)
-            second = _eval(claude, base, folder / "baseline.json", max(budget - spent, 0.01), "none", runner)
+            second = _eval(claude, base, folder / "baseline.json", max(budget - spent, 0.01), "none", runner, specification is not None)
+            first = operational_eval.apply(first, specification, cand)
+            second = operational_eval.apply(second, specification, base)
         cost = spent + float(second.get("costUsd") or 0)
         partial = bool(first.get("partial") or second.get("partial"))
         fields = {"status": "error" if partial else "ok", "cost_usd": cost,

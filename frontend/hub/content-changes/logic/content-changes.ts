@@ -1,6 +1,6 @@
 export const CONTENT_ROOT = "/api/oporahub/content-changes";
 export type ContentScope = { project: string; workspace: string };
-export type ContentEntry = { kind: "text" | "drawing" | "config"; target: string; field: string; ownerWorkspace: string; value: unknown; revision?: number };
+export type ContentEntry = { kind: "text" | "drawing" | "storyboard" | "config"; target: string; field: string; ownerWorkspace: string; value: unknown; revision?: number };
 export type ContentChange = Pick<ContentEntry, "kind" | "target" | "field" | "value"> & {
   before: unknown; acceptedBefore: ContentEntry | null; observedOwner: string; observedRevision?: number; observedRound: number | null };
 export type ContentSummary = { id: string; kind: "content-proposal"; subject: string; by: { kind: string; name: string }; createdAt: string;

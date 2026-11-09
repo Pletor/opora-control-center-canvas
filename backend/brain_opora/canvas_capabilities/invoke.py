@@ -1,5 +1,6 @@
 """Named native adapters, without arbitrary HTTP paths or caller-controlled authors."""
 from urllib.parse import urlencode
+from backend.brain_opora.canvas_capabilities import knowledge_actions, storyboard_actions, content_actions
 from backend.brain_opora.canvas_capabilities import brief_actions, research_continuation_actions
 from backend.brain_opora.canvas_capabilities import design_reads, research_ticket_actions, flow_actions, lease_actions, research_review_actions, desktop_work_actions, source_realization_action, desktop_review_actions, changeset_review_actions, working_graph_actions
 
@@ -33,6 +34,9 @@ def invoke(service, project, workspace, session, capability, data, request_id=No
                      else isinstance(value, str) and len(value) <= 10000)
             if not valid:
                 raise InvalidPayload("Invalid read parameter type.", field=key, expected=kind)
+    for module in (knowledge_actions, storyboard_actions, content_actions):
+        if capability in module.CONTRACTS:
+            return module.invoke(service, project, workspace, session, capability, data, request_id)
     if capability in research_continuation_actions.CONTRACTS:
         return research_continuation_actions.invoke(service, project, workspace, session, capability, data, request_id)
     if capability in brief_actions.CONTRACTS:

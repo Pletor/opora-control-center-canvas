@@ -21,6 +21,8 @@ import { useSketchSession } from "../logic/use-sketch-session";
 import { statusLabel } from "../logic/storyboard-status";
 import { useStoryboardAutosave } from "../logic/use-storyboard-autosave";
 import { useStoryboardStore } from "../logic/use-storyboard-store";
+import { useStoryboardProposal } from "../logic/use-storyboard-proposal";
+import StoryboardReview from "./StoryboardReview";
 import LayerRail from "./LayerRail";
 import MiniPreview from "./MiniPreview";
 import MomentStrip from "./MomentStrip";
@@ -42,6 +44,7 @@ export default function StoryboardEditor({ project, workspace, nodeId, readOnly,
   onDraw: (nodeId: string) => void;
 }) {
   const store = useStoryboardStore(project, workspace, nodeId);
+  const proposal = useStoryboardProposal(project, workspace, nodeId, store.revision);
   const { draft: board, setDraft } = store;
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -112,6 +115,8 @@ export default function StoryboardEditor({ project, workspace, nodeId, readOnly,
   };
   const bar = (
     <StoryboardBar picker={picker} status={store.status} label={label} notice={exportMessage} dirty={store.dirty} readOnly={locked || !board} canPlace={hasXY} tool={tool} hasDraw onPackage={() => void exportPackage()}
+      review={<StoryboardReview disabled={locked || store.dirty || store.status !== "idle" || !store.revision || !!errors.length}
+        busy={proposal.busy} href={proposal.href} error={proposal.error} onPropose={() => void proposal.propose()} />}
       sketchLabel={locked ? "Zobrazit skicu" : "Skica"} sketchDisabled={sketch.busy || !current || (locked ? !current.sketch : !current.id)}
       onSketch={() => { if (locked) setViewSketch(true); else void sketch.open(currentIndex); }}
       onTool={setTool} onSave={() => { if (board && !errors.length) void store.save(board); }} onReload={() => { setDraft(null); void store.reload(); }}

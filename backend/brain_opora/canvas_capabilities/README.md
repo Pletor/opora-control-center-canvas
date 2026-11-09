@@ -1,6 +1,8 @@
 # Finite Canvas capabilities - M2 checkpoint
 
-Current configured adapter coverage is **183 of 183 discoverable operations**, including original native rows and explicitly added review/session/attachment routes. This is registration coverage, not a claim of final integration acceptance or a clean full suite. `inventory.json` preserves the original 161 audited rows. Brief write exposes the finite 27 native suboperations from `backend/editor/brief_vault/operation_review_contracts.py`; native/HTTP/UI gates remain separately required.
+Current configured adapter coverage is **192 of 192 discoverable operations**, including original native rows and explicitly added review/session/attachment routes. This is registration coverage, not a claim of final integration acceptance or a clean full suite. `inventory.json` preserves the original 161 audited rows. Brief write exposes the finite 27 native suboperations from `backend/editor/brief_vault/operation_review_contracts.py`; native/HTTP/UI gates remain separately required.
+
+OPORA 2 adds nine native operations: canonical research context/search/binding, Storyboard read/history/save, and immutable content proposal listing/detail/create/accept. All require an authenticated Heart scoped to the exact project/workspace. Bindings do not grant source access; these adapters reject foreign source scopes. Content acceptance delegates existing runtime authority and native proposal/head/source CAS. Stable write request IDs use the existing native journal; only content acceptance allows the native accepted head to advance. A failed transaction with unchanged native state remains retryable; uncertain effects remain pending. Focused real HTTP, replay, history, worker denial, foreign-source denial, and forced SQL rollback checks: 14 tests passed. Whole-suite and live pilot proof are separate.
 
 ## Boundary and native reuse
 

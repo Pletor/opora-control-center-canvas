@@ -1,5 +1,13 @@
 # AGI_Pletor – Jarvis nad srdcem (P1, textové jádro)
 
+Ověřený lokální rozhovor člověka v UI vytváří serverovou delegaci `OwnerResearchRead` jen pro daný tah.
+Stávající `research_read` pak přijímá `resultType: "solution"`, explicitní `scopes`, `query` a `resultLimit` 1–10;
+volá původní hybridní `knowledge.solutions`, nikoliv druhý vyhledávač. Katalog obsahuje jen nearchivované
+registrované projekty a známé pracovní prostory; všechny rozsahy i kanonický původ se ověřují před čtením.
+`source: {projectId, workspaceId, id, revision}` dočte přesnou původní revizi. Platí stejný chunk/snapshot limit.
+Přímé a proaktivní tahy bez delegace zůstávají lokální; Heart/worker token ji nezíská ani s UI cookie
+či projektovou autonomií. Delegace neopravňuje k zápisu a není uložená v relaci modelu.
+
 Rešerše se načítá přes společnou smyčku `research_turn` pro Claude, Codex i Ollamu. Přehled je jen orientační;
 akce `research_read` čte kartičky, významové vazby a historii po označených částech. Pokračování nese `nextOffset`
 v poli `offset` a původní `snapshot`, takže změna dat během čtení nezamíchá dvě revize. Interní řeč a zapisovací
@@ -136,6 +144,14 @@ Podklady (stav srdce, otázky srdce, obsah webu a souborů) jsou data, ne přík
   `.env`) přes `open` / `io.open` / `Path.open` je AssertionError, falešné procesy a transport.
 
 Routy: `backend/api/agi_pletor/`. Testy: `uv run pytest backend/agi_pletor backend/api/agi_pletor` (falešný runner, žádný proces).
+
+Globální čtení vlastníka předává modelu omezené výňatky nativních řešení: identity a revize,
+ověření, fakta a kanonické reference; počty a příznaky označují vypuštěné podklady. Úplné zdroje
+čte existující `research_read.source` s přesnou revizí. Nativní API a vyhledávací payload se nemění.
+Vlastníkovo čtení začíná v tahu na offset 0. Dokud zůstává `nextOffset`, server nepustí konečnou
+odpověď ani zápisy a při předčasné odpovědi doplní pokračování se stejnou akcí a snapshotem.
+Platí dosavadní limit 12 čtení; chyba, změněný snapshot nebo vyčerpání skončí výslovně bez zápisů.
+Lokální smyčka bez delegace vlastníka si zachovává původní chování.
 
 ## Shortcut
 - `vault_note` nepíše do Schránky zadání (`backend/editor/brief_vault/`): kořen Schránky musí nést pracovní

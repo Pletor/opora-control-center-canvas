@@ -26,3 +26,6 @@ def test_storyboard_roundtrip_and_conflicts(tmp_path):
         gone = client.post("/api/storyboard", headers=HEADERS, json={**body, "expected_revision": 1, "storyboard": None})
         assert gone.json() == {"revision": 2}
         assert client.get("/api/storyboard", params=query).json()["storyboard"] is None
+        historical = client.get("/api/storyboard", params={**query, "revision": 1})
+        assert historical.status_code == 200 and historical.json()["storyboard"]["moments"][1]["comment"] == "Rychleji."
+        assert client.get("/api/storyboard", params={**query, "revision": 999}).status_code == 409

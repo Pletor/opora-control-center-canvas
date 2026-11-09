@@ -12,6 +12,9 @@ from backend.editor.storyboard.test_storyboard import board
 def save(service, node, title, revision=0):
     StoryboardService(service).save({**SCOPE, "nodeId": node, "expected_revision": revision,
                                     "storyboard": board(title=title)})
+    if revision == 0:
+        from backend.canvas.test_storyboard_acceptance import accept_scene
+        accept_scene(service, node)
 
 
 @pytest.mark.parametrize("protocol", [1, 2])
@@ -23,8 +26,8 @@ def test_task_and_affected_scenes_are_pinned_with_result_revision(service, proto
     pins = {pin["nodeId"]: pin for pin in execution["assignment"]["storyboards"]}
     assert pins["a"]["storyboard"]["title"] == "Task flow"
     assert pins["login"]["storyboard"]["title"] == "Login scenario"
-    assert pins["login"]["revision"] == 1 and pins["login"]["digest"]
-    assert pins["login"]["acceptance"] == "captured-at-claim"
+    assert pins["login"]["revision"] == 2 and pins["login"]["digest"]
+    assert pins["login"]["acceptance"] == "accepted-content"
     receipt = authority.submit(execution["executionId"], {**SCOPE, "token": execution["token"], "epoch": execution["epoch"],
         "requestId": "result", "result": {"summary": "Scene implementation"}})
     assert receipt["assignmentDigest"] == execution["assignmentDigest"]
@@ -36,7 +39,7 @@ def test_changed_affected_scene_rejects_result_and_keeps_historical_snapshot(ser
     save(service, "login", "Original login")
     execution = start(authority, protocol)
     assignment = deepcopy(execution["assignment"])
-    save(service, "login", "Changed login", 1)
+    save(service, "login", "Changed login", 2)
     with pytest.raises(ValueError):
         authority.submit(execution["executionId"], {**SCOPE, "token": execution["token"], "epoch": execution["epoch"],
             "requestId": "result", "result": {"summary": "Old scene"}})
@@ -51,8 +54,8 @@ def test_scene_change_between_context_and_claim_is_not_silently_adopted(service,
     authority = configure(service)
     save(service, "login", "Reviewed scene")
     context = prepare(authority, {**SCOPE, "nodeId": "a", "contextProtocolVersion": 2}) if protocol == 2 else authority.context(**SCOPE, node="a")
-    save(service, "login", "Unreviewed scene", 1)
-    with pytest.raises(ValueError, match="assignment changed"):
+    save(service, "login", "Unreviewed scene", 2)
+    with pytest.raises(ValueError, match="accepted manifest"):
         authority.claim({**SCOPE, "nodeId": "a", "requestId": "scene-race", "ttlSeconds": 60,
             "expectedAcceptedHead": context["acceptedHead"], "expectedContextVersion": context["contextVersion"],
             **({"contextProtocolVersion": 2} if protocol == 2 else {})}, "agent:worker")

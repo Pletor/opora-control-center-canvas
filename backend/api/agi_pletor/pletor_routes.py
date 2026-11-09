@@ -37,6 +37,7 @@ from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas.activity_log import require_human
 from backend.canvas.graph import valid_id
 from backend.agi_pletor import brains, llm_settings, speech, tts
+from backend.agi_pletor.research_access import OwnerResearchRead
 from backend.agi_pletor.llm_settings import accounts as llm_accounts
 from backend.agi_pletor.llm_settings import codex_accounts
 from backend.agi_pletor.llm_settings import write as llm_write
@@ -70,18 +71,19 @@ def create_pletor_router(service, pletor):
         if answer := refused(body, request):
             return answer
         return await run_in_threadpool(pletor.message, body.project, body.workspace, body.text.strip(),
-                                     body.voice)
+                                     body.voice,research_access=OwnerResearchRead(service,request.state.actor))
 
     @router.post("/messages/stream")
     def message_stream(body: models.PletorMessageIn, request: Request):
         if answer := refused(body, request):
             return answer
         chunks = queue.Queue()  # tah ve vlákně → řádky odpovědi; odpojený klient tah nezastaví, zpráva se uloží
+        access = OwnerResearchRead(service,request.state.actor)
 
         def work():
             try:
                 done = pletor.message(body.project, body.workspace, body.text.strip(), body.voice,
-                                      on_delta=lambda text: chunks.put({"type": "delta", "text": text}))
+                                      on_delta=lambda text: chunks.put({"type": "delta", "text": text}),research_access=access)
             except Exception as error:  # noqa: BLE001 – proud musí vždy skončit řádkem done
                 done = {"reply": f"Pletor selhal: {error}", "actions": []}
             chunks.put({"type": "done", **done})

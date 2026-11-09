@@ -36,8 +36,8 @@ def test_discovery_is_complete_but_honest_and_all_reads_authenticate(setup):
     response = client.get(BASE + "/capabilities", params=SCOPE, headers=auth)
     assert response.status_code == 200, response.text
     ops = response.json()["operations"]
-    assert len(ops) == 183 and len({o["id"] for o in ops}) == 183
-    assert sum(o["implemented"] for o in ops) == 183
+    assert len(ops) == 192 and len({o["id"] for o in ops}) == 192
+    assert sum(o["implemented"] for o in ops) == 192
     assert response.json()["organizationModel"] == "not_present"
     assert client.get(BASE + "/capabilities", params=SCOPE).status_code == 401
     for scope in ({**SCOPE, "project": "foreign"}, {**SCOPE, "workspace": "main"}):

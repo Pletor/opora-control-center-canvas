@@ -17,6 +17,21 @@ except ImportError:  # Standalone helper copied into the heart's working directo
 API = "/api/research"
 REFS = ("nodeIds", "questionIds", "ticketIds", "sessionIds", "fragmentIds", "attachmentIds")
 RUNTIME_GUIDANCE = """
+Native scoped OPORA 2 tools (always canvas describe before invoke):
+research_knowledge_routes.context {scopeNodeId}; research_knowledge_routes.search
+{scopes:[{project,workspace,scopeNodeId}],query,resultType:"research"|"solution"};
+research_routes.detail {id,revision} reads the exact research card, not just its header.
+research_knowledge_routes.bind {scopeNodeId,source:{projectId,workspaceId,id,revision},expectedRevision,archived}
+pins a canonical source within this Heart session scope; no cross-project permission is granted.
+storyboard_routes.storyboard_read {nodeId,revision?}; storyboard_routes.storyboard_write
+{nodeId,expected_revision,storyboard} saves a draft, not an accepted contract.
+opora_content_routes.listing {}; opora_content_routes.create {expectedAcceptedHead,subject,changes};
+opora_content_routes.detail {identifier} is the exact native proposal review.
+For Storyboard changes use {kind:"storyboard",target:nodeId,field:"storyboard",value:storyboard}.
+opora_content_routes.accept {identifier,expectedAcceptedHead,reviewedProposalId,adoptBaseContentDigest}
+uses existing server-owned full-autonomy authority, otherwise refuses. Review the complete proposal first.
+adoptBaseContentDigest is proposal.baseContentDigest only when requiresBaseContentAdoption, otherwise null.
+All writes require a stable --request-id; reads do not. Replay unchanged after a lost response.
 
 ## Plán po výzkumu: návrh, přijetí a realizace jsou různé kroky
 Než oznámíš, že úprava nemá nástroj, použij `python opora_heart.py canvas discover` a

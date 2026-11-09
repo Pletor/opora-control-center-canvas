@@ -454,20 +454,56 @@ class StoryboardService:
             changed = True
         return changed
 
-    def read(self, project, workspace, node_id):
-        with self.canvas.reading(project):
-            view = self._card_view(project, workspace, node_id)
-            path = self._path(project, workspace, node_id)
-            stored = self._stored(path)
-        if self._backfill_ids(stored) and not view["readOnly"]:
-            # Doplnění id se zapisuje až nad čerstvým čtením pod zámkem: mezitím mohl někdo uložit novější storyboard.
-            with self.canvas.lock_for(project):
-                stored = self._stored(path)
-                if self._backfill_ids(stored):
-                    self._write(path, stored)
+    def read(self, project, workspace, node_id, revision=None):
+        with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
+            from database.repositories.storyboard_revisions import StoryboardRevisions
+            view = self.canvas.view(project, workspace)
+            repo = StoryboardRevisions(self.canvas.db_for(project), project, workspace, node_id)
+            if revision is not None and repo.latest() is not None:
+                value = repo.read(revision)  # Historical owned source survives deletion of its graph card.
+            else:
+                self._card_view(project, workspace, node_id)
+                value = self.source(project, workspace, node_id)
+                if revision is not None:
+                    value = repo.read(revision)
         animations = [{"id": key, "label": label} for key, label in ANIMATIONS.items()]
-        revision = self._revision(path)
-        return {"storyboard": stored, "revision": revision, "readOnly": bool(view["readOnly"]), "animations": animations}
+        return {"storyboard": value["storyboard"], "revision": value["revision"], "readOnly": bool(view["readOnly"]), "animations": animations}
+
+    def source(self, project, workspace, node_id):
+        """SQL is authoritative after import. Empty reads never create a source row."""
+        from database.repositories.storyboard_revisions import StoryboardRevisions
+        db = self.canvas.db_for(project)
+        repo = StoryboardRevisions(db, project, workspace, node_id)
+        path = self._path(project, workspace, node_id)
+        if repo.latest() is None and path.exists():
+            with self.canvas.lock_for(project):
+                db = self.canvas.db_for(project)
+                repo = StoryboardRevisions(db, project, workspace, node_id)
+                if db.in_transaction:
+                    repo.import_legacy(path, self._backfill_ids)
+                else:
+                    with db:
+                        db.execute("BEGIN IMMEDIATE")
+                        repo.import_legacy(path, self._backfill_ids)
+        return repo.read()
+
+    def save_in_transaction(self, project, workspace, node_id, expected, board):
+        from database.repositories.storyboard_revisions import StoryboardRevisions
+        db = self.canvas.db_for(project)
+        if not db.in_transaction:
+            raise RuntimeError("Storyboard save requires the caller's transaction.")
+        current = self.source(project, workspace, node_id)
+        if expected != current["revision"]:
+            raise ValueError("Storyboard se změnil v jiném okně. Obnovte ho.")
+        clean = None if board is None else validate_storyboard(board, node_id)
+        if clean is None and current["storyboard"] is None:
+            return current
+        if clean is not None:
+            self._check_asset_files(project, clean)
+            reopen_changed(clean, current["storyboard"])
+        record = {"deleted": True} if clean is None else clean
+        record.update(revision=expected + 1, updatedAt=_now())
+        return StoryboardRevisions(db, project, workspace, node_id).append(expected, record)
 
     def save(self, payload):
         if not isinstance(payload, dict) or set(payload) != PAYLOAD_KEYS:
@@ -483,21 +519,11 @@ class StoryboardService:
             if view["readOnly"]:
                 raise ValueError("Main je pouze pro čtení.")
             with self.canvas.lock_for(project):
-                path = self._path(project, workspace, node_id)
-                stored = self._stored(path)
-                revision = self._revision(path)
-                if expected != revision:
-                    raise ValueError("Storyboard se změnil v jiném okně. Obnovte ho.")
-                if clean is None:
-                    if stored is not None:
-                        self._write(path, {"deleted": True, "revision": revision + 1, "updatedAt": _now()})
-                    return {"revision": revision + 1 if stored is not None else revision}
-                self._check_asset_files(project, clean)
-                reopen_changed(clean, stored)
-                clean["revision"] = revision + 1
-                clean["updatedAt"] = _now()
-                self._write(path, clean)
-                return {"revision": clean["revision"]}
+                db = self.canvas.db_for(project)
+                with db:
+                    db.execute("BEGIN IMMEDIATE")
+                    value = self.save_in_transaction(project, workspace, node_id, expected, clean)
+                return {"revision": value["revision"]}
 
     def _stored_mimes(self, project, ids):
         if not ids:
@@ -522,15 +548,15 @@ class StoryboardService:
 
     def sketch_layers(self, project, workspace, node_id):
         """Povolené vrstvy skic karty: sb/<nodeId>/<momentId> všech jejích momentů."""
-        stored = self._stored(self._path(project, workspace, node_id))
+        with self.canvas.lock_for(project):
+            stored = self.source(project, workspace, node_id)["storyboard"]
         moments = stored.get("moments", []) if stored else []
         return {f"sb/{node_id}/{m['id']}" for m in moments if isinstance(m.get("id"), str)}
 
     def mark_sketch_stale(self, project, workspace, node_id, moment_id):
         """Scénu skici změnil někdo bez exportu PNG: moment dostane imageStale (bez skici ji založí) a revize se zvedne."""
         with self.canvas.graph_lock_for(project), self.canvas.lock_for(project):
-            path = self._path(project, workspace, node_id)
-            stored = self._stored(path)
+            stored = self.source(project, workspace, node_id)["storyboard"]
             moment = next((m for m in (stored or {}).get("moments", []) if m.get("id") == moment_id), None)
             if moment is None:
                 return
@@ -541,7 +567,14 @@ class StoryboardService:
             moment["answered"] = False  # skica se změnila: moment znovu čeká na reakci
             stored["revision"] = stored.get("revision", 0) + 1
             stored["updatedAt"] = _now()
-            self._write(path, stored)
+            from database.repositories.storyboard_revisions import StoryboardRevisions
+            db = self.canvas.db_for(project)
+            if db.in_transaction:
+                StoryboardRevisions(db, project, workspace, node_id).append(stored["revision"] - 1, stored)
+            else:
+                with db:
+                    db.execute("BEGIN IMMEDIATE")
+                    StoryboardRevisions(db, project, workspace, node_id).append(stored["revision"] - 1, stored)
 
     def _sketch_with_summary(self, project, workspace, moment):
         sketch = moment.get("sketch")
@@ -567,7 +600,8 @@ class StoryboardService:
 
     def brief_section(self, project, workspace, node_id):
         """Sekce `storyboard` pro node-brief; None, když karta storyboard nemá."""
-        stored = self._stored(self._path(project, workspace, node_id))
+        with self.canvas.lock_for(project):
+            stored = self.source(project, workspace, node_id)["storyboard"]
         if not stored:
             return None
         moments = stored.get("moments", [])

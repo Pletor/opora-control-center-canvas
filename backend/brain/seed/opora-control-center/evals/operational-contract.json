@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "cases": {
+    "node-execution-packet": [
+      {"capability":"node_packet","method":"GET","route":"/api/desktop-v3/node-brief","parsed":{"command":"node-brief","project":"ample","workspace":"feature_login","node":"login"}}
+    ],
+    "knowledge-local-context": [
+      {"capability":"research_scope","method":"GET","route":"/api/research/context","parsed":{"command":"research-context","project":"ample","workspace":"feature_login","node":"login"}}
+    ],
+    "knowledge-solution-and-pin": [
+      {"capability":"solution_identity","method":"POST","route":"/api/research/knowledge-search","parsed":{"command":"knowledge-search","project":"ample","workspace":"feature_login","query":"Login","result_type":"solution"}},
+      {"capability":"canonical_revision","method":"GET","route":"/api/research/cards/source_7","parsed":{"command":"research-card","project":"ample","workspace":"feature_login","id":"source_7","revision":3,"raw":true}}
+    ]
+  }
+}

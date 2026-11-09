@@ -65,6 +65,13 @@ def _read_entry(canvas, project, workspace, kind, target, field, nodes, owners, 
         current = DrawingStore(canvas).read((project, owner, target))
         return {"kind": kind, "target": target, "field": field, "ownerWorkspace": owner,
                 "value": current["scene"], "revision": current["revision"]}
+    if kind == "storyboard" and field == "storyboard":
+        if target not in nodes or nodes[target]["kind"] not in ("node", "sector"):
+            raise ValueError("Storyboard target is outside the current graph.")
+        from backend.editor.storyboard.storyboard import StoryboardService
+        current = StoryboardService(canvas).source(project, workspace, target)
+        return {"kind": kind, "target": target, "field": field, "ownerWorkspace": workspace,
+                "value": current["storyboard"], "revision": current["revision"]}
     if kind == "config" and field in CONFIG_FIELDS:
         owner = owners.get((kind, target))
         if owner is None:
@@ -116,11 +123,18 @@ def capture_content(canvas, project, workspace, graph):
     owners = {("text", target): canvas.document_workspace(project, workspace, target) for target in nodes}
     node_ids = sorted(nodes)
     db = canvas.db_for(project)
-    if not preflight_source_bytes(db, project, workspace, node_ids, owners, MAX_BYTES):
+    imported = {row[0] for row in db.execute("SELECT DISTINCT node_id FROM storyboard_revisions WHERE project_id=? AND workspace_id=?", (project, workspace))}
+    legacy_bytes = 0
+    for identifier in set(node_ids) - imported:
+        path = canvas.folder(project).storyboard(workspace, identifier)
+        if path.exists():
+            legacy_bytes += path.stat().st_size
+    if not preflight_source_bytes(db, project, workspace, node_ids, owners, MAX_BYTES, legacy_bytes):
         raise ValueError("Content manifest exceeds the byte limit.")
     entries, observations = [], {}
     for target in sorted(nodes):
         for kind, field in (("text", "text"), ("drawing", "scene"),
+                            *((("storyboard", "storyboard"),) if nodes[target]["kind"] in ("node", "sector") else ()),
                             *(('config', field) for field in CONFIG_FIELDS)):
             entry = _read_entry(canvas, project, workspace, kind, target, field, nodes, owners, state)
             entries.append(entry)
@@ -183,6 +197,9 @@ def write_changes_in_transaction(canvas, db, project, workspace, changes, actor,
         elif kind == "drawing":
             save_drawing_in_transaction(canvas, db, (project, workspace, target), expected_revision,
                                         change.get("value"), datetime.now(UTC).isoformat())
+        elif kind == "storyboard":
+            from backend.editor.storyboard.storyboard import StoryboardService
+            StoryboardService(canvas).save_in_transaction(project, workspace, target, expected_revision, change.get("value"))
         elif kind == "config":
             fields = configs.setdefault(target, {})
             fields[field] = deepcopy(change.get("value"))

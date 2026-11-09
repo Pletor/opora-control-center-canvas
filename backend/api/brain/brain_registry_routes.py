@@ -119,7 +119,7 @@ def create_brain_registry_router(service, spawn=_thread):
                 return _refused(404, "version_not_found", "Verze artefaktu neexistuje.")
             if forced:
                 evaluate.force(service.db, version_id)
-            elif not evaluate.passed(evaluate.latest(service.db, version_id)):
+            elif not evaluate.passed(evaluate.latest(service.db, version_id), plugin=version["plugin"]):
                 return _refused(409, "eval_required", "Aktivace potřebuje prošlý eval (skóre ≥ baseline).")
             registry.activate(service.db, version_id)
             return registry.version(service.db, version_id)

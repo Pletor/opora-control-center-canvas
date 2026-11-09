@@ -73,6 +73,7 @@ from backend.brain_opora.canvas_capabilities.brief_actions import CONTRACTS as B
 from backend.brain_opora.canvas_capabilities.research_continuation_actions import CONTRACTS as CONTINUATIONS
 
 VERSION = 1
+from backend.brain_opora.canvas_capabilities import knowledge_actions, storyboard_actions, content_actions
 INVENTORY = json.loads(Path(__file__).with_name("inventory.json").read_text(encoding="utf-8"))
 INVENTORY += [{"id": "session_view." + action, "contract": "session-view", "nativeRoute": None,
                "source": "backend/brain_opora/canvas_capabilities/session_view.py", "nativeCalls": action}
@@ -126,6 +127,15 @@ INVENTORY += [{"id": "research_continuation_routes." + name, "contract": "resear
         ("materialize", "POST /api/research/originals/{identifier}/materialize", "originals.materialize"))]
 
 
+for module, source, routes in (
+    (knowledge_actions, "research_knowledge_routes", {"context": "GET /api/research/context", "search": "POST /api/research/knowledge-search", "bind": "POST /api/research/bindings"}),
+    (storyboard_actions, "storyboard_routes", {"storyboard_read": "GET /api/storyboard", "storyboard_write": "POST /api/storyboard"}),
+    (content_actions, "opora_content_routes", {"listing": "GET /api/oporahub/content-changes", "detail": "GET /api/oporahub/content-changes/{identifier}", "create": "POST /api/oporahub/content-changes", "accept": "POST /api/oporahub/content-changes/{identifier}/accept"}),
+):
+    INVENTORY += [{"id": identifier, "contract": "native-scoped-content", "nativeRoute": routes[identifier.rsplit(".", 1)[1]],
+        "source": "backend/api/editor/" + source + ".py", "nativeCalls": identifier.rsplit(".", 1)[1]} for identifier in module.CONTRACTS]
+
+
 def discover():
     return {"catalogVersion": VERSION, "organizationModel": "not_present",
             "scopeBoundary": "authenticated Heart project and workspace",
@@ -137,6 +147,7 @@ def describe(identifier):
     if item is None:
         raise InvalidPayload("Unknown finite capability.", field="capability")
     configured = {**CONTRACTS, **READS, **READINESS, **SITE, **RESEARCH, **WRITES, **VAULT, **FLOW, **INSPECT, **LIBRARY, **LIBRARY_ACTIONS, **DRAFTS, **RESEARCH_ACTIONS, **CHANGESETS, **DESKTOP, **RESEARCH_TASKS, **SITE_ACTIONS, **FLOW_DRAFTS, **DESKTOP_EVIDENCE, **PACKETS, **MATERIALS, **VERSIONS, **LAYOUT, **REVISE, **MEMORY, **DESIGN, **TICKETS, **FLOW_ACTIONS, **LEASES, **REVIEW_PROPOSALS, **DESKTOP_WORK, **REALIZATION, **DESKTOP_REVIEW, **CHANGESET_REVIEW, **WORKING_GRAPH, **BRIEF_ACTIONS, **CONTINUATIONS}.get(identifier)
+    configured = configured or knowledge_actions.CONTRACTS.get(identifier) or storyboard_actions.CONTRACTS.get(identifier) or content_actions.CONTRACTS.get(identifier)
     return {**deepcopy(item), "implemented": configured is not None,
             "adapter": deepcopy(configured) if configured else None,
             "status": "implemented" if configured else "awaiting_adapter_and_contract_tests"}

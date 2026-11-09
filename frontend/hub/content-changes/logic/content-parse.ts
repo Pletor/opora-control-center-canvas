@@ -7,9 +7,11 @@ const text = (v: unknown, max = 64000): v is string => typeof v === "string" && 
 const count = (v: unknown, max: number) => Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= max;
 const fail = (): never => { throw new Error("Neúplné nebo neplatné podklady změny obsahu."); };
 function entry(v: unknown): v is ContentEntry {
-  if (!object(v) || !["text", "drawing", "config"].includes(String(v.kind)) || !text(v.target, 128) || !text(v.ownerWorkspace, 64)) return false;
+  if (!object(v) || !["text", "drawing", "storyboard", "config"].includes(String(v.kind)) || !text(v.target, 128) || !text(v.ownerWorkspace, 64)) return false;
   if (v.kind === "text") return v.field === "text" && text(v.value) && count(v.revision, Number.MAX_SAFE_INTEGER);
   if (v.kind === "drawing") return v.field === "scene" && object(v.value) && Array.isArray(v.value.elements) && count(v.revision, Number.MAX_SAFE_INTEGER);
+  if (v.kind === "storyboard") return v.field === "storyboard" && count(v.revision, Number.MAX_SAFE_INTEGER)
+    && (v.value === null || (object(v.value) && v.value.schema === "opora.storyboard/1" && Array.isArray(v.value.moments)));
   return ["actions", "rules", "blocks", "materials"].includes(String(v.field)) ? Array.isArray(v.value)
     : v.field === "downloadsUrl" && (v.value === null || typeof v.value === "boolean");
 }

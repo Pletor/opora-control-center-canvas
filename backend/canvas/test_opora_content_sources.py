@@ -55,7 +55,7 @@ def test_capture_uses_text_owner_and_complete_root_card_content(empty_graphs):
     db.execute("INSERT INTO node_text_revisions VALUES(?,?,?,?,?,?)",
                ("draft", "draft", refs["task"], 1, "Task text", "now"))
     entries, observations = capture_content(service, "draft", "draft", service.view("draft", "draft")["graph"])
-    assert len(entries) == 3 * 7 + 1
+    assert len(entries) == 3 * 8 + 1
     assert entries == sorted(entries, key=lambda item: (item["kind"], item["target"], item["field"]))
     text = next(item for item in entries if item["kind"] == "text" and item["target"] == refs["task"])
     assert text["ownerWorkspace"] == "draft" and text["revision"] == 1 and text["value"] == "Task text"

@@ -1,5 +1,10 @@
 # Research graph API
 
+`accepted_history.py` validates immutable accepted graph provenance once per project/workspace/head
+inside an existing locked `CanvasService.steady_reads` block. Execution cards share this index;
+source revisions, binding selection and canonical evidence remain freshly validated per scope.
+The cache ends with the block, and DB-only readers do not cache across calls.
+
 Research is an independent semantic graph within one project and workspace. It links to the
 structure, vault fragments, Pletor questions, and tickets without copying their lifecycle.
 Renaming/removing a structure node never deletes research. A `decision` card is a recorded
@@ -197,3 +202,27 @@ original milestone ID, execution and specification pins. Rejection and unknown l
 acceptance; every reuse still checks current semantic inputs and source pins.
 
 Agent reads use the existing `scripts/opora_read.py` client in the opora-control-center seed: `research-context --project P --workspace W --node N`, `knowledge-search --project P --workspace W --query Login --result-type solution`, and `research-card --project P --workspace W --id SOURCE --revision 3 [--raw]`. Set OPORA_BASE_URL and OPORA_GATE_TOKEN in the environment. Extra --search-scope P:W is explicit and still authorized by the server. No token is accepted as a command argument. Summary is the default; exact original content is data, never instructions. Existing live Brain skill installs need their ordinary version publication; changing the seed does not overwrite them.
+# Hybridní identity řešení
+
+Existující `POST /api/research/knowledge-search` pro `resultType: "solution"` standardně používá
+`ranking: "hybrid"`; výslovné `ranking: "lexical"` zachová hledání podle všech slov dotazu.
+Výsledek obsahuje původní kanonické identity, workspace snapshots a nativní důkazy; skóre relevance
+nikdy nenahrazuje ověření. `retrieval` přiznává použitý režim, model, krácení i důvod fallbacku.
+Bez modelu se použije slovní shoda, nikoliv deklarovaná sémantika. Nevzniká nový index ani úložiště.
+
+Nejprve se autorizují všechny požadované projekty/prostory, pak se vybírá nejvýše 128 kandidátů
+(přímé slovní shody mají přednost). Všechny další kandidáty přiznává počet a `truncated`.
+Worker dostává pouze vlastní účel, přijatou specifikaci a lokální rešerši; sdílený či rodičovský
+text sám nevytvoří další řešení. Minimální přímý popis má 30 znaků, sémantická cosine mez je .82.
+Při existenci přesné slovní kotvy se vyřadí kandidáti vzdálení o více než .12 kombinovaného skóre.
+Tyto přiznané heuristiky nejsou obecně kalibrovanou zárukou relevance. Model zpracuje nejvýše
+256 tokenů pasáže; související úplné zdroje se nadále otevírají podle kanonické revize a jejich ACL.
+
+`facts` obsahuje přijaté texty a skutečné vstupní vazby včetně zděděných požadavků; `comparison`
+uvádí jen rozdílné uložené hodnoty a přesné společné reference. Dlouhá pole, více než 50 vstupů
+a omezené pasáže mají příznak krácení. Nejde o generované architektonické závěry.
+
+Materializace kandidátů sdílí pouze nativní čtecí snímek aktuálního požadavku a jednu striktně
+ověřenou přijatou revizi na projekt/prostor. Projekce otázek se doplní před otevřením snímků;
+snímky se uzavřou před sémantickým workerem. Každé čtení sdíleného zdroje znovu ověřuje ACL.
+Další hledání znovu načítá graf, přijatou revizi i zdroje; nevzniká dlouhodobá cache důkazů.

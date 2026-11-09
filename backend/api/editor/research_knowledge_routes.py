@@ -48,7 +48,7 @@ def create_research_knowledge_router(service):
     @router.post("/knowledge-search")
     def search(request: Request, payload: dict):
         def run():
-            model.shape(payload, {"project", "workspace", "scopes", "query"}, {"kinds", "verification", "limit", "resultType"})
+            model.shape(payload, {"project", "workspace", "scopes", "query"}, {"kinds", "verification", "limit", "resultType", "ranking"})
             authorize = authorizer(request)
             authorize(payload["project"], payload["workspace"], False)
             scopes = payload["scopes"]
@@ -65,7 +65,9 @@ def create_research_knowledge_router(service):
             if result_type == "solution":
                 if payload.get("kinds") or payload.get("verification"):
                     model.fail("Research kind and verification filters require research results.")
-                return knowledge.solutions(service, resolved, payload["query"], payload.get("limit",30), authorize)
+                return knowledge.solutions(service, resolved, payload["query"], payload.get("limit",30), authorize, payload.get("ranking","hybrid"))
+            if "ranking" in payload:
+                model.fail("Ranking selection requires solution results.")
             return knowledge.search(service, resolved, payload["query"], payload.get("kinds", []),
                                     payload.get("verification", []), payload.get("limit", 30), authorize)
         return call(run)

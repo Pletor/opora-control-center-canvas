@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/shared/types/logic/types";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
-import { knowledgeIdentity, sourceRoute, solutionVerificationLabel, solutionVerificationDetail, type KnowledgeRecord, type KnowledgeSolution } from "../logic/knowledge-types";
+import { knowledgeIdentity, sourceRoute, solutionVerificationLabel, solutionVerificationDetail, type KnowledgeRecord, type KnowledgeSolution, type SearchRetrieval, type SolutionComparison } from "../logic/knowledge-types";
 import { VERIFICATION_LABELS } from "../logic/research-model";
 import KnowledgeDetails from "./KnowledgeDetails";
+import KnowledgeComparison, { RetrievalInfo, SolutionFacts } from "./KnowledgeComparison";
 
 type ProjectOption = { id: string; name: string };
 export default function KnowledgePanel({ project, workspace, nodeId, projects }: { project: string; workspace: string; nodeId: string | null; projects: ProjectOption[] }) {
  const [records, setRecords] = useState<KnowledgeRecord[]>([]);
  const [results, setResults] = useState<KnowledgeRecord[]>([]);
  const [solutions, setSolutions] = useState<KnowledgeSolution[]>([]);
+ const [retrieval, setRetrieval] = useState<SearchRetrieval | null>(null);
+ const [comparison, setComparison] = useState<SolutionComparison | null>(null);
  const [resultType, setResultType] = useState("solution");
  const [bounds, setBounds] = useState("project");
  const [contextTruncated, setContextTruncated] = useState(false);
@@ -20,7 +23,7 @@ export default function KnowledgePanel({ project, workspace, nodeId, projects }:
  const [workspaces, setWorkspaces] = useState<Record<string,string>>({ [project]: workspace });
  const scope = { project, workspace, scopeNodeId: nodeId ?? "" };
  const generation = useRef(0);
- useEffect(() => { generation.current++; setRecords([]); setResults([]); setSolutions([]); setError(""); return () => { generation.current++; }; }, [project, workspace, nodeId]);
+ useEffect(() => { generation.current++; setRecords([]); setResults([]); setSolutions([]); setRetrieval(null); setComparison(null); setError(""); return () => { generation.current++; }; }, [project, workspace, nodeId]);
  usePolling(async () => {
    const ticket = generation.current;
    try { const data = await api<{records: KnowledgeRecord[]; truncated: boolean}>("/api/research/context?" + new URLSearchParams(scope)); if (ticket === generation.current) { setRecords(data.records); setContextTruncated(data.truncated); } }
@@ -29,8 +32,8 @@ export default function KnowledgePanel({ project, workspace, nodeId, projects }:
  async function search() {
   setBusy(true); setError("");
   const ticket = generation.current;
-  try { const value = await api<{results?: KnowledgeRecord[]; solutions?: KnowledgeSolution[]; truncated: boolean}>("/api/research/knowledge-search", { project, workspace, query, resultType,
-    scopes: selected.map(id => ({ project: id, workspace: workspaces[id] || "main", ...(id === project && bounds !== "project" ? { scopeNodeId: nodeId ?? "", includeDescendants: bounds === "subtree" } : {}) })), kinds: [], verification: resultType === "research" && verification ? [verification] : [], limit: 30 }); if (ticket === generation.current) { setResults(value.results ?? []); setSolutions(value.solutions ?? []); setSearchTruncated(value.truncated); } }
+  try { const value = await api<{results?: KnowledgeRecord[]; solutions?: KnowledgeSolution[]; truncated: boolean; retrieval?: SearchRetrieval; comparison?: SolutionComparison}>("/api/research/knowledge-search", { project, workspace, query, resultType,
+    scopes: selected.map(id => ({ project: id, workspace: workspaces[id] || "main", ...(id === project && bounds !== "project" ? { scopeNodeId: nodeId ?? "", includeDescendants: bounds === "subtree" } : {}) })), kinds: [], verification: resultType === "research" && verification ? [verification] : [], limit: 30 }); if (ticket === generation.current) { setResults(value.results ?? []); setSolutions(value.solutions ?? []); setSearchTruncated(value.truncated); setRetrieval(value.retrieval ?? null); setComparison(value.comparison ?? null); } }
   catch (reason) { setError(String(reason)); } finally { setBusy(false); }
  }
  async function attach(record: KnowledgeRecord) {
@@ -59,10 +62,13 @@ export default function KnowledgePanel({ project, workspace, nodeId, projects }:
   </fieldset>
   {error && <p role="alert">{error}</p>}
   {(contextTruncated || searchTruncated) && <p>Výběr je zkrácený. Zúžte rozsah nebo dotaz.</p>}
+  <RetrievalInfo value={retrieval} />
+  <KnowledgeComparison value={comparison} />
   <ul>{results.map(record => row(record, true))}</ul>
   <ul>{solutions.map(solution => <li key={JSON.stringify(solution.solutionRef)}>
    <a href={"/?" + new URLSearchParams({screen: "canvas", mode: "structure", project: solution.solutionRef.projectId, workspace: solution.snapshot.workspaceId, layer: solution.solutionRef.nodeId})}>{solution.title}</a> · {solution.solutionRef.projectId}
    <p>{solution.purpose}</p><small title={solutionVerificationDetail(solution.verification)}>Funkční ověření: {solutionVerificationLabel(solution.verification)} · {solution.evidence.length} souvisejících podkladů</small>
+   <SolutionFacts solution={solution} />
    <ul>{solution.evidence.map(record => row(record, true))}</ul>
   </li>)}</ul>
  </details>;

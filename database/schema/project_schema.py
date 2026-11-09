@@ -36,6 +36,8 @@ from database.schema.opora_auto_rebase_schema import SCHEMA as AUTO_REBASE_SCHEM
 from database.schema.opora_auto_rebase_schema import TABLES as AUTO_REBASE_TABLES
 from database.schema.opora_content_schema import SCHEMA as CONTENT_SCHEMA
 from database.schema.opora_content_schema import TABLES as CONTENT_TABLES
+from database.schema.storyboard_schema import SCHEMA as STORYBOARD_SCHEMA
+from database.schema.storyboard_schema import TABLES as STORYBOARD_TABLES
 from database.schema.opora_context_binding_schema import SCHEMA as CONTEXT_BINDING_SCHEMA
 from database.schema.opora_context_event_schema import SCHEMA as CONTEXT_SCHEMA
 from database.schema.opora_context_event_schema import TABLES as CONTEXT_TABLES
@@ -372,11 +374,13 @@ CREATE TABLE IF NOT EXISTS ticket_feedback(
 CREATE INDEX IF NOT EXISTS ticket_feedback_ticket ON ticket_feedback(ticket_id, seq);
 """
 PROJECT_SCHEMA += GATE_SCHEMA + RESEARCH_SCHEMA + RESEARCH_DECISIONS_SCHEMA + RESEARCH_EVENTS_SCHEMA + CANVAS_OPERATION_SCHEMA
+PROJECT_SCHEMA += STORYBOARD_SCHEMA
 PROJECT_SCHEMA += RESEARCH_REVIEW_PROPOSALS_SCHEMA + KNOWLEDGE_SCHEMA
 PROJECT_SCHEMA += CANVAS_SESSION_SCHEMA + RESEARCH_CONTINUATIONS_SCHEMA + CANVAS_VIEW_ATTACHMENTS_SCHEMA
 
 # Tabulky staré centrální canvas.sqlite, které patří jednomu projektu, a sloupec s jeho ID.
 PROJECT_TABLES = {
+    **{table: "project_id" for table in STORYBOARD_TABLES},
     **{table: "project_id" for table in KNOWLEDGE_TABLES},
     **{table: "project_id" for table in (*CANVAS_SESSION_TABLES, *RESEARCH_CONTINUATIONS_TABLES, *CANVAS_VIEW_ATTACHMENTS_TABLES)},
     **{table: "project_id" for table in CANVAS_OPERATION_TABLES},

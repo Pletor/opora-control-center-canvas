@@ -5,7 +5,7 @@ import type { StatusTone } from "../logic/storyboard-status";
 import type { StoryboardStatus } from "../logic/use-storyboard-store";
 import { TOOLS, type StageTool } from "./StoryboardStage";
 
-export default function StoryboardBar({ picker, status, label, notice = "", dirty, readOnly, canPlace, tool, hasDraw, sketchLabel, sketchDisabled, onPackage, onSketch, onTool, onSave, onReload, onOpenWindow, onDraw, onDownload, onDelete }: {
+export default function StoryboardBar({ picker, status, label, notice = "", review, dirty, readOnly, canPlace, tool, hasDraw, sketchLabel, sketchDisabled, onPackage, onSketch, onTool, onSave, onReload, onOpenWindow, onDraw, onDownload, onDelete }: {
   /** Výběr karty z rodiče; stojí na začátku lišty. */
   picker: ReactNode;
   status: StoryboardStatus;
@@ -13,6 +13,7 @@ export default function StoryboardBar({ picker, status, label, notice = "", dirt
   label: { text: string; tone: StatusTone };
   /** Upozornění nezávislé na stavu ukládání (např. balíček se nevydal); vidí ho člověk v kterékoli záložce. */
   notice?: string;
+  review?: ReactNode;
   dirty: boolean;
   readOnly: boolean;
   /** Animace má pole x a y, takže nástroj Umístit dává smysl. */
@@ -41,6 +42,7 @@ export default function StoryboardBar({ picker, status, label, notice = "", dirt
         ))}
       </div>
       <button type="button" className="primary" disabled={readOnly || !dirty || status === "saving" || status === "conflict"} onClick={onSave}>Uložit</button>
+      {review}
       <button type="button" onClick={onReload}>{status === "conflict" ? "Obnovit" : "Načíst znovu"}</button>
       <button type="button" onClick={onOpenWindow}>Otevřít v okně</button>
       <button type="button" disabled={sketchDisabled} onClick={onSketch}>{sketchLabel}</button>

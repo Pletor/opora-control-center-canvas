@@ -12,6 +12,8 @@ def selected_content(db, project, workspace, revision, card_ids, accepted=None):
     keys = [("drawing", "", "scene")]
     for target in sorted(card_ids):
         keys.extend([("text", target, "text"), ("drawing", target, "scene")])
+        if ("storyboard", target, "storyboard") in accepted:
+            keys.append(("storyboard", target, "storyboard"))
         keys.extend(("config", target, field) for field in sorted(CONFIG_FIELDS))
     return {"manifestPresent": True, "entries": [
         {"kind": kind, "target": target, "field": field, "entry": accepted.get((kind, target, field))}

@@ -1,5 +1,6 @@
 """Eval gate přes API: kandidát (člověk / srdce), eval v pozadí, aktivace 409 bez evalu, force jen člověk, návrat."""
 import sqlite3
+import json
 import threading
 from types import SimpleNamespace
 
@@ -42,6 +43,7 @@ def api(tmp_path, monkeypatch):
         return await call_next(request)
 
     service = SimpleNamespace(db=db, root=tmp_path, registry_lock=threading.RLock())
+    app.state.service = service
     app.include_router(routes.create_brain_registry_router(service, spawn=lambda target: target()))
     return TestClient(app)
 
@@ -109,3 +111,27 @@ def test_evaluate_refuses_non_candidates(api):
     assert post(api, f"/versions/{seeded}/evaluate", headers=SRDCE).json()["code"] == "not_candidate"
     assert post(api, "/versions/nic/evaluate", headers=SRDCE).status_code == 404
     assert post(api, "/versions/nic/activate", headers=HUMAN).status_code == 404
+
+
+def test_control_center_historical_equal_zero_or_partial_proof_cannot_activate(api):
+    artifact="opora:brain:skill:opora-control-center"
+    files={"skills/opora-control-center/SKILL.md":"Candidate routing"}
+    vid=post(api,f"/artifacts/{artifact}/candidates",{"files":files},SRDCE).json()["id"]
+    # Reproduce a persisted pre-upgrade evaluation behind the actual activation route.
+    service=api.app.state.service
+    run=evaluate.start(service.db,vid)
+    for proof in (None,"malformed",{"schemaVersion":1,"passed":True,"cases":[]},
+                  {"schemaVersion":1,"passed":True,"cases":[{"passed":True,"capabilities":[{"capability":[],"passed":True}]}]},
+                  {"schemaVersion":1,"passed":True,"cases":[{"passed":True,"capabilities":[{"capability":"research_scope","passed":True}]}]}):
+        report={"candidate":{}} if proof is None else {"candidate":{"operational":proof}}
+        with service.db:
+            service.db.execute("UPDATE brain_eval_runs SET status='ok',score=0,baseline_score=0,report_json=? WHERE id=?",
+                               (json.dumps(report),run["id"]))
+        assert evaluate.latest(service.db,vid)["passed"] is False
+        response=post(api,f"/versions/{vid}/activate",headers=SRDCE)
+        assert response.status_code==409 and response.json()["code"]=="eval_required"
+    checks=[{"capability":key,"passed":True} for key in sorted(evaluate.operational_eval.CAPABILITIES)]
+    report={"candidate":{"operational":{"schemaVersion":1,"passed":True,"cases":[{"passed":True,"capabilities":checks}]}}}
+    with service.db:
+        service.db.execute("UPDATE brain_eval_runs SET score=1,baseline_score=1,report_json=? WHERE id=?",(json.dumps(report),run["id"]))
+    assert post(api,f"/versions/{vid}/activate",headers=SRDCE).status_code==200

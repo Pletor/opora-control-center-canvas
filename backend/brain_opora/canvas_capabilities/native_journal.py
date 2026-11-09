@@ -4,7 +4,7 @@ from backend.canvas.payload_errors import NextStep
 from database.repositories.opora_changesets import ChangesetRepository
 
 
-def run(service, project, workspace, session, capability, data, request_id, *, snapshot, action, verify):
+def run(service, project, workspace, session, capability, data, request_id, *, snapshot, action, verify, allow_head_change=False):
     receipt = Receipt({"project": project, "workspace": workspace, **data, "operationId": request_id}, capability,
                       {"kind": "agent", "name": session["worker_name"]})
     with service.graph_lock_for(project), service.lock_for(project):
@@ -22,9 +22,10 @@ def run(service, project, workspace, session, capability, data, request_id, *, s
             returned = True
             after = snapshot()
             verify(before, after, result)
-            if ChangesetRepository(db, project, workspace).head() != head:
+            current_head = ChangesetRepository(db, project, workspace).head()
+            if not allow_head_change and current_head != head:
                 raise NextStep("Accepted authority changed during a draft write.", code="operation_incomplete", hint="Reconcile native state.")
-            response = {"state": "persisted", "verified": True, "acceptedHead": head, "result": result}
+            response = {"state": "persisted", "verified": True, "acceptedHead": current_head, "result": result}
             with db:
                 receipt.complete(db, response)
             return response

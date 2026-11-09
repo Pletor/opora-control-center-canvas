@@ -9,7 +9,15 @@ export type SolutionVerification = { status: "unknown" | "unproven" | "reported_
  verified?: boolean; independent?: false; level?: "reported_evidence"; source?: string; acceptedRevision?: string;
  currentAcceptedRevision?: string; assignmentDigest?: string; headSha?: string; executionId?: string; receiptId?: string };
 export type KnowledgeSolution = { solutionRef: { projectId: string; nodeId: string }; title: string; purpose: string;
- snapshot: { workspaceId: string; graphDigest: string }; verification: SolutionVerification; evidence: KnowledgeRecord[] };
+ snapshot: { workspaceId: string; graphDigest: string }; verification: SolutionVerification; evidence: KnowledgeRecord[];
+ match?: { score: number; lexical: number; semantic: number | null; graph: number };
+ facts?: { specification: { acceptedRevision: string; revision: number; fields: Record<string, unknown>; fieldsTruncated?: string[] } | null;
+ inputs: { nodeId: string; name: string; sourceNodeId?: string; sourceName?: string; relation: string; requirement?: unknown }[]; inputsTruncated: boolean; sources: CanonicalRef[] };
+ snapshots?: { workspaceId: string; graphDigest: string; verification: SolutionVerification }[] };
+export type SearchRetrieval = { requested: string; used: string; candidates: number; candidatesRanked: number; candidateLimit: number;
+ truncated: boolean; candidatePassagesTruncated: boolean; semantic: {status: string; model: string; detail?: string; maxPassageTokens?: number} };
+export type SolutionComparison = { basis: string; commonSources: CanonicalRef[];
+ differences: {field: string; values: {solutionRef: {projectId: string; nodeId: string}; workspaceId: string; value: unknown}[]}[] };
 export function solutionVerificationLabel(value: SolutionVerification) {
  return value.status === "reported_evidence" && value.verified === true && value.independent === false
   && value.level === "reported_evidence" ? "Doloženo Kanceláří" : "Nedoloženo";

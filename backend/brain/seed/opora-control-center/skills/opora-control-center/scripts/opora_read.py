@@ -354,7 +354,7 @@ def required(args, *names):
             raise ValueError('--' + name.replace('_', '-') + ' je pro tento příkaz povinné.')
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base-url', help='domácí adresa http://127.0.0.1:PORT')
     parser.add_argument('--api-base', help='vzdálená adresa tunelu https://HOST; vyžaduje ' + TOKEN_ENV)
@@ -382,7 +382,7 @@ def main():
     parser.add_argument('--revision', type=int, help='research-card: exact canonical revision')
     parser.add_argument('--search-scope', action='append', default=[], help='knowledge-search: explicit PROJECT:WORKSPACE; server authorizes every scope')
     parser.add_argument('--result-type', choices=['solution','research'], default='solution')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         if not args.base_url and not args.api_base:
             args.base_url = os.environ.get(BASE_ENV, '').strip() or None

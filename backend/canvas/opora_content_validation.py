@@ -35,6 +35,10 @@ def validate_value(kind, field, value):
             raise ValueError("Content text exceeds its typed limit.")
     elif kind == "drawing" and field == "scene":
         validate_scene(value)
+    elif kind == "storyboard" and field == "storyboard":
+        if value is not None:
+            from backend.editor.storyboard.storyboard import validate_storyboard
+            validate_storyboard(value)
     elif kind == "config" and field in CONFIG_FIELDS:
         if field == "downloadsUrl" and value is None:
             return
@@ -75,9 +79,9 @@ def _target(item):
 
 
 def validate_entry(entry):
-    if not isinstance(entry, dict) or entry.get("kind") not in {"text", "drawing", "config"}:
+    if not isinstance(entry, dict) or entry.get("kind") not in {"text", "drawing", "storyboard", "config"}:
         raise ValueError("Invalid content entry.")
-    native = entry["kind"] in {"text", "drawing"}
+    native = entry["kind"] in {"text", "drawing", "storyboard"}
     if set(entry) != ENTRY_KEYS | ({"revision"} if native else set()):
         raise ValueError("Invalid content entry fields.")
     _target(entry)
@@ -102,7 +106,7 @@ def validate_entries(entries):
 def _change(change):
     if not isinstance(change, dict):
         raise ValueError("Invalid content change.")
-    native = change.get("kind") in {"text", "drawing"}
+    native = change.get("kind") in {"text", "drawing", "storyboard"}
     fields = {"kind", "target", "field", "value", "before", "acceptedBefore", "observedOwner", "observedRound"}
     if set(change) != fields | ({"observedRevision"} if native else set()):
         raise ValueError("Invalid content change fields.")

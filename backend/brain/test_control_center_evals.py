@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import pytest
 from backend.brain import seed
+from backend.brain import operational_eval
 import yaml
 
 ROOT=seed.SEED_DIR/"opora-control-center"
@@ -12,15 +13,15 @@ ROOT=seed.SEED_DIR/"opora-control-center"
 
 def test_knowledge_cases_have_bounded_model_runs_and_valid_graders():
     cases=sorted((ROOT/"evals").glob("*/prompt.md"))
-    assert len(cases)==2
+    assert len(cases)==3
     for prompt in cases:
         text=prompt.read_text(encoding="utf-8")
         assert text.startswith("---\n")
         front=text.split("---",2)[1]
         assert "runs: 1" in front and "model: haiku" in front
         assert "max_turns: 4" in front and "timeout_seconds: 180" in front
-        assert "OPORA_GATE_TOKEN" in text or "Credentials" in text
-        assert "Inspect" in text and "Read" in text
+        assert "OPORA_GATE_TOKEN" in text or "Credentials" in text or "OPORA_BASE_URL" in text
+        assert "Read" in text
         for path in (prompt.parent/"graders").glob("*.md"):
             grader=path.read_text(encoding="utf-8")
             assert "type: regex" in grader and "match: contains" in grader
@@ -28,10 +29,12 @@ def test_knowledge_cases_have_bounded_model_runs_and_valid_graders():
 
 
 def _accepts(case, command):
-    graders=(ROOT/"evals"/case/"graders").glob("*.md")
-    patterns=[yaml.safe_load(path.read_text(encoding="utf-8").split("---",2)[1])["pattern"]
-              for path in graders]
-    return all(re.search(pattern,command) for pattern in patterns)
+    contract=operational_eval.contract(ROOT,"opora-control-center")
+    try:
+        operational_eval.grade(command,contract["cases"][case],ROOT/"skills/opora-control-center/scripts/opora_read.py")
+        return True
+    except (ValueError,SyntaxError):
+        return False
 
 
 @pytest.mark.parametrize("executable",["opora_read.py",'"C:/Program Files/opora_read.py"',"'C:/Program Files/opora_read.py'"])

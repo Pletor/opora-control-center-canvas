@@ -104,9 +104,9 @@ def _collect(canvas, db, project, workspace, node):
     if before != after:
         raise ValueError("Registry source binding changed during context capture.")
     from backend.editor.research.execution_evidence import collect as research_evidence
-    evidence = research_evidence(db, project, workspace, head, sorted(cards))
+    evidence = research_evidence(db, project, workspace, head, sorted(cards), canvas=canvas)
     from backend.canvas.storyboard_evidence import collect as storyboard_inputs
-    storyboards = storyboard_inputs(canvas, project, workspace, sorted(cards), graph)
+    storyboards = storyboard_inputs(canvas, project, workspace, sorted(cards), graph, head)
     opaque = token(private.key(db, project), {**projection, "researchEvidence": evidence, "storyboards": storyboards}, head, before)
     steps = ordered(steps_of((accepted.get(node) or {}).get("fields")))  # pinned plan (oporahub-plan-steps.md)
     assignment = {"acceptedRevision": head, "documents": redact_deep(selected), "contextVersion": opaque,

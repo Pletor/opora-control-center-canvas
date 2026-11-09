@@ -1,5 +1,10 @@
 # Storyboard karty
 
+Uložení přidává pracovní revizi. `Navrhnout přijetí` předloží přesně uloženou scénu
+do stávajících změn obsahu a odkaz otevře jejich původní review v OporaHubu.
+Samotné uložení ani vytvoření návrhu scénu nepřijímá. Backend připíná přijaté
+revize do předávek; historický zdroj lze číst parametrem `revision` původního API.
+
 Storyboard je samostatný mód plátna vedle Velína (`mode=storyboard`, bez inspektoru a bez doku). Patří kartě (`kind: "node"`):
 momenty jsou zároveň režijní poznámky a klíčové stavy animace. Člověk ke každému momentu napíše, co tam chce jinak (`comment`),
 případně nakreslí šipky a poznámky; agent je dostane v `node-brief`. Kontrakt: `docs/storyboard-karty.md`.

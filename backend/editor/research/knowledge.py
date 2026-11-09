@@ -101,7 +101,7 @@ def context(service, project, workspace, node, authorize):
     return {"records": list(records.values())[:200], "truncated": len(records)>200}
 
 
-def search(service, scopes, query, kinds, verification, limit, authorize):
+def validate_search(service, scopes, query, kinds, verification, limit, authorize):
     if not isinstance(scopes, list) or not 1 <= len(scopes) <= 30:
         model.fail("Search requires 1 to 30 explicit project scopes.")
     model.text(query, "query", 500, False)
@@ -119,6 +119,10 @@ def search(service, scopes, query, kinds, verification, limit, authorize):
         if type(scope.get("includeDescendants", True)) is not bool:
             model.fail("includeDescendants must be boolean.")
         authorize(scope["project"], scope["workspace"], False)
+
+
+def search(service, scopes, query, kinds, verification, limit, authorize):
+    validate_search(service, scopes, query, kinds, verification, limit, authorize)
     words = query.casefold().split()
     found = {}
     for scope in scopes:
@@ -148,44 +152,6 @@ def search(service, scopes, query, kinds, verification, limit, authorize):
     return {"results": ordered[:limit], "truncated": len(ordered) > limit, "ranking": "lexical-all-terms"}
 
 
-def solutions(service, scopes, query, limit, authorize):
-    from backend.editor.research.solution_verification import project as solution_proofs
-    # Search validation and complete authorization precede all project collection.
-    search(service, scopes, query, [], [], limit, authorize)
-    found = {}
-    words = query.casefold().split()
-    for scope in scopes:
-        p, w = scope["project"], scope["workspace"]
-        view = research._scope(service, p, w)
-        nodes = view["graph"]["nodes"]
-        scoped = scope.get("scopeNodeId")
-        allowed = {n["id"] for n in nodes} if not scoped else {scoped}
-        if scoped and not any(n["id"] == scoped for n in nodes):
-            model.fail("Search context is unavailable.", 404, "research_scope")
-        if type(scope.get("includeDescendants", True)) is not bool:
-            model.fail("includeDescendants must be boolean.")
-        if scoped and scope.get("includeDescendants", True):
-            for _ in nodes:
-                expanded = allowed | {n["id"] for n in nodes if n.get("parentId") in allowed}
-                if expanded == allowed:
-                    break
-                allowed = expanded
-        candidates = [node for node in nodes if node["id"] in allowed and node["kind"] in ("node", "sector")
-                      and all(word in research._json([node["id"], node["name"], node["purpose"], node.get("element")]).casefold() for word in words)]
-        proofs = solution_proofs(service, p, w, view, [node["id"] for node in candidates])
-        for node in candidates:
-            item = {"solutionRef": {"projectId": p, "nodeId": node["id"]},
-                    "snapshot": {"workspaceId": w, "graphDigest": view["digest"], "verification": proofs[node["id"]]},
-                    "title": node["name"], "purpose": node["purpose"], "element": node.get("element"),
-                    "verification": proofs[node["id"]],
-                    "evidence": context(service,p,w,node["id"],authorize)["records"]}
-            # One problem identity across workspaces; preserve all observed snapshots.
-            key = (p, node["id"])
-            if key in found:
-                found[key]["snapshots"].append(item["snapshot"])
-                if item["verification"].get("verified") and not found[key]["verification"].get("verified"):
-                    found[key] = {**item, "snapshots": found[key]["snapshots"]}
-            else:
-                found[key] = {**item, "snapshots": [item["snapshot"]]}
-    ordered = sorted(found.values(), key=lambda item: (item["title"].casefold(), research._json(item["solutionRef"])))
-    return {"solutions": ordered[:limit], "truncated": len(ordered)>limit, "ranking": "lexical-all-terms"}
+def solutions(service, scopes, query, limit, authorize, ranking="hybrid", runner=None):
+    from backend.editor.research.solution_search import search as find_solutions
+    return find_solutions(service, scopes, query, limit, authorize, context, validate_search, ranking, runner)

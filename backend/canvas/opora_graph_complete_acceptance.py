@@ -45,7 +45,7 @@ def persist(canvas, db, project, workspace, proposal, documents, specs, *, actor
     new_ids = {node["id"] for node in proposal["additions"]["nodes"]}
     # Empty native sources are evidence too. Never adopt unrelated live documents.
     for node in new_ids:
-        for kind, field, value in (("text", "text", ""), ("drawing", "scene", {"elements": []})):
+        for kind, field, value in (("text", "text", ""), ("drawing", "scene", {"elements": []}), ("storyboard", "storyboard", None)):
             key = (kind, node, field)
             if key not in entries:
                 entries[key] = {"kind": kind, "target": node, "field": field,

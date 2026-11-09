@@ -161,7 +161,7 @@ def test_verified_input_uses_real_pinned_positive_negative_receipt(service, monk
     proof = evaluate(service.db_for("draft"), "draft", "draft", [{"cards": ["b"], "verification": {
         "nodeId": "b", "acceptedRevision": execution["acceptedRevision"], **cases}}])
     assert proof["verified"] is False and "Storyboard input changed" in proof["detail"]
-    with pytest.raises(ValueError, match="verification unresolved"):
+    with pytest.raises(ValueError, match="accepted manifest"):
         assignment(service, "draft", "draft", "a")
     assert Executions(service.db_for("draft"), "draft", "draft").read(execution["executionId"])["assignment"] == original
 

@@ -1,5 +1,13 @@
 # Brain
 
+`command_argv.py`, `command_probe.py` and `operational_eval.py` implement the optional frozen
+`evals/operational-contract.json` capability gate. Control-center requires all four capabilities:
+node packet, scoped research, solution identity and exact canonical revision. Model text is parsed
+with shlex/AST, never executed. The trusted read CLI runs against network-free collectors and a
+module-local environment. Native regex graders only check response transport; stored operational
+scores and exact route/argument receipts determine success. A zero/zero baseline cannot pass this
+absolute gate. Other plugins retain their existing evaluation behavior.
+
 Registr dovedností OPORY a jejich git úložiště. Kontrakt: `docs/navrhy/2026-11-03-novy-zaklad.md` §3.4. Oddělený od mozku srdce (`backend/brain_opora/`): Brain drží know-how, srdce ho jen čte.
 
 - `store.py` (`Store(datový kořen)`): git repozitář `<datový kořen>/brain/` (živě `P:\opora-data\brain\`; založí ho `git init`, `core.autocrlf=false`). Rozvržení je lokální marketplace:

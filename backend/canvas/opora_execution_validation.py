@@ -80,9 +80,9 @@ def assignment(canvas, project, workspace, node, context_version=1, require_grap
                           "documentDigest": digest(accepted[identifier]), "scope": scope}
                          for identifier, scope in zip(affected, affected_scopes, strict=True)]
     from backend.editor.research.execution_evidence import collect as research_evidence
-    research = research_evidence(canvas.db_for(project), project, workspace, context["acceptedHead"], relevant) if require_graph else None
+    research = research_evidence(canvas.db_for(project), project, workspace, context["acceptedHead"], relevant, canvas=canvas) if require_graph else None
     from backend.canvas.storyboard_evidence import collect as storyboard_inputs
-    storyboards = storyboard_inputs(canvas, project, workspace, relevant, view["graph"])
+    storyboards = storyboard_inputs(canvas, project, workspace, relevant, view["graph"], context["acceptedHead"] if require_graph else None)
     from backend.canvas.opora_execution_input_version import SCHEMA, context_version as input_context_version
     input_version = input_context_version({**captured, "inputContextSchema": SCHEMA,
         "affectedElements": affected_elements, "researchEvidence": research,

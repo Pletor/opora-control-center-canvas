@@ -65,11 +65,11 @@ class Pletor:
     def _journal(self, project, workspace, text):
         store.append_message(self.folder, _iso(self.clock()), project, workspace, "heart", text)
 
-    def _turn(self, project, workspace, context, text, history, on_delta=None):
+    def _turn(self, project, workspace, context, text, history, on_delta=None, research_access=None):
         def run(context, text, history, on_delta=None):
             return brains.turn(self.folder, context, text, history, runner=self.runner, find=self.find,
                                transport=self.transport, on_delta=on_delta)
-        return research_turn.turn(run, self.service, project, workspace, context, text, history, on_delta)
+        return research_turn.turn(run, self.service, project, workspace, context, text, history, on_delta,access=research_access)
 
     def _run(self, project, workspace, action):
         if action["type"] == "heart_escalation_answer":
@@ -124,7 +124,7 @@ class Pletor:
                               action["text"])
         return True, f"Zapsáno do brain/{store.DECISIONS}."
 
-    def message(self, project, workspace, text, voice=False, on_delta=None):
+    def message(self, project, workspace, text, voice=False, on_delta=None, research_access=None):
         """`{reply, actions: [{type, text, ok, detail?}]}`; selhání modelu je odpověď bez akcí, ne výjimka.
         `voice` (P3): odpověď se čte nahlas, vstup modelu dostane řádek `VOICE`.
         `on_delta(text)` (stream): kousky `reply` za běhu, složené = `reply`; přepnutí mozku ani odpověď, která
@@ -145,7 +145,7 @@ class Pletor:
             context = self._podklady(project, workspace) + (f"\n\n{VOICE}" if voice else "")
             history = store.messages(self.folder, project, workspace, HISTORY)[:-1]
             with self.lock:
-                reply, raw = self._turn(project, workspace, context, text, history, emit if on_delta else None)
+                reply, raw = self._turn(project, workspace, context, text, history, emit if on_delta else None,research_access=research_access)
         except RuntimeError as error:
             reply, raw = str(error), []
         so_far = "".join(sent)

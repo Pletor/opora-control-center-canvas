@@ -89,36 +89,12 @@ def validate_original(db, project, workspace, pin):
         raise ValueError("Original research input changed; affected work needs reassessment.")
 
 
-def _touched(proposal):
-    before = proposal.get("baseGraph", {"nodes": [], "edges": []})
-    after = proposal.get("resultGraph", before)
-    old = {item["id"]: item for item in before["nodes"]}
-    new = {item["id"]: item for item in after["nodes"]}
-    meaningful = lambda value: {key: item for key, item in (value or {}).items() if key not in ("x", "y")}
-    ids = {key for key in old.keys() | new.keys() if meaningful(old.get(key)) != meaningful(new.get(key))}
-    edges_before = {item["id"]: item for item in before["edges"]}
-    edges_after = {item["id"]: item for item in after["edges"]}
-    for key in edges_before.keys() | edges_after.keys():
-        if edges_before.get(key) != edges_after.get(key):
-            for edge in (edges_before.get(key), edges_after.get(key)):
-                if edge:
-                    ids.update((edge["source"], edge["target"]))
-    ids.update(doc["nodeId"] for doc in proposal.get("contentEffects", {}).get("documents", []))
-    state_before = proposal.get("stateEffects", {}).get("before", {}).get("nodes", {})
-    state_after = proposal.get("contentEffects", {}).get("after", {}).get("nodes", {})
-    ids.update(key for key in state_before.keys() | state_after.keys()
-               if state_before.get(key) != state_after.get(key))
-    return ids
-
-
-def collect(db, project, workspace, head, card_ids):
+def collect(db, project, workspace, head, card_ids, *, canvas=None):
     """Follow accepted history; only latest provenance for the same source and target supersedes it."""
-    from database.repositories.opora_changesets import ChangesetRepository
-    from database.repositories.opora_graph_changes import GraphChanges
-    revisions, proposals = ChangesetRepository(db, project, workspace), GraphChanges(db, project, workspace)
-    records, seen, covered = [], set(), set()
+    from backend.editor.research.accepted_history import read as accepted_history
+    history, drafts = accepted_history(db, project, workspace, head, canvas)
+    records, covered = [], set()
     legacy_fragments = []
-    accepted_head = head
 
     def add(source, targets, proposal_id=None, operation_id=None):
         targets = {key for key in targets if (key, source["researchId"]) not in covered
@@ -143,56 +119,29 @@ def collect(db, project, workspace, head, card_ids):
         covered.update((key, source["researchId"]) for key in targets)
         covered.update((key, "original:" + source["sourceFragmentId"]) for key in targets)
 
-    while head:
-        if head in seen:
-            raise ValueError("Research provenance ancestry contains a cycle.")
-        seen.add(head)
-        revision = revisions.read(head)
-        if revision.get("kind") in ("graph-acceptance", "graph-baseline") and revision.get("proposalId"):
-            proposal = proposals.read(revision["proposalId"])
-            source = proposal.get("researchSource")
-            inputs = proposal.get("contentInputs", {})
-            observed = inputs.get("researchEvidenceByNode")
-            if observed is not None:
-                for node in set(observed) & set(card_ids):
-                    for pin in observed[node]:
-                        key = (node, "original:" + pin["sourceId"])
-                        if key in covered:
-                            continue
-                        records.append({"proposalId": proposal["id"], "operationId": None, "nodeIds": [node],
-                                        "source": {name: value for name, value in pin.items() if name != "evidence"},
-                                        "evidence": pin["evidence"]})
-                        covered.add(key)
-                        covered.update((node, question["id"]) for question in pin["evidence"].get("mappedQuestions", []))
-            else:
-                # Old accepted proposals are not silently assigned a newly observed source baseline.
-                for node in set(inputs.get("fragments", {})) & set(card_ids):
-                    legacy_fragments.append({"proposalId": proposal["id"], "nodeId": node,
-                                             "coverage": "legacy-fragment-reference-untracked"})
-            if source and "continuationId" in source:
-                add(source, _touched(proposal) & set(card_ids), proposal_id=proposal["id"])
-        head = revision.get("parentRevision")
-    if accepted_head:
-        # A first draft becomes executable only after native human acceptance. Its original
-        # server-written receipt remains provenance even after unrelated accepted edits.
-        from backend.canvas.opora_graph_records import combined
-        accepted = revisions.read(accepted_head)
-        manifest = accepted.get("graphManifestId")
-        accepted_ids = set()
-        if manifest:
-            accepted_ids = {node["id"] for node in combined(proposals.read(manifest, manifest=True))["nodes"]}
-        rows = db.execute("SELECT author,operation_id,response FROM canvas_operation_receipts WHERE project_id=? "
-                          "AND workspace_id=? AND operation_kind='canvas-plan' AND status='complete' ORDER BY rowid DESC",
-                          (project, workspace))
-        for author, operation, raw in rows:
-            if json.loads(author) != {"kind": "agent", "name": "heart"}:
-                continue
-            saved = json.loads(raw)
-            source = saved.get("researchSource")
-            if source and saved.get("acceptedHeadAtWrite", "missing") is None and saved.get("canvasDraft"):
-                touched = set(saved["canvasDraft"].get("affectedNodeIds", saved["canvasDraft"]["nodeIds"]))
-                touched.update(doc["nodeId"] for doc in saved["canvasDraft"]["documents"])
-                add(source, touched & set(card_ids) & accepted_ids, operation_id=operation)
+    for proposal in history:
+        source = proposal["source"]
+        observed = proposal["observed"]
+        if observed is not None:
+            for node in set(observed) & set(card_ids):
+                for pin in observed[node]:
+                    key = (node, "original:" + pin["sourceId"])
+                    if key in covered:
+                        continue
+                    records.append({"proposalId": proposal["id"], "operationId": None, "nodeIds": [node],
+                                    "source": {name: value for name, value in pin.items() if name != "evidence"},
+                                    "evidence": pin["evidence"]})
+                    covered.add(key)
+                    covered.update((node, question["id"]) for question in pin["evidence"].get("mappedQuestions", []))
+        else:
+            # Old accepted proposals are not silently assigned a newly observed source baseline.
+            for node in set(proposal["fragments"]) & set(card_ids):
+                legacy_fragments.append({"proposalId": proposal["id"], "nodeId": node,
+                                         "coverage": "legacy-fragment-reference-untracked"})
+        if source and "continuationId" in source:
+            add(source, proposal["touched"] & set(card_ids), proposal_id=proposal["id"])
+    for source, touched, operation in drafts:
+        add(source, touched & set(card_ids), operation_id=operation)
     result = {"coverage": "accepted-scoped-research", "records": records}
     from backend.editor.research.scope_evidence import collect as scope_pins
     canonical = scope_pins(db, project, workspace, card_ids)

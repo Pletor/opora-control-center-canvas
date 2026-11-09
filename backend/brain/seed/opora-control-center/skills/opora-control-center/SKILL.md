@@ -6,7 +6,7 @@ allowed-tools: Read, Grep, Glob, Bash
 
 # OPORA Control Center (OporaHub)
 
-Použij, když pracuješ s plátnem OPORA: plánuješ karty a kroky, bereš kartu, děláš review PR, řešíš konflikt
+Čtení vybírej podle účelu: balíček uzlu `node-brief`, tematická rešerše `research-context`, identity řešení `knowledge-search --result-type solution`, přesný kanonický pin `research-card --revision R --raw`; podrobnosti v [knowledge-context.md](references/knowledge-context.md). Použij, když pracuješ s plátnem OPORA: plánuješ karty a kroky, bereš kartu, děláš review PR, řešíš konflikt
 návrhů nebo formální ověření, sleduješ průběh nebo hledáš kontext. Ne pro programování bez vazby na plátno.
 
 **Pravidlo: OPORA je mozek a mapa projektu.** Agent, který staví, pracuje s OPOROU povinně: plán, rozklad,
