@@ -7,6 +7,11 @@ from backend.canvas.opora_hub_store import canonical, content_id
 from database.repositories.opora_graph_proposals import GraphProposals
 
 
+# Id záznamu je hash jeho obsahu a ověřuje se při každém čtení, takže stejné id = stejný obsah: drahá
+# re-derivace (`validate_record`, ~0,17 s na záznam) proběhne jednou na proces, ne při každém agent-state.
+VALIDATED = set()
+
+
 class GraphChanges(GraphProposals):
     def read(self, record_id, *, manifest=False):
         identifier(record_id)
@@ -23,7 +28,10 @@ class GraphChanges(GraphProposals):
             if (record.get("id") != record_id or (record.get("project"), record.get("workspace")) != self.scope
                     or content_id({k: v for k, v in record.items() if k != "id"}) != record_id):
                 raise ValueError("Graph change record integrity mismatch.")
-            validate_record(record)
+            # OP-D1B516.2: kontrola integrity (content_id) výše běží vždy, re-derivace jen poprvé.
+            if record_id not in VALIDATED:
+                validate_record(record)
+                VALIDATED.add(record_id)
             return record
         except (KeyError, TypeError, AttributeError, json.JSONDecodeError) as exc:
             raise ValueError("Invalid graph change record.") from exc

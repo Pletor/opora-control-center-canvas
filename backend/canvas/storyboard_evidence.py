@@ -17,7 +17,8 @@ def collect(canvas, project, workspace, identifiers, graph, accepted_revision=No
             "revision": value["revision"], "digest": digest(value["storyboard"]),
             "storyboard": deepcopy(value["storyboard"]), "acceptance": "captured-at-claim"}
         if accepted_revision is not None:
-            entry, manifest = _accepted(canvas.db_for(project), project, workspace, accepted_revision, identifier, manifests)
+            entry, manifest = _accepted(canvas.db_for(project), project, workspace, accepted_revision, identifier, manifests,
+                                         shared=True)
             if entry is not None:
                 if entry["revision"] != value["revision"] or entry["value"] != value["storyboard"]:
                     raise ValueError("Storyboard input differs from its accepted revision.")
@@ -36,14 +37,24 @@ def validate(canvas, project, workspace, pins):
         _validate_accepted(canvas.db_for(project), project, workspace, pin, manifests)
 
 
-def _accepted(db, project, workspace, revision, node, cache):
+# Přijatá revize je neměnná: při sběru (`collect`) se storyboardy jejího manifestu čtou jednou na proces, ne pro
+# každou kartu (agent-state Ample se 161 kartami jinak četl revizi 941× a trval přes 2 minuty). Kontrola pinu
+# (`validate`) čte dál vždy z databáze, aby změněný kontrakt odhalila.
+ACCEPTED = {}
+
+
+def _accepted(db, project, workspace, revision, node, cache, shared=False):
     from database.repositories.opora_changesets import ChangesetRepository
     from database.repositories.opora_content_records import ContentRecords
+    # OP-D1B516.1: klíč je projekt + prostor + revize; jiná revize = jiný klíč, nic se nezneplatňuje.
+    key = (project, workspace, revision)
     if revision not in cache:
-        accepted = ChangesetRepository(db, project, workspace).read(revision)
-        manifest = accepted.get("contentManifestId")
-        entries = ContentRecords(db, project, workspace).read(manifest, manifest=True)["entries"] if manifest else []
-        cache[revision] = ({entry["target"]: entry for entry in entries if entry["kind"] == "storyboard"}, manifest)
+        if not shared or key not in ACCEPTED:
+            accepted = ChangesetRepository(db, project, workspace).read(revision)
+            manifest = accepted.get("contentManifestId")
+            entries = ContentRecords(db, project, workspace).read(manifest, manifest=True)["entries"] if manifest else []
+            ACCEPTED[key] = ({entry["target"]: entry for entry in entries if entry["kind"] == "storyboard"}, manifest)
+        cache[revision] = ACCEPTED[key]
     entries, manifest = cache[revision]
     return entries.get(node), manifest
 

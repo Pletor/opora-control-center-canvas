@@ -122,3 +122,22 @@ def test_manifest_reads_are_bounded_per_revision_not_per_scene_pin(service, monk
     reads.clear()
     validate_db(service.db_for("draft"), "draft", "draft", pins)
     assert reads == [accepted["contentManifestId"]] * 2
+
+
+def test_accepted_revision_is_read_once_per_process(monkeypatch):
+    # Přijatá revize je neměnná: druhá karta téže revize repozitář znovu nečte (agent-state Ample: 941 čtení).
+    from backend.canvas import storyboard_evidence
+    from database.repositories import opora_changesets, opora_content_records
+    reads = []
+    monkeypatch.setattr(storyboard_evidence, "ACCEPTED", {})
+    monkeypatch.setattr(opora_changesets.ChangesetRepository, "read",
+                        lambda self, revision: reads.append(revision) or {"contentManifestId": "m1"})
+    monkeypatch.setattr(opora_content_records.ContentRecords, "read", lambda self, identifier, **_: {
+        "entries": [{"kind": "storyboard", "target": "a", "revision": 1, "value": {}}]})
+    first = storyboard_evidence._accepted(None, "p", "w", "rev1", "a", {}, shared=True)
+    second = storyboard_evidence._accepted(None, "p", "w", "rev1", "b", {}, shared=True)
+    assert first[0]["target"] == "a" and second == (None, "m1") and reads == ["rev1"]
+    storyboard_evidence._accepted(None, "p", "w", "rev2", "a", {}, shared=True)
+    storyboard_evidence._accepted(None, "p", "w", "rev1", "a", {})  # kontrola pinu čte vždy znovu
+    assert reads == ["rev1", "rev2", "rev1"]
+
