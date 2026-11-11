@@ -16,6 +16,11 @@
   --pr-open: #3fb950;
   --pr-merged: #a371f7;
   --pr-closed: #f85149;
+  /* Druh karty na plátně 3 (card-face, card-legend): pracovní krok fialová, kontrakt zelená, ověření šeřík, rozhodnutí oranžová. */
+  --card-step: #a78bfa;
+  --card-contract: #6fd18f;
+  --card-verify: #d1b3f0;
+  --card-decision: #f0a24a;
   --ok: #a3cfa4;
   --ok-soft: #1e3324;
   --ok-line: #4d7a50;
@@ -71,6 +76,10 @@
   --pr-open: #1a7f37;
   --pr-merged: #8250df;
   --pr-closed: #cf222e;
+  --card-step: #6d4ed8;
+  --card-contract: #2f7d46;
+  --card-verify: #8a5fb5;
+  --card-decision: #b8620f;
   --warn: #8a5f0f;
   --danger: #a3362f;
   --danger-line: #dca29c;

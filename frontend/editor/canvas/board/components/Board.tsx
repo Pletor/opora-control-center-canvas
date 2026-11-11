@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDesktopAppearance } from "@/app/logic/desktop-appearance";
 import FaceSummary from "@/editor/canvas/card-face/components/FaceSummary";
+import CardLegend from "@/editor/canvas/card-legend/components/CardLegend";
 import { useWorkOverview } from "@/editor/canvas/node-card/logic/use-work-overview";
 import { useAddedPulse } from "@/editor/canvas/node-card/logic/use-added-pulse";
 import {
@@ -15,6 +16,7 @@ import {
   Background,
   Controls,
   MiniMap,
+  Panel,
   SelectionMode,
   applyNodeChanges,
   type Node,
@@ -41,7 +43,6 @@ import SectorProposals from "@/editor/canvas/sector-proposals/components/SectorP
 import { sectorProposals } from "@/editor/canvas/sector-proposals/logic/sector-proposals";
 import "@/editor/canvas/board/styles/board-bar.css";
 import { useAgentState } from "@/hub/oporahub-agent-state/logic/use-agent-state";
-import { useLatestByNode } from "@/editor/canvas/card-face/logic/use-latest-by-node";
 import JsonMirror from "@/hub/oporahub-mirror/components/JsonMirror";
 import { layerFootprints } from "@/editor/canvas/board/logic/layout-model";
 import { settleArea } from "@/editor/canvas/board/logic/solid-bodies";
@@ -120,12 +121,10 @@ export default function Board({
   revision,
   digest,
   overlay,
-  onCardHistory,
   onCardTrail,
 }: {
   structureView?: StructureViewBridge;
   /** Klik na poslední změnu karty: rodič otevře záznam činnosti s filtrem této karty. */
-  onCardHistory?: (id: string) => void;
   /** Klik na postup na tváři karty: rodič otevře boční menu se stopou práce karty. */
   onCardTrail?: (id: string) => void;
   /** Vrstva nad kartami uvnitř React Flow (odznaky etap OporaHubu); skládá ji App. */
@@ -222,19 +221,17 @@ export default function Board({
     decisions: agentState?.decisions ?? [] }), [agentState]);
   const finished = useMemo(() => new Set((agentState?.cards ?? []).filter((card) =>
     card.reason === "card_closed" || card.reason === "plan_written_back").map((card) => card.nodeId)), [agentState]);
-  // Poslední změna karet: jeden dotaz na plátno, obnovený s novým snímkem agent-state nebo změnou plátna.
-  const latest = useLatestByNode(sourceContext?.project ?? "", sourceContext?.workspace ?? "", `${agentState?.generatedAt ?? ""}:${workKey}`);
   const movedCards = useAddedPulse(graph.nodes.map(movedKey));
   const movedSet = useMemo(() => new Set(movedCards), [movedCards]);
   const work = useWorkOverview(sourceContext?.project ?? "", sourceContext?.workspace ?? "", workKey);
-  const actions = useBoardActions({ disabled, nameOf: (id) => index.byId.get(id)?.name, onSelect, onCardHistory, onCardTrail, onTagFilter, onEditing, onRename,
+  const actions = useBoardActions({ disabled, nameOf: (id) => index.byId.get(id)?.name, onSelect, onCardTrail, onTagFilter, onEditing, onRename,
     onCommentText, onAreaResize, onTogglePort, onCardBlock, onConfirmProposal, onRealizeSource,
     onRuleWrite, onRuleReview, sourceContext });
   // Schopnosti rodiče jako booleany: nové inline callbacky v App vrstvu nepřestaví, jejich přítomnost ano.
   const can = { realize: !!onRealizeSource, rules: !!onRuleWrite && !!onRuleReview };
   const make = (): Node[] => focusMilestoneNodes(buildLayerNodes({ graph, state, index, parent, selected, multiSelected: multiSet, selectedBlock, editing,
     disabled, openBlocks, tagFilter, moved: movedSet, checklists, frontier: frontier.rows, work,
-    leases, sourceStatuses, agent, latest, sourceContext, can, milestones: milestoneFocus.choices }).concat(blocks.nodes), milestoneFocus.members);
+    leases, sourceStatuses, agent, sourceContext, can, milestones: milestoneFocus.choices }).concat(blocks.nodes), milestoneFocus.members);
   const [nodes, setNodes] = useState<Node[]>(make);
   // Rostoucí oblast: při tahu karty přes hranu se v náhledu natahuje jen uzel domovské oblasti.
   const growth = useAreaGrowth(setNodes);
@@ -270,7 +267,7 @@ export default function Board({
     setNodes((previous) => reuseNodes(previous, make()));
   }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project,
     sourceContext?.workspace, frontier.rows, leases, sourceStatuses, work, movedCards,
-    checklists, agent, latest, can.realize, can.rules, milestoneFocus.members, milestoneFocus.choices]);
+    checklists, agent, can.realize, can.rules, milestoneFocus.members, milestoneFocus.choices]);
   // Výběr hlášený nahoru: poslední známý výběr na plátně, aby změny během tahu obdélníku nebublaly
   // do App znovu a znovu, když se výběr nezměnil. Uzly samy dál jdou přes updater (tah karty).
   const latestNodes = useRef(nodes);
@@ -510,6 +507,7 @@ export default function Board({
       >
         {settings.showGrid && <Background color="var(--canvas-dot)" gap={settings.gridSize} />}
         <Controls showInteractive={false} />
+        <Panel position="bottom-center"><CardLegend /></Panel>
         {overlay}
         {showMiniMap && <MiniMap
           nodeColor={(n) =>

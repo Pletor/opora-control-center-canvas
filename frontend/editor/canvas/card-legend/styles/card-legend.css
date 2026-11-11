@@ -1,0 +1,24 @@
+/* LEGENDA PLÁTNA (blok `card-legend`)
+   Příběh: dole uprostřed plátna leží tichý pruh jako legenda pod mapou. Člověk se na něj podívá jednou, když
+   neví, proč je rám karty fialový nebo zelený, a pak ho už nečte; proto je malý (11 px), tlumený a nekryje
+   ovládání zoomu vlevo, minimapu vpravo ani nápovědu pod sebou. Každá značka je zmenšený rám karty v barvě druhu, rozhodnutí je
+   kosočtverec, závislost šipka a milník vlajka, aby značky šly rozeznat i bez barvy. */
+.card-legend {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 6px 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--surface) 88%, transparent);
+  margin-bottom: 20px; font-size: 11px; color: var(--ink-2); pointer-events: auto;
+}
+.card-legend__title { font-weight: 600; color: var(--ink-muted); }
+.card-legend__item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.card-legend__mark { display: inline-block; width: 14px; height: 10px; border: 1.5px solid; border-radius: 3px; }
+.card-legend__mark--step { border-color: var(--card-step); }
+.card-legend__mark--contract { border-color: var(--card-contract); }
+.card-legend__mark--verify { border-color: var(--card-verify); }
+.card-legend__mark--decision { width: 9px; height: 9px; border-color: var(--card-decision); border-radius: 1px; transform: rotate(45deg); }
+.card-legend__mark--flow { width: 16px; height: 0; border-width: 1.5px 0 0; border-radius: 0; border-color: var(--ink-2); position: relative; }
+.card-legend__mark--flow::after {
+  content: ""; position: absolute; right: -1px; top: -4.5px; border: solid var(--ink-2); border-width: 0 1.5px 1.5px 0;
+  width: 5px; height: 5px; transform: rotate(-45deg);
+}
+.card-legend__mark--milestone { width: auto; height: auto; border: 0; font-style: normal; color: var(--ink-2); }
+.card-legend__mark--milestone::before { content: "⚑"; font-size: 12px; }

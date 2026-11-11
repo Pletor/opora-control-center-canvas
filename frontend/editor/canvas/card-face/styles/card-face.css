@@ -1,16 +1,24 @@
 /* TVÁŘ KARTY (blok `card-face`)
-   Příběh: člověk přeletí plátno a z každé karty přečte tři věci shora dolů — co to je a kdo ji drží, jak na tom
-   je (jediný řádek: značka a slovo zdraví, etapa, důvod) a kolik kroků plánu je hotovo. Nic dalšího: kontrolní
-   seznamy, sloty dokladů a kuličky pipeline žijí v detailu karty. Barva nikdy nenese význam sama, vždy je
-   u ní značka a slovo. Rytmus 8 px mezi řádky, název 17 px, aby šel číst i při 60 % zoomu. */
+   Příběh: člověk přeletí plátno a z každé karty přečte shora dolů tři věci — co to je (štítek „E-144 Výzkum“
+   v barvě druhu a velký název), jak na tom je (jedno slovo v pilulce: Hotovo, V realizaci, Čeká…) a kolik kroků
+   plánu stojí („2/4 kroky“ a kruh vedle názvu). Nic dalšího: kontrolní seznamy, sloty dokladů a kuličky pipeline
+   žijí v detailu karty. Barva nikdy nenese význam sama, vždy je u ní slovo. Rytmus 8 px mezi řádky, název 17 px,
+   aby šel číst i při 60 % zoomu. */
 .card-face { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; min-width: 0; }
 .card-face__top { display: flex; align-items: center; gap: 8px; min-height: 18px; }
 .card-face__grow { flex: 1; }
-.card-face__kind {
-  font: 600 11px/1 var(--mono); letter-spacing: 0.02em; color: var(--ink-2);
-  background: var(--surface-3); border-radius: 4px; padding: 3px 6px;
+/* Štítek je jako jmenovka na šanonu: kód v plném rámečku barvy druhu, vedle tišší slovo druhu. Rozhodnutí
+   nese navíc kosočtverec, aby se dalo najít i bez barvy. */
+.card-face__tag { --family: var(--card-step); display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--ink-2); }
+.card-face__tag--contract { --family: var(--card-contract); }
+.card-face__tag--verify { --family: var(--card-verify); }
+.card-face__tag--decision { --family: var(--card-decision); }
+.card-face__tag--decision::before { content: "◆"; color: var(--family); font-size: 11px; }
+.card-face__code {
+  font: 700 11px/1 var(--mono); letter-spacing: 0.02em; color: var(--family);
+  border: 1px solid var(--family); background: color-mix(in srgb, var(--family) 14%, transparent); border-radius: 4px; padding: 3px 6px;
 }
-:root[data-theme="dark"] .card-face__kind { background: var(--surface-2); }
+.card-face__kind { font-weight: 600; }
 
 /* Kdo kartu drží: agent tyrkysový kruh s A, člověk zlatý s H — stejné značky jako v OporaHubu. */
 .card-face__who { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
@@ -23,7 +31,7 @@
 .card-face__who--human { color: var(--gold); }
 .card-face__who--human i { background: var(--gold); color: var(--surface); }
 
-/* Jediný stavový řádek: čip zdraví (značka + slovo) a za ním etapa · důvod nebo odpočet pronájmu. */
+/* Stavový řádek: pilulka stavu, počitadlo kroků a u běžící práce odpočet pronájmu; čip níže nese jen bránu v patičce. */
 .card-face__status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 4px; font-size: 13px; color: var(--ink-2); min-width: 0; }
 .card-face__chip {
   display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; border: 1px solid; border-radius: 4px;
@@ -36,46 +44,24 @@
 .card-face__chip--hum { color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); }
 .card-face__lease { font-variant-numeric: tabular-nums; }
 
-/* Stopa karty: co se kartě naposled stalo, aby člověk nemusel srdci jen věřit. V hlavičce vedle druhu stojí
-   tichý odznak pořadí podle záměru „3·02“ (fáze · pozice) v neproporcionálním písmu, aby se čísla karet
-   v jedné fázi četla pod sebou jako sloupec. Pod stavovým řádkem jedna šedá řádka „Srdce · 11:51 · pořadí“:
-   menší a tlumenější než stav, protože je to historie, ne výzva; jméno nese barvu svého aktéra (srdce zlaté,
-   člověk akcentem, dělník barvou agentů) a najetí ji podtrhne, protože klik otevře záznam činnosti karty.
-   Čerstvá změna (do 10 minut) karta jednou dvakrát blikne obrysem a zhasne; při omezeném pohybu nebliká nic. */
-.card-face__order {
-  font: 600 11px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-muted);
-  border: 1px solid var(--line-strong); border-radius: 4px; padding: 2px 5px;
+/* Stav a kroky v jednom řádku: zaoblená pilulka s jedním slovem (zelená hotovo, modrá běží, zlatá čeká,
+   šedá čárkovaná v přípravě) a vedle tiché „2/4 kroky ›“. Počitadlo je zároveň vstup do stopy práce karty:
+   při najetí se podbarví akcentem. Karta srdce nemá bloky a tohle je jediná cesta k tomu, co se na ní dělo. */
+.card-face__pill {
+  display: inline-flex; align-items: center; padding: 2px 9px; border: 1px solid; border-radius: 999px;
+  font-size: 12px; font-weight: 600; line-height: 1.35; white-space: nowrap;
 }
-.card-face__change {
-  align-self: stretch; min-width: 0; margin-top: -4px; padding: 0; border: 0; background: none; cursor: pointer;
-  font: 400 12px/1.3 var(--font); color: var(--ink-muted); text-align: left;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.card-face__pill--done { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-line); }
+.card-face__pill--done::before { content: "✓"; margin-right: 5px; }
+.card-face__pill--run { color: var(--info); background: var(--info-soft); border-color: var(--info); }
+.card-face__pill--wait, .card-face__pill--ready { color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); }
+.card-face__pill--prep { color: var(--ink-muted); border-color: var(--line-strong); border-style: dashed; }
+.card-face__pill--bad { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
+.card-face__counter {
+  padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: none; cursor: pointer;
+  font: 500 12px/1.35 var(--font); font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: nowrap;
 }
-.card-face__change:hover, .card-face__change:focus-visible { color: var(--ink-2); text-decoration: underline; }
-.card-face__change--heart { color: color-mix(in srgb, var(--gold) 70%, var(--ink-muted)); }
-.card-face__change--human { color: color-mix(in srgb, var(--accent) 70%, var(--ink-muted)); }
-.card-face__flash {
-  position: absolute; inset: -3px; border-radius: 13px; pointer-events: none;
-  border: 2px solid var(--accent); opacity: 0; animation: card-face-flash 1.2s ease-out 2;
-}
-@keyframes card-face-flash { 0% { opacity: 0; } 25% { opacity: 0.9; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .card-face__flash { animation: none; display: none; } }
-
-/* Kroky: „3/7 · s4 Název kroku“ (kolik je hotovo, ukazuje kruh vedle názvu). Řádek je zároveň tichý vstup
-   do stopy práce karty: vpravo šedé „stopa ›“, při najetí se jen jemně podbarví. Karta srdce nemá bloky,
-   a tohle je jediná cesta k tomu, co se na ní dělo. */
-.card-face__progress {
-  display: flex; flex-direction: column; gap: 5px; width: 100%; margin: 0 -4px; padding: 3px 4px;
-  border: 0; border-radius: 6px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
-  box-sizing: content-box;
-}
-.card-face__progress:hover, .card-face__progress:focus-visible { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.card-face__progress:hover .card-face__trail-cue, .card-face__progress:focus-visible .card-face__trail-cue { color: var(--accent); }
-.card-face__steps-row { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.card-face__steps-row .card-face__steps { flex: 1; min-width: 0; }
-.card-face__trail-cue { flex: none; font-size: 11px; color: var(--ink-muted); }
-.card-face__steps { font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.card-face__steps b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.card-face__counter:hover, .card-face__counter:focus-visible { color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 
 /* Patička — nejvýš jedna: brána merge, na koho karta čeká, nebo otázka na člověka (zlatá, klikací). */
 .card-face__foot {
@@ -94,10 +80,12 @@
 .card-face--glyph { flex-direction: row; align-items: center; gap: 12px; padding: 14px 16px; }
 .card-face__glyph-title { font-size: 22px; font-weight: 600; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Okraj karty nese tvar růstu, ne dekoraci (plátno 3): semínko čárkované zlaté (jen záměr), vývoj modrý
-   (Kancelář staví), doloženo zelené, návrh srdce fialový čárkovaný. Zlatý dýchající prstenec zůstává jen
-   kartě, která čeká na tvé rozhodnutí. */
-.node-card.node-card--lean { width: 300px; min-height: 0; grid-template-rows: auto; border-width: 1.5px; border-radius: 10px; }
+/* Rám karty nese druh, čára nese růst (plátno 3, návrh Editoru): pracovní krok fialový, kontrakt zelený, ověření
+   šeříkové, rozhodnutí oranžové. Semínko a návrh srdce mají rám čárkovaný (jen záměr, ještě se nestaví), rozestavěná
+   a doložená karta plný. Vybraná nebo právě běžící karta svítí modře, aby oko na plátně našlo, kde se pracuje.
+   Přednost barvy rámu: chybějící zdroj > problém > čeká na tebe (zlatá) > vybraná / běží (modrá) > druh. Kruh
+   postupu si barvu růstu nechává (semínko zlaté, vývoj modrý, doloženo zelené, návrh fialový). */
+.node-card.node-card--lean { width: 300px; min-height: 0; grid-template-rows: auto; border-width: 1.5px; border-radius: 12px; }
 .node-card--lean .node-card__body { padding: 0; gap: 4px; }
 .node-card--lean .node-card__title { font-size: 17px; line-height: 1.2; margin: 0; padding: 0; text-transform: none; letter-spacing: -0.005em; color: var(--ink); }
 .node-card--lean .node-card__purpose { font-size: 12px; }
@@ -107,8 +95,17 @@
 .node-card--lean.node-card--grow-bud { --grow: var(--info); }
 .node-card--lean.node-card--grow-leaf { --grow: var(--ok); border-style: solid; }
 .node-card--lean.node-card--grow-prop { --grow: var(--pr-merged); border-style: dashed; }
-/* Chybějící zdroj (oranžový rámeček z node-card.css) má přednost před tvarem. */
-.node-card--lean[class*="node-card--grow-"]:not(.node-card--source-missing) { border-color: var(--grow); }
+.node-card--lean.node-card--family-work { --family: var(--card-step); }
+.node-card--lean.node-card--family-contract { --family: var(--card-contract); }
+.node-card--lean.node-card--family-verify { --family: var(--card-verify); }
+.node-card--lean.node-card--family-decision { --family: var(--card-decision); }
+.node-card--lean:where([class*="node-card--family-"]):not(.node-card--source-missing) {
+  border-color: var(--family); box-shadow: 0 0 14px color-mix(in srgb, var(--family) 16%, transparent);
+}
+.node-card--lean:where(.node-card--selected, .node-card--live):not(.node-card--source-missing) {
+  outline: none; border-color: var(--info);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--info) 35%, transparent), 0 0 18px color-mix(in srgb, var(--info) 30%, transparent);
+}
 .node-card--lean.node-card--face-decision { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft), 0 0 16px color-mix(in srgb, var(--gold) 18%, transparent); }
 /* Karta, která čeká na lidské rozhodnutí (tvář „decision“, slovo „čeká na tebe“), je obtažená čárkovaným zlatým
    prstencem, který se pomalu (1,85 s) rozsvěcí a tlumí. Dýchá jen tato jedna karta, dokud se nerozhodne; pro
@@ -138,10 +135,9 @@
 .card-face-summary__count--blocked { color: var(--ink-muted); border-color: var(--line-strong); border-style: dashed; }
 .card-face-summary__meta { color: var(--ink-muted); font-size: 12px; }
 
-/* Hlava a řádek názvu (plátno 3): vlevo nahoře druh, vpravo pulzující tečka, když kartu drží běžící dělník,
-   a slovo tvaru v barvě okraje. Pod tím kruh postupu vedle názvu, aby člověk jedním pohledem spojil, co to je
-   a kolik z toho stojí. Kruh má barvu tvaru, střed nese procenta; karta bez kroků ukáže pomlčku, ne nulu. */
-.card-face__shape { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--grow, var(--ink-muted)); }
+/* Řádek názvu (plátno 3): velký název vlevo a malý kruh postupu vpravo, aby člověk jedním pohledem spojil, co to
+   je a kolik z toho stojí. V hlavě vpravo pulzuje tečka, když kartu drží běžící dělník. Kruh má barvu růstu,
+   střed nese procenta; karta bez kroků ukáže pomlčku, ne nulu. */
 .card-face__live { width: 7px; height: 7px; border-radius: 50%; background: var(--info); animation: card-face-live 1.1s ease-in-out infinite; }
 @keyframes card-face-live { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .card-face__live { animation: none; } }
@@ -150,7 +146,7 @@
 .card-face__ring { position: relative; flex: none; display: inline-block; }
 .card-face__ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .card-face__ring circle { fill: none; stroke-width: 4; }
-.card-face__ring-track { stroke: var(--line); }
+.card-face__ring-track { stroke: var(--line-strong); }
 .card-face__ring-fill { stroke: var(--grow, var(--ok)); stroke-linecap: round; }
 .card-face__ring b { position: absolute; inset: 0; display: grid; place-items: center; font: 600 11px var(--font); font-variant-numeric: tabular-nums; }
 

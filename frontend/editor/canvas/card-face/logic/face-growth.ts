@@ -18,7 +18,7 @@ export type FaceGrowth = {
 };
 
 const LABEL: Record<GrowthShape, string> = { seed: "semínko", bud: "vývoj", leaf: "doloženo", prop: "návrh" };
-/** Stejná množina jako osa „Realizace“ v `node-card/logic/progress-axes.ts`: sloučeno do main. */
+/** Sloučeno do main: zápis do plánu, uzavření nebo čekání na hotovo po sloučení. */
 const MERGED = new Set(["plan_written_back", "card_closed", "awaiting_human_close"]);
 /** Neznámá hodnota zrcadla se bere jako neměřená, ne jako shoda. */
 const mirrorMark = (mirror: string | null): TruthMark => mirror === "ok" || mirror === "part" || mirror === "bad" ? mirror : "wait";

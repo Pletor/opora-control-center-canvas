@@ -2,6 +2,7 @@
 // Přejmenování probublává nahoru přes onCommit / onCancel / onStart; stav „edituje se“ drží rodič.
 import { useEffect, useRef, useState } from "react";
 import { useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
+import { effectiveType } from "@/shared/card-context/logic/card-context";
 
 export type RenameHandlers = { editing: boolean; start: () => void; cancel: () => void; commit: (name: string) => void };
 
@@ -27,6 +28,8 @@ export default function CardBody({ id, name, purpose, rename }: { id: string; na
     take();
     return () => cancelAnimationFrame(frame);
   }, [rename?.editing]);
+  const type = effectiveType({ name });
+  const shown = type ? name.slice(type.length + 3) : name;
   return (
     <div className="node-card__body">
       {rename?.editing ? (
@@ -59,7 +62,8 @@ export default function CardBody({ id, name, purpose, rename }: { id: string; na
             rename?.start();
           }}
         >
-          {name}
+          {/* Předponu typu („[task] “) nese štítek druhu v tváři karty; přejmenování ji ukáže celou. */}
+          {shown}
         </h3>
       )}
       {purpose !== undefined && <p className={"node-card__purpose" + (purpose ? "" : " node-card__purpose--empty")}>{purpose || "Podstata zatím není popsána."}</p>}

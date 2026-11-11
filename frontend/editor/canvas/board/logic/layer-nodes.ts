@@ -15,7 +15,8 @@ import { areaSummary, type Checklists } from "@/editor/canvas/card-checklist/log
 import { effectiveRules } from "@/editor/canvas/node-card/logic/effective-rules";
 import { cardView, matchesTagFilter } from "@/editor/canvas/node-card/logic/card-model";
 import { cardFace } from "@/editor/canvas/card-face/logic/card-face";
-import type { LatestByNode } from "@/editor/canvas/card-face/logic/face-change";
+import { faceKind } from "@/editor/canvas/card-face/logic/face-family";
+import { effectiveType } from "@/shared/card-context/logic/card-context";
 import type { AgentCardStage, AgentDecision } from "@/hub/oporahub-agent-state/logic/agent-state";
 import { commentView } from "@/editor/canvas/comment-card/logic/comment-model";
 import { areaColorOf, areaLabel, membersOf } from "@/editor/canvas/area/logic/area-model";
@@ -57,8 +58,6 @@ export type LayerInput = {
   sourceStatuses?: Record<string, SourceStatus>;
   /** Snímek agent-state: tvář každé karty (`cards[]`) a rozhodnutí člověka (`decisions[]`). */
   agent?: { cards: ReadonlyMap<string, AgentCardStage>; decisions: readonly AgentDecision[] };
-  /** Poslední změna karet ze záznamu činnosti (`latest-by-node`, jeden dotaz na plátno). */
-  latest?: LatestByNode;
   sourceContext?: { project: string; workspace: string };
   /** Aktivní milníky z příjmu (`milestone-focus`): název funkčního výsledku jde do hlavičky jejich oblasti. */
   milestones?: readonly { areaId: string; title: string }[];
@@ -99,10 +98,11 @@ export function buildLayerNodes(input: LayerInput): Node[] {
     const view = cardView(n, workflow, childCount(index, n.id));
     const own = state.nodes[n.id];
     const face = cardFace({ nodeId: n.id, card: input.agent?.cards.get(n.id), sector: n.kind === "sector", layer: view.cardLayer ?? undefined,
-      decisions: input.agent?.decisions ?? [], nameOf: (id) => index.byId.get(id)?.name ?? id, latest: input.latest?.[n.id] });
+      decisions: input.agent?.decisions ?? [], nameOf: (id) => index.byId.get(id)?.name ?? id });
     const data: NodeCardData = {
       view,
       face,
+      kind: faceKind({ nodeId: n.id, type: effectiveType(n), element: n.element?.kind, sector: n.kind === "sector", order: input.agent?.cards.get(n.id)?.order }),
       upstream: { rows: upstreamRows(graph, state, n.id, index) },
       frontier: input.frontier?.[n.id],
       evidence: own?.evidence,

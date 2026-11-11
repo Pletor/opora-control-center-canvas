@@ -1,16 +1,16 @@
-// Tvář karty na plátně (návrh „Opora Editor — lean“, rámy 2a/2b; plátno 3): druh, tvar růstu a kdo kartu drží,
-// kruh postupu s názvem, JEDEN stavový řádek, čtyři tečky pravd, kroky a nejvýš jedna patička.
+// Tvář karty na plátně 3 (návrh „Neonový dashboard OPORA: Editor“): štítek s kódem a druhem, kdo kartu drží,
+// velký název s kruhem postupu, stavová pilulka s počitadlem kroků, čtyři tečky pravd a nejvýš jedna patička.
 // Pod 45 % zoomu jen glyf: kruh postupu a název.
-// Všechno čte z hotové `CardFace` (agent-state); každý prvek nese `data-oh-*`, aby agent nečetl obrazovku.
+// Všechno čte z hotové `CardFace` (agent-state) a `FaceKind` (graf); každý prvek nese `data-oh-*`, aby agent nečetl obrazovku.
 import type { ReactNode } from "react";
 import type { CardFace as Face } from "../logic/card-face";
 import { countdown } from "../logic/face-labels";
 import { useNow } from "../logic/use-now";
 import { openCardDrawer } from "@/hub/oporahub-card-drawer/open";
 import PrBadge from "@/shared/pr-badge/components/PrBadge";
-import FaceLastChange from "./FaceLastChange";
 import { FaceRing, FaceTruths } from "./FaceGrowth";
 import type { FaceGrowth } from "../logic/face-growth";
+import { faceCounter, facePill, type FaceKind } from "../logic/face-family";
 import "../styles/card-face.css";
 
 function LeaseCountdown({ expiresAt }: { expiresAt: string }) {
@@ -45,45 +45,45 @@ const ohAttributes = (face: Face, growth: FaceGrowth) => ({
   "data-oh-lease-holder": face.lease?.holder ?? "", "data-oh-lease-epoch": face.lease?.epoch ?? "",
   "data-oh-order": face.order ?? "",
 });
+const NEUTRAL: FaceKind = { family: "work", word: "Krok", code: "" };
 
 /**
- * Celá tvář; `title` je název karty (s přejmenováním), který dodá rodič; klik na poslední změnu hlásí `onHistory`,
- * klik na postup kroků hlásí `onTrail` (boční menu se stopou práce karty).
+ * Celá tvář; `title` je název karty (s přejmenováním), který dodá rodič; klik na počitadlo kroků hlásí `onTrail` (boční menu se stopou práce karty).
  */
-export default function CardFace({ face, growth, title, onHistory, onTrail }: {
-  face: Face; growth: FaceGrowth; title: ReactNode; onHistory?: () => void; onTrail?: () => void;
+export default function CardFace({ face, growth, kind = NEUTRAL, title, onTrail }: {
+  face: Face; growth: FaceGrowth; kind?: FaceKind; title: ReactNode; onTrail?: () => void;
 }) {
+  const pill = facePill(face);
+  const counter = faceCounter(face);
   return (
-    <div className={"card-face card-face--" + face.state} {...ohAttributes(face, growth)}>
+    <div className={"card-face card-face--" + face.state} {...ohAttributes(face, growth)} data-oh-family={kind.family} data-oh-code={kind.code}>
       <div className="card-face__top">
-        <span className="card-face__kind">{face.kindChip}</span>
-        {face.order && <span className="card-face__order" title="Pořadí podle záměru">{face.order}</span>}
+        <span className={"card-face__tag card-face__tag--" + kind.family}>
+          {kind.code && <b className="card-face__code">{kind.code}</b>}
+          <span className="card-face__kind">{kind.word}</span>
+        </span>
         <span className="card-face__grow" />
         {growth.live && <span className="card-face__live" title="Kartu drží běžící dělník" />}
-        <span className={"card-face__shape card-face__shape--" + growth.shape}>{growth.label}</span>
         {face.holder && <span className={"card-face__who card-face__who--" + face.holder.who}>
           <i aria-hidden="true">{face.holder.who === "agent" ? "A" : "H"}</i>{face.holder.name}
         </span>}
       </div>
       <div className="card-face__row">
-        <FaceRing growth={growth} />
         <div className="card-face__name">{title}</div>
+        <FaceRing growth={growth} size={34} />
       </div>
       <div className="card-face__status" role="status">
-        <span className={"card-face__chip card-face__chip--" + face.chip.tone}>{face.chip.glyph} {face.chip.word}</span>
-        <span className="card-face__line">{face.stage} · {face.lease ? <LeaseCountdown expiresAt={face.lease.expiresAt} /> : face.reason}</span>
+        <span className={"card-face__pill card-face__pill--" + pill.tone} data-oh-pill={pill.tone}
+          title={`${face.chip.word} · ${face.stage} · ${face.reason}`}>{pill.word}</span>
+        <button type="button" className="card-face__counter nodrag" data-oh-open-trail={face.nodeId}
+          title={`Kroky plánu ${face.steps.count}: ${face.steps.label}. Otevřít stopu práce karty`}
+          onClick={(event) => { event.stopPropagation(); onTrail?.(); }}>
+          {counter || "stopa"} <span aria-hidden="true">›</span>
+        </button>
+        {face.lease && <LeaseCountdown expiresAt={face.lease.expiresAt} />}
       </div>
       <FaceTruths growth={growth} />
-      <FaceLastChange change={face.change} onOpen={onHistory} />
       <PrBadge badge={face.pr} />
-      <button type="button" className="card-face__progress nodrag" data-oh-open-trail={face.nodeId}
-        title={`Kroky plánu ${face.steps.count}. Otevřít stopu práce karty`}
-        onClick={(event) => { event.stopPropagation(); onTrail?.(); }}>
-        <span className="card-face__steps-row">
-          <span className="card-face__steps"><b>{face.steps.count}</b> · {face.steps.label}</span>
-          <span className="card-face__trail-cue" aria-hidden="true">stopa ›</span>
-        </span>
-      </button>
       <Footer face={face} />
     </div>
   );

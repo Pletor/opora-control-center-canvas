@@ -1,15 +1,14 @@
 // Ikonka Záznam činnosti v horní liště a pod ní panel. Rodič dílků: drží otevřenost, záložku
 // (Já / Agenti) a filtr „jen vybraná karta“ a přes `useActivityLog` čte záznam jen při otevřeném
-// panelu. Rozsah (projekt, prostor), karty plátna, výběr a otevření karty dostává od App. Žádost `request`
-// (klik na poslední změnu na tváři karty) panel otevře s filtrem „Jen vybraná karta“; App kartu zároveň vybere.
-import { useCallback, useEffect, useRef, useState } from "react";
+// panelu. Rozsah (projekt, prostor), karty plátna, výběr a otevření karty dostává od App.
+import { useCallback, useState } from "react";
 import ActivityLogButton from "@/editor/canvas/activity-log/components/ActivityLogButton";
 import ActivityLogPanel from "@/editor/canvas/activity-log/components/ActivityLogPanel";
 import { useActivityLog } from "@/editor/canvas/activity-log/logic/use-activity-log";
 import type { Actor } from "@/editor/canvas/activity-log/logic/activity-log";
 import "@/editor/canvas/activity-log/styles/activity-log.css";
 
-export default function ActivityLogTools({ project, workspace, nodes, selectedNodeId, refreshKey, onOpenNode, request }: {
+export default function ActivityLogTools({ project, workspace, nodes, selectedNodeId, refreshKey, onOpenNode }: {
   project: string;
   workspace: string;
   /** Karty plátna pro jména; karta mimo graf zůstane ID. */
@@ -18,19 +17,10 @@ export default function ActivityLogTools({ project, workspace, nodes, selectedNo
   /** Otisk plátna a revize: změna = načíst nové zápisy. */
   refreshKey: string;
   onOpenNode: (id: string) => void;
-  /** Žádost o otevření s filtrem karty; nové `seq` = nová žádost (stará po přemontování nic neotevře). */
-  request?: { nodeId: string; seq: number } | null;
 }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Actor>("human");
   const [onlySelected, setOnlySelected] = useState(false);
-  const handled = useRef(request?.seq ?? 0);
-  useEffect(() => {
-    if (!request || request.seq === handled.current) return;
-    handled.current = request.seq;
-    setOpen(true);
-    setOnlySelected(true);
-  }, [request]);
   const nodeId = onlySelected && selectedNodeId ? selectedNodeId : null;
   const log = useActivityLog({ project, workspace, nodeId, enabled: open, refreshKey });
   const close = useCallback(() => setOpen(false), []);

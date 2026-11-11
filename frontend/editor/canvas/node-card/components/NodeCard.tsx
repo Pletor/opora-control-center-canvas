@@ -12,7 +12,6 @@ import type { Rule } from "@/shared/desktop-state/logic/types";
 import type { SourceRef } from "@/shared/types/logic/types";
 import CardBody from "@/editor/canvas/node-card/components/CardBody";
 import CardComponent from "@/editor/canvas/node-card/components/CardComponent";
-import CardProgress from "./CardProgress";
 import CardBlocks, { type CardBlockHandlers } from "@/editor/canvas/node-card/components/CardBlocks";
 import CardFoot from "@/editor/canvas/node-card/components/CardFoot";
 import CardPorts, { type BlockPort } from "@/editor/canvas/node-card/components/CardPorts";
@@ -22,12 +21,15 @@ import { cardDetail, farZoomSelector, type CardDetail } from "@/editor/canvas/no
 import CardFace, { CardGlyph } from "@/editor/canvas/card-face/components/CardFace";
 import type { CardFace as Face } from "@/editor/canvas/card-face/logic/card-face";
 import { faceGrowth } from "@/editor/canvas/card-face/logic/face-growth";
+import type { FaceKind } from "@/editor/canvas/card-face/logic/face-family";
 import "@/editor/canvas/node-card/styles/node-card.css";
 
 /** Data karty: jen hodnoty (žádné funkce), aby šla porovnat se starou verzí (board/logic/stable-nodes.ts). */
 export type NodeCardData = {
   /** Tvář karty z `cards[]` agent-state (jediný zdroj stavu); chybí jen u starých testovacích dat. */
   face?: Face;
+  /** Druh a kód karty (`card-face/logic/face-family.ts`): barva rámu, štítek „E-144 Výzkum“. */
+  kind?: FaceKind;
   moved?: boolean;
   work?: import("../logic/use-work-overview").WorkRow;
   realization?: { value?: import("@/shared/types/logic/types").CanvasNode["realization"]; status?: import("../logic/use-source-status").SourceStatus; disabled: boolean };
@@ -74,7 +76,6 @@ function useCardHandlers(actions: CardActions, id: string) {
       confirm: () => actions.confirm(id),
       realize: (commit: string, prUrl: string) => actions.realize(id, commit, prUrl),
       release: () => actions.releaseLease(id),
-      history: () => actions.history(id),
       trail: () => actions.trail(id),
     };
   }, [actions, id]);
@@ -94,6 +95,7 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
     <div
       className={
         "node-card node-card--lean" + (data.face ? " node-card--face-" + data.face.state : "") + (growth ? " node-card--grow-" + growth.shape : "") +
+        (data.kind ? " node-card--family-" + data.kind.family : "") + (growth?.live ? " node-card--live" : "") +
         (data.moved ? " node-card__added-pulse" : "") +
         (sector ? " node-card--sector" : "") +
         (selected ? " node-card--selected" : " node-card--compact") +
@@ -106,9 +108,8 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
       data-detail={detail}
     >
       {far ? <CardGlyph face={data.face!} growth={growth!} name={view.name} />
-        : data.face ? <CardFace face={data.face} growth={growth!} title={title} onHistory={on.history} onTrail={on.trail} /> : title}
+        : data.face ? <CardFace face={data.face} growth={growth!} kind={data.kind} title={title} onTrail={on.trail} /> : title}
       {!far && <CardComponent tech={view.tech} states={view.states} section={view.section} />}
-      {!far && <CardProgress view={view} face={data.face} />}
       <CardBlocks id={id} rows={view.rows} disabled={blocks.disabled} handlers={on.blocks} selectedBlockId={selectedBlockId} selected={selected}
         detail={selected ? detail : "far"} />
       {selected && <CardDetails id={id} data={data} actions={actions} release={data.releaseLease ? on.release : undefined} realize={on.realize} />}

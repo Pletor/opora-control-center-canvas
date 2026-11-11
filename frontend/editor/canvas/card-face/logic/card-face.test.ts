@@ -66,13 +66,9 @@ describe("tvář karty", () => {
     expect(unknown.steps.label).toBe("plán bez kroků");
   });
 
-  it("pořadí podle záměru a poslední změna ze záznamu činnosti", () => {
+  it("pořadí podle záměru", () => {
     expect(face({ order: 302 }).order).toBe("3·02");
     expect(face().order).toBeNull();
-    const latest = { at: "2026-10-31T10:02:00Z", actor: "agent", agent: "S.1", label: "krok s2 hotov", path: "/api/gate/tickets" };
-    expect(cardFace({ nodeId: "a", card: card(), sector: false, decisions: [], nameOf: String, latest }).change)
-      .toEqual({ at: latest.at, who: "Dělník S.1", whoKind: "agent", what: "krok s2 hotov" });
-    expect(face().change).toBeNull();
   });
 });
 

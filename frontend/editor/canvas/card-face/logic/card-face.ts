@@ -5,7 +5,7 @@
 import type { AgentCardStage, AgentDecision, ProgressEvidence } from "@/hub/oporahub-agent-state/logic/agent-state";
 import { STAGE_WORD, gateWord, shortReason } from "./face-labels";
 import { prBadge, type PrBadge } from "@/shared/pr-badge/logic/pr-badge";
-import { changeOf, orderBadge, type FaceChange, type LatestChange } from "./face-change";
+import { orderBadge } from "./face-change";
 
 export type FaceState = "blocked" | "ready" | "working" | "review" | "decision" | "done" | "problem" | "plan";
 export type FaceTone = "ok" | "warn" | "bad" | "gap" | "hum";
@@ -27,8 +27,6 @@ export type CardFace = {
   pr: PrBadge | null;
   /** Odznak pořadí podle záměru `F·PP` (`cards[].order`); karta bez pořadí ho nemá. */
   order: string | null;
-  /** Poslední změna karty ze záznamu činnosti (`latest-by-node`); bez zápisu nic. */
-  change: FaceChange | null;
   /** Syrové kódy pro `data-oh-*`. */
   raw: { stage: string; health: string; reason: string; executionId: string | null; gateStatus: string; gateRule: string;
     /** Zrcadlo kódu z `cards[].mirror`; neměřené `null`. */
@@ -54,12 +52,10 @@ function stepsOf(card: AgentCardStage | undefined, running: boolean, closed: boo
 export type FaceInput = {
   nodeId: string; card?: AgentCardStage; sector: boolean; layer?: string;
   decisions: readonly AgentDecision[]; nameOf: (id: string) => string;
-  /** Nejnovější zápis záznamu činnosti s touto kartou (`latest-by-node`). */
-  latest?: LatestChange;
 };
 
 /** Tvář jedné karty; karta, kterou agent-state nezná (starý server, neuložený uzel), je „v plánu“ bez kroků. */
-export function cardFace({ nodeId, card, sector, layer, decisions, nameOf, latest }: FaceInput): CardFace {
+export function cardFace({ nodeId, card, sector, layer, decisions, nameOf }: FaceInput): CardFace {
   const closed = card?.reason === "card_closed" || card?.reason === "plan_written_back";
   const decision = card ? decisions.find(item => item.targetId === nodeId || (!!card.executionId && item.targetId === card.executionId)) : undefined;
   const blockedBy = card?.blockedBy ?? [];
@@ -69,7 +65,7 @@ export function cardFace({ nodeId, card, sector, layer, decisions, nameOf, lates
     ...(card?.progressEvidence ? { progressEvidence: card.progressEvidence } : {}),
     nodeId, kindChip: card?.kind || layer || (sector ? "sektor" : "uzel"), lease: null as CardFace["lease"],
     pr: card ? prBadge(card.stage, card.reason, card.pr, card.reason === "card_closed") : null,
-    order: orderBadge(card?.order), change: changeOf(latest),
+    order: orderBadge(card?.order),
     stage: card ? STAGE_WORD[card.stage] : "plán", reason: card ? shortReason(card.reason) : "mimo OporaHub",
     raw: { stage: card?.stage ?? "", health: card?.health ?? "", reason: card?.reason ?? "", executionId: card?.executionId ?? null,
       gateStatus: gate?.status ?? "", gateRule: gate?.rule ?? "", mirror: card?.mirror ?? null,
