@@ -88,3 +88,23 @@ def test_cases_survive_versions_adopt_and_contribute(db):
     assert copy["versions"][0]["graph"] == graph
     better = library.contribute(db, copy["id"], folder(db)["id"], "bmi-2", "BMI 2")
     assert better["versions"][0]["graph"]["cases"] == [OK_CASE, BAD_CASE]
+
+
+def test_element_logic_flow_is_one_per_node_and_starts_empty(db):
+    library.seed_folders(db)
+    db.execute("INSERT INTO projects(id,name) VALUES('p','P')")
+    graph = {"nodes": [{"id": "koupit", "element": {"kind": "action"}}, {"id": "kurz", "site": {"kind": "page"}}]}
+    assert library.element_node(graph, "koupit")["id"] == "koupit"
+    with pytest.raises(FlowNotFound):
+        library.element_node(graph, "nic")
+    with pytest.raises(FlowInvalid):
+        library.element_node(graph, "kurz")  # stránka není prvek logiky
+
+    assert library.project_flow(db, "p", "koupit") is None
+    made = library.create_project_flow(db, "p", "koupit", "Koupit kurz")
+    assert made["ownerRef"] == "opora:project-flow:koupit" and made["projectId"] == "p"
+    assert made["versions"] == [] and made["derivedFrom"] is None
+    assert library.create_project_flow(db, "p", "koupit", "Jinak")["id"] == made["id"]  # idempotentní
+    assert library.project_flow(db, "p", "koupit")["id"] == made["id"]
+    with pytest.raises(FlowInvalid):
+        library.create_project_flow(db, "p", "jiny", " ")  # bez jména

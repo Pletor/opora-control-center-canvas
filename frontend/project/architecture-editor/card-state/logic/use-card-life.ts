@@ -1,14 +1,14 @@
 // Stavy karet a cesty pro pohyb, jednou za změnu faktů (graf, uzavření karet, stav práce, díry mapy, cesty s `lastRun`,
 // nálezy strážců z `useCardGuards`, kontrola mapy přes worktree z `useMapWorktrees`).
-// Volá jen `ArchitectureEditor`; Editor stránky i Mapa domény dostanou hotový výsledek v props. Nic nečte ani neukládá.
+// Volá jen `ArchitectureEditor`; plátno 2 dostane hotový výsledek v props. Nic nečte ani neukládá.
 import { useMemo } from "react";
 import type { Graph } from "@/shared/types/logic/types";
 import type { NodeWorkflowState } from "@/shared/desktop-state/logic/types";
 import type { WorkStatus } from "../../live-status/logic/live-model";
-import type { MapCheck } from "../../domain-map/map-check/logic/map-check";
-import type { DerivedJourney } from "../../domain-map/logic/derived-journeys";
+import type { MapCheck } from "../../domain-site/map-check/logic/map-check";
+import type { DerivedJourney } from "../../domain-site/logic/derived-journeys";
 import type { GuardTally } from "@/project/studio/studio-guards/logic/guard-tally";
-import type { MapWorktreeOverlay } from "../../domain-map/map-check/logic/map-check-worktrees";
+import type { MapWorktreeOverlay } from "../../domain-site/map-check/logic/map-check-worktrees";
 import { cardLife, type CardLife } from "./card-state";
 
 export function useCardLife(input: { graph: Graph; nodes: Record<string, NodeWorkflowState>; work: WorkStatus | null; check: MapCheck | null; derived: DerivedJourney[] | null; guards?: Map<string, GuardTally>;

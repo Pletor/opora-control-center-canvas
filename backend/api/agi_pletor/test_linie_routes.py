@@ -362,6 +362,9 @@ def test_agent_creates_work_with_identity_scope_and_idempotency(tmp_path, repo):
         assert repeated.status_code == 200 and repeated.json()["ticketId"] == created.json()["ticketId"]
         conflict = client.post(f"{BASE}/work", headers=AGENT, params=q, json={**body, "title": "Changed"})
         assert conflict.status_code == 409 and conflict.json()["code"] == "idempotency_conflict"
+        carded = {**body, "branch": "feat/karta", "idempotencyKey": "card-create", "cardId": "neexistuje"}
+        unknown = client.post(f"{BASE}/work", headers=AGENT, params=q, json=carded)
+        assert unknown.status_code == 422 and unknown.json()["code"] == "card_not_found"
         events = client.get(f"{BASE}/journal", params=q).json()["events"]
         made = [event for event in events if event["kind"] == "linie.work.created"]
         assert len(made) == 1 and made[0]["by"] == "agent:dev"

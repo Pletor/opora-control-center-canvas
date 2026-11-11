@@ -1,0 +1,31 @@
+/* Přepínač Layout | Design stojí hned vedle vrstev jako dvě slepená tlačítka: stejná stránka, jen jiný pohled na boxy
+   (co box dělá, nebo jak vypadá). Stisknutá polovina svítí akcentem. */
+.design-look__switch { display: inline-flex; border: 1px solid var(--ae-line); border-radius: 7px; overflow: hidden; }
+.design-look__switch-option { padding: 3px 10px; border: 0; border-radius: 0; background: transparent; color: var(--ae-muted); font-size: 12px; }
+.design-look__switch-option[aria-pressed="true"] { background: color-mix(in srgb, var(--ae-accent) 18%, transparent); color: var(--ae-accent); font-weight: 700; }
+
+/* Pruh Design webu leží nad mřížkou jako vzorník: barvy jako malé kostičky, písma jako „Aa“ v daném písmu a jedno
+   tlačítko v barvě a zaoblení webu. Člověk tak vidí jazyk celého webu dřív, než se podívá na jednotlivé boxy; odkaz
+   vpravo vede tam, kde se design opravdu mění (Správa webu). */
+.design-look {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 44px);
+  max-width: 960px;
+  margin: 14px auto 0;
+  padding: 8px 12px;
+  border: 1px solid var(--ae-line);
+  border-radius: 10px;
+  background: var(--ae-panel);
+  font-size: 12px;
+}
+.design-look__title { color: var(--ae-accent); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+.design-look__swatches { display: inline-flex; gap: 3px; }
+.design-look__swatch { width: 16px; height: 16px; border: 1px solid var(--ae-line); border-radius: 4px; }
+.design-look__font { font-size: 16px; }
+.design-look__font small { color: var(--ae-muted); font-family: inherit; font-size: 10px; }
+.design-look__button { padding: 3px 12px; font-size: 12px; font-weight: 600; }
+.design-look__hint { color: var(--ae-muted); }
+.design-look__open { margin-left: auto; padding: 2px 8px; font-size: 12px; }

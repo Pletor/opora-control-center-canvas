@@ -8,7 +8,7 @@ import time
 from datetime import UTC, datetime
 from urllib.parse import urlencode
 
-from backend.canvas import card_gauge
+from backend.canvas import card_gauge, plan_reality
 from backend.canvas import opora_agent_state_auto_rebase as rebasing_state
 from backend.canvas import opora_agent_state_cards as card_stages
 from backend.canvas import opora_agent_state_commands as commands
@@ -30,6 +30,7 @@ from backend.canvas.authority import project_autonomy
 from backend.canvas.opora_change_validation import scope
 from backend.canvas.opora_changesets import OporaChangesets
 from backend.canvas.opora_content_changes import OporaContentChanges
+from backend.canvas.opora_execution_observers import spent
 from backend.canvas.opora_executions import OporaExecutions
 from backend.canvas.opora_graph_proposals import OporaGraphProposals
 from backend.canvas.opora_process_sync import ProcessSync
@@ -233,8 +234,10 @@ class AgentState:
         shown, total, next_offset = card_stages.page(entries, cards_offset)  # cap only cards[], never actions
         # Měřák a štítek (docs/navrhy/2026-10-30-metriky-a-spoustece.md §2–3): jen zobrazené karty, z načtených faktů.
         shown = card_gauge.attach(shown, graph, context["acceptedDocuments"], card_gauge.tally(history, linked),
-                                  latest, now)
+                                  latest, now, spent(canvas, project, workspace)["nodes"])
         shown = progress_evidence.attach(db, project, workspace, shown, context["acceptedDocuments"], accepted)
+        # Tečka K na tváři: folie z kódu (F1) z paměti, mimo zámek.
+        shown = plan_reality.attach(canvas, project, workspace, shown, graph, context["acceptedDocuments"])
         autonomy = project_autonomy(self.canvas, project)
         if autonomy["full"]:
             actions = _autonomous(actions)

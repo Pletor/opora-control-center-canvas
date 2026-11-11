@@ -1,7 +1,8 @@
 """Příznaky „potřebuje úsudek“: deterministické, nad běhy stopy práce karty."""
 import pytest
 
-from backend.canvas.card_trail_judgment import allowed_path, judgment
+from backend.canvas.card_trail_judgment import judgment
+from backend.canvas.plan_reality import allowed_path
 
 
 def step(step_id="s1", status="done", checks=(), commits=("a" * 40,), files=None, allowed=None):

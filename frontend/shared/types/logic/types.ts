@@ -53,13 +53,23 @@ export type SiteEnvironment = { name: string; host?: string; bundleId?: string }
 /** Aplikace (doména): platforma, prostředí, volitelná cesta zdraví (jen web) a cesty zákazníka; prázdné cesty se neukládají. */
 export type ApplicationSite = { kind: "application"; platform?: SitePlatform; environments: SiteEnvironment[]; healthPath?: string; journeys?: CustomerJourney[] };
 /** Role sekce stránky (`docs/architektura-pro-agenty.md` §3.1). */
-export type PageSectionRole = "hero" | "cta" | "form" | "content" | "gallery" | "proof" | "faq" | "footer" | "custom";
+export type PageSectionRole = "hero" | "cta" | "form" | "content" | "gallery" | "proof" | "faq" | "footer" | "custom" | "header" | "nav" | "aside" | "article" | "main";
+/** Box layoutu sekce na plátně 2: celá čísla na mřížce 12 sloupců uvnitř rodiče (`docs/navrhy/2026-11-10-platno-2.md`). */
+export type SectionBox = { x: number; y: number; w: number; h: number };
 /** Sekce stránky: navrhuje ji agent v dávce, skládá a upravuje člověk. `intent` smí být prázdný; `moves` (1–120) říká,
  * čím sekce posouvá zákazníka v kroku cesty, prázdné se neukládá. */
-export type PageSection = { id: string; role: PageSectionRole; name: string; intent: string; moves?: string };
+export type PageSection = { id: string; role: PageSectionRole; name: string; intent: string; moves?: string;
+  /** Poloha boxu v layoutu; bez ní se sekce skládá pod ostatní na celou šířku. */ box?: SectionBox;
+  /** Id rodičovské sekce téže stránky (box v boxu, hloubka nejvýš 3). */ parent?: string;
+  /** Stav boxu; chybí = `draft` (Rozpracováno). `proposed` zapisuje agent nebo sken, `approved` jen člověk. */ status?: SectionStatus;
+  /** Obrázky (fileId z `/api/drawing-file`, nejvýš 6), odkaz na web a poznámka jako inspirace boxu. */ inspiration?: SectionInspiration;
+  /** Kdo box naposledy zapsal; doplňuje server, klient ho jen nese dál. */ source?: "human" | "agent" | "scan";
+  /** Krátký popis vzhledu boxu (pozadí, typografie, rozmístění; 1–300 znaků, ze skenu webu); prázdné se neukládá. */ look?: string };
+export type SectionStatus = "draft" | "proposed" | "approved";
+export type SectionInspiration = { files?: string[]; url?: string; note?: string };
 /** Stránka: záměr píše člověk (`goal`, `feel`, `navLabel`); vše nepovinné, prázdné pole se neukládá. */
 export type PageSite = { kind: "page"; path: string; goal?: string; feel?: string; navLabel?: string; sections?: PageSection[] };
-export type ElementKind = "page" | "form" | "overview" | "dialog" | "action" | "service" | "process" | "entity" | "relationship" | "storage" | "condition" | "permission" | "constraint" | "input" | "output" | "event" | "api_contract";
+export type ElementKind = "page" | "form" | "overview" | "dialog" | "action" | "service" | "process" | "entity" | "relationship" | "storage" | "condition" | "permission" | "constraint" | "input" | "output" | "event" | "api_contract" | "actor";
 export type ElementMetadata = { kind: ElementKind };
 export type EdgeRelation = "uses" | "communicates_with" | "requires" | "evidences";
 export type CanvasNode = {

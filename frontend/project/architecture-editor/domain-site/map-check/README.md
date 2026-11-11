@@ -1,0 +1,10 @@
+# Díry mapy (Zkontrolovat plán na plátně 2)
+
+Výsledek kontroly mapy z backendu (`GET /api/project-architecture/map-check`, kontrakt `docs/architektura-pro-agenty.md` §5). Na plátně 2 ho otevře **Zkontrolovat plán** v hlavičce stránky (`page-editor/plan-header/`) jen pro otevřenou stránku: skupina na pravidlo s českým popiskem, počtem a krátkou radou, sbalitelný seznam zpráv backendu. Bez nálezů jen „Mapa je bez děr.“
+
+- `components/MapCheckPanel.tsx` dostane hotové skupiny v `groups` a klik na zprávu hlásí `onSelect(target)`; nic nečte ani neukládá. Nález, který v grafu nemá místo (komponenta mimo stránku, smazaný uzel), je jen text.
+- `logic/map-check.ts` (test vedle): `mapCheckUrl`, `normalizeMapCheck` (neznámá pravidla a vadné položky zahodí, nikdy nehodí výjimku), `MAP_CHECK_TEXT` (popisek a rada pravidla), `mapCheckGroups` (nálezy domény v pořadí `MAP_CHECK_RULES` = `RULES` backendu; uzel a hrana podle předků, cesta podle `site.journeys` domény), `pageCheckGroups` (z nich jen nálezy jedné stránky: stránka, komponenta a hrana pod ní, bez cest) a `mapCheckTarget` (cíl kliku: stránka, komponenta s nejbližší stránkou, cesta, hrana se stránkou a uzlem zdroje).
+- Čte `logic/use-map-check.ts` v `ArchitectureEditor` znovu při změně otisku grafu; skupiny domény spočítá rodič, plátno je zúží na stránku. Klik: stránka → její plátno, komponenta → plátno její stránky s vybranou komponentou, hrana → plátno stránky zdroje s vybraným zdrojem (Vazby v Detailu prvku).
+- `styles/map-check.css`, předpona `map-check`.
+
+- `logic/map-check-worktrees.ts` (test vedle): kontrola mapy přes worktree (`GET /api/project-architecture/map-check/worktrees?project=`, `docs/navrhy/2026-10-28-kontrola-mapy-a-worktree.md` §3): `mapWorktreesUrl`, `findingKey` (`rule|nodeId|edgeId|journeyId|solverId|message` jako backend), `keyCard` (karta zavřené díry z klíče: `solverId`, jinak `nodeId`), `normalizeWorktreeOverlay` (obranné čtení, chybějící endpoint = žádné worktree), `overlayKey`. Jediné čtení je `architecture-editor/logic/use-map-worktrees.ts` (poller 30 s, jen se schopností `worktreeLive`), sdílené Studiem, Editorem architektury a Velínem.

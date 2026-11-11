@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ApplicationSite, CanvasNode } from "@/shared/types/logic/types";
-import type { DerivedJourney } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
+import type { DerivedJourney } from "@/project/architecture-editor/domain-site/logic/derived-journeys";
 import { studioLanes, transitionState } from "./studio-lanes";
 
 const page = (id: string, name: string, path: string): CanvasNode =>

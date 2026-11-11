@@ -26,6 +26,7 @@ from backend.brain_opora.determinism.ticket_model import (
     advance,
     claim_payload,
     deliver_payload,
+    direct_payload,
     feedback_payload,
     issue_payload,
     neighbors,
@@ -47,7 +48,7 @@ def for_worker(ticket):
     """Ticket pro dělníka: tělo bez ID, strojová vrstva vedle a zpětná vazba s odpověďmi srdce."""
     return {"ticketId": ticket["ticketId"], "status": ticket["status"], "body": ticket["body"],
             "machine": ticket["machine"],
-            "feedback": [{key: item[key] for key in ("feedbackId", "kind", "text", "answer")}
+            "feedback": [{key: item[key] for key in ("feedbackId", "kind", "text", "answer", "from", "at")}
                          for item in ticket["feedback"]]}
 
 
@@ -273,6 +274,28 @@ def answer(service, session, body, now=None):
         return {"feedback": {"feedbackId": item_id, "kind": item["kind"], "text": item["text"],
                              "answer": {"text": text}},
                 "ticket": {"ticketId": wanted, "status": status}}
+    return _write(service, session, work)
+
+
+def direct(service, session, body, now=None):
+    """`ticket.direct` (jen srdce): pokyn běžícímu dělníkovi jako položka zpětné vazby `heart.<severity>` bez odpovědi;
+    Kancelář ji doručí do relace (`heart.stop` zastaví běh). Událost `worker.message` jde do deníku karty."""
+    wanted, severity, text = direct_payload(body)
+    item_id, at, kind = "tf_" + uuid.uuid4().hex, tokens.stamp(now), "heart." + severity
+
+    def work(store):
+        ticket = _found(store, session, wanted)
+        if ticket["status"] not in ("claimed", "in_progress", "needs_answer"):
+            raise GateError(409, "ticket_state", f"Ticket ve stavu {ticket['status']} nemá běžícího dělníka.",
+                            "Pokyn jde jen ticketu, který dělník drží (claimed, in_progress, needs_answer).")
+        store.add_feedback(item_id, wanted, kind, text, session["id"], at)
+        # OP-3DAFF9.1: zásah srdce jde do deníku karty (nodeId = cardId), dělník ho čte ze zpětné vazby ticketu
+        emit_event(store.db, project_id=store.project, workspace_id=ticket["workspaceId"], kind="worker.message",
+                   node_id=ticket["machine"]["cardId"], execution_id=ticket["machine"]["executionId"],
+                   actor={"kind": "agent", "name": "heart"},
+                   data={"ticketId": wanted, "feedbackId": item_id, "severity": severity, "text": text})
+        return {"feedback": {"feedbackId": item_id, "kind": kind, "text": text, "answer": None, "from": "heart",
+                             "at": at}, "ticket": {"ticketId": wanted, "status": ticket["status"]}}
     return _write(service, session, work)
 
 

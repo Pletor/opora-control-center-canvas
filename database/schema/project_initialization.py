@@ -7,6 +7,7 @@ from database.schema.project_schema import (
     ensure_canvas_version_columns,
     ensure_milestone_proposed,
     ensure_ticket_columns,
+    ensure_ticket_feedback_heart,
 )
 
 
@@ -16,6 +17,7 @@ def initialize_project_schema(db):
     ensure_brief_fragment_columns(db)
     ensure_ticket_columns(db)
     ensure_milestone_proposed(db)
+    ensure_ticket_feedback_heart(db)
     from database.schema.milestone_lifecycle import ensure_milestone_lifecycle
     ensure_milestone_lifecycle(db)
     from database.schema.opora_review_gate_schema import ensure_review_job_kind

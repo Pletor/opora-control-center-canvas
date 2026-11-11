@@ -231,6 +231,32 @@ def adopt(db, workflow_id, project_id, node_id=None):
                  row["description"])
 
 
+def element_node(graph, node_id):
+    """Uzel prvku logiky (plátno 2): musí být v grafu projektu a mít `element`, jinak 404 / 422."""
+    node = next((item for item in graph.get("nodes", []) if item.get("id") == node_id), None)
+    if node is None:
+        raise FlowNotFound(f"Uzel {node_id!r} v grafu projektu není.")
+    if not isinstance(node.get("element"), dict):
+        raise FlowInvalid(f"Uzel {node_id!r} není prvek logiky (chybí element).")
+    return node
+
+
+def project_flow(db, project_id, node_id):
+    """Plátno logiky prvku: nejstarší tok projektu s `owner_ref = opora:project-flow:<nodeId>`, jinak None."""
+    row = db.execute("SELECT id FROM flow_workflows WHERE kind=? AND project_id=? AND owner_ref=? "
+                     "ORDER BY created_at, id LIMIT 1", (KIND, project_id, f"opora:project-flow:{node_id}")).fetchone()
+    return flow_detail(db, row["id"]) if row else None
+
+
+def create_project_flow(db, project_id, node_id, title):
+    """Prázdné plátno logiky prvku (bez verze, bez rodokmenu); druhé založení pro týž uzel vrátí existující."""
+    found = project_flow(db, project_id, node_id)
+    if found:
+        return found
+    created = create_workflow(db, KIND, title, project_id, f"opora:project-flow:{node_id}")
+    return flow_detail(db, created["id"])
+
+
 def contribute(db, workflow_id, folder_id, slug, title):
     """Uloží plátno (typicky kopii z projektu) do složky knihovny jako nový prvek s rodokmenem na zdroj."""
     folder = get_folder(db, folder_id)

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import type { DerivedJourney } from "../../domain-map/logic/derived-journeys";
-import { cardIcon, cardLife, cardStates, holesLabel } from "./card-state";
+import type { DerivedJourney } from "../../domain-site/logic/derived-journeys";
+import { cardLife, cardStates } from "./card-state";
 
 const node = (id: string, parentId: string | null, extra: Partial<CanvasNode> = {}): CanvasNode => ({ id, parentId, name: id, purpose: "", kind: "node", x: 0, y: 0, ...extra });
 const graph: Graph = { nodes: [
@@ -51,15 +51,5 @@ describe("card state for architecture cards", () => {
     expect(life.states.get("home")?.state).toBe("verified");
     expect(life.journeys?.map((journey) => journey.id)).toEqual(["j"]);
     expect(cardLife({ graph, doneIds: [], work: null, check: null, derived: null }).journeys).toBeNull();
-  });
-
-  it("picks Lucide icons by kind and layer", () => {
-    expect(["web", "home", "form", "api"].map((id) => cardIcon(graph.nodes.find((item) => item.id === id)!))).toEqual(["globe", "layout-dashboard", "monitor", "server-cog"]);
-    expect(cardIcon(node("s", "home", { kind: "sector" }))).toBe("list-ordered");
-  });
-
-  it("declines holes in Czech", () => {
-    expect([1, 3, 5].map((count) => holesLabel(count))).toEqual(["1 díra", "3 díry", "5 děr"]);
-    expect(holesLabel(3, 1)).toBe("3 díry · 1 v práci");
   });
 });

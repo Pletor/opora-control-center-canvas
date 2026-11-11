@@ -1,0 +1,183 @@
+/* Plátno stránky: člověk před sebou vidí stránku jako drátový model, ne mapu karet. Uprostřed leží „papír“ stránky
+   široký nejvýš 960 px, pod ním svislá čárkovaná vodítka 12 sloupců (jako na náčrtu layoutu), aby každý box
+   zjevně sedal na mřížku. Řádek mřížky je vysoký 32 px a mezi buňkami je vodorovně i svisle mezera 8 px (`ROW_PX`,
+   `GAP_PX` v logic/layout-grid.ts, výpočet buňky při tahu s ní počítá): boxy tak dýchají a dva sousedé nikdy nesplynou.
+   Papír má vlastní okraj, aby krajní boxy nelepily na rám. Ve vrstvě Logika nad papírem leží pruh Celá stránka. */
+.layout-canvas {
+  --layout-row: 32px;
+  --layout-gap: 8px;
+  --layout-pad: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 100%;
+  padding: 18px 22px 40px;
+}
+.layout-canvas__page {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--layout-pad);
+  border: 1px solid var(--ae-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ae-panel) 70%, #000);
+}
+.layout-canvas__guides {
+  position: absolute;
+  inset: var(--layout-pad);
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--layout-gap);
+  pointer-events: none;
+}
+.layout-canvas__guides span { border-inline: 1px dashed color-mix(in srgb, var(--ae-tone-security) 26%, transparent); }
+.layout-canvas__grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: var(--layout-row);
+  gap: var(--layout-gap);
+}
+/* Vnořená mřížka vyplní box pod jeho hlavičkou s odsazením od okraje rodiče (okraj, ne vnitřní odsazení: výpočet buňky
+   čte obdélník mřížky). Děti se počítají od ní a rodič kvůli nim sám povyroste o řádek hlavičky. */
+.layout-canvas__grid--nested { flex: 1; min-height: 0; margin: 2px 5px 5px; }
+/* Stín dopadu: během tahu čárkovaně ukáže buňky, kam box po puštění skočí, a sourozenci už stojí tam, kam uhnou. */
+.layout-canvas__shadow {
+  border: 2px dashed var(--ae-accent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--ae-accent) 14%, transparent);
+  pointer-events: none;
+}
+.layout-canvas__empty {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  width: min(420px, 85%);
+  margin: 0;
+  transform: translateX(-50%);
+  color: var(--ae-muted);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Pruh Celá stránka (jen vrstva Logika): široký cíl nad layoutem pro prvky, které nepatří jednomu boxu – kdo stránku
+   používá, kdo smí dovnitř. Čárkovaný rám říká, že sem jde něco pustit. */
+.layout-canvas__whole {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 960px;
+  min-height: 46px;
+  margin: 0 auto;
+  padding: 8px 12px;
+  border: 1px dashed var(--ae-accent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ae-accent) 8%, transparent);
+}
+.layout-canvas__whole-title { margin-right: 6px; color: var(--ae-accent); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+.layout-canvas__hint { color: var(--ae-muted); font-size: 11px; }
+
+/* Box layoutu: obdélník v barvě své role, aby šlo hlavičku, obsah a patičku rozeznat bez čtení. Nahoře řádek s
+   názvem, rolí a ✕; ve vrstvě Layout jde box chytit kdekoli a táhnout, úchyt vpravo dole mění velikost. Tažený box se
+   zvedne stínem, aby bylo vidět, co člověk drží. Ve vrstvě Logika je box cílem a nese štítky prvků. */
+.layout-canvas__box {
+  --box-tone: var(--ae-cyan);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid color-mix(in srgb, var(--box-tone) 70%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--box-tone) 13%, var(--ae-panel));
+  overflow: hidden;
+}
+.layout-canvas__box--header, .layout-canvas__box--nav, .layout-canvas__box--footer { --box-tone: var(--ae-tone-infrastructure); }
+.layout-canvas__box--hero, .layout-canvas__box--cta { --box-tone: var(--ae-tone-frontend); }
+.layout-canvas__box--form { --box-tone: var(--ae-tone-backend); }
+.layout-canvas__box--aside { --box-tone: var(--ae-tone-cache); }
+.layout-canvas__box--gallery, .layout-canvas__box--proof, .layout-canvas__box--faq { --box-tone: var(--ae-tone-database); }
+.layout-canvas__box--movable { cursor: grab; touch-action: none; user-select: none; }
+.layout-canvas__box--dragging { z-index: 5; cursor: grabbing; box-shadow: 0 10px 28px #000a; }
+/* Box vytahovaný z rodiče ven zůstane vidět celý, i když už leží pod hranou rodiče. */
+.layout-canvas__box:has(.layout-canvas__box--dragging) { z-index: 5; overflow: visible; }
+.layout-canvas--logic .layout-canvas__box:hover { border-color: var(--box-tone); }
+/* Hlavička je jeden řádek, který nikdy nepřeteče: název má přednost a končí výpustkou (celý je v titulku), role a
+   značky ustoupí dřív než název a ✕ zůstane vždy vidět. */
+.layout-canvas__box-head { display: flex; flex-shrink: 0; align-items: center; gap: 6px; min-width: 0; height: 24px; padding: 0 8px; font-size: 11px; }
+.layout-canvas__box-name { flex: 0 1 auto; min-width: 2.5em; overflow: hidden; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+.layout-canvas__box-role { flex: 0 100 auto; min-width: 0; overflow: hidden; color: color-mix(in srgb, var(--box-tone) 75%, var(--ae-text)); font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
+.layout-canvas__box-remove { flex-shrink: 0; padding: 0 5px; border: 0; background: transparent; color: var(--ae-muted); font-size: 11px; }
+.layout-canvas__box-remove:hover { color: var(--ae-tone-security); }
+/* Vybraný box svítí akcentem, protože jeho podrobnosti právě leží vpravo v Detailu boxu. Návrh od agenta nebo skenu
+   má čárkovaný rám: je to nabídka, ne hotová věc, a čeká, až ji člověk přijme nebo zahodí. */
+.layout-canvas__box--selected { border-color: var(--ae-accent); box-shadow: 0 0 0 1px var(--ae-accent); }
+.layout-canvas__box--proposed { border-style: dashed; border-width: 2px; }
+
+/* Značky v hlavičce boxu shrnou, co box nese, bez otevírání detailu: skica ✎, počet inspirací, počet prvků s milníkem
+   nejpomalejšího z nich a zelené Ověřeno. Jsou drobné a tlumené, aby název boxu zůstal tím hlavním. */
+.layout-canvas__box-badges { display: flex; flex: 0 100 auto; gap: 4px; min-width: 0; margin-left: auto; overflow: hidden; }
+.layout-canvas__badge { color: var(--ae-muted); font-size: 10px; white-space: nowrap; }
+.layout-canvas__badge--proposed { color: var(--ae-cyan); font-weight: 700; }
+.layout-canvas__badge--verified { color: var(--studio-state-verified, var(--ae-accent)); font-weight: 700; }
+/* Štítky prvků v boxu se zalamují do řádků, kolik jich box pojme; co se nevejde, shrne tlumené „+N“ (názvy v titulku).
+   Box s vnořenými boxy (nebo nízký box) nese štítky v řádku hlavičky, aby nikdy neležely přes děti. */
+.layout-canvas__box-chips { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 4px; min-height: 0; padding: 2px 8px 6px; overflow: hidden; }
+.layout-canvas__box-chips--head { flex: 1 1 0; flex-wrap: nowrap; padding: 0; }
+.layout-canvas__more { flex-shrink: 0; align-self: center; padding: 1px 6px; border-radius: 999px; background: var(--ae-card); color: var(--ae-muted); font-size: 10px; }
+.layout-canvas__box-resize {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid var(--box-tone);
+  border-bottom: 2px solid var(--box-tone);
+  border-radius: 0 0 5px;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+/* Štítek prvku logiky: malý čip se symbolem otázky, druhem a názvem, aby box zůstal čitelný i s pěti prvky. Tři tečky
+   vpravo jsou milníky Návrh → Realizace → Ověření (plná = hotovo, kroužek = teď). Vybraný štítek svítí akcentem. */
+.layout-canvas__chip {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  border: 1px solid var(--ae-line);
+  border-radius: 999px;
+  background: var(--ae-card);
+  touch-action: none;
+  user-select: none;
+}
+.layout-canvas__chip--selected { border-color: var(--ae-accent); box-shadow: 0 0 0 1px var(--ae-accent); }
+.layout-canvas__chip-body { display: inline-flex; align-items: center; gap: 5px; min-width: 0; padding: 2px 4px 2px 8px; border: 0; background: transparent; font-size: 11px; cursor: grab; }
+.layout-canvas__chip-icon { flex-shrink: 0; color: var(--ae-accent); }
+.layout-canvas__chip-kind { color: var(--ae-muted); white-space: nowrap; }
+.layout-canvas__chip-name { overflow: hidden; font-weight: 650; white-space: nowrap; text-overflow: ellipsis; }
+.layout-canvas__chip-steps { display: inline-flex; gap: 2px; margin-left: 2px; }
+.layout-canvas__chip-step { width: 6px; height: 6px; border: 1px solid var(--ae-muted); border-radius: 50%; }
+.layout-canvas__chip-step--done { border-color: var(--ae-accent); background: var(--ae-accent); }
+.layout-canvas__chip-step--now { border-color: var(--ae-accent); }
+.layout-canvas__chip-remove { padding: 0 7px 0 3px; border: 0; background: transparent; color: var(--ae-muted); font-size: 10px; }
+.layout-canvas__chip-remove:hover { color: var(--ae-tone-security); }
+/* Kolečko Nastavit logiku (`project-flows__logic`) bez plátna se ukáže nad štítkem a u vybraného štítku, jinak štítek mlčí. */
+.layout-canvas__chip:hover .project-flows__logic--compact, .layout-canvas__chip--selected .project-flows__logic--compact { opacity: 1; }
+
+/* Pod hlavičkou boxu jeho text: funkčnost (co box dělá a pro koho).
+   Text se vejde do výšky boxu a zbytek schová, celý je v titulku; box tak zůstane drátovým modelem, ne dokumentem. */
+.layout-canvas__box-text {
+  display: -webkit-box;
+  min-height: 0;
+  margin: 0;
+  padding: 0 8px 4px;
+  overflow: hidden;
+  color: var(--ae-muted);
+  font-size: 10.5px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}

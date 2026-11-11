@@ -13,8 +13,8 @@ LAYERS = ("fe", "be", "db", "api", "cache", "infra", "security", "data", "ops")
 VERDICTS, CONFIDENCE = ("feasible", "dead_end", "unrealistic", "unverified"), ("low", "medium", "high")
 NEXT = ("plan", "spike", "duel", "ask", "stop")
 MAX_FACTS_CHARS, MAX_APPROACH = 12000, 8000
-# Výzkumník i pod-volání: bez tokenu srdce, adresy OPORY a klíčů API (běží pod předplatným, OPORU nemění).
-STRIPPED = ("OPORA_HEART_TOKEN", "OPORA_BASE_URL", "ANTHROPIC_API_KEY", "TYPESAFE_API_KEY", "CELERIS_API_KEY",
+# Výzkumník i pod-volání: bez tokenu srdce, adresy OPORY a cizích klíčů API; ANTHROPIC_API_KEY projde (OPORU nemění).
+STRIPPED = ("OPORA_HEART_TOKEN", "OPORA_BASE_URL", "TYPESAFE_API_KEY", "CELERIS_API_KEY",
             "OPORA_RLM_LOG")
 DISTILL = """Jsi syntetik výzkumu. Z OVĚŘENÝCH faktů (kód zkontroloval citace proti zdrojům) sestav digest.
 Nic nepřidávej z hlavy: co fakta nedokládají, patří do hypotheses (s tím, co změřit).

@@ -4,7 +4,7 @@ Determinismus jen ukáže, kde sám nestačí; posouzení je práce srdce. Pří
 je samostatná, zvlášť měřená změna (lekce m11: měnit, co srdce dostává, po jedné). Vstupem jsou běhy z
 `card_trail.project_trail`, nejnovější první. Důvod je pevná šablona, ne text modelu (`source: det`).
 """
-from fnmatch import fnmatchcase
+from backend.canvas.plan_reality import outside as outside_of
 
 RED_LIMIT = 2
 FILES_SHOWN = 20
@@ -13,17 +13,6 @@ FINISHED = ("reported", "released", "revoked", "expired", "delivered", "verified
 
 def _red(step):
     return step["status"] == "failed" or any(check["status"] == "red" for check in step["checks"])
-
-
-def allowed_path(path, patterns):
-    """Soubor patří do `files` kroku: přesná cesta, glob (`*` i přes `/`) nebo složka končící `/`."""
-    for pattern in patterns:
-        text = str(pattern).replace("\\", "/")
-        if path == text or fnmatchcase(path, text) or (text.endswith("/") and path.startswith(text)):
-            return True
-        if text.endswith("/**") and path.startswith(text[:-2]):
-            return True
-    return False
 
 
 def red_twice(runs):
@@ -69,7 +58,7 @@ def files_mismatch(done):
         patterns, changed = step.get("allowed"), step.get("files")
         if not patterns or changed is None:
             continue
-        outside = [path for path in changed if not allowed_path(path, patterns)]
+        outside = outside_of(changed, patterns)  # výpočet ujetí sdílí folie (plan_reality)
         if outside:
             flags.append({"code": "files_mismatch", "stepId": step_id, "executionId": run["executionId"],
                           "source": "det", "outside": outside[:FILES_SHOWN],

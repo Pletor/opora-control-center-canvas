@@ -8,6 +8,7 @@ from backend.agi_pletor.linie.test_board import NO_PR
 from backend.agi_pletor.linie.test_merge import GREEN
 from backend.agi_pletor.linie.test_work import BODY, NOW, agent_commit, refused, setup  # noqa: F401 (fixture)
 from backend.canvas.canvas_service import CanvasService
+from database.repositories.tickets import TicketStore
 
 CARD = {"id": "karta", "kind": "node", "name": "Karta plánu"}
 PAGE = {"id": "stranka", "kind": "node", "name": "Stránka"}
@@ -120,6 +121,25 @@ def test_attach_freezes_issued_and_accept_pairs_sha_with_card_revision(carded):
     assert again["work"]["acceptance"]["cardRevision"] == 3 and again["work"]["mergeAllowed"] is None
     assert [item["cardRevision"] for item in again["work"]["acceptanceHistory"]] == [2]  # staré přijetí v historii
     assert again["summary"]["key"] == "accepted"
+
+
+def test_create_with_card_id_links_ticket_and_unknown_card_is_422(carded):
+    service, repo, editor, _, _ = carded
+    row = rows.add(service.root, "draft", "Nový", "work")["id"]
+
+    def make(branch, **extra):
+        return work.create(service, "draft", "main", BODY, {"rowId": row, "branch": branch, "baseBranch": "develop",
+                                                            **extra}, NOW, root=repo)
+    linked = make("feat/s-kartou", cardId="karta")
+    found = TicketStore(service.db_for("draft"), "draft").for_card("main", "karta")
+    assert linked["ticketId"] in [t["ticketId"] for t in found] and linked["machine"]["cardId"] == "karta"
+    assert linked["work"]["issued"] == {"cardId": "karta", "cardRevision": 2, "at": NOW}
+    assert linked["plan"]["state"] == "linked"
+    for bad in ("neznama", "stranka-neni"):
+        error = refused(lambda: make("feat/bez-karty", cardId=bad))
+        assert error.status == 422 and error.code == "card_not_found"
+    plain = make("feat/bez-cardid")  # beze změny: bez karty plánu
+    assert plain["machine"]["cardId"] is None and plain["work"]["issued"] == {"cardId": None, "cardRevision": None, "at": NOW}
 
 
 def test_deleted_card_is_card_missing_not_without_plan(carded):

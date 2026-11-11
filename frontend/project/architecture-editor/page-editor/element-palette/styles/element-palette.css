@@ -1,0 +1,10 @@
+/* Paleta logiky: pod Strukturou stojí šest otázek, které si člověk o stránce klade (kdo, kdo smí, co musí splnit,
+   co se děje, s čím, napojení). Každá otázka má symbol a pod ní čipy druhů po dvou, takže panel je krátký a člověk
+   hledá podle otázky, ne podle technického druhu. Čip jde kliknout (celá stránka) nebo táhnout do boxu. */
+.element-palette { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-top: 1px solid var(--ae-line); }
+.element-palette__title { margin: 0 2px 2px; color: var(--ae-muted); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+.element-palette__group { display: flex; flex-direction: column; gap: 5px; }
+.element-palette__question { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 650; }
+.element-palette__icon { flex-shrink: 0; color: var(--ae-accent); }
+.element-palette__kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.element-palette__kind { padding: 5px 6px; font-size: 11px; text-align: left; cursor: grab; touch-action: none; user-select: none; }

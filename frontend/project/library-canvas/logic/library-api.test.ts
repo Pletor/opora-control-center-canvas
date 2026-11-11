@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const api = vi.fn();
 vi.mock("@/shared/types/logic/types", () => ({ api: (...args: unknown[]) => api(...args) }));
-const { activateVersion, adoptFlow, libraryUrls, loadLibrary, placeOf, slugOf } = await import("./library-api");
+const { activateVersion, adoptFlow, createElementFlow, libraryUrls, loadLibrary, placeOf, slugOf } = await import("./library-api");
 
 describe("library API", () => {
   beforeEach(() => api.mockReset());
@@ -17,6 +17,8 @@ describe("library API", () => {
     api.mockResolvedValue({});
     await adoptFlow("w", "p", "");
     expect(api).toHaveBeenLastCalledWith("/api/library/flows/w/adopt", { project: "p" });
+    await createElementFlow("p", "w1", "koupit", "Koupit kurz");
+    expect(api).toHaveBeenLastCalledWith("/api/library/project-flows", { project: "p", workspace: "w1", nodeId: "koupit", title: "Koupit kurz" });
     api.mockClear();
     await activateVersion({ id: "v", status: "draft" } as never);
     expect(api.mock.calls.map((call) => call[0])).toEqual(["/api/flow/versions/v/candidate", "/api/flow/versions/v/activate"]);

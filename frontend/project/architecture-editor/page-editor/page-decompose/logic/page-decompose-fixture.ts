@@ -1,7 +1,7 @@
 // Společná testovací mapa rozkladu stránky: doména „web“ s cestou Kampaň přes stránku Pěstování na Kontakt,
 // komponenta Výzva v sekci cta, podstránka Rajčata (její komponenta k Pěstování nepatří) a nálezy kontroly mapy.
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import type { MapCheck } from "../../../domain-map/map-check/logic/map-check";
+import type { MapCheck } from "../../../domain-site/map-check/logic/map-check";
 
 const node = (id: string, parentId: string | null, name: string, extra: Partial<CanvasNode> = {}): CanvasNode =>
   ({ id, parentId, kind: "node", name, purpose: "", x: 0, y: 0, ...extra });

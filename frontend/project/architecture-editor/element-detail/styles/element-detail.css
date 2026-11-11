@@ -73,7 +73,7 @@
 .element-detail__pane { display: flex; flex-direction: column; gap: 12px; }
 
 /* Záložka Stránka začíná připomínkou, na kterých cestách stránka leží a k jakému posunu slouží: tiché řádky
-   s tyrkysovou tečkou, jen ke čtení, protože cesty se mění v trychtýři na mapě domény. Pod nimi stejný
+   s tyrkysovou tečkou, jen ke čtení, protože cesty se tu jen čtou. Pod nimi stejný
    formulář jako identita (cíl, působení, popisek v menu, sekce) s uložením vpravo dole. */
 .element-detail__journeys { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
 .element-detail__journey { position: relative; padding-left: 12px; font-size: 12px; overflow-wrap: anywhere; }

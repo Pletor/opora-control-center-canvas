@@ -1,13 +1,12 @@
-// Stav a ikona karty Editoru architektury ve stejném jazyce jako Studio (docs/studio.md §2): plán, staví se, hotovo,
+// Stav karty Editoru architektury ve stejném jazyce jako Studio (docs/studio.md §2): plán, staví se, hotovo,
 // ověřeno, díra. Nic se tu neodvozuje po svém: strom, fakta i pravidla jsou Studia (`studio-tree`, `studio-facts`,
-// `studio-status`, `card-view`); tady se jen přiřadí uzlům grafu, aby Editor stránky i Mapa domény četly stav stejně
+// `studio-status`, `card-view`); tady se jen přiřadí uzlům grafu, aby plátno 2 (plán stránky) četlo stav stejně
 // jako plátno Studia. Čistá logika bez Reactu.
-import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { buildStudioTree, type StudioKind } from "@/project/studio/logic/studio-tree";
+import type { Graph } from "@/shared/types/logic/types";
+import { buildStudioTree } from "@/project/studio/logic/studio-tree";
 import { cardStatus, type StudioFacts, type StudioJourney, type StudioState } from "@/project/studio/logic/studio-status";
 import { studioFacts, type StudioFactsInput } from "@/project/studio/logic/studio-facts";
-import { holesLine, iconFor, STATE_LABEL, summaryLine } from "@/project/studio/studio-card/logic/card-view";
-import type { StudioIconName } from "@/project/studio/studio-card/logic/studio-icons";
+import { STATE_LABEL, summaryLine } from "@/project/studio/studio-card/logic/card-view";
 import type { GuardTally } from "@/project/studio/studio-guards/logic/guard-tally";
 import type { WorktreeTally } from "@/project/studio/studio-worktree/logic/worktree-tally";
 
@@ -49,12 +48,3 @@ export function cardLife(input: StudioFactsInput): CardLife {
   const facts = studioFacts(input);
   return { states: cardStates(input.graph, facts), journeys: input.derived ? facts.journeys : null };
 }
-
-/** Ikona druhu karty (Lucide jako ve Studiu): doména, stránka, sektor jako seznam, komponenta podle vrstvy. */
-export function cardIcon(node: CanvasNode): StudioIconName {
-  const kind: StudioKind = node.site?.kind === "application" ? "domain" : node.site?.kind === "page" ? "page" : node.kind === "sector" ? "section" : "component";
-  return iconFor({ id: node.id, kind, name: node.name, purpose: node.purpose, node, pageId: null, domainId: null });
-}
-
-/** „1 díra“, „3 díry“, „5 děr“, s prací ve worktree „3 díry · 1 v práci“, jako odznak v patě karty Studia. */
-export const holesLabel = (holes: number, inWork = 0) => holesLine(holes, inWork);

@@ -783,6 +783,9 @@ def test_architecture_slice_only_under_a_page_and_a_new_journey_keeps_the_contex
             "out": [{"carries": "command", "to": "POST /api/poptavka"}], "states": ["prázdno", "chyba"]}
         assert "architecture" not in brief(client, "api").json()
         assert brief(client, "kontakt").json()["architecture"]["page"]["path"] == "/kontakt"  # stránka je svou stránkou
+        # Plán stránky plátna 2: zkrácený layout jen u stránky (formulář nemá element, do logiky nepatří).
+        assert brief(client, "kontakt").json()["pagePlan"]["layout"] == ["form: cta „Formulář“ draft – Jméno a e-mail"]
+        assert "pagePlan" not in plain and "pagePlan" not in brief(client, "dekujeme").json()
         steps = [{"id": "vstup", "page": "kontakt", "label": "Vstupní stránka", "via": {"do": "open"},
                   "shift": "Z „asi bych měl“ na „chci prohlídku“.", "objection": "Bojí se telefonátů."},
                  {"id": "dik", "page": "dekujeme", "label": "Poděkování",

@@ -44,7 +44,8 @@ MAX_TURNS = 40
 # Write a Edit jsou tu kvůli skriptům dílny; povolené jsou jen v `allow` nastavení (`settings`).
 TOOLS = "Read,Grep,Glob,Bash,Write,Edit"
 ALLOWED_TOOLS = f"Read,Grep,Glob,Bash(python {TOOL_NAME}:*)"
-STRIPPED = ("ANTHROPIC_API_KEY", "TYPESAFE_API_KEY", "CELERIS_API_KEY")
+# ANTHROPIC_API_KEY (+ ANTHROPIC_CUSTOM_HEADERS s workspace) projde: organizace má vypnuté předplatné pro Claude Code.
+STRIPPED = ("TYPESAFE_API_KEY", "CELERIS_API_KEY")
 SECRETS = ("Read(**/.env)", "Read(**/.env.*)", "Read(**/*.pem)", "Read(**/*.key)")
 SETTINGS_FILE, MCP_FILE = "heart-settings.json", "heart-mcp.json"
 # MCP výzkumníka (§3c): jen server REA, stejná definice jako `.agent-office/rea-mcp.json` v kořeni repozitáře

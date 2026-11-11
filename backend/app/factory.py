@@ -35,8 +35,11 @@ from backend.api.editor.desktop_review_routes import create_desktop_review_route
 from backend.api.editor.working_review_routes import create_working_review_router
 from backend.api.editor.research_read_routes import create_research_read_router
 from backend.api.editor.canvas_routes import create_canvas_router
+from backend.api.project.page_plan_routes import create_page_plan_router
 from backend.api.editor.canvas_version_routes import create_canvas_version_router
 from backend.api.editor.card_trail_routes import create_card_trail_router
+from backend.api.editor.live_card_routes import create_live_card_router
+from backend.api.editor.plan_reality_routes import create_plan_reality_router
 from backend.api.editor.claude_code_routes import create_claude_code_router
 from backend.api.editor.code_intelligence_routes import create_code_intelligence_router
 from backend.api.editor.desktop_v3_routes import create_desktop_v3_router
@@ -459,6 +462,7 @@ def create_app(data_root=None):
     app.include_router(create_graphify_router(service))
     app.include_router(create_map_refresh_router(map_refresh))
     app.include_router(create_project_architecture_router(service))
+    app.include_router(create_page_plan_router(service))  # plán stránky plátna 2: layout, stav boxu, sken přes REA
     # prostředí Editor
     app.include_router(create_canvas_router(service))
     app.include_router(create_storyboard_router(storyboards))
@@ -518,6 +522,8 @@ def create_app(data_root=None):
     # Živý tok událostí OporaHubu (outbox, kurzor + SSE), jen čtení (docs/oporahub-events.md)
     app.include_router(create_opora_event_router(service))
     app.include_router(create_card_trail_router(service))  # stopa práce karty, jen čtení (docs/stopa-prace-karty.md)
+    app.include_router(create_live_card_router(service, app.state.pletor))  # živá karta K1 (docs/navrhy/2026-11-11-platno-3-folie.md)
+    app.include_router(create_plan_reality_router(service))  # folie z kódu F1 (docs/navrhy/2026-11-11-platno-3-folie.md)
     app.include_router(create_process_event_router(service, memory_status=memory_service.status))
     app.include_router(create_harness_learning_router(service))
     app.include_router(create_execution_observer_router(service))

@@ -39,6 +39,7 @@ a thin layer with no logic of its own. Measured problems it addresses:
 | `ticket.issue` | heart | the work body + `cardId` | `{ticket}` |
 | `ticket.cancel` | heart | `{ticketId}` | `{ticket}` |
 | `ticket.answer` | heart | `{ticketId, feedbackId, text}` | `{ticket}` |
+| `ticket.direct` | heart | `{ticketId, severity, text}` (severity `hint`, `course` or `stop`, text ≤ 2000) | `{ticket, feedback}`; adds feedback item `heart.<severity>` and event `worker.message` on the card |
 | `escalate` | heart | `{text}` | `{ticket}` |
 
 How the kinds are served:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { JourneyLastRun } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
+import type { JourneyLastRun } from "@/project/architecture-editor/domain-site/logic/derived-journeys";
 import type { StudioJourney } from "../../logic/studio-status";
 import { freshPasses, journeyKey, runFailures, runningHops, runStamps } from "./run-events";
 

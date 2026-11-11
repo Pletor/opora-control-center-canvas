@@ -14,13 +14,13 @@ const route = (values: Record<string, string>) => new URLSearchParams(values);
 
 describe("editor route", () => {
   it("opens the landing without parameters", () => {
-    expect(resolveEditorRoute(graph, route({}), "p", "main")).toEqual({ domainId: null, pageId: null, selectedId: null, structureId: null });
+    expect(resolveEditorRoute(graph, route({}), "p", "main")).toEqual({ domainId: null, pageId: null, selectedId: null });
   });
 
-  it("keeps domain, page, selection and structure from the link", () => {
+  it("keeps domain, page and selection from the link and ignores the old structure parameter", () => {
     const editorId = architectureEditorId("p", "w1", "app");
     expect(resolveEditorRoute(graph, route({ editorId, domainId: "app", pageId: "home", architectureNode: "card", structureNode: "card" }), "p", "w1"))
-      .toEqual({ domainId: "app", pageId: "home", selectedId: "card", structureId: "card" });
+      .toEqual({ domainId: "app", pageId: "home", selectedId: "card" });
   });
 
   it("derives the domain from a page and rejects foreign or invalid links", () => {

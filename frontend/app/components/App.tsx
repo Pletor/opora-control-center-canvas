@@ -460,7 +460,7 @@ export default function App() {
     const switchedScope = (currentRoute.has("project") && currentRoute.get("project") !== project) || (currentRoute.has("workspace") && currentRoute.get("workspace") !== workspace);
     // The standalone editor owns these fields. Preserve invalid explicit IDs for its validation.
     if (!switchedScope || currentRoute.get("editorId") === architectureEditorId(project, workspace, currentRoute.get("domainId") || undefined)) {
-      for (const name of ["editorId", "domainId", "pageId", "architectureNode", "structureNode"]) {
+      for (const name of ["editorId", "domainId", "pageId", "architectureNode", "structureNode", "boxId", "look"]) {
         if (currentRoute.has(name)) q.set(name, currentRoute.get(name)!);
       }
     }
@@ -868,11 +868,10 @@ export default function App() {
     setParent(id);
     setSelection(emptySelection());
   }
-  /** Dvojklik na kartu otevře jednotný detail; sektor a stránka dál vedou do vnitřního plátna. */
+  /** Dvojklik na kartu (i sektor a stránku) otevře živou kartu; vnitřní plátno otevírá inspektor „Otevřít vnitřní plátno“. */
   function enterOrDetail(id: string) {
-    const target = graph.nodes.find((n) => n.id === id);
-    if (target?.kind === "node" && !target.site && !target.element) { openNode(id); openCardDrawer(id); return; }
-    enter(id);
+    openNode(id);
+    openCardDrawer(id);
   }
   // Potvrzení navrženého uzavření karty (starší desktop-v3 tok, akce karty `confirm`).
   const confirmProposalNow = (id: string) => desktop.mutate(confirmProposal(id));
@@ -1597,7 +1596,8 @@ export default function App() {
       <CardDrawerHost project={project} workspace={workspace} nodes={graph.nodes} editor={{
         readOnly: !view || view.readOnly, busy, workspaces: view?.workspaces ?? [], resultRevision: desktop.revision, specRefreshRevision: planAppliedRevision,
         onSave: (n) => run(() => save({ ...graph, nodes: graph.nodes.map((old) => (old.id === n.id ? n : old)) })),
-        onCloseCard: closeCardNow,
+        onCloseCard: closeCardNow, onAskHeart: answerHeart,
+        onEnterCanvas: (id) => { enter(id); if (mode === "map") setMode("structure"); },
         onWorkspace: () => open("workspace"), onOpenNode: openNode, onOpenVault: openVault,
         fragmentRefs: (id) => desktop.state.nodes[id]?.fragmentRefs,
       }} />

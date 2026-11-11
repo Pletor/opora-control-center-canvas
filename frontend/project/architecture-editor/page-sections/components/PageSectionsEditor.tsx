@@ -1,11 +1,11 @@
 import type { PageSectionRole, PageSite } from "@/shared/types/logic/types";
-import { MAX_PAGE_SECTIONS, SECTION_MOVES_MAX, SECTION_ROLE_LABELS, addSection, moveSection, removeSection, updateSection } from "../../domain-map/logic/page-site";
+import { MAX_PAGE_SECTIONS, SECTION_MOVES_MAX, SECTION_ROLE_LABELS, addSection, moveSection, removeSection, updateSection } from "../../domain-site/logic/page-site";
 import "../styles/page-sections.css";
 
 const ROLES = Object.keys(SECTION_ROLE_LABELS) as PageSectionRole[];
 
 /** Sekce stránky, které si člověk skládá sám: blok na sekci (role, název, záměr, nahoru, dolů, odebrat a pod tím „Čím posouvá“)
- * a pod seznamem „Přidat sekci“. Sdílí ho formulář stránky na mapě domény i záložka Stránka v Detailu prvku.
+ * a pod seznamem „Přidat sekci“. Sdílí ho formulář stránky ve Struktuře plátna 2 i záložka Stránka v Detailu prvku.
  * Dostane celý `site` a každou změnu vrací jako celý `site` (stejně jako `PageIntentFields`); ukládá rodič. */
 export default function PageSectionsEditor({ site, disabled, onChange }: { site: PageSite; disabled: boolean; onChange: (site: PageSite) => void }) {
   const sections = site.sections ?? [];

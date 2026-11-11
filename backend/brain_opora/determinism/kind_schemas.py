@@ -51,8 +51,10 @@ MACHINE = obj({"cardId": nullable(ID), "executionId": nullable(ID), "cardVersion
                "predecessors": NEIGHBORS, "pins": {"type": "array", "items": PIN}, "intent": INTENT,
                "design": DESIGN},
               ("cardId", "executionId", "cardVersion", "department", "profile", "successors", "predecessors", "pins"))
-FEEDBACK_KIND = {"type": "string", "enum": ["bug", "idea", "improvement", "question"]}
-FEEDBACK_ITEM = obj({"feedbackId": ID, "kind": FEEDBACK_KIND, "text": TEXT, "answer": ANY},
+FEEDBACK_KIND = {"type": "string", "enum": ["bug", "idea", "improvement", "question", "heart.hint", "heart.course",
+                                           "heart.stop"]}
+FEEDBACK_ITEM = obj({"feedbackId": ID, "kind": FEEDBACK_KIND, "text": TEXT, "answer": ANY,
+                     "from": {"type": "string", "enum": ["worker", "heart"]}, "at": {"type": "string"}},
                     ("feedbackId", "kind", "text", "answer"))
 WORK_STATUS = obj({"ticketId": ID, "status": {"type": "string", "enum": STATES}}, ("ticketId", "status"))
 WORKER_TICKET = obj({**WORK_STATUS["properties"], "body": WORK_BODY, "machine": MACHINE,
@@ -117,6 +119,13 @@ SCHEMAS = {
                                                      "{ticketId, status} ticketu práce."},
                            "feedback": FEEDBACK_ITEM}, ("ticket",)),
                       {"ticketId": "gt_example", "text": "Ano, pokračujte."}),
+    "ticket.direct": (obj({"ticketId": ID, "severity": {"type": "string", "enum": ["hint", "course", "stop"]},
+                           "text": {**TEXT, "maxLength": 2000}}, ("ticketId", "severity", "text")),
+                      obj({"ticket": WORK_STATUS,
+                           "feedback": obj(FEEDBACK_ITEM["properties"], ("feedbackId", "kind", "text", "answer",
+                                                                         "from", "at"))}, ("ticket", "feedback")),
+                      {"ticketId": "tk_example", "severity": "course",
+                       "text": "Drž se souborů karty, sdílený styl neměň."}),
     "escalate": (obj({"text": TEXT}, ("text",)), obj({"ticket": TICKET}, ("ticket",)),
                  {"text": "Požadavek chce třetí stránku, záměr mluví o dvou. Rozhodněte prosím."}),
 }

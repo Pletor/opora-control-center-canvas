@@ -2,8 +2,8 @@
 // z cest domény (`site.journeys`), stránek a odvození backendu (`derivedJourneys`, §6 a docs/brana-cesty.md §4) sestaví
 // zastávky a přechody s realizací a stavem podle posledního ověření. Popisky stránek a signál `via` sdílí s trychtýřem.
 import type { ApplicationSite, CanvasNode, CustomerJourney } from "@/shared/types/logic/types";
-import { FROM_NAV, previousStepId, stepName, stepPageLabel, stepSignal } from "@/project/architecture-editor/domain-map/logic/journeys";
-import type { DerivedJourney } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
+import { FROM_NAV, previousStepId, stepName, stepPageLabel, stepSignal } from "@/project/architecture-editor/domain-site/logic/journeys";
+import type { DerivedJourney } from "@/project/architecture-editor/domain-site/logic/derived-journeys";
 
 /** Stav přechodu podle posledního dokladu: prošel, neprošel (první neúspěšný), zastaralý doklad, nebo bez důkazu. */
 export type TransitionState = "passed" | "failed" | "stale" | "unverified";

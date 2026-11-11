@@ -141,3 +141,10 @@ def test_card_with_three_steps_and_two_files_stays_s():
     steps = [step(1, files=["a.py"]), step(2, files=["b.py"]), step(3, kind="test")]
     run = g.profile(titled, graph([titled]), steps, config=CONFIG)
     assert (run["label"], run["evidence"], run["points"]) == ("S", "ok", 4.0)
+
+
+def test_attach_passes_observed_card_cost_and_keeps_null_without_it():
+    entries = [{"nodeId": "a", "steps": {"total": 1, "done": 0}, "dod": {}}, {"nodeId": "b"}]
+    shown = g.attach(entries, graph([node("a"), node("b")]), [], {}, [], 0.0, {"a": 1.25})
+    assert [item["gauge"]["costUsd"] for item in shown] == [1.25, None]
+    assert g.attach(entries, graph([node("a"), node("b")]), [], {}, [], 0.0)[0]["gauge"]["costUsd"] is None

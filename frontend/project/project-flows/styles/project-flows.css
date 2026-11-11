@@ -8,3 +8,27 @@
 .project-flows__open:hover { text-decoration: underline; }
 .project-flows__from { color: var(--ae-muted, var(--ink-muted)); font-size: 10px; }
 .project-flows__newer { color: var(--gold); font-size: 10px; font-weight: 600; }
+
+/* NASTAVIT LOGIKU (prvek `project-flows__logic`)
+   Logika prvku žije na plátně toku, proto k ní vede jedno ozubené kolečko. V Detailu prvku je to celá řádka s větou,
+   na štítku v boxu jen ⚙: značka, když plátno už existuje (prvek má nastavenou logiku); bez plátna je kolečko schované
+   a objeví se až nad štítkem nebo u vybraného štítku (`layout-canvas`), aby štítky v boxu nekřičely. */
+.project-flows__logic { justify-self: start; padding: 4px 8px; border: 1px solid var(--ae-line, var(--line)); border-radius: 6px; background: none; color: var(--ae-text, inherit); font: inherit; font-size: 12px; cursor: pointer; }
+.project-flows__logic--set { border-color: var(--ae-tone-backend, var(--accent)); color: var(--ae-tone-backend, var(--accent)); }
+.project-flows__logic--compact { padding: 0 3px; border: 0; color: var(--ae-muted, var(--ink-muted)); font-size: 11px; opacity: 0; }
+.project-flows__logic--compact:hover, .project-flows__logic--compact:focus-visible, .project-flows__logic--compact.project-flows__logic--set { opacity: 1; }
+.project-flows__logic--compact.project-flows__logic--set { color: var(--ae-tone-backend, var(--accent)); }
+
+/* OKNO NASTAVIT LOGIKU (blok `project-flows-dialog`)
+   Prvek bez plátna: malé okno uprostřed, které se ptá jen na jedno – začít s prázdným plátnem, nebo vzít hotové
+   z knihovny. Hlavní volba je zvýrazněná, výběr z knihovny se rozbalí až na požádání. Zbytek obrazovky ztmavne. */
+.project-flows-dialog { width: min(440px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--ae-line, var(--line)); border-radius: 12px; background: var(--ae-panel, var(--bg)); color: var(--ae-text, inherit); }
+.project-flows-dialog::backdrop { background: #000a; }
+.project-flows-dialog__body { display: flex; flex-direction: column; gap: 12px; padding: 18px; }
+.project-flows-dialog__title { margin: 0; font-size: 16px; }
+.project-flows-dialog__hint { margin: 0; color: var(--ae-muted, var(--ink-muted)); font-size: 12px; }
+.project-flows-dialog__actions, .project-flows-dialog__pick { display: flex; flex-wrap: wrap; gap: 8px; }
+.project-flows-dialog__pick select { flex: 1; min-width: 0; }
+.project-flows-dialog__primary { border-color: var(--ae-accent, var(--accent)); color: var(--ae-accent, var(--accent)); font-weight: 700; }
+.project-flows-dialog__error { margin: 0; color: var(--ae-tone-security, var(--danger, red)); }
+.project-flows-dialog__close { align-self: flex-end; }

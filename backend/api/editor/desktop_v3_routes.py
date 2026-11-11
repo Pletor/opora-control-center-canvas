@@ -223,8 +223,16 @@ def create_desktop_v3_router(state, packets, briefs, agent_output, block_access,
         return pipeline_library.load()
 
     @router.get("/node-brief")
-    def read_node_brief(project: str, workspace: str, nodeId: str):
-        """Karta jako jeden JSON pro model (opora.node-brief/1); popis stavu, ne příkazy."""
+    def read_node_brief(project: str, workspace: str, nodeId: str, layer: str | None = None):
+        """Karta jako jeden JSON pro model (opora.node-brief/1); popis stavu, ne příkazy. `layer=souhrn|tvar` vrátí
+        jen vrstvu živé karty (docs/navrhy/2026-11-11-platno-3-folie.md, K1); bez `layer` beze změny."""
+        if layer is not None:
+            from backend.canvas import live_card
+
+            if layer not in live_card.LAYERS:
+                return JSONResponse({"error": f"layer je {' nebo '.join(live_card.LAYERS)}.", "code": "invalid_layer"},
+                                    status_code=422)
+            return live_card.layer(live_card.gather(state.canvas, project, workspace, nodeId), layer)
         return {**briefs.build(project, workspace, nodeId), "processSync": brief_metadata(project, workspace, nodeId)}
 
     @router.post("/agent-output")

@@ -1,5 +1,5 @@
 import type { NodePhase } from "@/shared/desktop-state/logic/types";
-import { PHASE_LABEL } from "../../component-structure/logic/structure-model";
+import { PHASE_LABEL } from "../logic/element-tone";
 import type { SpecState } from "../logic/use-node-spec";
 
 const MISSING_SPEC = "Zadání se doplňuje v Editoru";

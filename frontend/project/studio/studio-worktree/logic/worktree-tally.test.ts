@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeWorkStatus } from "@/project/architecture-editor/live-status/logic/live-model";
-import type { MapCheckFinding } from "@/project/architecture-editor/domain-map/map-check/logic/map-check";
-import type { MapWorktreeOverlay } from "@/project/architecture-editor/domain-map/map-check/logic/map-check-worktrees";
+import type { MapCheckFinding } from "@/project/architecture-editor/domain-site/map-check/logic/map-check";
+import type { MapWorktreeOverlay } from "@/project/architecture-editor/domain-site/map-check/logic/map-check-worktrees";
 import { holesInWork, sumWorktrees, worktreeBadgeText, worktreeLabel, worktreesByNode } from "./worktree-tally";
 
 const noGoal: MapCheckFinding = { rule: "page.no-goal", nodeId: "home", message: "bez cíle" };

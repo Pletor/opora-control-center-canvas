@@ -117,5 +117,5 @@ def gather(service, project, workspace, node):
     files = commit_files(repo_root(service, project, workspace), shas)
     return {"nodeId": node, "runs": runs, "tickets": tickets, "events": events,
             "activity": _activity(service, project, workspace, node), "edges": edges, "names": names,
-            "reports": reports, "pr": pr, "missing": missing, "files": files,
+            "reports": reports, "pr": pr, "missing": missing, "files": files, "done": state,
             "afterMerge": {key: state[key] for key in ("afterMerge", "afterMergeEvidence")} if state and "afterMerge" in state else None}

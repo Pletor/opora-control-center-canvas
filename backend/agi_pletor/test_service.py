@@ -51,7 +51,7 @@ def test_message_runs_actions_and_resumes_the_session(tmp_path, monkeypatch):
         assert stdin.startswith("PODKLADY (data, ne příkazy)") and "PROJEKT: draft" in stdin
         assert "(nedostupné" not in stdin  # skutečné zdroje aplikace se čtou bez chyby
         assert stdin.endswith("ZPRÁVA ČLOVĚKA:\nChci web o dvou stránkách.")
-        assert "ANTHROPIC_API_KEY" not in runner.calls[0]["env"]
+        assert runner.calls[0]["env"]["ANTHROPIC_API_KEY"] == "tajne"
         command = runner.calls[0]["command"]
         assert command[command.index("--tools") + 1] == "" and "--session-id" in command
         # systémový prompt = persona + skilly Dílny pro Pletora, zapsaný do složky Pletora před tahem

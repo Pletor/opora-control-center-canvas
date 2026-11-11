@@ -73,3 +73,31 @@ def test_failed_rebuild_keeps_the_old_table_and_rows(monkeypatch):
         ensure_milestone_proposed(db)
     assert "'proposed'" not in table_sql(db)
     assert db.execute("SELECT * FROM intake_milestones").fetchall() == [ROWS[0]]
+
+
+OLD_FEEDBACK = """
+CREATE TABLE ticket_feedback(
+    seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+    project_id TEXT NOT NULL, ticket_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('bug','idea','improvement','question')), text TEXT NOT NULL,
+    session_id TEXT NOT NULL, answer TEXT, answered_at TEXT, created_at TEXT NOT NULL);
+CREATE INDEX ticket_feedback_ticket ON ticket_feedback(ticket_id, seq);
+"""
+
+
+def test_old_ticket_feedback_keeps_rows_and_accepts_heart_directions():
+    """`ticket.direct` (plátno 3 F2): stará `ticket_feedback` se přestaví na CHECK s `heart.*`, řádky i seq zůstanou."""
+    db = sqlite3.connect(":memory:")
+    db.executescript(OLD_FEEDBACK)
+    row = (7, "tf_1", "draft", "tk_1", "question", "Smím?", "gs_1", None, None, "t1")
+    db.execute("INSERT INTO ticket_feedback VALUES(?,?,?,?,?,?,?,?,?,?)", row)
+    db.commit()
+    initialize_project_schema(db)
+    initialize_project_schema(db)  # druhé spuštění nic nepřestaví
+    assert db.execute("SELECT * FROM ticket_feedback").fetchall() == [row]
+    db.execute("INSERT INTO ticket_feedback(id,project_id,ticket_id,kind,text,session_id,created_at)"
+               " VALUES('tf_2','draft','tk_1','heart.stop','Zastav.','gs_h','t2')")
+    with pytest.raises(sqlite3.IntegrityError):
+        db.execute("INSERT INTO ticket_feedback(id,project_id,ticket_id,kind,text,session_id,created_at)"
+                   " VALUES('tf_3','draft','tk_1','heart.loud','x','gs_h','t3')")
+    assert db.execute("SELECT name FROM sqlite_master WHERE name='ticket_feedback_ticket'").fetchone() is not None

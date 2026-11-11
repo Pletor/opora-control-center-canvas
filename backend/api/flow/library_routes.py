@@ -6,6 +6,8 @@ Tenký router nad registry.sqlite pod `registry_lock`. Kdo píše (`writer_refus
 jako návrh, který člověk přijme nebo zamítne. Povýšení do knihovny člověka (`promote`) jen člověk. Převzetí do projektu
 (`adopt`) píše do projektu, proto jde přes zeď brány projektu jako ostatní zápisy toků. Verze a graf plátna se mění
 přes `/api/flow/workflows/{id}/versions` (zeď tam hlídá stejná pravidla knihovny). 409 nese `{error, code}`.
+Plátno logiky prvku plátna 2 (`/project-flows`, `docs/navrhy/2026-11-10-platno-2.md` verze 4) je tok projektu
+s `owner_ref = opora:project-flow:<nodeId>`: GET ho najde, POST založí prázdné (zeď jako `adopt`, idempotentně).
 """
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -15,9 +17,11 @@ from pydantic import BaseModel, Field
 from backend.brain_opora.determinism import gate, tokens, wall
 from backend.brain_opora.determinism.gate_payloads import GateError
 from backend.canvas.activity_log import require_human
+from backend.canvas.canvas_service import ProjectNotFound
 from backend.flow import library
 from backend.flow.graph_check import FlowInvalid
 from backend.flow.workflows import FlowConflict, FlowNotFound
+from backend.project.architecture.work_status import architecture_graph
 
 Part = Query(default="human", pattern="^(human|agent)$")
 
@@ -46,6 +50,14 @@ class FlowIn(BaseModel):
 class AdoptIn(BaseModel):
     project: str = Field(min_length=1, max_length=64)
     nodeId: str | None = Field(default=None, min_length=1, max_length=200, pattern=r"^\S+$")
+
+
+class ProjectFlowIn(BaseModel):
+    project: str = Field(min_length=1, max_length=64)
+    nodeId: str = Field(min_length=1, max_length=200, pattern=r"^\S+$")
+    title: str = Field(min_length=1, max_length=200)
+    # Prostor, ve kterém prvek leží (prvek logiky vzniká ve worktree); bez něj přijatý graf projektu.
+    workspace: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class PromoteIn(BaseModel):
@@ -141,6 +153,29 @@ def create_library_router(service):
         if not verdict.allow:
             return JSONResponse(verdict.body(), status_code=verdict.status)
         return call(library.adopt, workflow_id, body.project, body.nodeId)
+
+    @router.get("/project-flows")
+    def project_flow_find(project: str = Query(min_length=1, max_length=64),
+                          nodeId: str = Query(min_length=1, max_length=200)):
+        """Plátno logiky prvku plátna 2 (`owner_ref = opora:project-flow:<nodeId>`), nebo `{flow: null}`."""
+        return {"flow": call(library.project_flow, project, nodeId)}
+
+    @router.post("/project-flows")
+    def project_flow_create(body: ProjectFlowIn, request: Request):
+        """Prázdné plátno logiky prvku; uzel musí být prvek (`element`) v grafu projektu, druhé založení vrátí existující."""
+        verdict = wall.check(service, request.method, request.url.path, getattr(request.state, "actor", None),
+                             request.headers.get(tokens.HEADER), body.project, lambda: "")
+        if not verdict.allow:
+            return JSONResponse(verdict.body(), status_code=verdict.status)
+        try:
+            graph = (service.view(body.project, body.workspace)["graph"] if body.workspace
+                     else architecture_graph(service, body.project))
+        except ProjectNotFound as error:
+            raise HTTPException(404, str(error)) from error
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+        call(lambda _db: library.element_node(graph, body.nodeId))
+        return call(library.create_project_flow, body.project, body.nodeId, body.title)
 
     @router.post("/flows/{workflow_id}/contribute")
     def flow_contribute(workflow_id: str, body: FlowIn, request: Request):

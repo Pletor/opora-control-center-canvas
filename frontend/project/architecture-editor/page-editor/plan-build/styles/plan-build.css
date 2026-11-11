@@ -1,0 +1,21 @@
+/* Postavit plán práce je most z plátna 2 na plátno 3: tlačítko stojí v hlavičce vedle Skenovat web, ve fialové
+   barvě návrhu srdce, protože nic nezapisuje, jen navrhuje. Výsledek vyjede pod tlačítkem jako úzký panel s pár větami
+   (co návrh přidá, co už stojí, co srdce vynechalo) a s odkazem do Editoru; plátno se pod ním nehýbe. */
+.plan-build { position: relative; --plan-build-proposal: #a78bfa; }
+.plan-build__run { border-color: var(--plan-build-proposal); color: var(--plan-build-proposal); font-size: 12px; }
+.plan-build__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  width: min(360px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px dashed var(--plan-build-proposal);
+  border-radius: 8px;
+  background: var(--ae-panel);
+  font-size: 12px;
+}
+.plan-build__line { margin: 0 0 6px; overflow-wrap: anywhere; }
+.plan-build__line--error { color: var(--studio-state-hole); }
+.plan-build__actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.plan-build__close { margin-left: auto; }

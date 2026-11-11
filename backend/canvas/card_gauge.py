@@ -261,8 +261,9 @@ def gauge(entry, node, steps, index, runs, latest, now, config=None, cost=None):
             "run": run_of(points, risk["level"], (node or {}).get("card"), evidence)}
 
 
-def attach(entries, graph, documents, runs, latest, now):
-    """Agent-state `cards[]` dostanou `gauge`; graf a konfigurace rizika se čtou jednou na dávku, ne na kartu."""
+def attach(entries, graph, documents, runs, latest, now, costs=None):
+    """Agent-state `cards[]` dostanou `gauge`; graf a konfigurace rizika se čtou jednou na dávku, ne na kartu.
+    `costs` = `{nodeId: USD}` z pozorování běhů (`opora_execution_observers.spent`); karta bez ceny má `costUsd` null."""
     from backend.canvas import opora_review_risk as review_risk
     from backend.canvas.opora_plan_steps import steps_of
 
@@ -271,5 +272,6 @@ def attach(entries, graph, documents, runs, latest, now):
     newest = {item["nodeId"]: item for item in latest or []}
     return [{**entry, "gauge": gauge(entry, index["nodes"].get(entry["nodeId"]),
                                      steps_of((accepted.get(entry["nodeId"]) or {}).get("fields")),
-                                     index, runs.get(entry["nodeId"]), newest.get(entry["nodeId"]), now, config)}
+                                     index, runs.get(entry["nodeId"]), newest.get(entry["nodeId"]), now, config,
+                                     (costs or {}).get(entry["nodeId"]))}
             for entry in entries]

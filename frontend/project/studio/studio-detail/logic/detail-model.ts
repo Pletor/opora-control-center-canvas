@@ -1,6 +1,6 @@
 // Co ukáže panel detailu Studia (docs/studio.md §3, ve Skutečnosti jen čtení): název, účel, stav, souhrn, vazby
 // úrovně, díry mapy (karty i pod ní), cesty s odznakem ověření a odkaz do Architektury projektu. Čistá logika bez Reactu.
-import { verificationBadge, verificationTitle, type VerificationBadge } from "@/project/architecture-editor/domain-map/logic/journey-verification";
+import { verificationBadge, verificationTitle, type VerificationBadge } from "@/project/architecture-editor/domain-site/logic/journey-verification";
 import type { StudioLink } from "../../logic/studio-level";
 import type { StudioFacts, StudioStatus } from "../../logic/studio-status";
 import { studioDescendants, type StudioItem, type StudioTree } from "../../logic/studio-tree";

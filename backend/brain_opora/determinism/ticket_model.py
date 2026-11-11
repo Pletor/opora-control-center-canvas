@@ -22,6 +22,7 @@ TRANSITIONS = {
     "closed": (), "failed": (), "cancelled": (),
 }
 FEEDBACK_KINDS = ("bug", "idea", "improvement", "question")
+SEVERITIES, DIRECT_LIMIT = ("hint", "course", "stop"), 2000  # `ticket.direct`: pokyn srdce běžícímu dělníkovi (F2)
 DEFAULT_SKILLS = ("ponytail@5.3.3",)
 TEXT_LIMIT, LIST_LIMIT = 4000, 20
 PIN = re.compile(r"/?[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}@[A-Za-z0-9][A-Za-z0-9_.+-]{0,39}")
@@ -150,6 +151,15 @@ def feedback_payload(body):
     if body["kind"] not in FEEDBACK_KINDS:
         raise invalid("kind je " + ", ".join(FEEDBACK_KINDS) + ".", hint)
     return body["ticketId"], body["kind"], body["text"].strip()
+
+
+def direct_payload(body):
+    """`ticket.direct` `{ticketId, severity, text ≤ 2000}` → `(ticketId, severity, text)`."""
+    hint = 'Například {"ticketId": "tk_…", "severity": "course", "text": "Drž se souborů karty, sdílený styl neměň."}.'
+    shaped(body, ("ticketId", "severity", "text"), ids=("ticketId",), texts=("text",), limit=DIRECT_LIMIT, hint=hint)
+    if body["severity"] not in SEVERITIES:
+        raise invalid("severity je " + ", ".join(SEVERITIES) + ".", hint)
+    return body["ticketId"], body["severity"], body["text"].strip()
 
 
 def deliver_payload(body):

@@ -32,13 +32,12 @@ describe("tvář karty", () => {
     expect(view.steps).toMatchObject({ count: "0/6", label: "kroky čekají" });
   });
 
-  it("agent pracuje: holder z lease, aktuální segment a název kroku", () => {
+  it("agent pracuje: holder z lease a název kroku", () => {
     const view = face({ stage: "work", reason: "runs_active", executionId: "e1",
       lease: { holder: "agent:codex-2", expiresAt: "2026-10-22T10:00:00Z", epoch: 3 },
       steps: { total: 7, done: 3, current: "s4", currentTitle: "Obnova po výpadku" } });
     expect(view.state).toBe("working");
     expect(view.holder).toEqual({ who: "agent", name: "codex-2" });
-    expect(view.steps.segments).toEqual(["done", "done", "done", "cur", "", "", ""]);
     expect(view.steps.label).toBe("s4 Obnova po výpadku");
   });
 
@@ -74,10 +73,6 @@ describe("tvář karty", () => {
     expect(cardFace({ nodeId: "a", card: card(), sector: false, decisions: [], nameOf: String, latest }).change)
       .toEqual({ at: latest.at, who: "Dělník S.1", whoKind: "agent", what: "krok s2 hotov" });
     expect(face().change).toBeNull();
-  });
-
-  it("dlouhý plán se kreslí nejvýš dvanácti segmenty", () => {
-    expect(face({ steps: { total: 30, done: 15, current: "s16" } }).steps.segments).toHaveLength(12);
   });
 });
 

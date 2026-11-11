@@ -8,13 +8,15 @@ function memoryLocation(search: string) {
 
 describe("card drawer deep link", () => {
   it("reads card and tab, falling back to Zadání for unknown tabs", () => {
-    expect(parseDrawerLink("?ohCard=c1&ohTab=run")).toEqual({ nodeId: "c1", tab: "run" });
-    expect(parseDrawerLink("?ohCard=c1&ohTab=lens")).toEqual({ nodeId: "c1", tab: "lens" });
-    expect(parseDrawerLink("?ohCard=c1&ohTab=bogus")).toEqual({ nodeId: "c1", tab: "spec" });
+    expect(parseDrawerLink("?ohCard=c1&ohTab=run")).toEqual({ nodeId: "c1", tab: "run", panel: true });
+    expect(parseDrawerLink("?ohCard=c1&ohTab=lens")).toEqual({ nodeId: "c1", tab: "lens", panel: true });
+    expect(parseDrawerLink("?ohCard=c1&ohTab=bogus")).toEqual({ nodeId: "c1", tab: "spec", panel: true });
+    expect(parseDrawerLink("?ohCard=c1")).toEqual({ nodeId: "c1", tab: "spec", panel: false });
     expect(parseDrawerLink("?environment=hub")).toBeNull();
   });
   it("writes and clears only its own parameters", () => {
-    expect(writeDrawerLink("?environment=hub&layer=x", { nodeId: "c1", tab: "steps", nonce: 1 })).toBe("?environment=hub&layer=x&ohCard=c1&ohTab=steps");
+    expect(writeDrawerLink("?environment=hub&layer=x", { nodeId: "c1", tab: "steps", panel: true, nonce: 1 })).toBe("?environment=hub&layer=x&ohCard=c1&ohTab=steps");
+    expect(writeDrawerLink("?ohCard=c1&ohTab=steps", { nodeId: "c1", tab: "steps", panel: false, nonce: 1 })).toBe("?ohCard=c1");
     expect(writeDrawerLink("?environment=hub&ohCard=c1&ohTab=steps", null)).toBe("?environment=hub");
     expect(writeDrawerLink("?ohCard=c1", null)).toBe("");
   });
@@ -40,6 +42,20 @@ describe("card drawer store", () => {
     expect(store.get()).toBeNull();
     expect(box.search).toBe("");
     expect(calls).toBe(6);
+  });
+  it("opens the live card without a tab and the work panel with one or from the card", () => {
+    const { box, location } = memoryLocation("");
+    const store = createCardDrawerStore(location);
+    store.open("c1");
+    expect(store.get()).toMatchObject({ nodeId: "c1", panel: false });
+    expect(box.search).toBe("?ohCard=c1");
+    store.showPanel();
+    expect(store.get()).toMatchObject({ nodeId: "c1", tab: "spec", panel: true });
+    expect(box.search).toBe("?ohCard=c1&ohTab=spec");
+    store.open("c1");
+    expect(store.get()?.panel).toBe(false);
+    store.setTab("run");
+    expect(store.get()).toMatchObject({ tab: "run", panel: true });
   });
   it("ignores empty ids and every open bumps the nonce", () => {
     const store = createCardDrawerStore();

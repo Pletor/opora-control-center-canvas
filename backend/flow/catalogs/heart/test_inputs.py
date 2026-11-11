@@ -1,7 +1,7 @@
 """Co srdce budí u ticketu práce: otázka dělníka, odevzdání a selhání (`ticket.failed` → `workFailed`) ano, nápad ne."""
 from backend.brain_opora.determinism.test_ticket import ISSUE, heart, send, worker
 from backend.canvas.canvas_service import CanvasService
-from backend.flow.catalogs.heart.inputs import resolve, wake_input
+from backend.flow.catalogs.heart.inputs import resolve, trigger_workspaces, wake_input
 from database.repositories import opora_events
 from database.repositories.tickets import TicketStore
 
@@ -66,3 +66,14 @@ def test_canvas_failure_wakes_the_heart():
                                                "payload": {"pageId": "landing", "nodeId": "ok", "reason": "chybí"}}}
     assert wake_input(event) == {"type": "canvasFailed", "canvas": 2, "kind": "intent.failed",
                                  "payload": {"pageId": "landing", "nodeId": "ok", "reason": "chybí"}}
+
+
+def test_office_process_event_of_a_card_reevaluates_its_workspace_and_heart_messages_do_not_wake():
+    """Hlídač F2: každá přijatá procesní událost karty z Kanceláře označí prostor k vyhodnocení spouštěčů; vlastní
+    zásah srdce (`worker.message`) a signál (`card.signal`) srdce nebudí ani nepřepočítají."""
+    events = [{"kind": "tool.use", "source": "office", "nodeId": "a", "workspaceId": "w1"},
+              {"kind": "worker.status", "source": "office", "nodeId": None, "workspaceId": "w2"},
+              {"kind": "worker.message", "source": "opora", "nodeId": "a", "workspaceId": "w3", "data": {}},
+              {"kind": "card.signal", "source": "opora", "nodeId": "a", "workspaceId": "w4", "data": {}}]
+    assert trigger_workspaces(events) == {"w1"}
+    assert [wake_input(event) for event in events[2:]] == [None, None]

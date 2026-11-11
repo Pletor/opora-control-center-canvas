@@ -125,9 +125,10 @@ def recent(events, activity, limit=RECENT):
     for event in events:
         if event.get("kind") in QUIET_KINDS:
             continue
-        actor = event.get("actor") or {}
+        actor, target = event.get("actor") or {}, (event.get("tool") or {}).get("target")
+        label = event.get("title") or event.get("kind")
         items.append({"at": event.get("at"), "who": actor.get("name") or actor.get("kind"),
-                      "label": event.get("title") or event.get("kind"), "kind": event.get("kind"),
+                      "label": f"{label} · {target}" if target else label, "kind": event.get("kind"),
                       "source": "det" if (event.get("source") or "opora") == "opora" else "agent"})
     for entry in activity:
         if not 200 <= int(entry.get("status") or 0) <= 299:

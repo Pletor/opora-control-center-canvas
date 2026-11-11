@@ -1,0 +1,57 @@
+/* Pohled Design: člověk čte stránku jako jeden web, ne jako schéma. Výřezy boxů leží pod sebou celé, v plné šířce
+   a ve svém poměru stran, oddělené jen tenkou spárou, takže hlavička, hero a patička na sebe navazují jako na webu.
+   Nad papírem jedna tichá věta říká, že tady se jen dívá; rozmístění se mění v Layoutu. */
+.design-page { display: flex; flex-direction: column; gap: 8px; }
+.design-page__hint { margin: 0; color: var(--ae-muted); font-size: 11px; }
+.design-page__paper {
+  padding: 3px;
+  border: 1px solid var(--ae-line);
+  border-radius: 8px;
+  background: var(--ae-panel);
+}
+.design-page__empty { margin: 24px 0; color: var(--ae-muted); font-size: 12px; text-align: center; }
+
+/* Tok: řádky shora dolů, v řádku sloupce v poměru šířky boxu na mřížce a prázdné sloupce jako průhledné mezery,
+   všude stejná spára 3 px, aby stránka držela pohromadě. Sloupec skládá své boxy pod sebe. */
+.design-page__flow, .design-page__column { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.design-page__row { display: flex; gap: 3px; align-items: flex-start; }
+.design-page__column, .design-page__gap { flex-shrink: 1; flex-basis: 0; }
+
+/* Box: obrázek vzhledu celý bez ořezu (šířka boxu, výška podle obrázku). Název je jen malý štítek v rohu, který
+   obsah nezakrývá; při najetí a u vybraného boxu ztmavne, aby šlo poznat, na co člověk ukazuje. Box bez obrázku je
+   kompaktní karta s popisem vzhledu a jeho vnořené boxy plynou uvnitř stejně jako stránka. */
+.design-page__box {
+  position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+  border-radius: 4px;
+  background: var(--ae-card);
+  cursor: pointer;
+}
+.design-page__box:not(.design-page__box--image) { padding: 22px 6px 6px; border: 1px dashed var(--ae-line); }
+.design-page__box--selected { outline: 2px solid var(--ae-accent); outline-offset: 1px; }
+.design-page__image { display: block; width: 100%; height: auto; border-radius: 4px; user-select: none; }
+.design-page__label {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 1;
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ae-panel) 55%, transparent);
+  color: var(--ae-text);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: .7;
+  pointer-events: none;
+}
+.design-page__box:hover > .design-page__label, .design-page__box--selected > .design-page__label {
+  background: var(--ae-panel);
+  opacity: 1;
+}
+.design-page__role { margin-left: 5px; color: var(--ae-muted); font-weight: 400; }
+.design-page__look { margin: 0; color: var(--ae-muted); font-size: 11px; font-style: italic; line-height: 1.35; }

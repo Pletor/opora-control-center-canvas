@@ -21,7 +21,7 @@ export type CardFace = {
   stage: string; reason: string;
   /** Pronájem běží: komponenta místo důvodu ukáže odpočet. */
   lease: { holder: string | null; expiresAt: string; epoch: number | null } | null;
-  steps: { total: number; done: number; segments: ("done" | "cur" | "")[]; count: string; label: string };
+  steps: { total: number; done: number; count: string; label: string };
   footer: FaceFooter | null;
   /** Odznak PR v barvách GitHubu (`cards[].pr`); uzavřená karta ho nemá. */
   pr: PrBadge | null;
@@ -30,19 +30,16 @@ export type CardFace = {
   /** Poslední změna karty ze záznamu činnosti (`latest-by-node`); bez zápisu nic. */
   change: FaceChange | null;
   /** Syrové kódy pro `data-oh-*`. */
-  raw: { stage: string; health: string; reason: string; executionId: string | null; gateStatus: string; gateRule: string };
+  raw: { stage: string; health: string; reason: string; executionId: string | null; gateStatus: string; gateRule: string;
+    /** Zrcadlo kódu z `cards[].mirror`; neměřené `null`. */
+    mirror: string | null;
+    /** Budoucnost po sloučení z `cards[].future`; nepočítaná `null`. */
+    future: string | null };
 };
 
-const MAX_SEGMENTS = 12;
 const GATE_TONE: Record<string, [FaceTone, string]> = { ready: ["ok", "✓"], pending: ["warn", "◷"], blocked: ["bad", "✕"] };
 const HUMAN_REASONS = new Set(["human_review_required"]);
 const gateTone = (status: string): [FaceTone, string] => GATE_TONE[status] ?? ["warn", "◷"];
-
-function segments(total: number, done: number, running: boolean): CardFace["steps"]["segments"] {
-  const shown = Math.min(total, MAX_SEGMENTS);
-  const filled = total ? Math.round((done / total) * shown) : 0;
-  return Array.from({ length: shown }, (_, index) => index < filled ? "done" : index === filled && running ? "cur" : "");
-}
 
 function stepsOf(card: AgentCardStage | undefined, running: boolean, closed: boolean): CardFace["steps"] {
   const steps = card?.steps ?? { total: 0, done: 0, current: null };
@@ -51,7 +48,7 @@ function stepsOf(card: AgentCardStage | undefined, running: boolean, closed: boo
   const label = !total ? "plán bez kroků"
     : done >= total ? (closed ? "definice hotového splněna" : "všechny kroky splněny")
     : current ? (running ? current : "další " + current) : "kroky čekají";
-  return { total, done, segments: segments(total, done, running && done < total), count: `${done}/${total}`, label };
+  return { total, done, count: `${done}/${total}`, label };
 }
 
 export type FaceInput = {
@@ -75,7 +72,8 @@ export function cardFace({ nodeId, card, sector, layer, decisions, nameOf, lates
     order: orderBadge(card?.order), change: changeOf(latest),
     stage: card ? STAGE_WORD[card.stage] : "plán", reason: card ? shortReason(card.reason) : "mimo OporaHub",
     raw: { stage: card?.stage ?? "", health: card?.health ?? "", reason: card?.reason ?? "", executionId: card?.executionId ?? null,
-      gateStatus: gate?.status ?? "", gateRule: gate?.rule ?? "" },
+      gateStatus: gate?.status ?? "", gateRule: gate?.rule ?? "", mirror: card?.mirror ?? null,
+      future: card?.future ?? null },
   };
   // Patička je nejvýš jedna: rozhodnutí člověka > blokace předchůdcem > brána merge.
   const footer: FaceFooter | null = decision ? { kind: "decision", id: decision.id, actionId: decision.actionId, text: decision.title }

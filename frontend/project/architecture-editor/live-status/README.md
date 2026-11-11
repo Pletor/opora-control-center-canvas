@@ -1,6 +1,6 @@
 # Živý stav domén (web a worktree)
 
-Provádí `docs/domeny-a-worktree.md` §10 (F2): u každé domény je vidět, jestli web běží a kdo na ní pracuje. Na přehledu domén (`landing/`) žeton webu, věta s počty („3 worktree · 1 běží · 1 čeká“) a sbalitelný stěsnaný strom worktree; v detailu domény (`domain-map/`) pravý panel s webem hostu, stromem worktree a akcemi vybraného worktree.
+Provádí `docs/domeny-a-worktree.md` §10 (F2): u každé domény je vidět, jestli web běží a kdo na ní pracuje. Na přehledu domén (`landing/`) žeton webu, věta s počty („3 worktree · 1 běží · 1 čeká“) a sbalitelný stěsnaný strom worktree; na plátně 2 žeton webu hostu v hlavičce stránky. Pravý panel s webem hostu, stromem worktree a akcemi (`LiveDomainPanel`) po zániku Mapy domény zatím nikde není.
 
 Dílky (`components/`) dostávají hotová data v props a nic nenačítají:
 
@@ -10,7 +10,7 @@ Dílky (`components/`) dostávají hotová data v props a nic nenačítají:
 - `WorktreeTree` + `WorktreeRow`: strom `role="tree"`, nejživější nahoře, řádek nese aktéra a krátké ID (nikdy celou větev), roving tabindex (jedna zastávka Tab, šipky nahoru/dolů, vpravo/vlevo rozbalí/sbalí, Home/End, Enter/mezera použije). Pod worktree jsou relace a karty v práci; název karty otevře kartu v jejím worktree (`onOpenCard({workspace, nodeId})`). Klik na worktree ho jen vybere a zvýrazní dotčené stránky.
 - `WorktreeDetails`: akce vybraného worktree pod stromem: „Pracovat v tomto worktree“, „Zadat srdci“ (worktree i jednotlivá karta; text jde přes `onAskHeart` do App, která ho pošle `POST /api/brain/heart/messages` a otevře panel asistenta) a na konci „Do skladiště…“ (nejde u worktree, ve kterém právě pracujete).
 - `ArchiveConfirm`: potvrzení přesunu do skladiště s povinným důvodem („nápad nevyšel“); odmítnutí backendu (změny, živá relace) ukáže pod polem.
-- `LiveDomainPanel`: pravý sloupec mapy domény (jen schopnost `worktreeLive`); prázdný stav „Na této doméně se teď nepracuje.“ + „Nový worktree“; zastaralá data „údaj z 12:03, nepodařilo se obnovit“; `aria-live` hlásí jen změny stavu.
+- `LiveDomainPanel`: dříve pravý sloupec Mapy domény, po plátně 2 (`docs/navrhy/2026-11-10-platno-2.md`) zatím nikde složený (jen schopnost `worktreeLive`); prázdný stav „Na této doméně se teď nepracuje.“ + „Nový worktree“; zastaralá data „údaj z 12:03, nepodařilo se obnovit“; `aria-live` hlásí jen změny stavu.
 
 Logika (`logic/`), čisté funkce s testem vedle:
 

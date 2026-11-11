@@ -1,0 +1,36 @@
+/* ZANOŘENÝ POHLED BOXU (blok `box-focus`)
+   Dvojklik na box člověka vezme dovnitř: layout stránky ustoupí a celou plochu plátna dostane jeden box. Nahoře
+   drobečky řeknou, kde je (Stránka › Box › vnořený box), a první věc vlevo je cesta zpět na layout, protože zanoření
+   je výlet, ne nová obrazovka. Pod nimi úzký sloupec vnořených boxů (do nich jde zanořit dál) a vedle něj to hlavní:
+   velká kresba skici, kde jde kreslit i graficky upravit staženou část webu z inspirace. Detail boxu zůstává vpravo. */
+.box-focus { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
+.box-focus__crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--ae-line); font-size: 12px; }
+.box-focus__back { padding: 3px 10px; font-size: 12px; }
+.box-focus__crumb { padding: 0; border: 0; background: none; color: var(--ae-cyan); font: inherit; cursor: pointer; }
+.box-focus__crumb--current { color: var(--ae-text); cursor: default; }
+.box-focus__step { display: inline-flex; gap: 6px; color: var(--ae-muted); }
+.box-focus__esc { margin-left: auto; color: var(--ae-muted); font-size: 11px; }
+
+/* Tělo: vlevo vnořené boxy jako krátký seznam s akcentní hranou (vybraný svítí), zbytek šířky kresba. */
+.box-focus__body { display: grid; flex: 1; grid-template-columns: 200px minmax(0, 1fr); min-height: 0; }
+.box-focus__nested { overflow: auto; padding: 10px 12px; border-right: 1px solid var(--ae-line); background: var(--ae-panel); }
+.box-focus__nested-title { margin: 0 0 8px; font-size: 12px; }
+.box-focus__nested-title small { color: var(--ae-muted); font-weight: 400; }
+.box-focus__list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.box-focus__kid { width: 100%; padding: 6px 8px; border-left: 3px solid var(--ae-accent); text-align: left; font-size: 12px; }
+.box-focus__kid[aria-pressed=true] { border-color: var(--ae-accent); color: var(--ae-accent); }
+.box-focus__kid-role { color: var(--ae-muted); }
+.box-focus__hint { margin: 0; color: var(--ae-muted); font-size: 11px; }
+
+/* Kresba: nad ní jedna lišta s vložením inspirace a tichou zprávou, pod ní kreslení přes celou zbylou výšku
+   (`DrawingWorkspace` se roztahuje absolutně, proto kontejner nese polohu a výšku). */
+.box-focus__stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.box-focus__tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid var(--ae-line); }
+.box-focus__insert { font-size: 12px; }
+.box-focus__note { color: var(--ae-muted); font-size: 11px; }
+.box-focus__drawing { position: relative; flex: 1; min-height: 320px; }
+
+/* Pod zámkem obsahu (Git main) místo prázdné plochy věta, proč kreslit nejde, a uložená skica na bílém papíře. */
+.box-focus__stage--locked { gap: 12px; padding: 16px; overflow: auto; }
+.box-focus__lock { margin: 0; padding: 8px 12px; border: 1px dashed var(--ae-line); border-radius: 8px; color: var(--ae-muted); font-size: 12px; }
+.box-focus__preview { max-width: 100%; max-height: 70vh; align-self: flex-start; border: 1px solid var(--ae-line); border-radius: 6px; background: #fff; object-fit: contain; }

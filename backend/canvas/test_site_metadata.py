@@ -153,11 +153,12 @@ def test_page_text_length_bounds(key, limit):
 
 
 def test_section_bounds_and_count():
-    longest = {"id": "s" * 80, "role": "custom", "name": "n" * 60, "intent": "i" * 200}
+    longest = {"id": "s" * 80, "role": "custom", "name": "n" * 60, "intent": "i" * 600,
+               "look": "l" * 300}
     validate_graph({"nodes": [application(), page_with(sections=[longest])], "edges": []})
-    twenty = [{"id": f"s{i}", "role": "content", "name": "Obsah", "intent": ""} for i in range(20)]
+    twenty = [{"id": f"s{i}", "role": "content", "name": "Obsah", "intent": ""} for i in range(40)]
     validate_graph({"nodes": [application(), page_with(sections=twenty)], "edges": []})
-    for sections in ([], twenty + [{"id": "s20", "role": "content", "name": "Obsah", "intent": ""}], {"id": "x"}, None):
+    for sections in ([], twenty + [{"id": "s40", "role": "content", "name": "Obsah", "intent": ""}], {"id": "x"}, None):
         with pytest.raises(ValueError, match="sekc"):
             validate_graph({"nodes": [application(), page_with(sections=sections)], "edges": []})
 
@@ -169,7 +170,9 @@ def test_section_bounds_and_count():
     ({"id": "s" * 81}, "id sekce"),
     ({"name": ""}, "název"),
     ({"name": "n" * 61}, "název"),
-    ({"intent": "i" * 201}, "záměr"),
+    ({"intent": "i" * 601}, "záměr"),
+    ({"look": ""}, "vzhled"),
+    ({"look": "l" * 301}, "vzhled"),
     ({"intent": "a\0b"}, "záměr"),
     ({"extra": True}, "přesně"),
 ])
@@ -191,6 +194,74 @@ def test_section_moves_is_optional_bounded_and_never_filled_in():
         section = SECTIONS[0] | {"moves": value}
         with pytest.raises(ValueError, match="moves"):
             validate_graph({"nodes": [application(), page_with(sections=[section])], "edges": []})
+
+
+def check_sections(sections):
+    return validate_graph({"nodes": [application(), page_with(sections=sections)], "edges": []})
+
+
+def sec(identifier, **extra):
+    return {"id": identifier, "role": "content", "name": identifier, "intent": ""} | extra
+
+
+@pytest.mark.parametrize("role", ["header", "nav", "aside", "article", "main"])
+def test_new_section_roles(role):
+    check_sections([sec("a", role=role)])
+
+
+def test_section_box_and_parent_are_optional_and_valid():
+    sections = [sec("main", box={"x": 0, "y": 0, "w": 12, "h": 40}), sec("a", parent="main", box={"x": 11, "y": 199, "w": 1, "h": 1}),
+                sec("b", parent="a"), sec("c", parent="main")]
+    assert check_sections(copy.deepcopy(sections))["nodes"][1]["site"]["sections"] == sections
+    check_sections([sec("late", parent="first"), sec("first")])
+
+
+@pytest.mark.parametrize("box", [{"x": 12, "y": 0, "w": 1, "h": 1}, {"x": -1, "y": 0, "w": 1, "h": 1},
+                                 {"x": 0, "y": 200, "w": 1, "h": 1}, {"x": 0, "y": 0, "w": 0, "h": 1},
+                                 {"x": 0, "y": 0, "w": 13, "h": 1}, {"x": 0, "y": 0, "w": 1, "h": 41},
+                                 {"x": 0, "y": 0, "w": 1, "h": 0}, {"x": 8, "y": 0, "w": 5, "h": 1},
+                                 {"x": True, "y": 0, "w": 1, "h": 1}, {"x": 0, "y": 0, "w": 1.0, "h": 1},
+                                 {"x": 0, "y": 0, "w": 1}, {"x": 0, "y": 0, "w": 1, "h": 1, "z": 1}, [], None])
+def test_invalid_section_box_is_rejected(box):
+    with pytest.raises(ValueError, match="box"):
+        check_sections([sec("a", box=box)])
+
+
+@pytest.mark.parametrize("sections,message", [
+    ([sec("a", parent="nic")], "takové id"),
+    ([sec("a", parent="a")], "parent"),
+    ([sec("a", parent=5)], "parent"),
+    ([sec("a", parent="b"), sec("b", parent="a")], "cyklus"),
+    ([sec("a"), sec("b", parent="a"), sec("c", parent="b"), sec("d", parent="c")], "úrovně"),
+])
+def test_invalid_section_parent_is_rejected(sections, message):
+    with pytest.raises(ValueError, match=message):
+        check_sections(sections)
+
+
+def test_section_status_inspiration_and_source_are_optional_and_valid():
+    sections = [sec("a", status="draft"), sec("b", status="proposed", source="scan"),
+                sec("c", status="approved", source="human", inspiration={"files": ["f1", "f-2_x"]}),
+                sec("d", inspiration={"url": "https://example.com/a?b=1"}), sec("e", inspiration={"note": "Klidně"}),
+                sec("f", source="agent", inspiration={"files": [f"f{i}" for i in range(6)], "url": "http://x.cz",
+                                                      "note": "n" * 200})]
+    assert check_sections(copy.deepcopy(sections))["nodes"][1]["site"]["sections"] == sections
+
+
+@pytest.mark.parametrize("extra,field", [
+    ({"status": "done"}, "status"), ({"status": None}, "status"), ({"source": "client"}, "source"),
+    ({"inspiration": {}}, "inspiration"), ({"inspiration": []}, "inspiration"),
+    ({"inspiration": {"image": "x"}}, "inspiration"),
+    ({"inspiration": {"files": []}}, "files"), ({"inspiration": {"files": [f"f{i}" for i in range(7)]}}, "files"),
+    ({"inspiration": {"files": ["a b"]}}, "files"), ({"inspiration": {"files": ["f", "f"]}}, "files"),
+    ({"inspiration": {"files": "f1"}}, "files"),
+    ({"inspiration": {"url": "ftp://x.cz"}}, "url"), ({"inspiration": {"url": "javascript:alert(1)"}}, "url"),
+    ({"inspiration": {"url": "https://" + "a" * 500}}, "url"), ({"inspiration": {"url": "https://"}}, "url"),
+    ({"inspiration": {"note": ""}}, "note"), ({"inspiration": {"note": "n" * 201}}, "note"),
+])
+def test_invalid_section_status_source_or_inspiration_is_rejected(extra, field):
+    with pytest.raises(ValueError, match=field):
+        check_sections([sec("a", **extra)])
 
 
 def test_missing_section_key_and_duplicate_section_id_are_rejected():

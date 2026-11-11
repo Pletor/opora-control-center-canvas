@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import type { DerivedJourney } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
+import type { DerivedJourney } from "@/project/architecture-editor/domain-site/logic/derived-journeys";
 import { buildStudioTree, sectionItemId } from "./studio-tree";
 import { cardStatus, journeysOf, type StudioFacts, type StudioJourney } from "./studio-status";
 

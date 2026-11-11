@@ -218,3 +218,8 @@ export function areaRollup({ sectors, cards, closed }: { sectors: number; cards:
   if (!sectors && !cards) return EMPTY_AREA_ROLLUP;
   return parts.join(" · ");
 }
+
+/** Ukazatel milníku: podíl hotových (`done.confirmed`) členů oblasti 0–100; prázdná oblast `null` = bez lišty. */
+export function areaShare(closed: number, members: number): number | null {
+  return members > 0 ? Math.round((Math.min(closed, members) / members) * 100) : null;
+}

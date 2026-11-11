@@ -2,8 +2,13 @@ import { useState, type FormEvent } from "react";
 import type { BoardRow } from "../logic/linie-board";
 import { reopenOf } from "../logic/linie-closed";
 import { parentOf } from "../logic/linie-tree";
+// Formulář žije i mimo Velín (živá karta), proto si styly nese sám.
+import "../styles/pletor-dashboard.css";
+import "../styles/pletor-dashboard-parts.css";
+import "../styles/pletor-dashboard-linie-editor.css";
 
-type Props = { rows: BoardRow[]; heads: string[]; onSubmit: (body: object) => Promise<boolean>; onClose: () => void };
+/** `heads` chybí = větve nejsou známé (živá karta): výchozí větev a cíl zůstanou prázdné a odvodí je server. */
+type Props = { rows: BoardRow[]; heads?: string[]; initial?: Partial<typeof EMPTY>; onSubmit: (body: object) => Promise<boolean>; onClose: () => void };
 
 const EMPTY = { title: "", essence: "", build: "", doneCriteria: "", branch: "", baseBranch: "", target: "" };
 type Field = keyof typeof EMPTY;
@@ -12,15 +17,15 @@ type Field = keyof typeof EMPTY;
  * Nová kulička = zadání práce (`POST /work`): řádek (prázdný = server založí podle větve), název, podstata, stavba, kritéria hotovo (řádek = jedno kritérium),
  * jméno větve, výchozí větev a cíl. Větev se nezakládá; založí ji agent z výchozí větve. Zápis hlásí rodiči.
  */
-export default function LinieWorkForm({ rows, heads, onSubmit, onClose }: Props) {
+export default function LinieWorkForm({ rows, heads, initial, onSubmit, onClose }: Props) {
   const work = rows.filter((row) => !row.fixed && !row.auto && !row.git);
   const [rowId, setRowId] = useState("");
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState({ ...EMPTY, ...initial });
   // Dokud uživatel výchozí větev a cíl sám nezměnil, sledují rodiče odvozeného ze jména větve.
   const [touched, setTouched] = useState<Field[]>([]);
   const change = (key: Field, value: string) => {
     const next = { ...form, [key]: value };
-    if (key === "branch") {
+    if (key === "branch" && heads) {
       // Uzavřená větev se znovu otevře pod svým cílem (§10.3), ne jako nová větev pro touž věc.
       const parent = reopenOf(rows, value)?.closed?.target ?? parentOf(value, heads) ?? "";
       if (!touched.includes("baseBranch")) next.baseBranch = parent;

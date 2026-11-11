@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { domainForNode, domainNode, domainPageTree, reparentDomainPage, reorderDomainPage, splitDomainHost, worktreeDomainChoice } from "./domain-model";
+import { domainEntryPage, domainForNode, domainNode, domainPageTree, reorderDomainPage, splitDomainHost, worktreeDomainChoice } from "./domain-model";
 
 const node = (id: string, parentId: string | null = null): CanvasNode => ({ id, parentId, name: id, purpose: "Účel", kind: "node", x: 10, y: 20 });
 const app = (id: string, parentId: string | null = null): CanvasNode => ({ ...node(id, parentId), kind: "sector", site: { kind: "application", environments: [{ name: "Produkce", host: `${id}.example.cz` }] } });
@@ -52,22 +52,9 @@ describe("explicit legacy host split", () => {
 });
 
 describe("page structure mutations", () => {
-  it("moves a page in the same domain without rewriting paths, children, edges or unrelated data", () => {
-    const original = graph();
-    const moved = reparentDomainPage(original, "app", "about", "home");
-    expect(moved.nodes[5]).toEqual({ ...original.nodes[5], parentId: "home" });
-    expect(moved.nodes[7]).toBe(original.nodes[7]);
-    expect(moved.nodes[2]).toBe(original.nodes[2]);
-    expect(moved.edges).toBe(original.edges);
-    expect(original.nodes[5].parentId).toBe("wrapper");
-    expect(domainPageTree(moved, "app")[0].children.map((branch) => branch.node.id)).toEqual(["child", "about"]);
-    expect(reparentDomainPage(moved, "app", "about", "app").nodes[5].parentId).toBe("app");
-    expect(reparentDomainPage(original, "app", "home", "app")).toBe(original);
-  });
-  it("rejects self, descendants through containers, different domains and nonpage parents", () => {
-    for (const [pageId, parent] of [["home", "home"], ["home", "child"], ["home", "other"], ["home", "foreign"], ["home", "nested-page"], ["foreign", "app"], ["about", "component"], ["missing", "home"]]) {
-      expect(() => reparentDomainPage(graph(), "app", pageId, parent)).toThrow();
-    }
+  it("otevře doménu na první stránce, prázdnou bez stránky", () => {
+    expect(domainEntryPage(graph(), "app")).toBe("home");
+    expect(domainEntryPage({ nodes: [app("empty")], edges: [] }, "empty")).toBeNull();
   });
   it("reorders only navigation sibling slots and preserves every object and other-domain position", () => {
     const original = graph();

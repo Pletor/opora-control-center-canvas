@@ -1,0 +1,26 @@
+/* Paleta layoutu: pod Strukturou deset boxů jako barevné čipy se stejným tónem, jaký box dostane na plátně, aby člověk
+   hned spojil tlačítko s obdélníkem na stránce. Čip jde kliknout (box na konec) nebo táhnout na místo. Pod nimi tři
+   šablony jako řádky s krátkým popisem rozvržení, protože šablona nahradí celý layout a má se číst, ne jen kliknout. */
+.box-palette { display: flex; flex-direction: column; gap: 7px; padding: 12px; border-top: 1px solid var(--ae-line); }
+.box-palette__title { margin: 4px 2px 0; color: var(--ae-muted); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+.box-palette__boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.box-palette__box {
+  --box-tone: var(--ae-cyan);
+  padding: 6px 7px;
+  border-color: color-mix(in srgb, var(--box-tone) 65%, transparent);
+  background: color-mix(in srgb, var(--box-tone) 12%, var(--ae-panel));
+  font-size: 11px;
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.box-palette__box--header, .box-palette__box--nav, .box-palette__box--footer { --box-tone: var(--ae-tone-infrastructure); }
+.box-palette__box--cta { --box-tone: var(--ae-tone-frontend); }
+.box-palette__box--form { --box-tone: var(--ae-tone-backend); }
+.box-palette__box--aside { --box-tone: var(--ae-tone-cache); }
+.box-palette__box--gallery { --box-tone: var(--ae-tone-database); }
+.box-palette__template { display: flex; align-items: flex-start; gap: 8px; padding: 7px 9px; text-align: left; }
+.box-palette__icon { flex-shrink: 0; margin-top: 2px; color: var(--ae-accent); }
+.box-palette__template-text { display: flex; flex-direction: column; gap: 1px; font-size: 12px; }
+.box-palette__template-text small { color: var(--ae-muted); font-size: 10px; }

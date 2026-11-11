@@ -4,8 +4,8 @@
 // chybějící údaj chybí i v podkladech.
 import type { CanvasNode, EdgeCarries, Graph, PageSection } from "@/shared/types/logic/types";
 import { domainForNode } from "../../../logic/domain-model";
-import { lineage, type MapCheck, type MapCheckFinding } from "../../../domain-map/map-check/logic/map-check";
-import { pageSlices, type PageSlice } from "../../journey-slice/logic/page-slice";
+import { lineage, type MapCheck, type MapCheckFinding } from "../../../domain-site/map-check/logic/map-check";
+import { pageSlices, type PageSlice } from "./page-slice";
 
 /** Komponenta stránky: uzel, jehož nejbližší stránka je rozkládaná stránka, s vazbami ven i dovnitř, které nesou `carries`. */
 export type DecomposeComponent = {

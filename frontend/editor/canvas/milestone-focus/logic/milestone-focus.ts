@@ -3,7 +3,7 @@ import type { Graph } from "@/shared/types/logic/types";
 import type { IntakeResponse } from "@/editor/control-tower/intake-plan/logic/intake-plan";
 import { parseBlockId } from "@/editor/workflow/blocks/logic/block-model";
 
-export type MilestoneFocus = { id: string; title: string; area: string; cards: string[]; closure: number | null;
+export type MilestoneFocus = { id: string; title: string; area: string; areaId: string; cards: string[]; closure: number | null;
   verification?: { verified: boolean; independent?: boolean; source?: string; acceptedRevision?: string; headSha?: string } };
 
 /** References come from the existing intake record, never a second milestone store. */
@@ -16,7 +16,7 @@ export function activeMilestones(data: IntakeResponse | null): MilestoneFocus[] 
     const progress = milestone.closureProgress ?? milestone.progress;
     const closure = typeof progress === "number" && Number.isFinite(progress)
       ? Math.max(0, Math.min(100, Math.round(progress))) : null;
-    return [{ id: milestone.id, title: milestone.title, area: area.name || area.id, cards, closure,
+    return [{ id: milestone.id, title: milestone.title, area: area.name || area.id, areaId: area.id, cards, closure,
       ...(milestone.verification ? { verification: milestone.verification } : {}) }];
   });
 }

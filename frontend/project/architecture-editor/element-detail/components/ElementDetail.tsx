@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import type { CanvasNode, EdgeCarries, Graph, PageSite } from "@/shared/types/logic/types";
 import type { NodePhase } from "@/shared/desktop-state/logic/types";
-import StructureIcon from "../../component-structure/components/StructureIcon";
-import { toneOf } from "../../component-structure/logic/structure-model";
+import StructureIcon from "./StructureIcon";
+import { toneOf } from "../logic/element-tone";
 import { agentContext, nodeLinks } from "../logic/agent-context";
-import { journeysOfPage } from "../../domain-map/logic/page-journeys";
+import { journeysOfPage } from "../../domain-site/logic/page-journeys";
 import { sectionChoice } from "../logic/section-choice";
 import { whyChain, whyChainText } from "../logic/why-chain";
 import { useNodeSpec } from "../logic/use-node-spec";
@@ -17,6 +17,7 @@ import LinkList from "./LinkList";
 import PageTab from "./PageTab";
 import SectionPicker from "./SectionPicker";
 import WorkTab from "./WorkTab";
+import LogicFlowButton from "@/project/project-flows/components/LogicFlowButton";
 import "../styles/element-detail.css";
 
 export type ElementDetailProps = {
@@ -95,6 +96,7 @@ export default function ElementDetail(props: ElementDetailProps) {
               <p className="element-detail__purpose">{node.purpose.trim() || "Účel zatím nic"}</p>
             </div>
           </div>
+          {node.element ? <LogicFlowButton node={node} /> : null}
           <div className="element-detail__tabs" role="tablist" aria-label="Části detailu">
             {tabs.map((item) => (
               <button

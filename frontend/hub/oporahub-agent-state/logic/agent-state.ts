@@ -39,6 +39,10 @@ export type AgentCardStage = {
   pr?: { number: number | null; state: "open" | "merged" | "closed" } | null;
   /** Pořadí podle záměru `FPP` (fáze · pozice, `302`); karta bez pořadí ho nemá. Starší server ho neposílá. */
   order?: number | null;
+  /** Zrcadlo kódu (F1): kód odpovídá kartě celý / zčásti / rozporuje; neměřená karta `null`. Starší server ho neposílá. */
+  mirror?: "ok" | "part" | "bad" | null;
+  /** Budoucnost po sloučení (F4) z paměti serveru; bez otevřené práce nebo nepočítaná `null`. Starší server ho neposílá. */
+  future?: "clean" | "warning" | "blocked" | null;
 };
 export type AgentDecision = { id: string; kind: string; targetId: string | null; title: string; actionId: string };
 export type AgentGap = { id: string; stage: string; reason: string };

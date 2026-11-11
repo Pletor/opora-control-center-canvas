@@ -85,6 +85,15 @@ def test_worker_of_this_project_writes_the_canvas_log():
     assert wall.decide("POST", wall.CANVAS_LOG, "agent", True, WORKER, "jiny").code == "gate_scope"
 
 
+def test_worker_of_this_project_proposes_the_page_plan():
+    """Plán stránky plátna 2: dělník téhož projektu projde zdí, pravidla `proposed` / `approved` hlídá routa."""
+    for path in (wall.PAGE_PLAN, wall.PAGE_PLAN + "/scan", wall.PAGE_PLAN + "/kurz/boxes/cta/status"):
+        assert wall.decide("POST", path, "agent", True, WORKER, "draft") is wall.ALLOW
+        assert wall.decide("POST", path, "agent", True, None, "draft").code == "gate_required"
+        assert wall.decide("POST", path, "agent", True, WORKER, "jiny").code == "gate_scope"
+    assert wall.decide("POST", wall.PAGE_PLAN + "X", "agent", True, WORKER, "draft").code == "gate_required"
+
+
 @pytest.fixture
 def service(tmp_path):
     canvas = CanvasService(tmp_path / "data")

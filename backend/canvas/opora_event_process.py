@@ -42,6 +42,8 @@ KINDS = {
     "ticket.resumed": ("work", "info", "Ticket práce převzala nová relace"),
     "canvas.failed": ("checks", "fail", "Chyba plátna 2–4"),
     "research.planning.requested": ("plan", "wait", "Naplánováno pokračování po rešerši"),
+    "worker.message": ("work", "info", "Srdce dělníkovi"),
+    "card.signal": ("work", "wait", "Signál hlídače"),
 }
 STAGE_PHASE = {"plan": "plan", "proposal": "plan", "acceptance": "plan", "claim": "intake", "work": "work",
                "evidence": "checks", "review": "review", "pull_request": "review", "merge": "merge",
@@ -79,6 +81,10 @@ def _classify(event):
             state = "blocked"
         if isinstance(data.get("message"), str):
             title = f"{title}: {data['message']}"[:200]
+    elif kind == "worker.message" and isinstance(data.get("text"), str):
+        title = f"Srdce dělníkovi ({data.get('severity')}): {data['text']}"[:200]
+    elif kind == "card.signal" and isinstance(data.get("detail"), str):
+        title = f"{data.get('signal')}: {data['detail']}"[:200]
     elif kind == "review.round" and isinstance(data.get("round"), int):
         title = f"Kolo review {data['round']}"
     return phase, state, title

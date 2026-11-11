@@ -2,7 +2,7 @@
 // na karty této úrovně (stránka sama nebo její předek, `cardInLevel`). Přechod leží na vazbě úrovně, když vede z karty
 // zdrojového kroku do karty cílového kroku; kroky na téže kartě nebo mimo úroveň vazbu nemají. Krok „menu“ (`nav`)
 // stránku nemá. Čistá logika bez Reactu.
-import { FROM_NAV } from "@/project/architecture-editor/domain-map/logic/journeys";
+import { FROM_NAV } from "@/project/architecture-editor/domain-site/logic/journeys";
 import type { StudioLink } from "../../logic/studio-level";
 import type { StudioJourney } from "../../logic/studio-status";
 import { cardInLevel, type StudioTree } from "../../logic/studio-tree";

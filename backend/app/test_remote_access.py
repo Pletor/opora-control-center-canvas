@@ -121,6 +121,8 @@ def test_heart_is_loopback_only():
     assert is_loopback_only("/api/brain/heart/messages")
     assert not is_loopback_only("/api/brain/heartx") and not is_loopback_only("/api/brain/tickets")
     assert is_loopback_only("/api/pletor/messages") and is_loopback_only("/api/pletor/state")
+    assert is_loopback_only("/api/page-plan/scan") and is_loopback_only("/api/page-plan/scan/" + "0" * 32)
+    assert not is_loopback_only("/api/page-plan") and not is_loopback_only("/api/page-plan/scanx")
 
 
 def test_heart_refused_through_tunnel_even_with_token(remote_app):

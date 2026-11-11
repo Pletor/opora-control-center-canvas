@@ -56,6 +56,8 @@ review, ověření a auto-rebase; schéma `database/schema/opora_event_schema.py
 | `writeback.done` | Zápis merge zpět do plánu (stejný krok jako merge, `planWrittenBack: true`) | `repository`, `mergeSha`, `planWrittenBack` |
 | `card.closed` | Člověk potvrdil uzavření karty (`done.confirmed` false → true) | `by`, `at` |
 | `guard.alert` / `guard.resolved` | Strážce našel nový nález / nález zmizel ([strážci](strazci.md)); tiché (`QUIET`), actor `{system, "strazce:<id>"}`, fáze `mapa` → plan, `prace` → work, ostatní → checks, `block` → stav blocked; první běh strážce v projektu / dávka >20 nových nálezů = jedna souhrnná `guard.alert` bez `nodeId` (`rule: "baseline"` / `"batch"`) | `key`, `guard`, `rule`, `severity`, `message`, `journeyId?`; souhrn: `guard`, `rule`, `count`, `bySeverity`, `severity`, `message` |
+| `worker.message` | Srdce poslalo pokyn běžícímu dělníkovi (`ticket.direct`, plátno 3 F2); tiché, actor `{agent, "heart"}`, `nodeId` = karta ticketu | `ticketId`, `feedbackId`, `severity` (`hint`/`course`/`stop`), `text` |
+| `card.signal` | Spouštěč karty vzbudil srdce (`determinism/triggers.py`); tiché, actor `{system, "hlídač"}` u `card.stalled`/`card.failing`/`card.drift`, jinak `{system, "trigger"}` | `signal`, `detail`, `state` |
 | `stage.changed` | Etapa karty se po zápisu změnila (odvozené, viz níže); nese `stage` a `health` | `reason`, `previous` nebo `null` |
 
 ### `stage.changed` a `gate.changed`

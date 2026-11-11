@@ -234,7 +234,7 @@ export default function Board({
   const can = { realize: !!onRealizeSource, rules: !!onRuleWrite && !!onRuleReview };
   const make = (): Node[] => focusMilestoneNodes(buildLayerNodes({ graph, state, index, parent, selected, multiSelected: multiSet, selectedBlock, editing,
     disabled, openBlocks, tagFilter, moved: movedSet, checklists, frontier: frontier.rows, work,
-    leases, sourceStatuses, agent, latest, sourceContext, can }).concat(blocks.nodes), milestoneFocus.members);
+    leases, sourceStatuses, agent, latest, sourceContext, can, milestones: milestoneFocus.choices }).concat(blocks.nodes), milestoneFocus.members);
   const [nodes, setNodes] = useState<Node[]>(make);
   // Rostoucí oblast: při tahu karty přes hranu se v náhledu natahuje jen uzel domovské oblasti.
   const growth = useAreaGrowth(setNodes);
@@ -270,7 +270,7 @@ export default function Board({
     setNodes((previous) => reuseNodes(previous, make()));
   }, [graph, state, parent, selected, multiSelected, selectedBlock, editing, disabled, blocks, openBlocks, tagFilter, sourceContext?.project,
     sourceContext?.workspace, frontier.rows, leases, sourceStatuses, work, movedCards,
-    checklists, agent, latest, can.realize, can.rules, milestoneFocus.members]);
+    checklists, agent, latest, can.realize, can.rules, milestoneFocus.members, milestoneFocus.choices]);
   // Výběr hlášený nahoru: poslední známý výběr na plátně, aby změny během tahu obdélníku nebublaly
   // do App znovu a znovu, když se výběr nezměnil. Uzly samy dál jdou přes updater (tah karty).
   const latestNodes = useRef(nodes);
@@ -363,7 +363,7 @@ export default function Board({
       data-testid="board-surface"
       /* Capture fáze: d3 zoom zastavuje dvojklik na plátně dřív, než by probublal. */
       onDoubleClickCapture={(event) => {
-        // Jen prázdné plátno: dvojklik na kartu zůstává vstupem do vnitřního plátna.
+        // Jen prázdné plátno: dvojklik na kartu otevírá detail karty (App `enterOrDetail`).
         const target = event.target as HTMLElement;
         if (disabled || !target.classList.contains("react-flow__pane")) return;
         const rect = event.currentTarget.getBoundingClientRect();
@@ -531,7 +531,7 @@ export default function Board({
       {sourceContext && <SessionViewControl view={sessionView} />}
       {!disabled && (
         <p className="board-hint" data-testid="board-hint">
-          Tah po plátně = výběr · Delete = smazat vybrané · prostřední tlačítko nebo mezerník + tah = posun · dvojklik na prázdné plátno = nový uzel · dvojklik na kartu = do hloubky · z portu bloku se táhne vazba na jinou kartu
+          Tah po plátně = výběr · Delete = smazat vybrané · prostřední tlačítko nebo mezerník + tah = posun · dvojklik na prázdné plátno = nový uzel · dvojklik na kartu = živá karta (do hloubky tlačítkem „Otevřít vnitřní plátno“) · z portu bloku se táhne vazba na jinou kartu
         </p>
       )}
     </div>

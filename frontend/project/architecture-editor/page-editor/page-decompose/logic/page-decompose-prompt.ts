@@ -5,7 +5,7 @@
 import { dataBlock, oneLine, safeIds } from "@/shared/agent-prompt/logic/agent-prompt";
 import { CATALOG_ITEMS, type CatalogItem } from "@/editor/component-library/library-catalog/logic/library-catalog";
 import type { Graph } from "@/shared/types/logic/types";
-import type { MapCheck } from "../../../domain-map/map-check/logic/map-check";
+import type { MapCheck } from "../../../domain-site/map-check/logic/map-check";
 import { pageDecomposeFacts, type DecomposeFacts } from "./page-decompose-model";
 
 export type PageDecomposeInput = {

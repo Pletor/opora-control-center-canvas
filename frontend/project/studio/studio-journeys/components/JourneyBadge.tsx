@@ -1,5 +1,5 @@
-import type { DerivedJourney } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
-import { verificationBadge, verificationTime, verificationTitle } from "@/project/architecture-editor/domain-map/logic/journey-verification";
+import type { DerivedJourney } from "@/project/architecture-editor/domain-site/logic/derived-journeys";
+import { verificationBadge, verificationTime, verificationTitle } from "@/project/architecture-editor/domain-site/logic/journey-verification";
 
 /** Odznak posledního ověření cesty (`derived.lastRun`) s časem běhu, logika sdílená s trychtýřem mapy domény; rozbitá
  * cesta nebo chybějící odvození = nic. Jen zobrazení. */

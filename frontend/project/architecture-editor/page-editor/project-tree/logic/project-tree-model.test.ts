@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
-import { activePageId, projectTree, SHARED_GROUP } from "./project-tree-model";
+import { domainPageTree } from "../../../logic/domain-model";
+import { activePageId, isSharedDomain, structureRows } from "./project-tree-model";
 
 const app = (id: string, envs: { name: string; host: string }[], purpose = ""): CanvasNode =>
   ({ id, parentId: null, kind: "sector", name: id, purpose, x: 0, y: 0, site: { kind: "application", environments: envs } });
@@ -11,34 +12,30 @@ const plain = (id: string, parentId: string): CanvasNode => ({ id, parentId, kin
 const graph: Graph = {
   nodes: [
     app("prod-app", [{ name: "Produkce", host: "app.example.cz" }], "Hlavní aplikace"),
-    app("dev-web", [{ name: "Vývoj", host: "example.dev" }]),
     app("legacy", [{ name: "Produkce", host: "a.cz" }, { name: "Vývoj", host: "a.dev" }]),
-    app("stage", [{ name: "Staging", host: "admin.stage.cz" }]),
-    page("dashboard", "prod-app"), plain("box", "dashboard"), page("detail", "box"), page("login", "prod-app"),
+    page("dashboard", "prod-app"), plain("box", "dashboard"), page("detail", "box"), page("login", "prod-app"), page("cizi", "legacy"),
   ],
   edges: [],
 };
 
-describe("projectTree", () => {
-  const groups = projectTree(graph, "prod-app", "detail");
-  it("řadí Produkce, Vývoj, další prostředí a sdílenou strukturu", () => {
-    expect(groups.map((group) => [group.label, group.badge, group.tone])).toEqual([
-      ["Produkce", "LIVE", "live"], ["Vývoj", "DEV", "dev"], ["Staging", null, "other"], [SHARED_GROUP, null, "shared"]]);
+describe("structureRows", () => {
+  const rows = structureRows(domainPageTree(graph, "prod-app"), "detail");
+  it("jen stránky otevřené domény, podstránky s hloubkou a aktivní stránka", () => {
+    expect(rows.map((row) => [row.node.id, row.depth, row.active])).toEqual([["dashboard", 0, false], ["detail", 1, true], ["login", 0, false]]);
   });
-  it("zachová prázdné Produkce/Vývoj a označí aktivní skupinu", () => {
-    const empty = projectTree({ nodes: [], edges: [] }, null, null);
-    expect(empty.map((group) => group.label)).toEqual(["Produkce", "Vývoj"]);
-    expect(groups[0].active).toBe(true);
-    expect(groups[1].active).toBe(false);
+  it("ví, kdo je první a poslední mezi sourozenci", () => {
+    expect(rows.map((row) => [row.first, row.last])).toEqual([[true, false], [true, true], [false, true]]);
   });
-  it("dává doméně host, druh a stránky s hloubkou podstránek", () => {
-    const domain = groups[0].domains[0];
-    expect(domain).toMatchObject({ id: "prod-app", host: "app.example.cz", kind: "app", kindLabel: "Aplikace", purpose: "Hlavní aplikace", active: true });
-    expect(domain.pages.map((item) => [item.id, item.depth, item.active])).toEqual([["dashboard", 0, false], ["detail", 1, true], ["login", 0, false]]);
+  it("prázdná doména nemá řádky", () => {
+    expect(structureRows([], null)).toEqual([]);
   });
-  it("vícehostová aplikace ukáže všechny hosty a druh podle prvního", () => {
-    expect(groups[3].domains[0]).toMatchObject({ id: "legacy", host: "a.cz, a.dev", kind: "web" });
-    expect(groups[2].domains[0].kind).toBe("admin");
+});
+
+describe("isSharedDomain", () => {
+  it("vícehostová aplikace je sdílená struktura, jednohostová ne", () => {
+    expect(isSharedDomain(graph.nodes[1])).toBe(true);
+    expect(isSharedDomain(graph.nodes[0])).toBe(false);
+    expect(isSharedDomain(page("p", "x"))).toBe(false);
   });
 });
 

@@ -14,7 +14,7 @@ def github_url(value):
     return value
 
 
-def git(root, *args, timeout=15, optional=False, raw=False):
+def git(root, *args, timeout=15, optional=False, raw=False, codes=(0,)):
     env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     env.update(GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="Never")
     # Hooky a fsmonitor nesmí při pozorování spouštět projektový kód. Dlouhé cesty: worktree
@@ -41,7 +41,7 @@ def git(root, *args, timeout=15, optional=False, raw=False):
         timeout=timeout,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
-    if result.returncode:
+    if result.returncode not in codes:  # `codes`: úspěšné kódy (merge-tree hlásí konflikt kódem 1)
         if optional:
             return None
         raise ValueError(

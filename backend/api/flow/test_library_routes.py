@@ -128,3 +128,37 @@ def test_brief_route_serves_active_or_given_version_and_refuses_empty_or_missing
         assert "Neplatná výška (`bad`)" not in first["markdown"] and "@2" in first["markdown"]
         assert c.get(url, params={"version": 9}).json()["detail"] == "Plátno nemá verzi 9."
         assert c.get("/api/library/flows/nope/brief").status_code == 404
+
+
+def test_element_logic_flow_route_finds_creates_once_and_takes_versions(tmp_path):
+    from backend.project.architecture.test_page_plan import graph
+
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as c:
+        pid = c.post("/api/empty-project", headers=HEADERS, json={"name": "Kurz", "confirmed": True}).json()["id"]
+        scope = {"project": pid, "workspace": "draft"}
+        digest = c.get("/api/view", params=scope).json()["digest"]
+        assert c.post("/api/graph", headers=HEADERS, json={**scope, "graph": graph(), "digest": digest}).status_code == 200
+        url = "/api/library/project-flows"
+        assert c.get(url, params={"project": pid, "nodeId": "koupit"}).json() == {"flow": None}
+        assert c.post(url, headers=HEADERS, json={**scope, "nodeId": "nic", "title": "X"}).status_code == 404
+        assert c.post(url, headers=HEADERS, json={**scope, "nodeId": "kurz", "title": "X"}).status_code == 422
+        assert c.post(url, headers=HEADERS, json={**scope, "workspace": "jiny", "nodeId": "koupit", "title": "X"}
+                      ).status_code == 422
+
+        made = c.post(url, headers=HEADERS, json={"project": pid, "nodeId": "koupit", "title": "Koupit kurz"}).json()
+        assert made["ownerRef"] == "opora:project-flow:koupit" and made["projectId"] == pid and made["versions"] == []
+        again = c.post(url, headers=HEADERS, json={**scope, "nodeId": "koupit", "title": "Znovu"}).json()
+        assert again["id"] == made["id"] and again["title"] == "Koupit kurz"
+        assert c.get(url, params={"project": pid, "nodeId": "koupit"}).json()["flow"]["id"] == made["id"]
+
+        versions = f"/api/flow/workflows/{made['id']}/versions"
+        assert c.post(versions, headers=HEADERS, json={"graph": rag()}).status_code == 200
+        heart = {**AGENT, tokens.HEADER: tokens.issue_heart(c.app.state.service, pid, "draft")[1]}
+        assert c.post(versions, headers=heart, json={"graph": rag(), "note": "Logika srdce"}).status_code == 200
+
+        folder = next(f for f in c.get("/api/library").json()["folders"] if f["slug"] == "payments")
+        source = c.post("/api/library/flows", headers=HEADERS, json={"folder": folder["id"], "slug": "platba", "title": "Platba"}
+                        ).json()
+        c.post(f"/api/flow/workflows/{source['id']}/versions", headers=HEADERS, json={"graph": rag()})
+        taken = c.post(f"/api/library/flows/{source['id']}/adopt", headers=HEADERS, json={"project": pid, "nodeId": "koupit"})
+        assert taken.status_code == 409 and taken.json()["code"] == "owner_taken"  # prvek už plátno má

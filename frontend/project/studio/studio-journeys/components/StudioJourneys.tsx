@@ -11,6 +11,6 @@ export default function StudioJourneys({ lanes, open, onToggle, onPage }: { lane
     </button>
     {open && (lanes.length
       ? <ol className="studio-journeys__lane-list">{lanes.map((lane) => <StudioLane key={lane.journey.id} lane={lane} onOpen={onPage}/>)}</ol>
-      : <p className="studio-journeys__empty">Doména zatím nemá cesty zákazníka. Zadávají se v trychtýři na mapě domény (Architektura projektu).</p>)}
+      : <p className="studio-journeys__empty">Doména zatím nemá cesty zákazníka.</p>)}
   </section>;
 }

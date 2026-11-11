@@ -344,6 +344,16 @@ PROJECT_SCHEMA += (EXECUTION_SCHEMA + GRAPH_AUTHORITY_SCHEMA + OPORA_GRAPH_SCHEM
 # lístky zůstávají v `gate_tickets` (druh otázka), aby migrace byla jen aditivní. Stav ticketu nemá CHECK: přechody
 # hlídá `determinism/ticket_model.advance` a nový stav pak nevyžaduje přestavbu tabulky (CHECK `gate_tickets` ji vyžaduje).
 GATE_TABLES = ("gate_sessions", "gate_tickets", "tickets", "ticket_feedback")
+# Pokyn srdce běžícímu dělníkovi (`ticket.direct`, plátno 3 F2) je položka `heart.<severity>`; starou tabulku přestaví
+# `ensure_ticket_feedback_heart`.
+TICKET_FEEDBACK_TABLE = """
+CREATE TABLE IF NOT EXISTS ticket_feedback(
+    seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+    project_id TEXT NOT NULL, ticket_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('bug','idea','improvement','question','heart.hint','heart.course','heart.stop')),
+    text TEXT NOT NULL, session_id TEXT NOT NULL, answer TEXT, answered_at TEXT, created_at TEXT NOT NULL);
+"""
+TICKET_FEEDBACK_INDEX = "CREATE INDEX IF NOT EXISTS ticket_feedback_ticket ON ticket_feedback(ticket_id, seq);\n"
 GATE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS gate_sessions(
     id TEXT PRIMARY KEY, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
@@ -366,13 +376,7 @@ CREATE TABLE IF NOT EXISTS tickets(
 CREATE INDEX IF NOT EXISTS tickets_queue ON tickets(project_id, workspace_id, status, seq);
 CREATE INDEX IF NOT EXISTS tickets_holder ON tickets(session_id, status);
 CREATE INDEX IF NOT EXISTS tickets_execution ON tickets(execution_id);
-CREATE TABLE IF NOT EXISTS ticket_feedback(
-    seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
-    project_id TEXT NOT NULL, ticket_id TEXT NOT NULL,
-    kind TEXT NOT NULL CHECK(kind IN ('bug','idea','improvement','question')), text TEXT NOT NULL,
-    session_id TEXT NOT NULL, answer TEXT, answered_at TEXT, created_at TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS ticket_feedback_ticket ON ticket_feedback(ticket_id, seq);
-"""
+""" + TICKET_FEEDBACK_TABLE + TICKET_FEEDBACK_INDEX
 PROJECT_SCHEMA += GATE_SCHEMA + RESEARCH_SCHEMA + RESEARCH_DECISIONS_SCHEMA + RESEARCH_EVENTS_SCHEMA + CANVAS_OPERATION_SCHEMA
 PROJECT_SCHEMA += STORYBOARD_SCHEMA
 PROJECT_SCHEMA += RESEARCH_REVIEW_PROPOSALS_SCHEMA + KNOWLEDGE_SCHEMA
@@ -554,3 +558,26 @@ def ensure_milestone_proposed(db):
         db.execute("RELEASE intake_milestones_rebuild")
         raise
     db.execute("RELEASE intake_milestones_rebuild")
+
+
+FEEDBACK_COLUMNS = "seq, id, project_id, ticket_id, kind, text, session_id, answer, answered_at, created_at"
+
+
+def ensure_ticket_feedback_heart(db):
+    """Jednorázová přestavba `ticket_feedback` na CHECK s pokyny srdce `heart.*` (plátno 3 F2, `ticket.direct`) jako
+    `ensure_milestone_proposed`: pod savepointem, řádky i `seq` zůstanou. Tabulka, která `heart.` zná, nebo chybí = nic."""
+    row = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='ticket_feedback'").fetchone()
+    if row is None or "'heart." in row[0]:
+        return
+    db.execute("SAVEPOINT ticket_feedback_rebuild")
+    try:
+        db.execute("ALTER TABLE ticket_feedback RENAME TO ticket_feedback_old")
+        db.execute(TICKET_FEEDBACK_TABLE)
+        db.execute(f"INSERT INTO ticket_feedback({FEEDBACK_COLUMNS}) SELECT {FEEDBACK_COLUMNS} FROM ticket_feedback_old")
+        db.execute("DROP TABLE ticket_feedback_old")
+        db.execute(TICKET_FEEDBACK_INDEX)
+    except BaseException:
+        db.execute("ROLLBACK TO ticket_feedback_rebuild")
+        db.execute("RELEASE ticket_feedback_rebuild")
+        raise
+    db.execute("RELEASE ticket_feedback_rebuild")

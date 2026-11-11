@@ -129,6 +129,9 @@ TABLE = (
          {**HEART_ONLY, **TICKET_MISSING, "ticket_answered": "Lístek už má odpověď; načtěte ho.",
           "feedback_not_found": "ID položek jsou v GET /api/brain/tickets/{id} v poli feedback.",
           "feedback_answered": "Položka už má odpověď; načtěte ticket znovu."}, _ticket_answer, _answer),
+    Kind("ticket.direct", "heart", "Pokyn srdce běžícímu dělníkovi (hint, course, stop): položka zpětné vazby "
+         "heart.<severity> u drženého ticketu, Kancelář ji doručí do relace; stop zastaví běh.",
+         {**HEART_ONLY, **WORK_MISSING, **WORK_STATE}, ticket_model.direct_payload, ticket.direct),
     Kind("escalate", "heart", "Otázka srdce pro člověka (konflikt se záměrem): čekající lístek ask ve velínu.",
          HEART_ONLY, lambda body: shaped(body, ("text",), texts=("text",), limit=ESCALATE_LIMIT,
                                          hint=_hint("escalate")),

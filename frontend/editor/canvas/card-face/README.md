@@ -2,11 +2,11 @@
 
 Tvář karty na plátně Editoru: druh, kdo kartu drží, název, jeden stavový řádek (zdraví · etapa · důvod),
 postup kroků a nejvýš jedna patička (brána / blokace / rozhodnutí). Data bere výhradně z `cards[]` a
-`decisions[]` agent-state (`logic/card-face.ts`, test `card-face.test.ts`); pod 45 % zoomu kreslí glyf.
+`decisions[]` agent-state (`logic/card-face.ts`, test `card-face.test.ts`); pod 45 % zoomu kreslí glyf (kruh postupu + název). Růst karty pro plátno 3 (`logic/face-growth.ts`, test vedle): tvar rámečku seed/bud/leaf/prop (`node-card--grow-*`), kruh postupu z kroků, tečky Z/K/S/B (K z `cards[].mirror`: ok zelená, part modrá, bad plná červená, `null` čárkovaně; B z `cards[].future`: clean zelená, warning modrá, blocked červená, `null` čárkovaně) a živý pulz při lease nebo běžící exekuci; dílky `components/FaceGrowth.tsx`.
 Klik na rozhodnutí otevře detail karty přes `frontend/hub/oporahub-card-drawer/open.ts`.
 Pod stavovým řádkem stojí odznak PR v barvách GitHubu (`face.pr` z `cards[].pr`, dílek `frontend/shared/pr-badge`); uzavřená karta ho nemá.
 
-Pohyb jen ze skutečného stavu: karta ve stavu `decision` („čeká na tebe“, `logic/card-face.ts`) má čárkovaný zlatý prstenec `::after` s animací `node-card-await` (1,85 s); segmenty postupu plynule mění barvu (0,22 s). Při `prefers-reduced-motion` bez animace, prstenec svítí napevno.
+Pohyb jen ze skutečného stavu: karta ve stavu `decision` („čeká na tebe“, `logic/card-face.ts`) má čárkovaný zlatý prstenec `::after` s animací `node-card-await` (1,85 s); tečka živého dělníka pulzuje (1,1 s). Při `prefers-reduced-motion` bez animace, prstenec svítí napevno.
 
 Stopa karty (docs/navrhy/2026-10-31-viditelnost-srdce-a-karet.md, B; logika `logic/face-change.ts`, test `face-change.test.ts`):
 

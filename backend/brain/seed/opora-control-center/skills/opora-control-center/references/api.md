@@ -287,13 +287,73 @@ CAS přes `expected_revision` (z čtení), scéna je `{elements: [...]}`. Zápis
 
 Odpověď `{scene, revision, readOnly, available, source}`.
 
+### Plán stránky (plátno 2)
+
+Kdy mě číst: máš navrhnout nebo přečíst layout stránky (boxy na mřížce 12 sloupců) a její logiku (kdo, kdo smí,
+co musí splnit, co se děje, s čím, napojení), nebo rozložit cizí web. Kontrakt `docs/navrhy/2026-11-10-platno-2.md` (verze 3, 4 a 6).
+Box = sekce stránky `site.sections[]` `{id, role, name, intent (funkčnost boxu ≤ 600), look? (vzhled ≤ 300), box?: {x, y, w, h},
+parent?, status?, inspiration?, source?}`;
+prvek logiky = uzel `kind: "node"` s `element.kind` pod stránkou, box nese `card.section` (bez něj celá stránka).
+Agent i člověk; agent se prokáže tokenem brány (`X-Opora-Gate-Token`, worker jen ve svém prostoru, heart v projektu)
+nebo `X-Opora-Actor: agent; name=…`, bez identity 428 `identity_required`. Odmítnutí routy je `{error, code, hint}`;
+neplatný tvar sekcí 422 `{error, code: invalid_payload, field, expected, example}`, odmítnutí uložení grafu 409 `{error}`.
+
+- `GET /api/page-plan?project&workspace&pageId` → `{page: {id, name, path, goal}, sections: [... + sketch: {revision}|null],
+  logic: [{id, kind, name, purpose, section, milestone}], digest, readOnly}`. `digest` je otisk jen layoutu stránky;
+  `milestone` = Návrh | Realizace (`card.status: ready`) | Ověření (karta uzavřená). Stránka neexistuje = 404 `page_not_found`.
+- `POST /api/page-plan {project, workspace, pageId, expectedDigest, sections, scanId?}` zapíše celý layout (validace
+  `site.sections`, prázdný seznam layout smaže; jiný `expectedDigest` = 409 `plan_changed`). Agent smí přidat nebo změnit
+  jen box se `status: "proposed"`, `approved` box nesmí změnit ani vynechat (403 `agent_box_refused`); nezměněné boxy pošli,
+  jak přišly. `source` doplní server (`human` / `agent`, `scan` u boxů hotového skenu `scanId`). Inspirace
+  `{files?: [id z POST /api/drawing-file, 1–6], url?: http(s), note?: ≤ 200}` jen v pracovním prostoru, layout i na mainu.
+- `POST /api/page-plan/{page_id}/boxes/{section_id}/status {project, workspace, status: approved|draft, expectedDigest?}`:
+  jen člověk (agent 403 `{error, humanRequired: true}`, bez relace UI 428).
+- `POST /api/page-plan/scan {project, workspace, pageId, url, note?}` → `{scanId, state: "running"}` (jen z tohoto počítače, ne přes tunel); výzkumník srdce
+  (Haiku, REA s prohlížečem) rozloží web na layout a logiku. `GET /api/page-plan/scan/{scan_id}?project&workspace` →
+  `{scanId, pageId, url, state: running|done|failed, outcome?: adopted|discarded, error?, cost?, proposal?}`;
+  `proposal = {sections (boxy status proposed, s intent a look), logic: [{ref, kind, name, purpose, section?, flow?}],
+  design?, captures?, notes: []}`. `flow = {inputs, steps, outputs, conditions, dataTo}` (seznamy ≤ 8 textů po 160;
+  `dataTo` = kam data odcházejí); `design` = tokeny Správy webu (tvar `design.tokens`, prošlé `normalize_tokens`);
+  `captures = {page: "page.png", sections: {sectionId: "box-<id>.png"}}` (snímek stránky v šířce 1440 a výřezy boxů);
+  `notes` = co server zahodil nebo proč snímky chybí (neplatná volitelná část sken neshodí).
+  Sken nic nezapisuje; převzetí = `POST /api/page-plan` se `scanId` (sken dostane `outcome: adopted`; zahozený nejde
+  převzít, 409 `scan_not_ready`) a prvky logiky jednou dávkou `/api/canvas-plan`.
+- `GET /api/page-plan/scan/latest?project&workspace&pageId` → poslední sken stránky se `state: done` bez `outcome`
+  (stejný tvar jako GET skenu), jinak 404 `scan_not_found`. `POST /api/page-plan/scan/{scan_id}/discard {project, workspace}`
+  → `outcome: discarded`, jen člověk (agent 403); už převzatý = 409 `scan_closed`.
+- `GET /api/page-plan/scan/{scan_id}/capture/{name}?project&workspace` → PNG (`image/png`); jen jména z `proposal.captures`,
+  jiné 404 `capture_not_found`.
+- Skica boxu: `/api/drawing` s vrstvou `box/<pageId>/<sectionId>` (jako skica momentu). Prvky logiky přes `/api/canvas-plan`
+  (`element: {kind}`, `card: {section}`), stav přes node-brief stránky (`pagePlan`: zkrácený layout a logika).
+- **Plátno logiky prvku** (verze 4): logika prvku (uzel s `element`) se nastavuje po uzlech na plátně toku = tok projektu
+  `kind: library_flow` s `owner_ref = opora:project-flow:<nodeId>`, jedno na prvek. Najdi ho
+  `GET /api/library/project-flows?project=P&nodeId=N` → `{flow: {id, title, ownerRef, versions, activeN, …} | null}`
+  (nebo `GET /api/flow/workflows?project=P&kind=library_flow&owner_ref=opora:project-flow:N`). Založ prázdné
+  `POST /api/library/project-flows {project, nodeId, title, workspace?}` (uzel musí být prvek v grafu prostoru `workspace`,
+  bez něj v přijatém grafu; jinak 404 / 422; druhé založení vrátí existující; zeď brány jako `adopt`), nebo převezmi
+  hotové z knihovny `POST /api/library/flows/{id}/adopt {project, nodeId}` (prvek už plátno má = 409 `owner_taken`).
+  Graf měň draftem `POST /api/flow/workflows/{id}/versions {graph, parent_version_id?, note?}` (typy uzlů
+  `GET /api/flow/node-types?kind=library_flow`, kontrola `POST /api/flow/graph-check`), aktivace
+  `POST /api/flow/versions/{vid}/candidate` a `…/activate`. Plátno se nespouští. Člověk ho otevře `projectView=library&flow=<id>`.
+
+```bash
+curl -s "$OPORA/api/page-plan?project=P&workspace=W&pageId=PAGE" -H "X-Opora-Actor: agent; name=planner"
+curl -s -X POST "$OPORA/api/page-plan" -H "Origin: $OPORA" -H "Content-Type: application/json"   -H "X-Opora-Actor: agent; name=planner" -d '{"project": "P", "workspace": "W", "pageId": "PAGE",
+  "expectedDigest": "DIGEST", "sections": [{"id": "hero", "role": "hero", "name": "Úvod", "intent": "Proč tu zůstat.",
+  "box": {"x": 0, "y": 0, "w": 12, "h": 4}, "status": "proposed"}]}'
+curl -s -X POST "$OPORA/api/page-plan/scan" -H "Origin: $OPORA" -H "Content-Type: application/json"   -H "X-Opora-Actor: agent; name=planner" -d '{"project": "P", "workspace": "W", "pageId": "PAGE", "url": "https://example.com"}'
+curl -s "$OPORA/api/page-plan/scan/SCAN_ID?project=P&workspace=W" -H "X-Opora-Actor: agent; name=planner"
+curl -s "$OPORA/api/library/project-flows?project=P&nodeId=NODE"
+curl -s -X POST "$OPORA/api/library/project-flows" -H "Origin: $OPORA" -H "Content-Type: application/json"   -H "X-Opora-Actor: agent; name=planner" -d '{"project": "P", "workspace": "W", "nodeId": "NODE", "title": "Koupit kurz"}'
+```
+
 ## Architektura projektu, worktree a relace
 
 Kdy mě číst: hledáš domény a stránky projektu, kdo na které doméně pracuje, jestli běží web, nebo
 worktree a relace. Kontrakt: `docs/domeny-a-worktree.md`. Architektura (uzly se `site`: doména
 `site.kind="application"` s jedním prostředím `{name, host}`, stránka `site.kind="page"` s `path` a nepovinnými
 `goal` (cíl, 1–200), `feel` (působení, 1–120), `navLabel` (popisek v menu, 1–40) a `sections`
-(`[{id, role, name, intent, moves?}]`, 1–20; role `hero|cta|form|content|gallery|proof|faq|footer|custom`;
+(`[{id, role, name, intent, moves?, box?, parent?}]`, 1–40; role `hero|cta|form|content|gallery|proof|faq|footer|custom|header|nav|aside|article|main`; `box` `{x,y,w,h}` na mřížce 12 sloupců, `parent` = id jiné sekce stránky;
 `moves` 1–120 = čím sekce posouvá zákazníka v kroku cesty); prázdné
 pole se vynechá, výchozí hodnoty se nedoplňují; `node-brief` je nese v `node.site`, `navLabel` i v
 `specification.navigation`) je jedna pro

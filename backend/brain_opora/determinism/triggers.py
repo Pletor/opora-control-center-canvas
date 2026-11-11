@@ -12,21 +12,39 @@ do `heart_triggers` (klíč `trigger:card:<nodeId>:<druh>:<stav>`), takže stejn
   stejný běh budí jednou, nový selhaný běh znovu; detail nese krok, jeho poznámku a pokyn přepsat kroky karty;
 - `card.stalled`: běžící běh starší než 3× medián doby běhu hotových karet se stejným štítkem a bez události kroku
   (`step.*`) za tu dobu; stav = ID běhu;
-- `card.over_budget`: `costUsd` > 2× medián; cena zatím chybí (`costUsd` null, §7), takže se nevyhodnocuje;
+- `card.over_budget`: `costUsd` > 2× medián; cena karty je součet pozorovaných cen jejích běhů
+  (`opora_execution_observers.spent`), bez pozorování null a spouštěč mlčí;
+- `card.failing` (hlídač, plátno 3 F2): Kancelář hlásí opakovaně selhávající testy nebo build (`tool.use` s
+  `action: failing` z jejího `failStreak`), nebo stejný nástroj se stejným cílem skončil `fail` 3× v řadě; stav = ID
+  události, nová série budí znovu;
+- `card.drift` (hlídač, F2): dělník editoval soubor mimo očekávání karty (`tool.use` `action: edit`, `target` mimo
+  vzory `plan_reality.expectations`); karta bez očekávaných souborů drift nemá; stav = otisk souborů mimo, nový
+  soubor mimo budí znovu;
+- `card.collision` (hlídač, F4): sloučení otevřené práce karty skončí konfliktem (`plan_future`, `merge-tree`), nebo
+  její dopad zasáhne kartu s vlastní otevřenou prací se společnými soubory; stav = otisk souborů v konfliktu a zasažených karet;
 - `graph.human_change` (řez 3, odchylka): člověk přijal návrh plánu (`changeset.accepted` s autorem `human`;
   ruční uložení plátna událost nemá); klíč `trigger:graph:<revize>:human_change`.
 
+Hlídač čte jen `tool.use` karty za poslední hodinu (`TOOLS_SECONDS`). Vystřelený spouštěč zapíše do deníku karty
+událost `card.signal` (aktér `hlídač` u stalled/failing/drift/collision, jinak `trigger`).
 Mediány jsou z hotových karet projektu (`done.confirmed`) podle štítku; méně než `HISTORY` karet se štítkem =
 `stalled` ani `over_budget` neběží. Spouštěč nic nezapisuje na plátno, jen budí.
 """
+import hashlib
 import json
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
+from itertools import takewhile
 from statistics import median
 
-from backend.canvas import card_gauge
+from backend.canvas import card_gauge, plan_future, plan_reality
+from backend.canvas.opora_events import emit_event, stamp
 from database.repositories.heart_triggers import HeartTriggers
 
-CARD_KINDS = ("card.too_big", "card.retry", "card.step_failed", "card.stalled", "card.over_budget")
+CARD_KINDS = ("card.too_big", "card.retry", "card.step_failed", "card.stalled", "card.over_budget", "card.failing",
+              "card.drift", "card.collision")
+WATCH = ("card.stalled", "card.failing", "card.drift", "card.collision")  # signály hlídače (F2); ostatní jsou spouštěče
+FAIL_STREAK = 3
+TOOLS, TOOLS_SECONDS = 50, 3600  # nejvýš událostí `tool.use` na kartu a jejich stáří pro failing/drift
 HUMAN_CHANGE = "graph.human_change"
 RETRY_FAILURES = 2
 STALL_FACTOR, BUDGET_FACTOR = 3, 2
@@ -117,18 +135,68 @@ def stalled(card, typical):
 
 
 def over_budget(card, typical):
-    """Připraveno: cena běhu zatím chybí (`costUsd` null), takže bez ceny nic nevrací."""
+    """Bez ceny karty (`costUsd` null = běhy bez pozorování) nebo bez mediánu nic nevrací."""
     cost, limit = card.get("costUsd"), (typical.get(card.get("label")) or {}).get("costUsd")
     if cost is None or limit is None or not card.get("runId") or cost <= BUDGET_FACTOR * limit:
         return None
     return _hit("card.over_budget", card, card["runId"], f"{cost:.2f} USD, medián {limit:.2f} USD")
 
 
+def failing(card):
+    """Kancelář sama počítá sérii selhání (`failStreak`) a hlásí ji `tool.use` s `action: failing`; jiný zdroj stačí,
+    když stejný nástroj se stejným cílem skončil `fail` `FAIL_STREAK`× v řadě. Stav = ID události."""
+    uses = card.get("tools") or []
+
+    def key(use):
+        return use["tool"].get("name"), use["tool"].get("target")
+    streak = list(takewhile(lambda use: use["state"] == "fail" and key(use) == key(uses[0]), uses))
+    found = streak[0] if len(streak) >= FAIL_STREAK else next(
+        (use for use in uses if use["tool"].get("action") == "failing"), None)
+    if found is None:
+        return None
+    what = found["tool"].get("target") or found["tool"].get("name") or "testy"
+    return _hit("card.failing", card, str(found["id"]), f"{what} opakovaně selhává, oprav příčinu nebo změň postup")
+
+
+def _inside(target, patterns):
+    """Cíl editace z Kanceláře bývá absolutní cesta ve worktree: patří kartě, když jí patří některá jeho přípona."""
+    parts = target.replace("\\", "/").split("/")
+    return any(plan_reality.allowed_path("/".join(parts[index:]), patterns) for index in range(len(parts)))
+
+
+def drift(card):
+    """Editace mimo očekávané soubory karty; zkrácený cíl („…“) se nehodnotí. Stav = otisk souborů mimo."""
+    patterns = card.get("expected") or []
+    targets = {use["tool"].get("target") for use in card.get("tools") or [] if use["tool"].get("action") == "edit"}
+    away = sorted(target for target in targets if target and not target.endswith("…") and not _inside(target, patterns))
+    if not patterns or not away:
+        return None
+    state = hashlib.sha1("\n".join(away).encode()).hexdigest()[:12]
+    more = f" (+{len(away) - 3})" if len(away) > 3 else ""
+    return _hit("card.drift", card, state, f"editace mimo soubory karty: {', '.join(away[:3])}{more}, vrať dělníka ke kartě")
+
+
+def collision(card):
+    """Budoucnost karty (`future` z `plan_future`) je blokovaná konfliktem, nebo zasáhne kartu, jejíž vlastní otevřená
+    práce mění stejné soubory (dopad, který je zároveň překryv). Stav = otisk konfliktů a zasažených karet."""
+    works = (card.get("future") or {}).get("works") or []
+    conflicts = sorted({path for work in works for path in work["conflicts"]})
+    hit = sorted({item["nodeId"] for work in works for item in work["impacts"]}
+                 & {item["nodeId"] for work in works for item in work["overlaps"] if item["paths"]})
+    if not conflicts and not hit:
+        return None
+    state = hashlib.sha1("\n".join([*conflicts, "|", *hit]).encode()).hexdigest()[:12]
+    parts = ([f"sloučení skončí konfliktem v {', '.join(conflicts[:3])}"] if conflicts else []) + (
+        [f"dopad na karty s otevřenou prací: {', '.join(hit[:3])}"] if hit else [])
+    return _hit("card.collision", card, state, "; ".join(parts) + ", vyřeš před sloučením")
+
+
 def evaluate(cards, done):
     """Spouštěče karet `[{kind, nodeId, title, detail, state}]` z faktů karet a hotových karet (pořadí tabulky)."""
     typical, found = medians(done), []
     for card in cards:
-        for hit in (too_big(card), retry(card), step_failed(card), stalled(card, typical), over_budget(card, typical)):
+        for hit in (too_big(card), retry(card), step_failed(card), stalled(card, typical), over_budget(card, typical),
+                    failing(card), drift(card), collision(card)):
             if hit is not None:
                 found.append(hit)
     return found
@@ -174,6 +242,7 @@ def facts(service, project, workspace, now):
     otevřený nebo sloučený PR); hotové karty se štítkem a dobou běhu (claim → poslední hlášení výsledku)."""
     from backend.canvas.opora_changesets import OporaChangesets
     from backend.canvas.opora_event_stage import confirmed_nodes
+    from backend.canvas.opora_execution_observers import spent
     from backend.canvas.opora_plan_steps import steps_of
     from backend.canvas.opora_process_sync import ProcessSync
     from database.repositories import opora_events
@@ -198,9 +267,19 @@ def facts(service, project, workspace, now):
         history, reported = runs.history(), runs.reported_at()
         linked = list_execution_pull_requests(db, project, workspace)
         steps_at = opora_events.last_step_at(db, project, workspace)
+        tools = opora_events.tool_uses(db, project, workspace, stamp(datetime.fromtimestamp(now, UTC) - timedelta(seconds=TOOLS_SECONDS)),
+                                       TOOLS)
         closed = confirmed_nodes(db, project, workspace, cards)
         broken = {node: {"runId": run, **found} for node, run in delivered.items()
                   if (found := failed_step(runs, run)) is not None}
+    costs = spent(service, project, workspace)["nodes"]  # vlastní zámky, mimo čtení výše
+    works = plan_reality.facts(service, project, workspace, graph, list(accepted.values()))["works"]
+    busy = {node for node, items in works.items() if plan_future.open_works(items)}
+    root = plan_reality.root_of(service, project, workspace) if busy else None
+
+    def expected(node):
+        items = plan_reality.expectations(node, graph["nodes"], steps_of((accepted.get(node) or {}).get("fields")))
+        return [path for item in items if item["kind"] == "file" for path in (item["path"], item["path"].rstrip("/") + "/")]
 
     def run_of(node):
         return card_gauge.profile(index["nodes"][node], graph, steps_of((accepted.get(node) or {}).get("fields")), index)
@@ -217,6 +296,8 @@ def facts(service, project, workspace, now):
         node = item["nodeId"]
         if node not in index["nodes"]:
             continue
+        # OP-11EC95.2: hlídač počítá budoucnost sám (git jen při nových hlavách), jinak by čekal na otevření karty.
+        future = plan_future.card(root, node, graph["nodes"], graph["edges"], works) if root and node in busy else None
         run, latest = run_of(node), newest.get(node) or {}
         claimed, step = _seconds(latest.get("createdAt")), _seconds(steps_at.get(node))
         active = latest.get("state") == "running" and (latest.get("expiresAt") or 0) > now
@@ -225,15 +306,16 @@ def facts(service, project, workspace, now):
                        "effort": run["effort"], "failures": (tally.get(node) or {}).get("failures", 0),
                        "failedRun": failed.get(node), "runId": latest.get("executionId") if active else None,
                        "age": now - claimed if active and claimed is not None else None,
-                       "sinceStep": now - step if step is not None else None, "costUsd": None,
-                       "stepFailed": broken.get(node)})
+                       "sinceStep": now - step if step is not None else None, "costUsd": costs.get(node),
+                       "stepFailed": broken.get(node), "tools": tools.get(node, []),
+                       "expected": expected(node) if node in tools else [], "future": future})
     done = []
     for node in closed:
         record = next((item for item in history if item["nodeId"] == node and item["executionId"] in reported), None)
         if record is None:
             continue
         start, end = _seconds(record.get("createdAt")), _seconds(reported[record["executionId"]])
-        done.append({"label": run_of(node)["label"], "costUsd": None,
+        done.append({"label": run_of(node)["label"], "costUsd": costs.get(node),
                      "seconds": end - start if start is not None and end is not None and end >= start else None})
     return result, done
 
@@ -261,6 +343,10 @@ def wakes(service, project, workspaces, at, now, extra=None):
         with db:
             store = HeartTriggers(db)
             found = [(space, item) for space, key, item in hits if store.fire(key, space, at)]
+            for space, item in found:  # OP-3DAFF9.2: signál hlídače i spouštěče je vidět v deníku karty
+                emit_event(db, project_id=project, workspace_id=space, kind="card.signal", node_id=item["nodeId"],
+                           actor={"kind": "system", "name": "hlídač" if item["kind"] in WATCH else "trigger"},
+                           data={"signal": item["kind"], "detail": item["detail"]})
             fresh = [(space, key, item) for space, key, item in others if not store.fired(key)][:EXTRA]
             return found + [(space, item) for space, key, item in fresh if store.fire(key, space, at)]
 

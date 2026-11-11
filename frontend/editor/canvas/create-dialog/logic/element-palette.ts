@@ -11,7 +11,7 @@ export const ELEMENT_LABELS: Record<ElementKind, string> = {
   page: "Stránka", form: "Formulář", overview: "Přehled", dialog: "Dialog",
   action: "Akce", service: "Služba", process: "Proces", entity: "Entita", relationship: "Vztah",
   storage: "Úložiště", condition: "Podmínka", permission: "Oprávnění", constraint: "Omezení",
-  input: "Vstup", output: "Výstup", event: "Událost", api_contract: "API kontrakt",
+  input: "Vstup", output: "Výstup", event: "Událost", api_contract: "API kontrakt", actor: "Uživatel",
 };
 /** Updating a role preserves the graph identity and unrelated metadata. */
 export function withElementKind(node: CanvasNode, kind: ElementKind | ""): CanvasNode {

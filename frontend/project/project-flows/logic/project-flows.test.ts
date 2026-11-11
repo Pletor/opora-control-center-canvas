@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 
 vi.mock("@/shared/types/logic/types", () => ({ api: vi.fn() }));
-const { copiesByNode, projectFlow } = await import("./project-flows");
+const { copiesByNode, flowNodeOf, libraryChoices, logicFlowTitle, projectFlow } = await import("./project-flows");
 
 const wf = (id: string, project_id: string | null, owner_ref: string, kind = "library_flow") => ({ id, kind, project_id, name: id, owner_ref });
 
@@ -15,4 +15,18 @@ it("says where the copy comes from and that the library has a newer version", ()
   const source = { title: "RAG", activeN: 2, versions: [{ id: "v1", n: 1 }, { id: "v2", n: 2 }] } as never;
   expect(projectFlow({ id: "a", title: "RAG", derivedFrom: { workflowId: "lib", versionId: "v1" } }, source)).toEqual({
     id: "a", name: "RAG", from: "vychází z RAG@v1", newer: "v knihovně je novější v2" });
+});
+
+it("reads the owning node and offers only library flows with an active version", () => {
+  expect(flowNodeOf("opora:project-flow:koupit")).toBe("koupit");
+  expect(flowNodeOf("opora:library:human:ai-rag/rag")).toBeNull();
+  expect(flowNodeOf(null)).toBeNull();
+  const folders = [{ owner: "human", title: "Platby", flows: [{ id: "a", title: "Platba", activeVersionId: "v" }, { id: "b", title: "Prázdné", activeVersionId: null }] },
+    { owner: "agent", title: "RAG", flows: [{ id: "c", title: "RAG", activeVersionId: "v" }] }] as never;
+  expect(libraryChoices(folders)).toEqual([{ id: "a", title: "Platba", folder: "Člověk · Platby" }, { id: "c", title: "RAG", folder: "Agent · RAG" }]);
+});
+
+it("names a new logic flow after the element, or a fallback", () => {
+  expect(logicFlowTitle("  Koupit kurz ")).toBe("Koupit kurz");
+  expect(logicFlowTitle("  ")).toBe("Logika prvku");
 });

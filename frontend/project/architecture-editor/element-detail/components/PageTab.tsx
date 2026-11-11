@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import { confirmSavedChange, useScopedSaveParticipant } from "@/shared/hooks/components/save-scope-context";
 import type { CanvasNode, PageSite } from "@/shared/types/logic/types";
-import { PAGE_INTENT_FIELDS, withPageIntent } from "../../domain-map/logic/page-site";
-import { pageJourneyText, type PageJourneyRole } from "../../domain-map/logic/page-journeys";
+import { PAGE_INTENT_FIELDS, withPageIntent } from "../../domain-site/logic/page-site";
+import { pageJourneyText, type PageJourneyRole } from "../../domain-site/logic/page-journeys";
 import PageSectionsEditor from "../../page-sections/components/PageSectionsEditor";
 
 type Props = {

@@ -2,8 +2,8 @@
 // karty týkají a kolik děr mainu je „v práci“. Karta patří worktree, když worktree zavírá nebo otevírá díru, jejíž
 // místo řešení (`solverId`, jinak místo nálezu) je karta, nebo když na ní worktree drží lease / běžící relaci či kartu
 // v práci (`work-status`). Rodič ve fraktálu sčítá worktree dětí stejně jako díry a strážce. Čistá logika bez Reactu.
-import type { MapCheck, MapCheckFinding } from "@/project/architecture-editor/domain-map/map-check/logic/map-check";
-import { findingKey, keyCard, type MapWorktreeOverlay } from "@/project/architecture-editor/domain-map/map-check/logic/map-check-worktrees";
+import type { MapCheck, MapCheckFinding } from "@/project/architecture-editor/domain-site/map-check/logic/map-check";
+import { findingKey, keyCard, type MapWorktreeOverlay } from "@/project/architecture-editor/domain-site/map-check/logic/map-check-worktrees";
 import type { LiveSession, WorkStatus } from "@/project/architecture-editor/live-status/logic/live-model";
 
 export type WorktreeMark = { workspaceId: string; branch: string; actor: string };

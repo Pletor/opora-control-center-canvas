@@ -111,6 +111,34 @@ def test_heart_cancels_work_that_no_longer_makes_sense_but_not_a_delivered_ticke
     assert refused(service, brain, "ticket.cancel", {"ticketId": done}).code == "ticket_state"
 
 
+def test_heart_directs_the_running_worker_through_ticket_feedback_and_the_card_log(service):
+    """`ticket.direct` (plátno 3 F2): položka `heart.<severity>` v zpětné vazbě ticketu (čte ji Kancelář přes
+    `ticket.request` i `GET /api/brain/tickets/{id}`) a událost `worker.message` s nodeId karty."""
+    brain, office = heart(service), worker(service)
+    tid = send(service, brain, "ticket.issue", ISSUE)["ticket"]["ticketId"]
+    early = refused(service, brain, "ticket.direct", {"ticketId": tid, "severity": "hint", "text": "Pozor."})
+    assert early.status == 409 and early.code == "ticket_state"  # vydaný ticket nemá běžícího dělníka
+    send(service, office, "ticket.claim", {"ticketId": tid})
+    assert refused(service, office, "ticket.direct", {"ticketId": tid, "severity": "hint", "text": "x"}).code == (
+        "heart_required")
+    assert refused(service, brain, "ticket.direct", {"ticketId": tid, "severity": "loud", "text": "x"}).status == 422
+    assert refused(service, brain, "ticket.direct", {"ticketId": tid, "severity": "hint", "text": "x" * 2001}).status == 422
+    sent = send(service, brain, "ticket.direct", {"ticketId": tid, "severity": "course", "text": "Drž se souborů karty."})
+    item = sent["feedback"]
+    assert item["kind"] == "heart.course" and item["from"] == "heart" and item["answer"] is None and item["at"]
+    assert sent["ticket"] == {"ticketId": tid, "status": "claimed"}
+    held = send(service, office, "ticket.request")["ticket"]["feedback"]
+    assert [(entry["feedbackId"], entry["kind"], entry["text"]) for entry in held] == [
+        (item["feedbackId"], "heart.course", "Drž se souborů karty.")]
+    assert [entry["kind"] for entry in ticket.get(service, "draft", tid)["feedback"]] == ["heart.course"]
+    events, _, _ = opora_events.page(service.db_for("draft"), "draft", None, 0, 500)
+    [message] = [event for event in events if event["kind"] == "worker.message"]
+    assert message["nodeId"] == "hero" and message["actor"] == {"kind": "agent", "name": "heart"}
+    assert message["data"] == {"ticketId": tid, "feedbackId": item["feedbackId"], "severity": "course",
+                               "text": "Drž se souborů karty."}
+    assert message["title"] == "Srdce dělníkovi (course): Drž se souborů karty."
+
+
 def resumed(service):
     events, _, _ = opora_events.page(service.db_for("draft"), "draft", None, 0, 500)
     return [event["data"] for event in events if event["kind"] == "ticket.resumed"]

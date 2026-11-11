@@ -1,7 +1,7 @@
 // Stav karty Studia (docs/studio.md §2), odvozený, nikdy zadaný: plán, staví se, hotovo, ověřeno, díra. Čistá logika
 // bez Reactu nad hotovými fakty (`studio-facts.ts`): uzavřené karty (`done.confirmed`), karty s aktivním nárokem práce,
 // nálezy kontroly mapy po uzlech a cesty zákazníka s posledním ověřením. Rodič agreguje děti („4/7 stojí, 1 se staví“).
-import type { DerivedJourney } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
+import type { DerivedJourney } from "@/project/architecture-editor/domain-site/logic/derived-journeys";
 import { studioDescendants, type StudioItem, type StudioTree } from "./studio-tree";
 import { sumGuards, type GuardTally } from "../studio-guards/logic/guard-tally";
 import { sumWorktrees, type WorktreeMark, type WorktreeTally } from "../studio-worktree/logic/worktree-tally";

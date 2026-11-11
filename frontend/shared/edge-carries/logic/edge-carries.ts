@@ -1,5 +1,5 @@
 // Druh toku vazby `carries` (docs/architektura-pro-agenty.md §3.4): české popisky, pravidlo „jen vazba next“
-// a jemné statické odlišení čáry. Sdílí ho plátno karet (board-model) i mapa architektury (canvas-model).
+// a jemné statické odlišení čáry. Sdílí ho plátno karet (board-model) a Detail prvku.
 import type { EdgeCarries, GraphEdge } from "@/shared/types/logic/types";
 import { EDGE_CARRIES } from "@/shared/types/logic/types";
 

@@ -1,4 +1,3 @@
-import type { Graph } from "@/shared/types/logic/types";
 
 // Tvar `GET /api/project-architecture/work-status` (docs/domeny-a-worktree.md §7, §9) a odvození
 // pro dílky: pořadí „nejživější nahoře“, věta s počty, stránky, kterých se worktree dotýká.
@@ -67,30 +66,4 @@ export function countsLine(counts: LiveCounts): string {
   if (counts.waiting) parts.push(`${counts.waiting} čeká`);
   if (counts.stopped) parts.push(`${counts.stopped} stojí`);
   return parts.join(" · ");
-}
-
-/** Stránky (uzly `site.kind="page"`), pod kterými leží dané uzly: nejbližší stránka i její předkové. */
-export function pagesTouched(graph: Graph, nodeIds: string[]): Set<string> {
-  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
-  const pages = new Set<string>();
-  for (const start of nodeIds) {
-    const seen = new Set<string>();
-    let cursor = byId.get(start);
-    while (cursor && !seen.has(cursor.id) && cursor.site?.kind !== "application") {
-      seen.add(cursor.id);
-      if (cursor.site?.kind === "page") pages.add(cursor.id);
-      cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined;
-    }
-  }
-  return pages;
-}
-
-/** Kolik worktree se dotýká každé stránky (karty v práci a uzly relací); každý worktree jednou na stránku. */
-export function pageWorkCounts(graph: Graph, worktrees: LiveWorktree[]): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const item of worktrees) {
-    const ids = [...item.cards.map((card) => card.nodeId), ...item.sessions.map((s) => s.nodeId).filter((id): id is string => !!id)];
-    for (const page of pagesTouched(graph, ids)) counts.set(page, (counts.get(page) ?? 0) + 1);
-  }
-  return counts;
 }

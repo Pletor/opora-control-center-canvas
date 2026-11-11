@@ -1,0 +1,3 @@
+/* Formulář stránky: tlačítko Záměr stojí vpravo nad poli, aby člověk nejdřív viděl, že stránka už má plátno záměru,
+   a teprve pod ním vyplňoval cestu a záměr. */
+.domain-site__form-intent { display: flex; justify-content: flex-end; }

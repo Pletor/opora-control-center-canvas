@@ -60,6 +60,8 @@ export type LayerInput = {
   /** Poslední změna karet ze záznamu činnosti (`latest-by-node`, jeden dotaz na plátno). */
   latest?: LatestByNode;
   sourceContext?: { project: string; workspace: string };
+  /** Aktivní milníky z příjmu (`milestone-focus`): název funkčního výsledku jde do hlavičky jejich oblasti. */
+  milestones?: readonly { areaId: string; title: string }[];
   /** Které akce rodič vůbec umí; karta podle toho ukáže editor, nebo ne. */
   can: { realize: boolean; rules: boolean };
 };
@@ -83,7 +85,7 @@ export function buildLayerNodes(input: LayerInput): Node[] {
       const members = membersOf(n, graph.nodes);
       const data: AreaCardData = {
         view: { label: areaLabel(n), unnamed: !n.name.trim(), members: members.length, w: size.w, h: size.h, color: areaColorOf(n),
-          purpose: n.purpose, sectors: members.filter((m) => m.kind === "sector").length,
+          purpose: n.purpose, milestone: input.milestones?.find((m) => m.areaId === n.id)?.title ?? "", sectors: members.filter((m) => m.kind === "sector").length,
           closed: members.filter((m) => state.nodes[m.id]?.done?.confirmed).length,
           summary: input.checklists ? areaSummary(members.flatMap((m) => input.checklists?.[m.id] ? [input.checklists[m.id]] : [])) : undefined },
         disabled,

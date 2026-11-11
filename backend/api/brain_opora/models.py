@@ -163,12 +163,14 @@ class WorkTicketMachine(BaseModel):
 class WorkTicketFeedback(BaseModel):
     feedbackId: str
     seq: int
-    kind: Literal["bug", "idea", "improvement", "question"]
+    kind: Literal["bug", "idea", "improvement", "question", "heart.hint", "heart.course", "heart.stop"]
     text: str
     sessionId: str
     answer: Any
     answeredAt: str | None
     createdAt: str
+    from_: Literal["worker", "heart"] = Field(alias="from")
+    at: str
 
 
 class WorkTicket(BaseModel):

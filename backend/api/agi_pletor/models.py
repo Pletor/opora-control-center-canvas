@@ -157,6 +157,7 @@ class LinieWorkIn(LinieAttachIn):
     build: str
     doneCriteria: list[str]
     idempotencyKey: str | None = Field(default=None, min_length=1, max_length=200)
+    cardId: str | None = Field(default=None, min_length=1, max_length=100)  # uzel plátna 3; ticket se napojí na kartu
 
 
 class LinieCheckIn(BaseModel):

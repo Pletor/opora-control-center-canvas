@@ -30,6 +30,11 @@ export function domainPageTree(graph: Graph, domainId: string): ProductBranch[] 
   return productTree(graph.nodes).find((branch) => branch.node.id === domainId)?.children ?? [];
 }
 
+/** Kam vede „Otevřít mapu domény“: plátno 2 první stránky domény; `null` = doména zatím nemá stránku. */
+export function domainEntryPage(graph: Graph, domainId: string): string | null {
+  return domainPageTree(graph, domainId).find((branch) => branch.node.site?.kind === "page")?.node.id ?? null;
+}
+
 /** Explicitly detach one legacy host; existing pages, instructions and IDs stay put. */
 export function splitDomainHost(graph: Graph, appId: string, host: string, newId: string): Graph {
   const app = domainNode(graph, appId);
@@ -55,21 +60,6 @@ function pageInDomain(graph: Graph, domainId: string, pageId: string): CanvasNod
   return page;
 }
 
-export function reparentDomainPage(graph: Graph, domainId: string, pageId: string, parentId: string): Graph {
-  const page = pageInDomain(graph, domainId, pageId);
-  if (parentId !== domainId) pageInDomain(graph, domainId, parentId);
-  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
-  const seen = new Set<string>();
-  let cursor: string | null = parentId;
-  while (cursor !== null) {
-    if (cursor === pageId || seen.has(cursor)) throw new Error("Stránku nelze přesunout pod sebe ani svého potomka.");
-    seen.add(cursor);
-    cursor = byId.get(cursor)?.parentId ?? null;
-  }
-  if (page.parentId === parentId) return graph;
-  return { ...graph, nodes: graph.nodes.map((node) => node.id === pageId ? { ...node, parentId } : node) };
-}
-
 /** Navigation siblings may have ordinary structural containers between their pages. */
 export function reorderDomainPage(graph: Graph, domainId: string, pageId: string, direction: -1 | 1): Graph {
   pageInDomain(graph, domainId, pageId);
@@ -80,7 +70,7 @@ export function reorderDomainPage(graph: Graph, domainId: string, pageId: string
     return null;
   }
   const group = siblings(domainPageTree(graph, domainId));
-  if (!group) throw new Error("Stránka v mapě domény chybí.");
+  if (!group) throw new Error("Stránka ve struktuře domény chybí.");
   const index = group.findIndex((branch) => branch.node.id === pageId);
   const neighbor = group[index + direction];
   if (!neighbor) return graph;

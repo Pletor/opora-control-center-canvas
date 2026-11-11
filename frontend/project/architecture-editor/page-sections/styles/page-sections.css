@@ -2,7 +2,7 @@
  * Sekce stránky jsou osnova, kterou si člověk skládá sám, a čtou se shora dolů jako stránka. Každá sekce je
  * jeden blok: nahoře co obsahuje (role, název, záměr) a tlačítka pořadí, pod tím celou šířkou „Čím posouvá“ –
  * proč tam sekce je, oddělené jemnou linkou vlevo, aby se dalo číst jako poznámka k řádku nad ní.
- * Editor stojí ve formuláři stránky na mapě domény i v úzkém Detailu prvku (300 px), proto se zalamuje podle
+ * Editor stojí ve formuláři stránky ve Struktuře plátna 2 i v úzkém Detailu prvku (300 px), proto se zalamuje podle
  * své vlastní šířky, ne okna: v úzkém sloupci jde role s názvem na první řádek, záměr a tlačítka pod ně.
  * „Přidat sekci“ stojí pod seznamem a při 20 sekcích zešedne.
  */

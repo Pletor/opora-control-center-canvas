@@ -107,3 +107,21 @@ class ExecutionObservers:
             return {"items": values, "readOnly": bool(view.get("readOnly")),
                     "observerConfigured": configured, "providerAccessVerified": False,
                     "usageBasis": "observer-attested-provider-list-cost-not-invoice"}
+
+
+def spent(canvas, project, workspace):
+    """Cena běhů karet v USD z pozorování nezávislého pozorovatele: `{executions: {id: USD}, nodes: {nodeId: USD}}`.
+    Cena je poslední kumulativní `listCostCents` záměru (ceník poskytovatele, ne faktura); běh bez pozorování
+    v mapě chybí, takže jeho cena zůstane null. Chyba čtení vrátí prázdné mapy: cena je doplněk, nikdy neshodí čtení."""
+    found = {"executions": {}, "nodes": {}}
+    try:
+        # shortcut: summary čte nejvýš 100 posledních záměrů prostoru, starší běhy cenu ztratí; při větším provozu stránkovat.
+        items = ExecutionObservers(canvas).summary(project, workspace)["items"]
+    except ValueError:
+        return found
+    for item in items:
+        if item["observation"] and item["observation"]["cumulative"].get("currency") == "USD":
+            usd = int(item["observation"]["cumulative"]["listCostCents"]) / 100
+            for key, ident in (("executions", item["intent"]["executionId"]), ("nodes", item["intent"]["nodeId"])):
+                found[key][ident] = round(found[key].get(ident, 0) + usd, 6)
+    return found

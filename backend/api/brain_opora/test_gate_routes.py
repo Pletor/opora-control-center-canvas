@@ -147,6 +147,7 @@ def test_every_kind_example_runs_through_the_gate_and_answers_its_output_schema(
         answered = request(client, heart, "ticket.answer", {"ticketId": ids["work"], "feedbackId": ids["feedback"],
                                                              "text": "Ano."}).json()["answer"]
         assert conforms(answered, listed["ticket.answer"]["output"]) == [] and answered["ticket"]["status"] == "in_progress"
+        assert run("ticket.direct", heart, ticketId="work")["answer"]["feedback"]["kind"] == "heart.course"
         assert run("ticket.deliver", auth, ticketId="work")["answer"]["ticket"]["status"] == "delivered"
         ids["work"] = run("ticket.issue", heart)["answer"]["ticket"]["ticketId"]
         assert run("ticket.cancel", heart, ticketId="work")["answer"]["ticket"]["status"] == "cancelled"
@@ -168,7 +169,7 @@ def test_kinds_listing_follows_the_role(tmp_path):
 
         worker_kinds = ["ask", "change", "state", "inbox", "ticket.request",
                         "ticket.claim", "ticket.feedback", "ticket.deliver", "ticket.release"]
-        heart_kinds = ["ticket.issue", "ticket.cancel", "ticket.answer", "escalate"]
+        heart_kinds = ["ticket.issue", "ticket.cancel", "ticket.answer", "ticket.direct", "escalate"]
         assert names(auth) == ("worker", worker_kinds)
         assert names(AGENT) == ("worker", worker_kinds)
         assert names({**AGENT, tokens.HEADER: token}) == ("heart", worker_kinds + heart_kinds)

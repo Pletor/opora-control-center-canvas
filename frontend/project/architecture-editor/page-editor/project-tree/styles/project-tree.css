@@ -1,66 +1,43 @@
-/* Strom projektu: prostředí jsou barevné pruhy (Produkce zelená LIVE, Vývoj jantarová DEV),
-   aby člověk na první pohled viděl, zda kreslí ostrou nebo vývojovou doménu. Pod nimi domény
-   s hostem a „druh · účel“, pod doménou stránky; aktivní stránka svítí akcentem. */
-.project-tree { padding: 4px 12px 16px; }
-.project-tree__title { margin: 6px 2px 12px; font-size: 15px; }
-.project-tree__group {
-  --tone: var(--ae-muted);
-  margin: 0 0 10px;
-  border: 1px solid color-mix(in srgb, var(--tone) 45%, var(--ae-line));
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--tone) 6%, var(--ae-panel));
-}
-.project-tree__group--live { --tone: var(--ae-tone-frontend); }
-.project-tree__group--dev { --tone: var(--ae-tone-database); }
-.project-tree__group--shared { --tone: var(--ae-tone-infrastructure); }
-.project-tree__group-head {
+/* Struktura: jen otevřená doména a její stránky, jako pořadač vlevo nahoře. Řádek stránky nese název na celou šířku;
+   nástroje (+ podstránka, přejmenovat, ↑ ↓, odstranit) jsou tiché a rozsvítí se až pod myší nebo fokusem, aby strom
+   zůstal klidný k čtení. Podstránky se odsadí, aktivní stránka svítí akcentem, protože její plátno je právě otevřené. */
+.project-tree { padding: 10px 12px 12px; }
+.project-tree__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 2px 8px; }
+.project-tree__title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 9px 10px;
-  border: 0;
-  background: transparent;
-  color: var(--tone);
-  font-weight: 700;
-  text-align: left;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ae-muted);
+  overflow-wrap: anywhere;
 }
-.project-tree__group-label { margin-right: auto; }
-.project-tree__badge { font-size: 10px; letter-spacing: .1em; }
-.project-tree__count { color: var(--ae-muted); font-size: 11px; font-weight: 400; }
-.project-tree__caret { width: 10px; color: var(--ae-muted); }
-.project-tree__domains,
-.project-tree__pages { list-style: none; margin: 0; padding: 0 6px 8px; }
-.project-tree__domain { padding: 4px 0; border-top: 1px solid var(--ae-line); }
-.project-tree__domain-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  width: 100%;
-  padding: 6px 4px;
-  border: 0;
-  background: transparent;
-  text-align: left;
-}
-.project-tree__domain-icon { flex-shrink: 0; color: var(--tone); }
-.project-tree__domain-text { display: flex; flex-direction: column; min-width: 0; }
-.project-tree__host { font-weight: 650; overflow-wrap: anywhere; }
-.project-tree__meta { color: var(--ae-muted); font-size: 11px; }
-.project-tree__domain--active .project-tree__host { color: var(--ae-cyan); }
+.project-tree__add { padding: 3px 9px; border-style: dashed; color: var(--ae-cyan); font-size: 11px; }
+.project-tree__pages { list-style: none; margin: 0; padding: 0; }
+.project-tree__row { display: flex; align-items: center; gap: 2px; border-radius: 8px; }
+.project-tree__row--active { background: #173837; }
 .project-tree__page {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 7px;
-  width: 100%;
+  min-width: 0;
   padding: 5px 8px;
   border-color: transparent;
   background: transparent;
   text-align: left;
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
+.project-tree__row--active .project-tree__page { color: var(--ae-accent); }
 .project-tree__page-icon { flex-shrink: 0; color: var(--ae-muted); }
-.project-tree__page--active { color: var(--ae-accent); border-color: color-mix(in srgb, var(--ae-accent) 55%, transparent); background: #173837; }
-.project-tree__add { margin: 6px 0 2px 8px; padding: 3px 9px; border-style: dashed; color: var(--ae-cyan); font-size: 11px; }
-.project-tree__empty,
-.project-tree__note { margin: 4px 8px; color: var(--ae-muted); font-size: 11px; }
-
+.project-tree__tools { display: flex; flex-shrink: 0; gap: 1px; opacity: .35; }
+.project-tree__row:hover .project-tree__tools,
+.project-tree__tools:focus-within { opacity: 1; }
+.project-tree__tools button { min-width: 20px; padding: 1px 4px; border-color: transparent; background: transparent; font-size: 11px; }
+.project-tree__danger { color: var(--ae-tone-security); }
+.project-tree__empty { margin: 4px 8px; color: var(--ae-muted); font-size: 11px; }
+.project-tree .ae-product-form { margin: 12px 0 0; padding: 12px; }

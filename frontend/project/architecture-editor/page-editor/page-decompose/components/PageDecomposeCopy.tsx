@@ -7,7 +7,7 @@ import "../styles/page-decompose.css";
 
 export default function PageDecomposeCopy({ pageId, prompt, problem, variant = "card" }: {
   pageId: string; prompt: string | null; problem: string | null;
-  /** `card` = tichá akce v patě karty stránky (Mapa domény), `header` = tlačítko v hlavičce Editoru stránky. */
+  /** `card` = tichá akce v patě karty, `header` = tlačítko v hlavičce plátna 2. */
   variant?: "card" | "header";
 }) {
   const { status, copy, fieldRef } = useCopyText();

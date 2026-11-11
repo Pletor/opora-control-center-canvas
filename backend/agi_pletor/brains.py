@@ -211,7 +211,7 @@ def codex_turn(folder, model, context, text, history=(), effort=None, *, runner=
     command = [codex, "exec", "-s", "read-only", "--skip-git-repo-check", "--ephemeral", "-c", "mcp_servers={}",
                *(["-m", model] if model else []),
                *(["-c", f'model_reasoning_effort="{effort}"'] if effort else []), "-o", str(out), "-"]
-    env = {key: value for key, value in session.child_env().items() if key != "OPENAI_API_KEY"}
+    env = {key: value for key, value in session.child_env().items() if key not in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY")}
     outcome = runner(command, cwd=str(folder), env=env, stdin_text=prompt, timeout=TIMEOUT)
     if outcome.timed_out:
         raise RuntimeError(f"Codex neodpověděl do {TIMEOUT} s.")

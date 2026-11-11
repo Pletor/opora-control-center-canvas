@@ -66,3 +66,27 @@ def test_agent_creates_sketch_on_moment_without_one(pair):
     canvas.drawing("draft", "draft", layer, save(layer))
     moment = storyboards.read("draft", "draft", "karta")["storyboard"]["moments"][1]
     assert moment["sketch"] == {"layer": layer, "fileId": "", "imageStale": True}
+
+
+SITE_GRAPH = {"nodes": [
+    {"id": "app", "parentId": None, "kind": "sector", "name": "Web", "purpose": "", "x": 0, "y": 0,
+     "site": {"kind": "application", "environments": []}},
+    {"id": "kurz", "parentId": "app", "kind": "node", "name": "Kurz", "purpose": "", "x": 0, "y": 0,
+     "site": {"kind": "page", "path": "/kurz", "sections": [{"id": "cta", "role": "cta", "name": "Výzva", "intent": ""}]}},
+    {"id": "karta", "parentId": None, "kind": "node", "name": "Karta", "purpose": "", "x": 0, "y": 0}], "edges": []}
+
+
+def test_box_layer_of_existing_page_section_saves_like_a_sketch(tmp_path):
+    canvas = CanvasService(tmp_path / "data")
+    canvas.save_graph("draft", "draft", SITE_GRAPH, canvas.view("draft", "draft")["digest"])
+    layer = "box/kurz/cta"
+    assert canvas.drawing("draft", "draft", layer)["revision"] == 0
+    assert canvas.drawing("draft", "draft", layer, save(layer))["revision"] == 1
+    assert canvas.drawing("draft", "draft", layer)["scene"] == SCENE
+    assert canvas.drawing("draft", "draft", "kurz")["revision"] == 0  # vrstva stránky zůstává oddělená
+    long_layer = "box/" + "p" * 80 + "/" + "s" * 80  # delší než 80 znaků, přesto tvar vrstvy boxu
+    for bad in ("box/kurz/nic", "box/karta/cta", "box/nikdo/cta", "box/kurz", "box/kurz/cta/x", long_layer):
+        with pytest.raises(ValueError):
+            canvas.drawing("draft", "draft", bad)
+        with pytest.raises(ValueError):
+            canvas.drawing("draft", "draft", bad, save(bad))

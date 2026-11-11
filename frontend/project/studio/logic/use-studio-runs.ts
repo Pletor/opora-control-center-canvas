@@ -7,7 +7,7 @@
 import { useRef, useState } from "react";
 import { api } from "@/shared/types/logic/types";
 import { usePolling } from "@/shared/hooks/logic/use-polling";
-import { derivedJourneysUrl, normalizeDerivedJourneys, runsPollMs, type DerivedJourney } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
+import { derivedJourneysUrl, normalizeDerivedJourneys, runsPollMs, type DerivedJourney } from "@/project/architecture-editor/domain-site/logic/derived-journeys";
 
 export function useStudioRuns(project: string, digest: string | undefined): { journeys: DerivedJourney[] | null; refresh: () => void } {
   const [journeys, setJourneys] = useState<DerivedJourney[] | null>(null);

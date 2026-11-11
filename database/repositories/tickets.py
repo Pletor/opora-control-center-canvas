@@ -29,7 +29,8 @@ def public_feedback(row):
     value = dict(zip(FEEDBACK, tuple(row)))
     return {"feedbackId": value["id"], "seq": value["seq"], "kind": value["kind"], "text": value["text"],
             "sessionId": value["session_id"], "answer": _load(value["answer"]), "answeredAt": value["answered_at"],
-            "createdAt": value["created_at"]}
+            "createdAt": value["created_at"], "from": "heart" if value["kind"].startswith("heart.") else "worker",
+            "at": value["created_at"]}
 
 
 def public(row, feedback=()):

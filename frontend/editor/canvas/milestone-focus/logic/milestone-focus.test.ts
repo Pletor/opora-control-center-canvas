@@ -43,7 +43,7 @@ describe("milestone focus across the structure", () => {
       milestone: { id: "m", title: "Functional login", status: "active", done: true, progress: 100,
         criteria: [{ id: "c", text: "Prototype approved", done: true, cards: ["login", { id: "login", done: true }, "token"] }] } }],
       unassigned: [], entries: [], pending: 0, duplicates: 0 };
-    expect(activeMilestones(data)).toEqual([{ id: "m", title: "Functional login", area: "Entry", cards: ["login", "token"], closure: 100 }]);
+    expect(activeMilestones(data)).toEqual([{ id: "m", title: "Functional login", area: "Entry", areaId: "area", cards: ["login", "token"], closure: 100 }]);
     expect(activeMilestones(data)[0]).not.toHaveProperty("verified");
     data.areas[0].milestone!.status = "proposed";
     expect(activeMilestones(data)).toEqual([]);

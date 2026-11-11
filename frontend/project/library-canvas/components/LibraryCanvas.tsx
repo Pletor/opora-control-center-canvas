@@ -23,6 +23,9 @@ import { activateVersion, adoptFlow, contributeFlow, placeOf, promoteFlow, rejec
 import { learnedText, lineageOf } from "../logic/lineage";
 import { useFlowChecks } from "../logic/use-flow-checks";
 import { useLibraryFlow } from "../logic/use-library-flow";
+import ElementContextHead from "../element-context/components/ElementContextHead";
+import { LOGIC_PROMPT, logicCanvasTitle, planRoute } from "../element-context/logic/element-context";
+import { useElementContext } from "../element-context/logic/use-element-context";
 import "../styles/library-canvas.css";
 
 const EMPTY: FlowGraph = { nodes: [], edges: [], notes: [], groups: [] };
@@ -34,11 +37,13 @@ const PLACE = { human: "Knihovna · Člověk", agent: "Knihovna · Agent", proje
  * kontroly grafu ukazuje chyby serveru. Příkazový řádek (`/`, Ctrl+K, tlačítko „Zadání“) pošle zadání srdci a plátno
  * do jeho draftu samo načítá (`command-bar/`). U plátna člověka čeká návrh srdce (draft s poznámkou) s rozdílem proti aktivní
  * verzi a rozhodnutím Přijmout / Zamítnout; plátno agenta ukáže, kde se ho agent naučil. Rodič drží data a zápis,
- * dílky jen zobrazují a hlásí. */
+ * dílky jen zobrazují a hlásí. Plátno logiky prvku plátna 2 (`opora:project-flow:<nodeId>` s prvkem) má v hlavičce
+ * místo knihovny kontext prvku a návrat na plán stránky (`element-context/`). */
 export default function LibraryCanvas({ flowId, project, workspace, projects, onOpenFlow, onBack, onOpenAssistant }: {
   flowId: string; project: string; workspace: string; projects: Project[]; onOpenFlow: (id: string) => void; onBack: () => void; onOpenAssistant?: () => void;
 }) {
   const data = useLibraryFlow(flowId);
+  const element = useElementContext(data.flow, project, workspace);
   const [viewId, setViewId] = useState<string | null>(null);
   const [edited, setEdited] = useState<FlowGraph | null>(null);
   const [node, setNode] = useState<string | null>(null);
@@ -80,9 +85,10 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
   if (!data.flow) return <p className="library-canvas__empty" role="alert">{data.error || "Plátno toku neexistuje."} <button type="button" onClick={onBack}>← Zpět</button></p>;
   return <section className="library-canvas" aria-label="Plátno toku" data-testid="library-canvas">
     <header className="library-canvas__head">
-      <button type="button" className="library-canvas__back" onClick={onBack}>← Architektura</button>
+      {element ? <ElementContextHead context={element} onBack={() => { history.replaceState(null, "", "/?" + planRoute(location.search, element)); onBack(); }}/>
+        : <button type="button" className="library-canvas__back" onClick={onBack}>← Architektura</button>}
       <div className="library-canvas__title">
-        <h2 className="library-canvas__name">{data.flow.title}<small className="library-canvas__place">{PLACE[place]}</small></h2>
+        <h2 className="library-canvas__name">{element ? logicCanvasTitle(element) : data.flow.title}<small className="library-canvas__place">{element ? "Logika prvku" : PLACE[place]}</small></h2>
         {data.flow.description && <p className="library-canvas__description">{data.flow.description}</p>}
         <p className="library-canvas__lineage" data-testid="library-lineage">
           {lineage?.from && <button type="button" className="library-canvas__link" disabled={!data.source} onClick={() => data.source && onOpenFlow(data.source.id)}>{lineage.from}</button>}
@@ -115,7 +121,7 @@ export default function LibraryCanvas({ flowId, project, workspace, projects, on
     <FlowPlayBar play={play} canRun={!!current} onRun={() => current && play.run(current)}/>
     </div>}
     <div className="library-canvas__editor">
-      {emptyPrompt && <EmptyPrompt initial={command.draft} busy={command.busy} error={command.error} onSubmit={command.send}/>}
+      {emptyPrompt && <EmptyPrompt {...(element ? LOGIC_PROMPT : {})} initial={command.draft} busy={command.busy} error={command.error} onSubmit={command.send}/>}
       <FlowEditor graph={graph} types={data.types} readOnly={false} diff={diff} selected={node} onSelect={setNode} onChange={setEdited}
         frames play={play} onPick={setPicked} tools={<button type="button" className="flow-editor__tool flow-editor__tool--primary" data-testid="library-command-open" title="Zadání pro srdce (klávesa / nebo Ctrl+K)" onClick={() => command.setOpen(true)}>Zadání</button>} nodePorts={checks.nodePorts} checkErrors={checks.errors ?? []}/>
       {command.phase !== "idle" && command.detail && <HeartWork phase={command.phase} work={command.work} elapsedMs={command.elapsedMs} typicalMs={command.typicalMs}

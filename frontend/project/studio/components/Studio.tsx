@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import type { CanvasNode } from "@/shared/types/logic/types";
-import { derivedForDomain } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
+import { derivedForDomain } from "@/project/architecture-editor/domain-site/logic/derived-journeys";
 import { useStudioData } from "../logic/use-studio-data";
 import { useStudioFocus } from "../logic/use-studio-focus";
 import { levelOf } from "../logic/studio-level";

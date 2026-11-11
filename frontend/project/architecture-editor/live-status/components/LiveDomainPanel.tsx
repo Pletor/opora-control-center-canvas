@@ -10,7 +10,7 @@ import type { WorktreeNav } from "./WorktreeRow";
 export type LiveWorkView = { domain: LiveDomain | null; loaded: boolean; stale: string; loading: boolean; error: string };
 
 /**
- * Pravý sloupec mapy domény (jen u projektů s worktree): nahoře stav webu hostu (mobilní aplikace web nemá, `web = null`), pod ním worktree
+ * Dříve pravý sloupec Mapy domény, teď nikde složený (jen u projektů s worktree): nahoře stav webu hostu (mobilní aplikace web nemá, `web = null`), pod ním worktree
  * domény se stavy relací a pod stromem akce vybraného worktree. Data dostává hotová; obnovení webu,
  * výběr worktree, přepnutí prostoru, otevření karty či relace a nové relace hlásí nahoru.
  * `aria-live` oblast čte jen věty o změně stavu, ne každé kolo pollingu.

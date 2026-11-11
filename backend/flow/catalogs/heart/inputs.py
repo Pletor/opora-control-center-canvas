@@ -14,7 +14,7 @@ třeba při restartu serveru): čekající lístky a nedávné zprávy člověka
 docs/navrhy/2026-10-30-metriky-a-spoustece.md §4): srdce (`wakes.py`) ho spočítá po události `card.closed` a při prvním
 čtení projektu; splněný aktivní milník budí srdce jednou (`heart_triggers`) s odloženými požadavky k otevření.
 Stejnou cestou jdou spouštěče karet (`card_wakes`, `determinism/triggers.py`: too_big, retry, step_failed, stalled,
-over_budget) po událostech běhu a plánu (`TRIGGER_EVENTS`) a ruční změna plánu (`human_changes`: `changeset.accepted`,
+over_budget, failing, drift) po událostech běhu a plánu (`TRIGGER_EVENTS`) a ruční změna plánu (`human_changes`: `changeset.accepted`,
 jejíž revizi přijal člověk).
 Spouštěč výslechu (docs/navrhy/2026-10-30-vyslech-srdce.md §2) dává vstup `brief`: `brief_wakes` pro požadavky
 (nový, otevřené rozšíření, `changes_intent`) se spisem a krátký výslech karty `ready` s tenkými podklady přes
@@ -87,8 +87,10 @@ TRIGGER_EVENTS = ("changeset.accepted", "lease.claimed", "lease.expired", "resul
 
 
 def trigger_workspaces(events):
-    """Prostory, ve kterých se po `events` vyplatí znovu vyhodnotit spouštěče karet."""
-    return {event.get("workspaceId") for event in events if event.get("kind") in TRIGGER_EVENTS}
+    """Prostory, ve kterých se po `events` vyplatí znovu vyhodnotit spouštěče karet; i po každé přijaté procesní
+    události karty z Kanceláře (hlídač F2: `card.failing`, `card.drift`, `card.stalled`)."""
+    return {event.get("workspaceId") for event in events if event.get("kind") in TRIGGER_EVENTS
+            or (event.get("source") == "office" and event.get("nodeId"))}
 
 
 def card_wakes(service, project, workspaces, at, now):

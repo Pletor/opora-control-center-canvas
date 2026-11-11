@@ -1,0 +1,16 @@
+/* Pruh pod plátnem odpovídá na jedinou otázku „co dál“: vlevo štítek Další přípustný krok, uprostřed název prvku a
+   proč smí začít, vpravo od něj jediné tlačítko do Editoru. Na úzkém okně se pruh zalomí a tlačítko sjede pod krok. */
+.plan-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--ae-line);
+  background: var(--ae-panel);
+}
+.plan-bar__kicker { color: var(--ae-accent); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+.plan-bar__step { display: flex; flex-direction: column; flex: 1; min-width: 180px; padding-left: 14px; border-left: 1px solid var(--ae-line); }
+.plan-bar__title { font-weight: 700; overflow-wrap: anywhere; }
+.plan-bar__note { color: var(--ae-muted); font-size: 11px; overflow-wrap: anywhere; }
+.plan-bar__open { border-color: var(--ae-accent); color: var(--ae-accent); font-weight: 700; }

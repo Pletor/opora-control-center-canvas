@@ -30,7 +30,7 @@ SKIP = {"node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".svel
 GREP_MAX_BYTES = 2_000_000
 SUB_CAP, SUB_TIMEOUT = 20, 100
 # Kopie `command.STRIPPED` (knihovna je jen stdlib a leží mimo balíček backendu).
-STRIPPED = ("ANTHROPIC_API_KEY", "TYPESAFE_API_KEY", "CELERIS_API_KEY", "OPORA_HEART_TOKEN")
+STRIPPED = ("TYPESAFE_API_KEY", "CELERIS_API_KEY", "OPORA_HEART_TOKEN")
 _LOCK = threading.Lock()
 _RESERVED = [0]  # sub-volání rezervovaná v tomto procesu (strop platí i pro souběžná volání `sub`)
 

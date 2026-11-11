@@ -1,15 +1,14 @@
-import type { CanvasNode, EdgeCarries, Graph, PageSite } from "@/shared/types/logic/types";
+import type { CanvasNode, EdgeCarries, ElementKind, Graph, PageSection, PageSite } from "@/shared/types/logic/types";
+import { ELEMENT_LABELS } from "@/editor/canvas/create-dialog/logic/element-palette";
 import { canCarry } from "@/shared/edge-carries/logic/edge-carries";
 import { withCardSection } from "@/shared/card-context/logic/card-context";
-import { moveWithMembers, resizeArea } from "@/editor/canvas/area/logic/area-model";
 import { productFingerprint } from "@/project/product-tree/logic/product-tree";
-import { pageSiteForSave } from "../domain-map/logic/page-site";
+import { pageSiteForSave } from "../domain-site/logic/page-site";
 
 const GRAPH_ID = /^[A-Za-z0-9_-]{1,80}$/;
 
 export type ArchitectureEditorId = string;
 export type EditorScopeNode = CanvasNode | null;
-export type EditorAreaPlan = { nodes: [{ ref: "area"; kind: "area"; parent: string | null; name: string; purpose: ""; size: { w: 720; h: 480 } }] };
 
 /** Identity belongs to the persisted project/workspace, independent of UI state. */
 export function architectureEditorId(project: string, workspace: string, domainId?: string): ArchitectureEditorId {
@@ -44,77 +43,6 @@ export function isEditorScopeClosed(graph: Graph, nodeId: string | null, closedI
     cursor = node.parentId;
   }
   return false;
-}
-
-/** Patch the full graph: unrelated branches and optional metadata stay intact. */
-export function moveEditorNode(graph: Graph, id: string, x: number, y: number): Graph {
-  if (![x, y].every((value) => Number.isFinite(value) && Math.abs(value) <= 1_000_000)) throw new Error("Neplatná poloha prvku.");
-  const moved = graph.nodes.find((node) => node.id === id);
-  if (!moved) throw new Error("Prvek již neexistuje.");
-  const nodes = moved.kind === "area" ? moveWithMembers(graph.nodes, id, x - moved.x, y - moved.y)
-    : graph.nodes.map((node) => node.id === id ? { ...node, x, y } : node);
-  if (nodes.some((node) => ![node.x, node.y].every((value) => Number.isFinite(value) && Math.abs(value) <= 1_000_000))) throw new Error("Prvek by se přesunul mimo povolené souřadnice.");
-  return { ...graph, nodes };
-}
-
-/** Tahadlo rámečku oblasti: nový rozměr ohraničený na 120..20000 (`resizeArea`), ostatní uzly beze změny. */
-export function resizeEditorNode(graph: Graph, id: string, w: number, h: number): Graph {
-  if (![w, h].every((value) => Number.isFinite(value) && value > 0)) throw new Error("Neplatný rozměr oblasti.");
-  const area = graph.nodes.find((node) => node.id === id);
-  if (!area) throw new Error("Prvek již neexistuje.");
-  if (area.kind !== "area") throw new Error("Velikost lze měnit jen oblasti.");
-  const resized = resizeArea(area, w, h);
-  if (resized.size!.w === area.size?.w && resized.size!.h === area.size?.h) return graph;
-  return { ...graph, nodes: graph.nodes.map((node) => node.id === id ? resized : node) };
-}
-
-/** Domovská oblast vyrostla za puštěnou kartou (`area-growth.ts`): nová poloha i rozměr (120..20000), členové stojí. */
-export function growEditorArea(graph: Graph, frame: { id: string; x: number; y: number; w: number; h: number }): Graph {
-  if (![frame.x, frame.y].every((value) => Number.isFinite(value) && Math.abs(value) <= 1_000_000)) throw new Error("Neplatná poloha oblasti.");
-  const area = graph.nodes.find((node) => node.id === frame.id);
-  if (!area || area.kind !== "area") throw new Error("Oblast již neexistuje.");
-  const grown = { ...resizeEditorNode(graph, frame.id, frame.w, frame.h).nodes.find((node) => node.id === frame.id)!, x: frame.x, y: frame.y };
-  return { ...graph, nodes: graph.nodes.map((node) => node.id === frame.id ? grown : node) };
-}
-
-/**
- * Pravidlo vazby na mapě (tah z portu i nabídka vazby z portu, `port-menu/`): proč `source → target` nejde,
- * nebo `null`, když jde. Bez sebe sama, bez komentářů, oblast jen s oblastí (`flow`) a bez duplicitní vazby.
- */
-export function connectionProblem(graph: Graph, source: string, target: string): string | null {
-  if (source === target) return "Prvek nelze propojit se sebou.";
-  const from = graph.nodes.find((node) => node.id === source);
-  const to = graph.nodes.find((node) => node.id === target);
-  if (!from || !to || from.kind === "comment" || to.kind === "comment") return "Vazba vyžaduje dva prvky bez komentářů.";
-  if ((from.kind === "area") !== (to.kind === "area")) return "Oblast lze propojit jen s jinou oblastí.";
-  const port = from.kind === "area" ? "flow" : "next";
-  if (graph.edges.some((edge) => edge.source === source && edge.target === target && (edge.port ?? "next") === port)) return "Tato vazba již existuje.";
-  if (port === "next" && nextReaches(graph, target, source)) return "Vazba by uzavřela cyklus karet; server ji odmítne.";
-  return null;
-}
-
-/** Vede z `from` cesta po vazbách `next` mezi kartami do `to`? Totéž pravidlo hlídá backend `card_dag.py`. */
-function nextReaches(graph: Graph, from: string, to: string): boolean {
-  const cards = new Set(graph.nodes.filter((node) => node.kind === "node" || node.kind === "sector").map((node) => node.id));
-  const seen = new Set([from]); const queue = [from];
-  while (queue.length) {
-    const current = queue.shift()!;
-    if (current === to) return true;
-    for (const edge of graph.edges) {
-      if (edge.source !== current || (edge.port ?? "next") !== "next" || !cards.has(edge.source) || !cards.has(edge.target) || seen.has(edge.target)) continue;
-      seen.add(edge.target); queue.push(edge.target);
-    }
-  }
-  return false;
-}
-
-/** Nová vazba; `carries` (druh toku z nabídky vazby) dostane jen vazba `next`, tah z portu ho nenese. */
-export function connectEditorNodes(graph: Graph, source: string, target: string, id: string, carries?: EdgeCarries | null): Graph {
-  if (!GRAPH_ID.test(id) || graph.edges.some((edge) => edge.id === id)) throw new Error("Neplatná nebo již použitá identita vazby.");
-  const problem = connectionProblem(graph, source, target);
-  if (problem) throw new Error(problem);
-  const port = graph.nodes.find((node) => node.id === source)!.kind === "area" ? "flow" : "next";
-  return { ...graph, edges: [...graph.edges, { id, source, target, port, ...(carries && port === "next" ? { carries } : {}) }] };
 }
 
 /** Člověk určí, co po vazbě teče; `null` = neurčeno (klíč zmizí, nic se nedoplňuje). Jen vazba `next`. */
@@ -164,9 +92,33 @@ export function setEditorPageSite(graph: Graph, original: CanvasNode, site: Page
   return { ...graph, nodes: graph.nodes.map((item) => item.id === node.id ? { ...item, site: next } : item) };
 }
 
-export function createEditorAreaPlan(parentId: string | null, name = "Nová oblast"): EditorAreaPlan {
-  if (parentId !== null && !GRAPH_ID.test(parentId)) throw new Error("Neplatný rodič oblasti.");
-  const title = name.trim();
-  if (!title || title.length > 120) throw new Error("Název oblasti musí mít 1–120 znaků.");
-  return { nodes: [{ ref: "area", kind: "area", parent: parentId === null ? null : `@${parentId}`, name: title, purpose: "", size: { w: 720, h: 480 } }] };
+/** Prvek logiky z palety plátna 2: uzel s druhem `element` pod stránkou, název je český druh (přejmenuje se v Detailu).
+ * `section` = box layoutu, do kterého prvek patří (`card.section`); bez něj je prvkem celé stránky. */
+export function createEditorElementPlan(pageId: string, kind: ElementKind, section: string | null = null, name = ELEMENT_LABELS[kind]) {
+  if (!GRAPH_ID.test(pageId)) throw new Error("Neplatná stránka prvku.");
+  if (section !== null && !GRAPH_ID.test(section)) throw new Error("Neplatné id sekce.");
+  return { nodes: [{ ref: "element", kind: "node", parent: `@${pageId}`, name, purpose: "", element: { kind }, ...(section ? { card: { section } } : {}) }] };
+}
+
+/** Prvky logiky převzatého skenu webu jedním plánem (refs `logic-<i>`, box = `card.section`; sekce už musí na stránce být). */
+export function scanLogicPlan(pageId: string, logic: readonly { kind: ElementKind; name: string; purpose: string; section: string | null }[]) {
+  if (!GRAPH_ID.test(pageId)) throw new Error("Neplatná stránka prvku.");
+  if (logic.some((item) => item.section !== null && !GRAPH_ID.test(item.section))) throw new Error("Neplatné id sekce.");
+  return { nodes: logic.map((item, index) => ({ ref: `logic-${index}`, kind: "node", parent: `@${pageId}`, name: item.name, purpose: item.purpose,
+    element: { kind: item.kind }, ...(item.section ? { card: { section: item.section } } : {}) })) };
+}
+
+/**
+ * Layout stránky (vrstva 1 plátna 2) jednou změnou grafu: nové `site.sections` přes `setEditorPageSite` (otisk, `pageSiteForSave`)
+ * a prvkům logiky, jejichž box zmizel (odebrání, šablona), se `card.section` smaže, aby přešly na celou stránku.
+ * `touched` = uzly prvků, kterým se sekce smazala (rodič u nich ověří zámek obsahu).
+ */
+export function setEditorPageLayout(graph: Graph, pageId: string, sections: PageSection[]): { graph: Graph; touched: string[] } {
+  const page = graph.nodes.find((node) => node.id === pageId);
+  if (!page || page.site?.kind !== "page") throw new Error("Layout má jen stránka.");
+  const kept = new Set(sections.map((section) => section.id));
+  let next = setEditorPageSite(graph, page, { ...page.site, sections });
+  const touched = graph.nodes.filter((node) => node.parentId === pageId && node.kind === "node" && node.card?.section && !kept.has(node.card.section)).map((node) => node.id);
+  for (const id of touched) next = setEditorNodeSection(next, id, null);
+  return { graph: next, touched };
 }

@@ -69,7 +69,7 @@ rozepiš do `spec.steps`, ne do karet. Build a test pusť **jednou na kartu** p�
    ], "edges": []}}
    EOF
    ```
-   Role sekcí: `hero`, `cta`, `form`, `content`, `gallery`, `proof`, `faq`, `footer`, `custom`. Karta `formular` je sekce
+   Role sekcí: `hero`, `cta`, `form`, `content`, `gallery`, `proof`, `faq`, `footer`, `custom`, `header`, `nav`, `aside`, `article`, `main`. Karta `formular` je sekce
    s vlastním ověřením (`card.section`); drobnosti jdou do `spec.steps` (obsah → vzhled podle `site.feel` → přístupnost →
    prázdné a chybové stavy → testy). Cesty zákazníka a další pole: [canvas-plan.md](references/canvas-plan.md).
 3. `H act --all-ready --verb propose_graph --verb accept` – jedno volání, **žádná smyčka přes ID** (`{done, skipped, next}`).
@@ -171,6 +171,7 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | stavět strom karet na pracovním plátně | `/api/canvas-plan` (dávka, `--dry-run`), pak návrh grafu k přijetí | [canvas-plan.md](references/canvas-plan.md) |
 | grilling, wayfinder, schránka zadání | `/api/brief-vault`, `opora_cycle.py` | [workflow.md](references/workflow.md), [cycle.md](references/cycle.md) |
 | storyboard a skica momentu | `/api/storyboard`, `/api/drawing` | [storyboard.md](references/storyboard.md) |
+| plán stránky (plátno 2): layout z boxů, stav boxu, sken webu přes REA | `GET`/`POST /api/page-plan` (agent jen `proposed`), prvky logiky `/api/canvas-plan`, plátno logiky prvku `/api/library/project-flows` | [api.md](references/api.md) „Plán stránky (plátno 2)“ |
 | ověřit cestu zákazníka před uzavřením karty | `uv run python tools/journey_run.py --project P --journey J [--dry-run]` | [journey-run.md](references/journey-run.md) |
 | design karta: DESIGN.md, režim, screenshoty na hlavu PR | `/api/oporahub/review-preview`, `/api/oporahub/review-jobs/preview` | `docs/design-nahled.md` |
 | velký projekt, mapy | `index` → `rank`; Graphify | [rlm.md](references/rlm.md), [graphify.md](references/graphify.md), [map-refresh.md](references/map-refresh.md) |
@@ -179,8 +180,7 @@ Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
 | orchestrátor v projektu se srdcem: číst plán srdce, karty v pruhu, žádat změnu plánu | `opora_hub.py start`/`deliver`; `opora_gate.py ask` / `change` → `inbox` | [srdce.md](references/srdce.md) |
 | stará karta mimo OporaHub (lease, `agent-output`, router, kritici, `opora_stage.py`, `opora_closure.py`) | **zastaralé**, jen pro stará data | [legacy.md](references/legacy.md) |
 
-Skripty: `opora_hub.py` (stav, akce, `start`, `deliver`, review; tokeny jen v souborech 0600), `opora_write.py` (zápisy plátna `WRITE_ROUTES` a agentní cesty `HUB_AGENT_ROUTES`; lidské a tokenové odmítne),
-`opora_api.py` (libovolná cesta s identitou agenta, výjimky §4 a tokeny odmítne), `opora_read.py` (čtení), `opora_save.py`, `opora_cycle.py`, `opora_gate.py` (pracovník brány mozku).
+Skripty: `opora_hub.py` (stav, akce, `start`, `deliver`, review; tokeny jen v souborech 0600), `opora_write.py` (zápisy plátna `WRITE_ROUTES` a agentní cesty `HUB_AGENT_ROUTES`; lidské a tokenové odmítne), `opora_api.py` (libovolná cesta s identitou agenta, výjimky §4 a tokeny odmítne), `opora_read.py` (čtení), `opora_save.py`, `opora_cycle.py`, `opora_gate.py` (pracovník brány mozku).
 
 ## Pravidla efektivity
 

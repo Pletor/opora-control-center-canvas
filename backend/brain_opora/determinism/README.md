@@ -203,7 +203,7 @@ Modules (milestones and requirements, slice 3, contract `docs/navrhy/2026-10-30-
   (PLAN-002: otherwise the card waits in review without a PR), detail = step, its notes (≤ 400 chars) and the
   advice to rewrite the card's steps against main; `card.stalled` = a running run older
   than 3× the median run time of done cards with the same label and no `step.*` event in that time; `card.over_budget`
-  = `costUsd` > 2× the median, prepared but idle while the price is null. Medians need ≥ 5 done cards
+  = `costUsd` > 2× the median; the card price is the sum of observed run prices (`opora_execution_observers.spent`), idle while null. Medians need ≥ 5 done cards
   (`done.confirmed`) with the label; run time = claim → last result receipt. `facts` reads one workspace once
   (`ProcessSync` up to 40 cards, accepted context, execution history, receipts, the failed step of a `reported`
   run, last step events, confirmed cards);

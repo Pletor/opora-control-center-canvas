@@ -53,10 +53,11 @@ odvozují; přidaný výchozí klíč by starý záznam zneplatnil a změnil dig
 ```
 
 - `goal` 1–200 znaků, `feel` 1–120, `navLabel` 1–40. Prázdný řetězec se neukládá, pole se vynechá.
-- `sections` 1–20 položek; `id` jako id uzlu, jedinečné ve stránce; `role` ∈ `hero | cta | form | content |
-  gallery | proof | faq | footer | custom`; `name` 1–60; `intent` 0–200; nepovinné `moves` 1–120 (prázdné se
+- `sections` 1–40 položek; `id` jako id uzlu, jedinečné ve stránce; `role` ∈ `hero | cta | form | content |
+  gallery | proof | faq | footer | custom | header | nav | aside | article | main`; `name` 1–60; `intent` 0–200; nepovinné `moves` 1–120 (prázdné se
   neukládá): čím sekce posouvá zákazníka v kroku cesty, na kterém stránka leží (rozptýlí námitku, ukáže důkaz;
-  [cesta-zakaznika-a-brief.md](cesta-zakaznika-a-brief.md) §2.3). Jiný klíč sekce validátor odmítne.
+  [cesta-zakaznika-a-brief.md](cesta-zakaznika-a-brief.md) §2.3); nepovinné `box` `{x, y, w, h}` (celá čísla na mřížce 12 sloupců: `0≤x≤11`, `1≤w≤12`, `x+w≤12`, `0≤y≤199`, `1≤h≤40`) a `parent` (id jiné sekce téže stránky, bez cyklu, nejvýš 3 úrovně). Jiný klíč sekce validátor odmítne.
+- Plán stránky (plátno 2, [navrhy/2026-11-10-platno-2.md](navrhy/2026-11-10-platno-2.md) verze 3): sekce = box layoutu s nepovinným `status` (`draft` chybí = rozpracováno, `proposed` = návrh agenta nebo skenu, `approved` = potvrdil člověk), `inspiration` `{files?: 1–6 id obrázků kresby, url?: http(s) ≤ 500, note?: 1–200}` a `source` (`human | agent | scan`, zapisuje server). Agent čte a navrhuje přes `GET`/`POST /api/page-plan` (jen `proposed`, `approved` nemění ani nemaže, souběh přes `expectedDigest`), stav boxu mění jen člověk (`POST /api/page-plan/{page_id}/boxes/{section_id}/status`), sken webu přes REA je `POST /api/page-plan/scan`. Prvky logiky jsou uzly s `element.kind` pod stránkou (`card.section` = box), skica boxu je kresba `box/<pageId>/<sectionId>`; node-brief stránky nese zkrácený `pagePlan` (řádek na box a na prvek).
 - Sekce navrhuje agent v dávce plánu (`site` stránky, i s `moves`) a skládá a upravuje člověk na dvou místech nad
   stejným dílkem: ve formuláři stránky na mapě domény a v záložce **Stránka** Detailu prvku v Editoru stránky.
 - Sekce jsou součást `site` stránky, a tedy **zadání** (`specification`): změna sekce včetně `moves` mění
@@ -416,21 +417,19 @@ Každá etapa upraví celý svůj strom v jednom PR, včetně testů, README dí
 a `healthPath` **nejsou** mrtvé a zůstávají.
 
 **Rostoucí oblast:** nová čistá funkce v `frontend/editor/canvas/area/logic/` (+ test) volaná z
-`frontend/editor/canvas/board/components/Board.tsx` (tah) a `frontend/project/architecture-editor/page-editor/components/ArchitectureCanvas.tsx`
-(`onNodeDragStop` dnes ukládá surovou pozici); zarážka o cizí kartu/oblast podle `solid-bodies.ts`; README
-`area/` a `page-editor/`. `CENTRE_OFFSET` se nemění (musí sedět s backendem `areas._CENTRE_OFFSET`).
+`frontend/editor/canvas/board/components/Board.tsx` (tah; plátno 2 oblasti nemá, layout stránky je `page-editor/layout-canvas/`); zarážka o cizí kartu/oblast podle `solid-bodies.ts`; README
+`area/`. `CENTRE_OFFSET` se nemění (musí sedět s backendem `areas._CENTRE_OFFSET`).
 
 **Stránka a aplikace (`site`):** `backend/canvas/site_metadata.py` (+ `test_site_metadata.py`, trychtýř `journeys` §3.2);
 `specification_context.py` `_navigation` (navigace v node-briefu, přidat `navLabel`); `frontend/shared/types/logic/types.ts` `NodeSite`;
-`ArchitectureProductForm.tsx` (oprava: změna cesty dnes zahodí ostatní klíče `site`); `ArchitectureDomainMap.tsx`;
-`PageCard.tsx`, `DomainPanel.tsx`; `product-tree.ts` `productFingerprint`; `frontend/project/architecture-editor/element-detail/logic/agent-context.ts`;
+`ArchitectureProductForm.tsx` (oprava: změna cesty dnes zahodí ostatní klíče `site`); layout stránky `page-editor/layout-canvas/` (box a parent sekce); `product-tree.ts` `productFingerprint`; `frontend/project/architecture-editor/element-detail/logic/agent-context.ts`;
 docs `architektura-projektu.md`, `domeny-a-worktree.md`; skill `backend/brain/seed/opora-control-center/skills/opora-control-center/references/api.md`.
 
 **Hrana `carries` a komponenta `section`:** backend `graph.py` (`EDGE_KEY_SETS`, kontrola hodnot; klíč karty
 `card.section`), `canvas_plan_links.py`, OporaHub `opora_graph_build.py`, `opora_graph_records.py`,
 `opora_graph_change_records.py`, `opora_graph_change_plan.py`, `opora_graph_change_diff.py`, `node_brief.py`
 `link()`, `canvas_index.py`, `trace.py`, `plan_lens_views.py`; frontend `types.ts` `GraphEdge`,
-`board-model.ts`, `editor-model.ts`, `canvas-model.ts` `edgeLook`, `agent-context.ts`,
+`board-model.ts`, `editor-model.ts`, `agent-context.ts`,
 `frontend/hub/oporahub-overview/logic/overview.ts` (otisk grafu), `frontend/hub/graph-proposals/logic/graph-edits.ts`
 (dnes natvrdo `port: "next"`), `GraphProposalDetails.tsx`, `GraphChangeReview.tsx`; testy podle hlášení
 dopadů (grafové porty, plán, návrhy a změny grafu, node-brief, specifikace); docs `karta-pro-agenty.md`,

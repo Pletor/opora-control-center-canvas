@@ -1,26 +1,26 @@
 // Root theme first: piece styles loaded after it win equal-specificity ties.
 import "../styles/architecture-editor.css";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type CanvasNode, type Graph, type RemovalPreview } from "@/shared/types/logic/types";
+import { api, type CanvasNode, type ElementKind, type Graph, type PageSection, type RemovalPreview } from "@/shared/types/logic/types";
 import { useDesktopState } from "@/shared/desktop-state/logic/state-store";
 import type { NodePhase } from "@/shared/desktop-state/logic/types";
-import { catalogPlacement, catalogPlan, type CatalogLink } from "@/editor/component-library/library-catalog/logic/catalog-plan";
-import { itemById } from "@/editor/component-library/library-catalog/logic/library-catalog";
 import { editProductNode, sitePlan, type ProductDraft } from "@/project/product-tree/logic/product-tree";
 import RemovalDialog from "@/ui-kit/removal-dialog/components/RemovalDialog";
 import { discardSpecDrafts } from "@/editor/node-detail/assignment/components/NodeSpecEditor";
 import { discardDrawingDrafts } from "@/editor/canvas/drawing/logic/drawing-state";
-import { architectureEditorId, editorScopeNode, isEditorScopeClosed, moveEditorNode, growEditorArea, resizeEditorNode, connectEditorNodes, createEditorAreaPlan, setEditorEdgeCarries, setEditorNodeSection, setEditorPageSite } from "../logic/editor-model";
-import { domainNode, domainForNode, domainPageTree, splitDomainHost, reorderDomainPage, reparentDomainPage } from "../logic/domain-model";
+import { architectureEditorId, editorScopeNode, isEditorScopeClosed, createEditorElementPlan, setEditorEdgeCarries, setEditorNodeSection, setEditorPageLayout, setEditorPageSite } from "../logic/editor-model";
+import type { ScanProposal } from "../page-editor/plan-scan/logic/page-scan";
+import { adoptScan as adoptScanParts, type AdoptParts } from "../page-editor/plan-scan/logic/adopt-scan";
+import { scanAdoptDeps } from "../page-editor/plan-scan/logic/scan-adopt-deps";
+import { domainNode, domainForNode, domainEntryPage, splitDomainHost, reorderDomainPage } from "../logic/domain-model";
 import { useArchitectureGraph } from "../logic/use-architecture-graph";
 import { edgeRemovalPreviewUrl, edgeRemovalRequest } from "../logic/edge-removal";
 import { resolveEditorRoute } from "../logic/editor-route";
-import { environmentOf, SHARED_GROUP } from "../page-editor/project-tree/logic/project-tree-model";
+import { activePageId, environmentOf, isSharedDomain, SHARED_GROUP } from "../page-editor/project-tree/logic/project-tree-model";
+import { pageComplete } from "../page-editor/logic/plan-progress";
 import ArchitectureLanding from "../landing/components/ArchitectureLanding";
 import { environmentAddress, isMobileDomain } from "../landing/logic/domain-kind";
-import ArchitectureDomainMap from "../domain-map/components/ArchitectureDomainMap";
 import PageEditor from "../page-editor/components/PageEditor";
-import ComponentStructure from "../component-structure/components/ComponentStructure";
 import ElementDetail from "../element-detail/components/ElementDetail";
 import ArchitectureHeader from "./ArchitectureHeader";
 import { useDomainLive } from "../logic/use-domain-live";
@@ -28,15 +28,13 @@ import { useStudioRuns } from "@/project/studio/logic/use-studio-runs";
 import { useCardLife } from "../card-state/logic/use-card-life";
 import { useMapWorktrees } from "../logic/use-map-worktrees";
 import { useCardGuards } from "@/project/studio/studio-guards/logic/use-card-guards";
-import { ProjectFlowsContext } from "@/project/project-flows/logic/project-flows-context";
-import { useProjectFlows } from "@/project/project-flows/logic/use-project-flows";
+import ProjectFlowsProvider from "@/project/project-flows/components/ProjectFlowsProvider";
 import { useMapCheck } from "../logic/use-map-check";
-import { mapCheckGroups, type MapCheckTarget } from "../domain-map/map-check/logic/map-check";
-import { pageWork, panelViews } from "../logic/live-views";
-import LiveDomainPanel from "../live-status/components/LiveDomainPanel";
+import { mapCheckGroups, type MapCheckTarget } from "../domain-site/map-check/logic/map-check";
+import { panelViews } from "../logic/live-views";
 import WebStatusBadge from "../live-status/components/WebStatusBadge";
-import type { CardRequest } from "../live-status/logic/session-state";
-import type { HeartRequest } from "@/layout/heart-channel/logic/heart-api";
+import type { ArchitectureLiveProps } from "../logic/live-props";
+import { architectureSketch } from "../logic/architecture-sketch";
 import { architectureEditable, contentLock, structureLock, type LockInput } from "../logic/edit-locks";
 import { useWorktreeAdmin } from "../logic/use-worktree-admin";
 import { normalizeConflicts } from "../view-conflicts/logic/view-conflicts";
@@ -44,19 +42,7 @@ import EditorNotices from "./EditorNotices";
 import { usePageIntents } from "@/project/intent-canvas/intent-entry/logic/use-page-intents";
 import { pageDecomposeOffer, type PageDecompose } from "../page-editor/page-decompose/logic/page-decompose-prompt";
 
-/** Co editor architektury potřebuje vědět o živé práci: schopnost projektu (od App) a akce, které jdou nahoru do App. */
-export type ArchitectureLiveProps = {
-  worktreeLive: boolean;
-  onSwitchWorkspace: (id: string) => void; onAskHeart: (request: HeartRequest) => void; onCreateWorktree: (domainId: string) => void;
-  /** Otevře kartu (App přepne prostor, je-li jiný). */
-  onOpenCard: (request: CardRequest) => void;
-  /** Otevře plátno záměru stránky (`projectView=intent&page=<id>`, vyřizuje App). */
-  onOpenIntent?: (pageId: string) => void;
-  /** Otevře Správu webu projektu (`projectView=site`, vyřizuje App). */
-  onOpenSite?: () => void;
-  /** Otevře plátno toku v knihovně (`projectView=library&flow=<id>`, vyřizuje App). */
-  onOpenLibraryFlow?: (flowId: string) => void;
-};
+export type { ArchitectureLiveProps } from "../logic/live-props";
 
 const EMPTY_GRAPH: Graph = { nodes: [], edges: [] };
 type Props = { project: string; workspace: string; projectName?: string; onGraphChanged: () => void; onOpenEditor: (id: string) => void; live: ArchitectureLiveProps };
@@ -69,22 +55,16 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const [domainId, setDomainId] = useState<string | null>(null);
   const [scopeId, setScopeId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [structureId, setStructureId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  /** One-shot: „+ Stránka“ in the project tree opens the map with this parent's new-page form already open. */
-  const [draftParent, setDraftParent] = useState<string | null>(null);
-  /** One-shot from the page editor's journey slice: id = open the map with this journey's editor, null = show the journeys, undefined = nothing. */
-  const [journeyEdit, setJourneyEdit] = useState<string | null | undefined>(undefined);
-  const [reveal, setReveal] = useState<string | null>(null);
+  /** Kompletní stránky, které člověk v tomto sezení otevřel k úpravám (trvalé uzavření je další krok kontraktu). */
+  const [reopened, setReopened] = useState<ReadonlySet<string>>(new Set());
   const [removal, setRemoval] = useState<RemovalPreview | null>(null);
   const [removing, setRemoving] = useState(false);
-  const [worktreeId, setWorktreeId] = useState<string | null>(null);
   const live = useDomainLive(project, domainId, liveProps.worktreeLive);
   const admin = useWorktreeAdmin(project, () => { live.refreshWork(); onGraphChanged(); });
   const derivedJourneys = useStudioRuns(project, store.view?.digest).journeys;
   const mapCheck = useMapCheck(project, store.view?.digest);
   const intents = usePageIntents(project, store.view?.digest);
-  const projectFlows = { flows: useProjectFlows(project, store.view?.digest), onOpen: liveProps.onOpenLibraryFlow };
   const graph = store.view?.graph ?? EMPTY_GRAPH;
   const guards = useCardGuards(project, workspace);
   const worktrees = useMapWorktrees(project, liveProps.worktreeLive, store.view?.digest);
@@ -99,15 +79,16 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
     if (ready || !store.view) return;
     try {
       const route = resolveEditorRoute(graph, initial, project, workspace);
-      setDomainId(route.domainId); setScopeId(route.pageId); setSelectedId(route.selectedId); setStructureId(route.structureId); setReady(true);
+      setDomainId(route.domainId); setScopeId(route.pageId); setSelectedId(route.selectedId); setReady(true);
     } catch (cause) { setRouteError(cause instanceof Error ? cause.message : String(cause)); }
   }, [store.view, ready]);
   useEffect(() => {
     if (!ready || routeError) return;
     const params = new URLSearchParams(location.search); params.set("editorId", editorId);
-    for (const [key, value] of [["domainId", domainId], ["pageId", scopeId], ["architectureNode", selectedId], ["structureNode", structureId]]) { if (value) params.set(key!, value); else params.delete(key!); }
+    for (const [key, value] of [["domainId", domainId], ["pageId", scopeId], ["architectureNode", selectedId]]) { if (value) params.set(key!, value); else params.delete(key!); }
+    params.delete("structureNode");
     history.replaceState(null, "", "/?" + params);
-  }, [ready, routeError, editorId, domainId, scopeId, selectedId, structureId]);
+  }, [ready, routeError, editorId, domainId, scopeId, selectedId]);
   // Editor is keyed by project only: a worktree switch keeps the route but drops a removal prepared against the previous workspace.
   useEffect(() => { setRemoval(null); setError(""); }, [workspace]);
   let domain: CanvasNode | null = null; let scope: CanvasNode | null = null; let scopeError = "";
@@ -119,24 +100,26 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
     // Jen nad ověřeným rozsahem: při přepnutí prostoru se graf načítá znovu a doména v něm chvíli chybí;
     // `isEditorScopeClosed` by na ni vyhodil výjimku uprostřed renderu a shodil celý editor (černá obrazovka).
     scopeClosed: !scopeError && domain !== null && isEditorScopeClosed(graph, scopeId ?? domainId, closed) };
-  const locks = { structure: structureLock(lockInput), content: contentLock(lockInput) };
+  // Plátno 2 otevře doménu na první stránce; doména bez stránky (nebo sdílená struktura) zůstane bez rozsahu.
+  useEffect(() => { if (domain && !scopeId && !removing && !store.loading && !isSharedDomain(domain)) { const entry = domainEntryPage(graph, domain.id); if (entry) { setScopeId(entry); setSelectedId(entry); } } }, [domain?.id, scopeId, removing, store.loading, store.view]);
+  const activePage = scope ? activePageId(graph, scope.id) : null;
+  const complete = !!activePage && pageComplete(graph, activePage, cards.states);
+  const sealed = complete && !reopened.has(activePage!);
+  const baseContent = contentLock(lockInput);
+  const locks = { structure: structureLock(lockInput), content: baseContent ?? (sealed ? { text: "Stránka je kompletní. Otevřete ji k úpravám.", transient: false } : null) };
   const structureDisabled = !!locks.structure; const disabled = !!locks.content;
-  const pages = domain ? domainPageTree(graph, domain.id) : [];
   const inDomain = (id: string | null) => graph.nodes.find((node) => node.id === id && domainForNode(graph, node.id)?.id === domainId);
   const selected = inDomain(selectedId);
-  const structure = inDomain(structureId);
-  function navigate(nextDomain: string | null, nextScope: string | null = null) { if (nextDomain !== domainId) setWorktreeId(null); setDomainId(nextDomain); setScopeId(nextScope); setSelectedId(nextScope); setStructureId(null); setReveal(null); setError(""); }
+  function navigate(nextDomain: string | null, nextScope: string | null = null) { setDomainId(nextDomain); setScopeId(nextScope); setSelectedId(nextScope); setError(""); }
   function openScope(id: string) { try { editorScopeNode(graph, id); if (domainForNode(graph, id)?.id !== domainId) throw new Error("Prvek nepatří do této domény."); navigate(domainId, id === domainId ? null : id); } catch (cause) { setError(String(cause)); } }
-  function openPage(nextDomain: string, pageId: string) { try { editorScopeNode(graph, pageId); if (domainForNode(graph, pageId)?.id !== nextDomain) throw new Error("Stránka nepatří k této doméně."); navigate(nextDomain, pageId); } catch (cause) { setError(String(cause)); } }
-  /** Klik na díru mapy: cesta otevře svůj editor na mapě, komponenta a hrana otevřou stránku a vyberou prvek (u hrany její zdroj). */ function openFinding(target: MapCheckTarget) { if (target.kind === "journey") return setJourneyEdit(target.id); openScope(target.kind === "page" ? target.id : target.pageId); if (target.kind !== "page") setSelectedId(target.kind === "node" ? target.id : target.sourceId); }
-  function openStructure(id: string) { const node = inDomain(id); if (node && (node.kind === "node" || node.kind === "sector")) { setStructureId(id); setSelectedId(id); } }
+  /** Klik na díru plánu: stránka se otevře, komponenta a hrana otevřou stránku a vyberou prvek (u hrany její zdroj). */
+  function openFinding(target: MapCheckTarget) { if (target.kind === "journey") return; openScope(target.kind === "page" ? target.id : target.pageId); if (target.kind !== "page") setSelectedId(target.kind === "node" ? target.id : target.sourceId); }
   function writable(id: string | null = scopeId ?? domainId, kind: keyof typeof locks = "content") {
     const lock = locks[kind];
     if (lock || !store.view) throw new Error(lock?.text ?? "Tento rozsah nyní nelze upravovat.");
     if (domainId && id && domainForNode(graph, id)?.id !== domainId) throw new Error("Prvek již nepatří do otevřené domény. Obnovte mapu.");
     if (isEditorScopeClosed(graph, id, closed)) throw new Error("Tato karta nebo její předek je uzavřený.");
   }
-  function subtreeIds(id: string) { const ids = new Set([id]); let added = true; while (added) { added = false; for (const node of graph.nodes) if (node.parentId && ids.has(node.parentId) && !ids.has(node.id)) { ids.add(node.id); added = true; } } return ids; }
   async function execute(action: () => Promise<void>) { setError(""); try { await action(); } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); throw cause; } }
   const eventAction = (action: () => Promise<void>) => { void execute(action).catch(() => {}); };
   async function saveGraph(next: Graph) { await store.saveGraph(next, store.view!.digest); }
@@ -144,19 +127,21 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   async function saveProduct(draft: ProductDraft) {
     await execute(async () => { writable(draft.id ?? draft.parentId, "structure");
       if (draft.id) { const current = graph.nodes.find((node) => node.id === draft.id); if (!current) throw new Error("Část projektu již neexistuje."); await saveGraph({ ...graph, nodes: graph.nodes.map((node) => node.id === draft.id ? editProductNode(current, draft) : node) }); }
-      else { const created = await apply(sitePlan(draft), "component", draft.parentId, "structure"); if (created.site?.kind === "application") navigate(created.id); }
+      else { const created = await apply(sitePlan(draft), "component", draft.parentId, "structure"); if (created.site?.kind === "application") navigate(created.id); else if (created.site?.kind === "page") navigate(domainId, created.id); }
     });
   }
-  /** New element stays on the page map; when it landed inside a card it is only selected, the map keeps its scope. */
-  function created(start: string | null, node: CanvasNode) { if (active.current !== start) return; setSelectedId(node.id); if (node.parentId === start) setReveal(node.id); }
-  async function insert(id: string, targetId: string | null = null, point?: { x: number; y: number }, link?: CatalogLink) {
-    if (!scopeId) throw new Error("Nejdříve otevřete stránku."); writable(targetId ?? scopeId); if (link) writable(link.nodeId); const item = itemById(id); if (!item) throw new Error("Prvek není v katalogu.");
-    const start = scopeId; created(start, await apply(catalogPlan(item, catalogPlacement(graph.nodes, scopeId, targetId, point), link), "component", targetId ?? scopeId));
-  }
-  /** Sector parent may be an area: the plan places it inside the frame and keeps the area's own parent. */
-  function createSector(parentId = scopeId) { eventAction(async () => { const start = scopeId; created(start, await apply({ nodes: [{ ref: "sector", kind: "sector", parent: parentId ? `@${parentId}` : null, name: "Nový sektor", purpose: "" }] }, "sector", parentId)); }); }
-  function createNode(parentId: string) { eventAction(async () => { const start = scopeId; created(start, await apply({ nodes: [{ ref: "node", kind: "node", parent: `@${parentId}`, name: "Nový uzel", purpose: "" }] }, "node", parentId)); }); }
-  function createArea(parentId = scopeId) { eventAction(async () => { const start = scopeId; created(start, await apply(createEditorAreaPlan(parentId), "area", parentId)); }); }
+  /** Prvek logiky z palety do boxu (`section`) nebo na celou stránku; plán přenese `card.section` (`createEditorElementPlan`). */
+  function insertElement(pageId: string, kind: ElementKind, label: string, section: string | null) { eventAction(async () => { const start = scopeId; const node = await apply(createEditorElementPlan(pageId, kind, section, label), "element", pageId); if (active.current === start) setSelectedId(node.id); }); }
+  /** Layout stránky (zámek struktury, u inspirace boxu obsahu) jednou změnou grafu; prvky odebraných boxů přejdou na celou stránku (zámek obsahu). */
+  function saveLayout(pageId: string, sections: PageSection[], lock: "structure" | "content" = "structure") { eventAction(async () => { writable(pageId, lock); const next = setEditorPageLayout(graph, pageId, sections); next.touched.forEach((id) => writable(id)); if (next.graph !== graph) await saveGraph(next.graph); }); }
+  /** Převzetí skenu po částech (Layout, Design, Logika a tok dat); zápisy grafu jdou přes `store` s čerstvým digestem po každém kroku
+   * (`scanAdoptDeps`), selhání jedné části nezahodí ostatní a výsledek každé části ukáže panel skenu. */
+  const adoptScan = async (pageId: string, proposal: ScanProposal, scanId: string, parts: AdoptParts) => {
+    setError("");
+    try { return await adoptScanParts(proposal, parts, scanAdoptDeps({ project, workspace, pageId, scanId, store, contentLock: locks.content?.text ?? null, writable })); }
+    // Layout jde přes `/api/page-plan` mimo `store`: bez znovunačtení by plátno ukazovalo starý layout a další zápis narazil na 409.
+    finally { await store.reload().catch(() => undefined); desktop.reload(); onGraphChanged(); }
+  };
   function removalAllowed(ids: string[]) {
     const lock = structureLock({ ...lockInput, removalOpen: false }); // The open dialog itself must not block its own confirmation.
     if (lock) throw new Error(lock.text);
@@ -168,7 +153,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
     setRemoving(true);
     try { const result = await api<{ nodeIds?: string[] }>("/api/remove", { project, workspace, kind: preview.kind, target: preview.target, digest: preview.digest, confirmed: true });
       discardSpecDrafts(project, workspace, result.nodeIds ?? []); discardDrawingDrafts(project, workspace, result.nodeIds ?? []);
-      setRemoval(null); if (scopeId && result.nodeIds?.includes(scopeId)) navigate(domainId); await store.reload(); desktop.reload(); onGraphChanged();
+      setRemoval(null); if (scopeId && result.nodeIds?.some((id) => id === scopeId || id === activePage)) navigate(domainId); await store.reload(); desktop.reload(); onGraphChanged();
     } finally { setRemoving(false); }
   }
   /** Vazba jde pryč náhledem a potvrzením bez dialogu: nenese obsah karty a server ji umí vrátit (`recoveryId`). */
@@ -179,8 +164,7 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
       finally { setRemoving(false); } });
   }
   function exportScope() {
-    const ids = domainId ? new Set([...subtreeIds(scopeId ?? domainId)].filter((id) => domainForNode(graph, id)?.id === domainId)) : new Set(graph.nodes.filter((node) => node.site?.kind === "application").map((node) => node.id));
-    const url = URL.createObjectURL(new Blob([JSON.stringify({ kind: "architecture-sketch", project, workspace, editorId, domainId, pageId: scopeId, graph: { nodes: graph.nodes.filter((node) => ids.has(node.id)), edges: graph.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)) } }, null, 2)], { type: "application/json" }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ kind: "architecture-sketch", project, workspace, editorId, domainId, pageId: scopeId, graph: architectureSketch(graph, domainId, scopeId) }, null, 2)], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url; link.download = "nacrt-architektury.json"; link.click(); URL.revokeObjectURL(url);
   }
   if (routeError) return <section className="architecture-editor ae-route-error" data-testid="architecture-route-error"><h2>Editor nelze otevřít</h2><p role="alert">{routeError}</p><button onClick={() => { setRouteError(""); setReady(true); navigate(null); }}>Otevřít seznam domén</button></section>;
@@ -191,37 +175,27 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
   const decompose: PageDecompose = (pageId) => pageDecomposeOffer({ project, workspace, graph, pageId, check: mapCheck });
   const crumbs = domain ? [env?.name ?? SHARED_GROUP, environmentAddress(env) || domain.name, ...(scope ? [scope.name] : [])] : [];
   const identity = (original: CanvasNode, name: string, purpose: string) => execute(async () => { writable(original.id, original.site ? "structure" : "content"); const current = graph.nodes.find((node) => node.id === original.id); if (!current || current.name !== original.name || current.purpose !== original.purpose) throw new Error("Název nebo účel se mezitím změnil. Zrušte koncept a otevřete aktuální hodnoty."); await saveGraph({ ...graph, nodes: graph.nodes.map((node) => node.id === original.id ? { ...node, name: name.trim(), purpose: purpose.trim() } : node) }); });
-  return <ProjectFlowsContext.Provider value={projectFlows}><section className="architecture-editor" data-testid="standalone-architecture-editor">
-    <ArchitectureHeader crumbs={crumbs} step={scope ? "Editor stránky" : domain ? "Mapa domény" : "Mapy architektury"} workspace={workspace} readOnly={!!store.view?.readOnly} editorId={editorId}
-      back={domain ? { disabled: store.busy || removing, onClick: () => navigate(scope ? domain.id : null) } : null}
-      pageTools={scope ? { disabled, onArea: () => createArea(), onSector: () => createSector() } : null}
+  return <ProjectFlowsProvider project={project} workspace={workspace} digest={store.view?.digest} onOpen={liveProps.onOpenLibraryFlow}><section className="architecture-editor" data-testid="standalone-architecture-editor">
+    <ArchitectureHeader crumbs={crumbs} step={domain ? "Plán stránky" : "Mapy architektury"} workspace={workspace} readOnly={!!store.view?.readOnly} editorId={editorId}
+      back={domain ? { disabled: store.busy || removing, onClick: () => navigate(null) } : null}
       exportDisabled={!ready || !store.view} reloadDisabled={store.busy || removing} onExport={exportScope}
       onReload={() => eventAction(async () => { await store.reload(); desktop.reload(); })}
       onCopyId={() => { void navigator.clipboard.writeText(editorId).catch(() => setError("ID se nepodařilo zkopírovat.")); }}/>
-    <EditorNotices error={error || (store.view ? store.error ?? "" : "") || desktop.error || ""} lock={scope ? locks.content : locks.structure} conflicts={normalizeConflicts(store.view?.conflicts)}/>
+    <EditorNotices error={error || (store.view ? store.error ?? "" : "") || desktop.error || ""} lock={domain ? baseContent : locks.structure} conflicts={normalizeConflicts(store.view?.conflicts)}/>
     {scopeError ? <div className="ae-route-error"><p role="alert">{scopeError}</p><button onClick={() => navigate(null)}>Zpět na domény</button></div> : !ready || !store.view ? <p className="ae-loading">Načítám architekturu…</p> : !domain ? <ArchitectureLanding project={project} workspace={workspace} graph={graph} disabled={structureDisabled} lockReason={locks.structure?.text}
       live={{ web: live.web, work: live.work, worktreeLive: live.worktreeLive, nav, onCreateWorktree: liveProps.onCreateWorktree,
         onAssign: admin.assign, shelf: admin.shelf, onLoadShelf: admin.loadShelf }}
       onOpen={(id) => navigate(id)} onOpenFlow={liveProps.onOpenLibraryFlow} onManageSite={liveProps.onOpenSite} onSave={saveProduct} onSplit={(id, host) => execute(async () => { writable(id, "structure"); const newId = crypto.randomUUID(); await saveGraph(splitDomainHost(graph, id, host, newId)); navigate(newId); })}/>
-    : !scope ? <ArchitectureDomainMap key={domain.id} domain={domain} initialDraftParentId={draftParent} onDraftOpened={() => setDraftParent(null)} initialJourneyId={journeyEdit} onJourneyOpened={() => setJourneyEdit(undefined)} pages={pages} disabled={structureDisabled} onOpen={openScope}
-      work={pageWork(graph, live, domain.id, worktreeId)} derivedJourneys={derivedJourneys} cardStates={cards.states} mapCheck={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding} decompose={decompose}
-      intent={liveProps.onOpenIntent && { intents, onOpen: liveProps.onOpenIntent }}
-      webBadge={views && !views.work ? webBadge : null}
-      live={views?.work ? <LiveDomainPanel web={isMobileDomain(domain) ? null : views.web} work={views.work} announcement={live.announcement} selectedWorktreeId={worktreeId} onSelectWorktree={setWorktreeId} onRefreshWeb={live.refreshWeb} nav={nav}
-        actions={{ currentWorkspace: workspace, onSwitch: liveProps.onSwitchWorkspace, onAskHeart: liveProps.onAskHeart, onArchive: async (id, reason) => { await admin.archive(id, reason); setWorktreeId((current) => (current === id ? null : current)); } }} onCreateWorktree={() => liveProps.onCreateWorktree(domain.id)}/> : null} onSave={saveProduct} onRemove={(id) => eventAction(() => requestRemoval(id))}
-      onReorder={(id, direction) => eventAction(async () => { writable(id, "structure"); const next = reorderDomainPage(graph, domain.id, id, direction); next.nodes.forEach((node, index) => { if (graph.nodes[index]?.id !== node.id) writable(node.id, "structure"); }); await saveGraph(next); })}
-      onReparent={(id, parentId) => execute(async () => { for (const child of subtreeIds(id)) writable(child, "structure"); writable(parentId, "structure"); await saveGraph(reparentDomainPage(graph, domain.id, id, parentId)); })}/>
-    : <PageEditor key={domain.id + ":" + scope.id} webBadge={webBadge} graph={graph} domain={domain} scope={scope} projectName={projectName || "Projekt"} selectedId={selected?.id ?? null}
-      editorId={editorId} disabled={disabled} structureDisabled={structureDisabled} reveal={reveal} onOpenPage={openPage} onAddPage={(id) => { navigate(id); setDraftParent(id); }} onOpenScope={openScope}
-      derivedJourneys={derivedJourneys} cards={cards} decompose={decompose} onOpenJourneys={(journeyId) => { navigate(domain.id); setJourneyEdit(journeyId); }}
-      onSelect={setSelectedId} onOpenStructure={openStructure} onOpenEditor={onOpenEditor} onArea={() => createArea()} onSector={(id) => createSector(id)} onAddNode={createNode}
-      onInsert={(id, target, point, link) => eventAction(() => insert(id, target, point, link))}
-      onMove={(id, x, y, area) => execute(async () => { writable(id); if (area) writable(area.id); const next = moveEditorNode(area ? growEditorArea(graph, area) : graph, id, x, y); for (const moved of next.nodes) { const prior = graph.nodes.find((node) => node.id === moved.id); if (prior && (prior.x !== moved.x || prior.y !== moved.y)) writable(moved.id); } await saveGraph(next); })}
-      onRemoveEdge={removeEdge}
-      onConnect={(source, target, carries) => eventAction(async () => { writable(source); writable(target); await saveGraph(connectEditorNodes(graph, source, target, crypto.randomUUID(), carries)); })}
-      onResize={(id, w, h) => execute(async () => { writable(id); const next = resizeEditorNode(graph, id, w, h); if (next !== graph) await saveGraph(next); })}
-      structure={structure ? <ComponentStructure graph={graph} rootId={structure.id} selectedId={selected?.id ?? null} phaseOf={phaseOf} isDone={isDone} disabled={disabled}
-        onSelect={setSelectedId} onOpen={openStructure} onAddNode={createNode} onAddSector={(id) => createSector(id)} onAddArea={(id) => createArea(id)} onClose={() => setStructureId(null)}/> : null}
+    : isSharedDomain(domain) ? <div className="ae-route-error" data-testid="architecture-shared-domain"><p role="alert">Doména {domain.name} je starší sdílená struktura s více hosty. Plán stránky má vždy jedna doména; oddělte host na přehledu domén.</p><button onClick={() => navigate(null)}>Otevřít přehled domén</button></div>
+    : <PageEditor key={domain.id} project={project} workspace={workspace} webBadge={webBadge} graph={graph} domain={domain} scope={scope} selectedId={selected?.id ?? null}
+      disabled={disabled} structureDisabled={structureDisabled} lockText={{ structure: locks.structure?.text ?? null, content: locks.content?.text ?? null, drawing: locks.content?.transient ? undefined : locks.content?.text ?? null }} onOpenPage={openScope} onAdoptScan={adoptScan} onOpenSite={liveProps.onOpenSite}
+      cards={cards} decompose={decompose} check={mapCheck && mapCheckGroups(mapCheck, graph, domain)} onOpenFinding={openFinding}
+      complete={complete} sealed={sealed} onReopen={() => { if (activePage) setReopened((set) => new Set(set).add(activePage)); }}
+      tree={{ intent: liveProps.onOpenIntent && { intents, onOpen: liveProps.onOpenIntent }, onSave: saveProduct, onRemove: (id) => eventAction(() => requestRemoval(id)),
+        onReorder: (id, direction) => eventAction(async () => { writable(id, "structure"); const next = reorderDomainPage(graph, domain.id, id, direction); next.nodes.forEach((node, index) => { if (graph.nodes[index]?.id !== node.id) writable(node.id, "structure"); }); await saveGraph(next); }) }}
+      onSelect={setSelectedId} onOpenEditor={onOpenEditor} onLayout={saveLayout} onInsertElement={insertElement}
+      onMoveElement={(nodeId, section) => eventAction(async () => { writable(nodeId); await saveGraph(setEditorNodeSection(graph, nodeId, section)); })}
+      onRemoveElement={(id) => eventAction(async () => { writable(id); await requestRemoval(id); })}
       detail={selected ? <ElementDetail project={project} workspace={workspace} graph={graph} nodeId={selected.id} domainId={domain.id} phase={phaseOf(selected.id)} done={isDone(selected.id)}
         disabled={selected.site ? structureDisabled : disabled} onIdentity={identity} onOpenEditor={onOpenEditor} onSelect={setSelectedId} onClose={() => setSelectedId(null)}
         onCarries={(edgeId, carries) => eventAction(async () => { const edge = graph.edges.find((item) => item.id === edgeId); if (edge) { writable(edge.source); writable(edge.target); } await saveGraph(setEditorEdgeCarries(graph, edgeId, carries)); })}
@@ -229,5 +203,5 @@ export default function ArchitectureEditor({ project, workspace, projectName, on
         onSection={(nodeId, section) => eventAction(async () => { writable(nodeId); await saveGraph(setEditorNodeSection(graph, nodeId, section)); })}
         onPage={(original, site) => execute(async () => { writable(original.id, "structure"); const next = setEditorPageSite(graph, original, site); if (next !== graph) await saveGraph(next); })}/> : null}/>}
     {removal && <RemovalDialog preview={removal} onClose={() => setRemoval(null)} onConfirm={confirmRemoval}/>}
-  </section></ProjectFlowsContext.Provider>;
+  </section></ProjectFlowsProvider>;
 }

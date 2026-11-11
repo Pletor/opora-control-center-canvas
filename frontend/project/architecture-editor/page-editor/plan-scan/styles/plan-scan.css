@@ -1,0 +1,66 @@
+/* Okno Skenovat web: krátké a klidné, jen adresa a nepovinná poznámka. Úvodní věta slíbí, že se nic nepřepíše bez
+   souhlasu, aby se člověk skenu nebál. */
+.plan-scan__dialog {
+  width: min(460px, 92vw);
+  padding: 0;
+  border: 1px solid var(--ae-line);
+  border-radius: 10px;
+  background: var(--ae-panel);
+  color: var(--ae-text);
+}
+.plan-scan__dialog::backdrop { background: #0009; }
+.plan-scan__form { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
+.plan-scan__title { margin: 0; font-size: 16px; }
+.plan-scan__lead { margin: 0; color: var(--ae-muted); font-size: 12px; }
+.plan-scan__field { display: flex; flex-direction: column; gap: 3px; color: var(--ae-muted); font-size: 11px; }
+.plan-scan__field :where(input, textarea) { color: var(--ae-text); font: inherit; font-size: 12px; }
+.plan-scan__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Panel skenu stojí vedle plátna stránky, aby šel návrh porovnat se současným layoutem bez přepínání. Náhled je
+   zmenšený papír stejné mřížky jen ke čtení, pod ním prvky logiky jako krátký seznam druh · název · box. */
+.plan-scan {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border-left: 1px solid var(--ae-line);
+  background: var(--ae-panel);
+  overflow: auto;
+  font-size: 12px;
+}
+.plan-scan__head { display: flex; align-items: baseline; gap: 8px; }
+.plan-scan__head-title { margin-right: auto; }
+.plan-scan__cost { color: var(--ae-muted); }
+.plan-scan__progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ae-muted); }
+.plan-scan__spinner { width: 12px; height: 12px; border: 2px solid var(--ae-line); border-top-color: var(--ae-accent); border-radius: 50%; animation: plan-scan-spin 1s linear infinite; }
+@keyframes plan-scan-spin { to { transform: rotate(360deg); } }
+.plan-scan__failed { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.plan-scan__error { margin: 0; color: var(--ae-tone-security); }
+.plan-scan__preview { zoom: .7; pointer-events: none; }
+.plan-scan__preview .layout-canvas { padding: 0; }
+.plan-scan__subtitle { margin: 4px 0 0; font-size: 12px; }
+.plan-scan__logic { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.plan-scan__logic-kind, .plan-scan__logic-box, .plan-scan__hint { color: var(--ae-muted); }
+.plan-scan__hint { margin: 0; font-size: 11px; }
+.plan-scan__adopt { border-color: var(--ae-accent); color: var(--ae-accent); }
+
+/* Návrh má tři části, každou se zaškrtávátkem v záhlaví: člověk si vybere, co převezme, a pod záhlavím hned vidí, co
+   to znamená (náhled layoutu, výřezy a změny tokenů, prvky s počtem kroků toku). Části odděluje tenká linka, aby se
+   panel četl shora dolů jako seznam rozhodnutí. */
+.plan-scan__part { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid var(--ae-line); }
+.plan-scan__part-check { display: flex; align-items: center; gap: 4px; }
+.plan-scan__shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+.plan-scan__shot { display: flex; flex-direction: column; gap: 2px; margin: 0; color: var(--ae-muted); font-size: 10px; }
+.plan-scan__shot img { width: 100%; height: 56px; object-fit: cover; object-position: top; border: 1px solid var(--ae-line); border-radius: 4px; }
+.plan-scan__shot--page { grid-column: 1 / -1; }
+.plan-scan__shot--page img { height: 96px; }
+.plan-scan__changes, .plan-scan__notes, .plan-scan__results { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; list-style: none; font-size: 11px; }
+.plan-scan__change-old { color: var(--ae-muted); text-decoration: line-through; }
+.plan-scan__notes { color: var(--ae-muted); }
+
+/* Po převzetí panel neodejde: řekne po částech, co se převzalo (zeleně) a co ne a proč (červeně), aby člověk věděl,
+   co ještě dodělat ručně. */
+.plan-scan__report { display: flex; flex-direction: column; gap: 8px; }
+.plan-scan__result--ok > span { color: var(--studio-state-verified, var(--ae-accent)); }
+.plan-scan__result--failed > span { color: var(--ae-tone-security); }

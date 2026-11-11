@@ -39,6 +39,9 @@ LANE = (
 # s platným tokenem pracovníka téhož projektu; kdo smí psát, ověří ještě routa.
 RELAY = "/api/brain/heart/messages"
 CANVAS_LOG = "/api/flow/log"
+# Plán stránky plátna 2 (docs/navrhy/2026-11-10-platno-2.md, verze 3): dělník téhož projektu navrhuje boxy a spouští
+# sken; routa pak pustí jen `proposed` a nesáhne na `approved`, stav boxu mění jen člověk.
+PAGE_PLAN = "/api/page-plan"
 
 
 @dataclass(frozen=True)
@@ -93,7 +96,8 @@ def decide(method, path, actor, gate_on, token, project=""):
     if in_lane(path):
         # Pruh nepotřebuje token: bez hlavičky, s neplatným i s cizím tokenem rozhoduje jen cesta.
         return ALLOW
-    if (path in (RELAY, CANVAS_LOG) and isinstance(token, dict) and token.get("role") == "worker" and bool(project)
+    worker_path = path in (RELAY, CANVAS_LOG, PAGE_PLAN) or path.startswith(PAGE_PLAN + "/")
+    if (worker_path and isinstance(token, dict) and token.get("role") == "worker" and bool(project)
             and token.get("project") == project):
         return ALLOW
     if token == INVALID:

@@ -96,3 +96,32 @@ def test_delivered_card_wins_over_many_cards_waiting_for_steps(delivered, servic
 
     monkeypatch.setattr(ProcessSync, "read", padded)
     assert card_a(service)["stepFailed"]["stepId"] == "s1"
+
+
+def office_event(seq, tool, state="progress"):
+    """Událost Kanceláře ve tvaru `opora.process-event/1` (agent-office `office-events.ts` `toolEvent`/`workerEvents`)."""
+    return {"schema": "opora.process-event/1", "id": f"office:floor-1:{seq}", "seq": seq,
+            "at": "2026-11-11T10:00:00.000Z", "source": "office", "kind": "tool.use",
+            "phase": "checks" if tool.get("action") in ("test", "failing") else "work", "state": state,
+            "title": f"Ada: {tool['name']}", "actor": {"kind": "worker", "id": "w-1", "name": "Ada"},
+            "refs": {"project": "draft", "workspace": "draft", "cardId": "a", "workerId": "w-1"}, "tool": tool}
+
+
+def test_office_tool_events_feed_failing_and_drift(delivered, service):
+    """Přijaté `tool.use` karty (process-events) čte hlídač: `action: failing` = card.failing, editace mimo
+    `files` kroků karty (`backend/**/*.py`) = card.drift, editace uvnitř drift nemá."""
+    from backend.canvas.process_ingest import ingest
+
+    assert triggers.drift(card_a(service)) is None and triggers.failing(card_a(service)) is None
+    events = [office_event(1, {"name": "Edit", "action": "edit", "target": "C:/wt/backend/canvas/x.py"}),
+              office_event(2, {"name": "Bash", "action": "test", "target": "npm test"}),
+              office_event(3, {"name": "tests", "action": "failing"}, "fail"),
+              office_event(4, {"name": "Edit", "action": "edit", "target": "frontend/app.tsx"})]
+    assert ingest(service, {"events": events}, poster="office-process")["accepted"] == 4
+    card = card_a(service)
+    assert [item["tool"]["name"] for item in card["tools"]] == ["Edit", "tests", "Bash", "Edit"]
+    assert "backend/**/*.py" in card["expected"]
+    found = {hit["kind"]: hit for hit in triggers.evaluate([card], [])}
+    assert found["card.drift"]["detail"].startswith("editace mimo soubory karty: frontend/app.tsx")
+    assert "C:/wt/backend" not in found["card.drift"]["detail"]
+    assert found["card.failing"]["state"] == str(card["tools"][1]["id"])

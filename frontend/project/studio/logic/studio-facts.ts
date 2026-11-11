@@ -4,12 +4,12 @@
 // a práce ve worktree (kontrola mapy přes worktree, `studio-worktree/`). Jen čte.
 import type { Graph } from "@/shared/types/logic/types";
 import type { WorkStatus } from "@/project/architecture-editor/live-status/logic/live-model";
-import type { MapCheck } from "@/project/architecture-editor/domain-map/map-check/logic/map-check";
-import { derivedForDomain, type DerivedJourney } from "@/project/architecture-editor/domain-map/logic/derived-journeys";
-import { FROM_NAV } from "@/project/architecture-editor/domain-map/logic/journeys";
+import type { MapCheck } from "@/project/architecture-editor/domain-site/map-check/logic/map-check";
+import { derivedForDomain, type DerivedJourney } from "@/project/architecture-editor/domain-site/logic/derived-journeys";
+import { FROM_NAV } from "@/project/architecture-editor/domain-site/logic/journeys";
 import type { StudioFacts, StudioJourney } from "./studio-status";
 import type { GuardTally } from "../studio-guards/logic/guard-tally";
-import type { MapWorktreeOverlay } from "@/project/architecture-editor/domain-map/map-check/logic/map-check-worktrees";
+import type { MapWorktreeOverlay } from "@/project/architecture-editor/domain-site/map-check/logic/map-check-worktrees";
 import { holesInWork, sessionLive, worktreesByNode, type FindingLocate } from "../studio-worktree/logic/worktree-tally";
 
 /** Karty, na kterých právě někdo pracuje: aktivní lease, ve všech worktree. */

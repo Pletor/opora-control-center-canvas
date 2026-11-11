@@ -19,9 +19,27 @@ PAGE_TEXT_LIMITS = {"goal": ("cíl stránky", 200), "feel": ("působení stránk
 SECTION_KEYS = {"id", "role", "name", "intent"}
 # Čím sekce posouvá zákazníka v kroku cesty (pain reliever / gain creator, `docs/cesta-zakaznika-a-brief.md` §2.3).
 # Nepovinné, prázdné se neukládá, bez výchozí hodnoty.
-SECTION_OPTIONAL_KEYS = {"moves"}
+SECTION_OPTIONAL_KEYS = {"moves", "box", "parent", "status", "inspiration", "source", "look"}
 SECTION_MOVES_MAX = 120
-SECTION_ROLES = ("hero", "cta", "form", "content", "gallery", "proof", "faq", "footer", "custom")
+# Funkčnost boxu (`intent`) a krátký popis vzhledu (`look`) převezme i sken webu (plátno 2, verze 6).
+SECTION_INTENT_MAX, SECTION_LOOK_MAX = 600, 300
+SECTION_ROLES = ("hero", "cta", "form", "content", "gallery", "proof", "faq", "footer", "custom",
+                 "header", "nav", "aside", "article", "main")
+# Box sekce na plátně stránky: mřížka 12 sloupců, souřadnice uvnitř rodiče (bez `parent` uvnitř stránky).
+# Sekce bez `box` (starší data) se na plátně skládají pod sebe; `parent` = box v boxu, nejvýš 3 úrovně.
+SECTIONS_MAX = 40
+BOX_LIMITS = {"x": (0, 11), "y": (0, 199), "w": (1, 12), "h": (1, 40)}
+SECTION_DEPTH_MAX = 3
+# Stav boxu (plátno 2, verze 3): chybí = draft; proposed = návrh agenta nebo skenu; approved = potvrdil člověk.
+# `source` (kdo box naposledy zapsal) doplňuje server (`backend/project/architecture/page_plan.py`), ne klient.
+SECTION_STATUSES = ("draft", "proposed", "approved")
+SECTION_SOURCES = ("human", "agent", "scan")
+# Inspirace boxu: 1–6 obrázků kresby (`/api/drawing-file`), odkaz na web, poznámka; aspoň jeden klíč.
+# Stejný tvar id jako `drawing_files.FILE_ID`; kopie bez importu, ať graph nemá cyklus.
+FILE_ID = re.compile(r"[A-Za-z0-9_-]{1,120}")
+INSPIRATION_KEYS = {"files", "url", "note"}
+INSPIRATION_FILES_MAX, INSPIRATION_URL_MAX, INSPIRATION_NOTE_MAX = 6, 500, 200
+INSPIRATION_EXAMPLE = {"files": ["f-hero"], "url": "https://example.com", "note": "Velký obrázek nahoře."}
 # Aplikace nese cesty zákazníka jako trychtýř stránek, který zadává člověk: cesta je proměna zákazníka (`actor`,
 # bod A → bod B), krok je stránka s rolí, posunem, námitkou a signálem přechodu `via`; vazby mezi kroky (kudy
 # zákazník jde po mapě) se neukládají, odvodí je stroj (§6). Počty lidí se neukládají (`docs/cesta-zakaznika-a-brief.md`).
@@ -47,6 +65,7 @@ ENVIRONMENT_EXAMPLE = {"name": "local", "host": "127.0.0.1:5173"}
 MOBILE_ENVIRONMENT_EXAMPLE = {"name": "Produkce", "bundleId": "cz.example.app"}
 APPLICATION_EXAMPLE = {"kind": "application", "environments": [ENVIRONMENT_EXAMPLE]}
 SECTION_EXAMPLE = {"id": "hero", "role": "hero", "name": "Úvod", "intent": "Proč tu zůstat."}
+BOX_EXAMPLE = {"x": 0, "y": 0, "w": 12, "h": 4}
 PAGE_EXAMPLE = {"kind": "page", "path": "/pribeh", "goal": "Návštěvník uvěří, že to zvládne.",
                 "feel": "klidná, přírodní", "sections": [SECTION_EXAMPLE]}
 STEP_EXAMPLES = [{"id": "vstup", "page": "nav"},
@@ -76,14 +95,14 @@ def validate_page_fields(label, site):
     if "sections" not in site:
         return
     sections = site["sections"]
-    if not isinstance(sections, list) or not 1 <= len(sections) <= 20:
-        raise invalid(label, "site.sections", "stránka má 1–20 sekcí; bez sekcí pole vynechte.",
-                      "seznam 1–20 sekcí {id, role, name, intent, moves?}", [SECTION_EXAMPLE])
+    if not isinstance(sections, list) or not 1 <= len(sections) <= SECTIONS_MAX:
+        raise invalid(label, "site.sections", f"stránka má 1–{SECTIONS_MAX} sekcí; bez sekcí pole vynechte.",
+                      f"seznam 1–{SECTIONS_MAX} sekcí {{id, role, name, intent, moves?, box?, parent?, status?, inspiration?, source?, look?}}", [SECTION_EXAMPLE])
     seen = set()
     for index, section in enumerate(sections):
         field = f"site.sections[{index}]"
         _shape(label, field, section, SECTION_KEYS, SECTION_OPTIONAL_KEYS,
-               "přesně {id, role, name, intent}, volitelně moves", SECTION_EXAMPLE)
+               "přesně {id, role, name, intent}, volitelně moves, box, parent, status, inspiration, source, look", SECTION_EXAMPLE)
         section_id = section["id"]
         if not isinstance(section_id, str) or not SECTION_ID.fullmatch(section_id):
             raise invalid(label, field + ".id", f"id sekce {section_id!r} nemá tvar id.",
@@ -97,12 +116,82 @@ def validate_page_fields(label, site):
         if not _text(section["name"], 1, 60):
             raise invalid(label, field + ".name", "název sekce je prázdný nebo dlouhý.",
                           "text 1–60 znaků bez řídicích znaků", SECTION_EXAMPLE)
-        if not _text(section["intent"], 0, 200):
+        if not _text(section["intent"], 0, SECTION_INTENT_MAX):
             raise invalid(label, field + ".intent", "záměr sekce je dlouhý nebo není text.",
-                          "text nejvýše 200 znaků bez řídicích znaků", SECTION_EXAMPLE)
+                          f"text nejvýše {SECTION_INTENT_MAX} znaků bez řídicích znaků", SECTION_EXAMPLE)
+        if "look" in section and not _text(section["look"], 1, SECTION_LOOK_MAX):
+            raise invalid(label, field + ".look", "vzhled sekce (look) je prázdný nebo dlouhý.",
+                          f"text 1–{SECTION_LOOK_MAX} znaků; prázdné pole vynechte")
         if "moves" in section and not _text(section["moves"], 1, SECTION_MOVES_MAX):
             raise invalid(label, field + ".moves", "čím sekce posouvá (moves) je prázdné nebo dlouhé.",
                           f"text 1–{SECTION_MOVES_MAX} znaků; prázdné pole vynechte")
+        if "box" in section:
+            _validate_box(label, field + ".box", section["box"])
+        if "parent" in section and (not isinstance(section["parent"], str) or section["parent"] == section_id):
+            raise invalid(label, field + ".parent", f"sekce {section_id} má parent {section['parent']!r}.",
+                          "id jiné sekce téže stránky", SECTION_EXAMPLE | {"parent": "main"})
+        for key, allowed in (("status", SECTION_STATUSES), ("source", SECTION_SOURCES)):
+            if key in section and section[key] not in allowed:
+                raise invalid(label, f"{field}.{key}", f"{key} sekce {section_id} je {section[key]!r}.",
+                              "jedna z " + ", ".join(allowed), SECTION_EXAMPLE | {"status": "proposed"})
+        if "inspiration" in section:
+            _validate_inspiration(label, field + ".inspiration", section["inspiration"])
+    _validate_parents(label, sections, seen)
+
+
+def _validate_box(label, field, box):
+    """`box` = přesně `{x, y, w, h}`, celá čísla (ne bool) na mřížce 12 sloupců."""
+    _shape(label, field, box, set(BOX_LIMITS), (), "přesně {x, y, w, h}", BOX_EXAMPLE)
+    for key, (low, high) in BOX_LIMITS.items():
+        value = box[key]
+        if type(value) is not int or not low <= value <= high:
+            raise invalid(label, f"{field}.{key}", f"box.{key} má neplatnou hodnotu {value!r}.",
+                          f"celé číslo {low}–{high}", BOX_EXAMPLE)
+    if box["x"] + box["w"] > 12:
+        raise invalid(label, field, f"box přesahuje mřížku: x {box['x']} + w {box['w']} je víc než 12 sloupců.",
+                      "x + w nejvýše 12", BOX_EXAMPLE)
+
+
+def _validate_inspiration(label, field, value):
+    """`inspiration` = `{files?, url?, note?}`, aspoň jeden klíč. Existenci souborů ověřuje zápis plánu stránky."""
+    if not isinstance(value, dict) or not value or not set(value) <= INSPIRATION_KEYS:
+        raise invalid(label, field, "inspirace je objekt s aspoň jedním z klíčů files, url, note.",
+                      "{files?, url?, note?}", INSPIRATION_EXAMPLE)
+    files = value.get("files")
+    if "files" in value and (not isinstance(files, list) or not 1 <= len(files) <= INSPIRATION_FILES_MAX
+                             or not all(isinstance(item, str) and FILE_ID.fullmatch(item) for item in files)
+                             or len(set(files)) != len(files)):
+        raise invalid(label, field + ".files", "obrázky inspirace jsou 1–6 různých id souborů kresby.",
+                      "id z POST /api/drawing-file; bez obrázků pole vynechte", INSPIRATION_EXAMPLE)
+    url = value.get("url")
+    if "url" in value and not (_text(url, 1, INSPIRATION_URL_MAX) and " " not in url
+                               and urlsplit(url).scheme in ("http", "https") and urlsplit(url).netloc):
+        raise invalid(label, field + ".url", f"odkaz inspirace {url!r} není adresa http(s).",
+                      f"https://… nejvýše {INSPIRATION_URL_MAX} znaků", INSPIRATION_EXAMPLE)
+    if "note" in value and not _text(value["note"], 1, INSPIRATION_NOTE_MAX):
+        raise invalid(label, field + ".note", "poznámka inspirace je prázdná nebo dlouhá.",
+                      f"text 1–{INSPIRATION_NOTE_MAX} znaků; prázdné pole vynechte", INSPIRATION_EXAMPLE)
+
+
+def _validate_parents(label, sections, ids):
+    """`parent` míří na jinou sekci téže stránky; bez cyklu, řetěz nejvýš `SECTION_DEPTH_MAX` úrovní."""
+    parents = {item["id"]: item.get("parent") for item in sections}
+    for index, section in enumerate(sections):
+        field = f"site.sections[{index}].parent"
+        parent = section.get("parent")
+        if parent is not None and parent not in ids:
+            raise invalid(label, field, f"sekce {section['id']} má parent {parent!r}, takové id sekce stránka nemá.",
+                          "id jiné sekce téže stránky: " + ", ".join(sorted(ids)))
+        chain, current = [section["id"]], parent
+        while current is not None:
+            if current in chain:
+                raise invalid(label, field, f"parent sekcí tvoří cyklus: {' → '.join(chain + [current])}.",
+                              "strom sekcí bez cyklu")
+            chain.append(current)
+            current = parents[current]
+        if len(chain) > SECTION_DEPTH_MAX:
+            raise invalid(label, field, f"sekce {section['id']} leží {len(chain)} úrovně hluboko.",
+                          f"vnoření nejvýš {SECTION_DEPTH_MAX} úrovně (sekce → rodič → prarodič)")
 
 
 def _validate_via(label, field, step_id, index, via):

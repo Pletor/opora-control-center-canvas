@@ -375,10 +375,15 @@ def create(service, project, workspace, body, work_in, now, *, root=None, ticket
     with service.reading(project):
         if TicketStore(service.db_for(project), project).get(new_id):
             return get(service, project, new_id)
+    card = work_in.get("cardId")
+    if card and (plan_link.cards(service, project, workspace) or {}).get(card, {}).get("kind") != "node":
+        raise WorkError("card_not_found", 422, f"Karta {card} v pracovním prostoru {workspace} neexistuje.",
+                        "Pošlete id uzlu plátna 3 téhož projektu a prostoru, nebo cardId vynechte.")
     work = _new_work(service, project, root or REPO_ROOT, work_in, new_id, auto_row=True)
-    work["issued"] = {"cardId": None, "cardRevision": None, "at": now}  # editor vydává bez karty plánu
+    # bez cardId vydává editor bez karty plánu; s ním zmrazí kartu a revizi jako `attach`
+    work["issued"] = plan_link.issue(service, project, {"machine": {"cardId": card}, "workspaceId": workspace}, now)
     with store_for(service, project) as store:
-        store.insert(new_id, workspace, "issued", worker_body, {"pins": []}, now)
+        store.insert(new_id, workspace, "issued", worker_body, {"pins": [], "cardId": card}, now)
         store.set_work(new_id, work, now)
         journal.write(store.db, project, "linie.work.created", by,
                       {"ticket": new_id, "request": work["requestId"]}, workspace, branch=work["branch"])

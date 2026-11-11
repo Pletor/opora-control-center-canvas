@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { CanvasNode, Graph } from "@/shared/types/logic/types";
 import { productFingerprint, type ProductDraft } from "@/project/product-tree/logic/product-tree";
-import ArchitectureProductForm from "@/project/architecture-editor/domain-map/components/ArchitectureProductForm";
+import ArchitectureProductForm from "@/project/architecture-editor/domain-site/components/ArchitectureProductForm";
 import DomainCard, { type DomainCardLive } from "./DomainCard";
 import type { WorktreeNav } from "@/project/architecture-editor/live-status/components/WorktreeRow";
 import { countsOf, domainLive, type WorkStatus } from "@/project/architecture-editor/live-status/logic/live-model";

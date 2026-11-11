@@ -108,3 +108,16 @@ def last_step_at(db, project, workspace):
     rows = db.execute("SELECT node_id, MAX(at) FROM opora_events WHERE project_id=? AND workspace_id=?"
                       " AND node_id IS NOT NULL AND kind LIKE 'step.%' GROUP BY node_id", (project, workspace)).fetchall()
     return {row[0]: row[1] for row in rows}
+
+
+def tool_uses(db, project, workspace, since, per_node):
+    """`{nodeId: [{id, state, tool}]}` nejvýš `per_node` událostí `tool.use` každé karty prostoru od `since`, nejnovější
+    první; spouštěče `card.failing` a `card.drift` (docs/navrhy/2026-11-11-platno-3-folie.md, F2)."""
+    rows = db.execute("SELECT node_id, id, state, tool FROM (SELECT node_id, id, state, tool, ROW_NUMBER() OVER"
+                      " (PARTITION BY node_id ORDER BY id DESC) AS n FROM opora_events WHERE project_id=?"
+                      " AND workspace_id=? AND kind='tool.use' AND node_id IS NOT NULL AND at>=?)"
+                      " WHERE n<=? ORDER BY node_id, id DESC", (project, workspace, since, per_node)).fetchall()
+    found = {}
+    for node, identifier, state, tool in rows:
+        found.setdefault(node, []).append({"id": identifier, "state": state, "tool": json.loads(tool) if tool else {}})
+    return found

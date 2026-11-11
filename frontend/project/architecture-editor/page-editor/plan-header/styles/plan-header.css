@@ -1,0 +1,35 @@
+/* Hlavička plátna 2 říká, kterou stránku plánuji a jak na tom je: vlevo název stránky a jedna věta o smyslu plátna,
+   vpravo Zkontrolovat plán a štítek stavu. Rozpracovaná stránka má tlumený štítek, kompletní zelený, aby člověk
+   na první pohled poznal, že plán je uzavřený. Díry kontroly vyjedou pod hlavičkou jako úzký pruh, plátno se jen posune. */
+.plan-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ae-line);
+}
+.plan-header__icon { flex-shrink: 0; color: var(--ae-cyan); }
+.plan-header__text { min-width: 0; margin-right: auto; }
+.plan-header__title { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+.plan-header__lead { margin: 0; color: var(--ae-muted); font-size: 11px; }
+/* Skenovat web je sesterské tlačítko Zkontrolovat plán: stejně velké, ale v azurové, protože přináší cizí podklad, ne kontrolu. */
+.plan-header__scan { border-color: var(--ae-cyan); color: var(--ae-cyan); font-size: 12px; }
+.plan-header__check { border-color: var(--ae-accent); color: var(--ae-accent); font-size: 12px; }
+.plan-header__status { padding: 3px 10px; border: 1px solid var(--ae-line); border-radius: 999px; color: var(--ae-muted); font-size: 11px; font-weight: 700; }
+.plan-header__status--complete { border-color: var(--studio-state-verified); color: var(--studio-state-verified); }
+.plan-header__findings { max-height: 40%; overflow: auto; padding: 0 14px 12px; border-bottom: 1px solid var(--ae-line); }
+.plan-header__findings .map-check { margin-top: 10px; }
+
+/* Kompletní stránka je zavřená: jedna klidná věta v barvě ověření a jediné tlačítko, které ji otevře k úpravám. */
+.plan-header__sealed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--ae-line);
+  background: color-mix(in srgb, var(--studio-state-verified) 10%, var(--ae-panel));
+  color: var(--studio-state-verified);
+  font-size: 12px;
+}

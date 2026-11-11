@@ -41,7 +41,8 @@ export function layerEdges({ graph, state, ids, kinds, added, selectedEdge, bloc
   return graph.edges
     .filter((e) => ids.has(e.source) && ids.has(e.target))
     .map((e): Edge => ({ ...e, ...edgeAppearance(e, state.nodes[e.source]?.blocks?.find(b => b.id === e.sourceBlockId)?.ports?.find(p => p.id === e.sourcePortId)), animated: added.has(e.id),
-      ...(simple ? { type: "straight", pathOptions: undefined } : {}),
+      // Velká vrstva: rovně a bez popisků významu, tisíce textů by zdržovaly každý snímek.
+      ...(simple ? { type: "straight", pathOptions: undefined, label: undefined } : {}),
       // Předávka jen barvou: zelená vazba = zpráva je předaná; malá jantarová obálka = hotová karta ji nenechala.
       ...handoffLook(handoffMark(e, state, kinds), edgeAppearance(e).style),
       ...(finished ? dagLook(e, cards, finished) : null), selected: e.id === selectedEdge }))

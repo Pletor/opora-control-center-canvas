@@ -21,6 +21,7 @@ import { useCardActions, type CardActions } from "@/editor/canvas/node-card/logi
 import { cardDetail, farZoomSelector, type CardDetail } from "@/editor/canvas/node-card/logic/card-lod";
 import CardFace, { CardGlyph } from "@/editor/canvas/card-face/components/CardFace";
 import type { CardFace as Face } from "@/editor/canvas/card-face/logic/card-face";
+import { faceGrowth } from "@/editor/canvas/card-face/logic/face-growth";
 import "@/editor/canvas/node-card/styles/node-card.css";
 
 /** Data karty: jen hodnoty (žádné funkce), aby šla porovnat se starou verzí (board/logic/stable-nodes.ts). */
@@ -87,11 +88,12 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
   const full = detail === "full";
   const sector = view.kind === "sector";
   const far = !full && !!data.face;
+  const growth = data.face ? faceGrowth(data.face, view.purpose) : null;
   const title = <CardBody id={id} name={view.name} purpose={selected ? view.purpose : undefined} rename={{ ...on.rename, editing: data.rename.editing }} />;
   return (
     <div
       className={
-        "node-card node-card--lean" + (data.face ? " node-card--face-" + data.face.state : "") +
+        "node-card node-card--lean" + (data.face ? " node-card--face-" + data.face.state : "") + (growth ? " node-card--grow-" + growth.shape : "") +
         (data.moved ? " node-card__added-pulse" : "") +
         (sector ? " node-card--sector" : "") +
         (selected ? " node-card--selected" : " node-card--compact") +
@@ -103,7 +105,8 @@ export function NodeCardView({ id, data, selected, detail }: { id: string; data:
       data-testid={"node-card-" + id}
       data-detail={detail}
     >
-      {far ? <CardGlyph face={data.face!} name={view.name} /> : data.face ? <CardFace face={data.face} title={title} onHistory={on.history} onTrail={on.trail} /> : title}
+      {far ? <CardGlyph face={data.face!} growth={growth!} name={view.name} />
+        : data.face ? <CardFace face={data.face} growth={growth!} title={title} onHistory={on.history} onTrail={on.trail} /> : title}
       {!far && <CardComponent tech={view.tech} states={view.states} section={view.section} />}
       {!far && <CardProgress view={view} face={data.face} />}
       <CardBlocks id={id} rows={view.rows} disabled={blocks.disabled} handlers={on.blocks} selectedBlockId={selectedBlockId} selected={selected}

@@ -2,7 +2,7 @@
 // komponenta realizuje (`card.section`). Čistá logika bez Reactu; ukládá rodič přes `setEditorNodeSection`.
 import { cardComponent } from "@/shared/card-context/logic/card-context";
 import type { Graph } from "@/shared/types/logic/types";
-import { SECTION_ROLE_LABELS } from "../../domain-map/logic/page-site";
+import { SECTION_ROLE_LABELS } from "../../domain-site/logic/page-site";
 import { ancestry } from "./agent-context";
 
 export type SectionOption = { id: string; label: string };

@@ -46,7 +46,7 @@ def service(tmp_path):
 
 def test_every_kind_is_complete_and_its_example_passes_check_and_schema():
     assert list(kinds.KINDS) == ["ask", "change", "state", "inbox", "ticket.request",
-                                 "ticket.claim", "ticket.feedback", "ticket.deliver", "ticket.release", "ticket.issue", "ticket.cancel", "ticket.answer", "escalate"]
+                                 "ticket.claim", "ticket.feedback", "ticket.deliver", "ticket.release", "ticket.issue", "ticket.cancel", "ticket.answer", "ticket.direct", "escalate"]
     assert set(SCHEMAS) == set(kinds.KINDS)
     for name, kind in kinds.KINDS.items():
         public = kind.public()
@@ -56,7 +56,8 @@ def test_every_kind_is_complete_and_its_example_passes_check_and_schema():
         assert conforms(public["example"], public["input"]) == [], name
         kind.check(public["example"])
     assert {kind.name for kind in kinds.TABLE if kind.role == "heart"} == {"ticket.issue", "ticket.cancel",
-                                                                            "ticket.answer", "escalate"}
+                                                                            "ticket.answer", "ticket.direct",
+                                                                            "escalate"}
 
 
 def test_role_decides_the_visible_kinds():

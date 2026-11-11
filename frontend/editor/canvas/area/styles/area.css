@@ -319,3 +319,23 @@
   color: var(--danger);
   font-size: 12px;
 }
+
+/* MILNÍK OBLASTI (`area-card__milestone`, `__bar`)
+   Příběh: na plátně 3 je oblast milník na cestě k cíli. Ve štítku vedle jména stojí drobně funkční výsledek
+   milníku („zkušební platba projde“), ať člověk ví, co znamená mít sloupec hotový, ne jen jak se jmenuje.
+   Úplně dole tenká zelená lišta: podíl hotových karet uvnitř. Je tichá (4 px), protože je to stav, ne výzva;
+   prázdná oblast lištu nemá, aby nula nevypadala jako selhání. */
+.area-card__milestone {
+  margin-left: 8px;
+  color: var(--ink-muted);
+  font: 400 11px var(--mono);
+}
+.area-card__bar {
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.area-card__bar i { display: block; height: 100%; background: var(--ok); }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MapWorktreeOverlay } from "@/project/architecture-editor/domain-map/map-check/logic/map-check-worktrees";
+import type { MapWorktreeOverlay } from "@/project/architecture-editor/domain-site/map-check/logic/map-check-worktrees";
 import { velinWorktrees, worktreeWorkLine } from "./velin-worktrees";
 
 const overlay: MapWorktreeOverlay = {

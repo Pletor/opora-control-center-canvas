@@ -528,6 +528,13 @@ class NodeBrief:
                                          read_model_target(self.canvas, project, graph, node_id))
         if architecture is not None:
             brief["architecture"] = redact_deep(architecture)
+        # Plán stránky plátna 2 (docs/navrhy/2026-11-10-platno-2.md, verze 3): řádek na box layoutu a na prvek logiky,
+        # jen u stránky, mimo `specification`; celý plán s digestem čte agent z GET /api/page-plan.
+        if (node.get("site") or {}).get("kind") == "page":
+            from backend.project.architecture.page_plan import brief as page_plan_brief
+            plan = page_plan_brief(graph, node_id)
+            if plan is not None:
+                brief["pagePlan"] = redact_deep(plan)
         # Kontrolní pás: deset polí ano / ne; `hint` říká, co doplnit a kam (stejný výpočet jako plátno).
         brief["checklist"] = card_items(node, node_state, captured_spec_fields(self.canvas, project, workspace, node_id),
                                         (brief.get("content") or {}).get("text", ""), graph["edges"], stored["state"].get("edges", {}))

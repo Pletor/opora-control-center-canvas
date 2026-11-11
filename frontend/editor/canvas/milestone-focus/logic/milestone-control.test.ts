@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import MilestoneFocusControl from "../components/MilestoneFocusControl";
 
 it("labels legacy 100 percent closure as distinct from unproven integration verification", () => {
-  const milestone = { id: "m", title: "Login", area: "Entry", cards: ["ui", "api"], closure: 100 };
+  const milestone = { id: "m", title: "Login", area: "Entry", areaId: "entry", cards: ["ui", "api"], closure: 100 };
   const html = renderToStaticMarkup(createElement(MilestoneFocusControl, { choices: [milestone], selected: "m", milestone,
     error: null, loading: false, select: () => {} }));
   expect(html).toContain("Uzavření karet: 100 %");
@@ -14,7 +14,7 @@ it("labels legacy 100 percent closure as distinct from unproven integration veri
 });
 
 it("shows reported integration evidence with exact source pins", () => {
-  const milestone = { id: "m", title: "Login", area: "Entry", cards: ["ui", "api"], closure: 100,
+  const milestone = { id: "m", title: "Login", area: "Entry", areaId: "entry", cards: ["ui", "api"], closure: 100,
     verification: { verified: true, independent: false, source: "agent-reported execution receipt", acceptedRevision: "revision", headSha: "commit" } };
   const html = renderToStaticMarkup(createElement(MilestoneFocusControl, { choices: [milestone], selected: "m", milestone,
     error: null, loading: false, select: () => {} }));

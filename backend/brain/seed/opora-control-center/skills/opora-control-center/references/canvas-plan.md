@@ -54,7 +54,7 @@ Pravidla dávky:
 
 - Velikost karty: karta = stránka nebo sekce s vlastním ověřením, malá stránka 1–3 karty. Komponenty patří do
   `spec.steps` (`[{id, order, title, acceptance: [..], dependsOn?}]`), ne do samostatných karet.
-- Role sekce: `hero`, `cta`, `form`, `content`, `gallery`, `proof`, `faq`, `footer`, `custom` (jiná = 422).
+- Role sekce: `hero`, `cta`, `form`, `content`, `gallery`, `proof`, `faq`, `footer`, `custom`, `header`, `nav`, `aside`, `article`, `main` (jiná = 422).
 
 - Požadavek: `digest`, `plan`, `dryRun?`. `plan`: `nodes`, `edges`, `decisions`, `extend`. ≤ 200 uzlů, 600 vazeb, 2 MiB.
 - Uzel: `ref` (`[a-z0-9-]` ≤ 80), `kind` (`node`, `sector`, `comment`, `area`), `name` (≤ 160).
@@ -76,7 +76,7 @@ Pravidla dávky:
   Komponenta pod stránkou: `section` = id sekce ze `site.sections` **nejbližší stránky** mezi předky karty, kterou
   realizuje (např. `"card": {"layer": "frontend", "section": "form"}`). Neexistující sekci i sekci u karty mimo
   stránku server odmítne (409 s důvodem); sekci, kterou neznáš, vynech.
-- `site` stránky smí nést sekce `[{id, role, name, intent, moves?}]` (1–20; `intent` 0–200). `moves` (1–120) říká,
+- `site` stránky smí nést sekce `[{id, role, name, intent, moves?, box?, parent?}]` (1–40; `intent` 0–200). `moves` (1–120) říká,
   čím sekce posouvá zákazníka v kroku cesty („Rozptýlí obavu ze spamu: jen e-mail.“); neznáš-li ho, vynech, prázdné
   server odmítne (422). Sekce jsou zadání stránky: jejich změna mění `contextVersion` stránky i komponent pod ní.
 - Aplikace (sektor): `site: {kind: "application", environments: [{name, host}], healthPath?, journeys?}`; pole je

@@ -1,6 +1,6 @@
 // Čistý model plátna: z tahu myší (React Flow Connection) udělá vazbu grafu. Bez Reactu a bez React Flow,
 // aby se dal testovat samostatně; Board i App jen předávají, co uživatel natáhl, a ukládá rodič.
-import type { EdgePort, GraphEdge } from "@/shared/types/logic/types";
+import type { EdgePort, EdgeRelation, GraphEdge } from "@/shared/types/logic/types";
 import { blockHandleId, EDGE_PORTS, isBlockEdge } from "@/shared/types/logic/types";
 import { carriesLook } from "@/shared/edge-carries/logic/edge-carries";
 
@@ -45,6 +45,10 @@ export type EdgeAppearance = {
   style?: { stroke?: string; strokeDasharray?: string; strokeWidth?: number };
   /** Tooltip druhu toku (`carries`) pro čtečky a najetí myší; jen když ho vazba nese. */
   ariaLabel?: string;
+  /** Krátký popisek významu vazby (`relation`) přímo u čáry. */
+  label?: string;
+  labelStyle?: { fill: string; fontSize: number; fontWeight: number };
+  labelBgStyle?: { fill: string };
   type: "smoothstep";
   pathOptions: { borderRadius: number; offset: number };
 };
@@ -64,8 +68,26 @@ const BOARD_EDGE_WIDTH = 1;
 /** Pravoúhlé vedení sdílí všechny vazby grafu: zaoblení 12 a odstup 24 od karty, než se lomí. */
 const EDGE_PATH_OPTIONS = { borderRadius: 12, offset: 24 };
 
+/** Význam vazby (plátno 3, legenda): vyžaduje zlatě, používá modře, dokládá zeleně, komunikuje neutrálně.
+ *  shortcut: „sdílí kód“ (čárkovaně) backend `EDGE_RELATIONS` zatím nezná; přidá se sem, až ho determinismus zapíše. */
+export const RELATION_LOOK: Record<EdgeRelation, { stroke: string; label: string }> = {
+  requires: { stroke: "var(--gold)", label: "vyžaduje" },
+  uses: { stroke: "var(--info)", label: "používá" },
+  evidences: { stroke: "var(--ok)", label: "dokládá" },
+  communicates_with: { stroke: "var(--ink-muted)", label: "komunikuje" },
+};
+
 export function edgeAppearance(edge: GraphEdge, decision?: { status?: "chosen" | "rejected" }): EdgeAppearance {
   const port = edge.port ?? "next";
+  // Význam má přednost před druhem toku: člověk ho zvolil v panelu vazby.
+  const relation = edge.relation ? RELATION_LOOK[edge.relation] : undefined;
+  if (relation) return {
+    sourceHandle: isBlockEdge(edge) ? blockHandleId(edge.sourceBlockId, edge.sourcePortId) : port,
+    className: `edge-port-${port} edge--relation-${edge.relation}`, style: { stroke: relation.stroke, strokeWidth: 1.8 },
+    ariaLabel: relation.label, label: relation.label,
+    labelStyle: { fill: relation.stroke, fontSize: 11, fontWeight: 600 }, labelBgStyle: { fill: "var(--surface)" },
+    type: "smoothstep", pathOptions: EDGE_PATH_OPTIONS,
+  };
   // Druh toku (`carries`) smí nést jen vazba `next`: jemně změní tah a přidá třídu-háček `edge--carries-<druh>`.
   const carries = port === "next" ? carriesLook(edge.carries) : null;
   if (carries) return {

@@ -3,6 +3,14 @@ import { edgeAppearance, edgeFromConnection, parseBlockHandle, portOf, sameEdge 
 import { blockHandleId, isBlockEdge } from "@/shared/types/logic/types";
 
 describe("board-model", () => {
+  it("význam vazby dá barvu a popisek a má přednost před druhem toku", () => {
+    const look = edgeAppearance({ id: "e", source: "a", target: "b", relation: "requires", carries: "data" });
+    expect(look).toMatchObject({ label: "vyžaduje", style: { stroke: "var(--gold)" }, sourceHandle: "next" });
+    expect(look.className).toContain("edge--relation-requires");
+    expect(edgeAppearance({ id: "e", source: "a", target: "b", relation: "evidences" }).label).toBe("dokládá");
+    expect(edgeAppearance({ id: "e", source: "a", target: "b" }).label).toBeUndefined();
+  });
+
   it("úchyt portu bloku se rozpadne na blok a port, ostatní úchyty ne", () => {
     expect(parseBlockHandle(blockHandleId("b1", "p2"))).toEqual({ blockId: "b1", portId: "p2" });
     expect(parseBlockHandle("next")).toBeNull();

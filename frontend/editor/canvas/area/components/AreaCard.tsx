@@ -5,7 +5,7 @@
 // `resizeArea`); data nenesou funkce, aby šla oblast při přestavbě znovu použít beze změny.
 import { memo, useEffect, useRef, useState } from "react";
 import { NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
-import { AREA_SIZE_MAX, AREA_SIZE_MIN, areaRollup } from "@/editor/canvas/area/logic/area-model";
+import { AREA_SIZE_MAX, AREA_SIZE_MIN, areaRollup, areaShare } from "@/editor/canvas/area/logic/area-model";
 import type { AreaColor } from "@/shared/types/logic/types";
 import "@/editor/canvas/area/styles/area.css";
 import { useCardActions } from "@/editor/canvas/node-card/logic/card-actions";
@@ -16,6 +16,8 @@ import type { areaSummary } from "@/editor/canvas/card-checklist/logic/card-chec
 export type AreaCardView = { label: string; unnamed: boolean; members: number; w: number; h: number; color: AreaColor;
   /** Záměr oblasti (`node.purpose`): 2–5 vět od člověka, na rámečku nejvýš dva řádky. */
   purpose: string;
+  /** Funkční výsledek aktivního milníku oblasti (z příjmu); bez milníku prázdný. */
+  milestone: string;
   /** Kolik členů oblasti je sektor (`kind === "sector"`). */
   sectors: number;
   /** Kolik členů oblasti je uzavřených (`done.confirmed`). */
@@ -35,6 +37,7 @@ const AreaCard = memo(function AreaCard({ id, data, selected }: NodeProps<Node<A
   const onResize = (w: number, h: number) => actions.resizeArea(id, w, h);
   const [editing, setEditing] = useState(false);
   const nameField = useRef<HTMLInputElement>(null);
+  const share = areaShare(view.closed, view.members);
 
   useEffect(() => {
     if (!editing) return;
@@ -107,6 +110,7 @@ const AreaCard = memo(function AreaCard({ id, data, selected }: NodeProps<Node<A
           }}
         >
           {view.label}
+          {view.milestone && <small className="area-card__milestone" title="Funkční výsledek milníku">{view.milestone}</small>}
         </div>
       )}
       <div className="area-card__head">
@@ -115,6 +119,9 @@ const AreaCard = memo(function AreaCard({ id, data, selected }: NodeProps<Node<A
           {areaRollup({ sectors: view.sectors, cards: view.members - view.sectors, closed: view.closed })}
         </p>
         {view.summary && <AreaSummary summary={view.summary} />}
+        {share !== null && <span className="area-card__bar" role="img" aria-label={`Hotovo ${share} %`} data-oh-area-share={share}>
+          <i style={{ width: share + "%" }} />
+        </span>}
       </div>
     </div>
   );

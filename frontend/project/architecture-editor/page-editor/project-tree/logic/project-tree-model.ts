@@ -1,29 +1,19 @@
-// Strom projektu v levém panelu Editoru stránky: projekce grafu (žádné druhé úložiště).
-// Domény (sektory `site.kind = "application"`) se seskupí podle svého jediného prostředí,
-// starší vícehostové aplikace spadnou do „Sdílené struktury“. Pod doménou jsou její stránky
-// v uloženém pořadí, podstránky s hloubkou pro odsazení. Bez Reactu, test vedle.
+// Struktura v levém panelu plátna 2: projekce grafu (žádné druhé úložiště). Jen otevřená doména a její stránky
+// v uloženém pořadí, podstránky s hloubkou pro odsazení a s vědomím, jestli jdou posunout mezi sourozenci. Bez Reactu, test vedle.
 import type { CanvasNode, Graph, SiteEnvironment } from "@/shared/types/logic/types";
-import { productTree, type ProductBranch } from "@/project/product-tree/logic/product-tree";
-import { DOMAIN_KIND_LABEL, domainKindOf, environmentAddress, type DomainKind } from "../../../landing/logic/domain-kind";
+import type { ProductBranch } from "@/project/product-tree/logic/product-tree";
 
-export type TreeTone = "live" | "dev" | "shared" | "other";
-export type TreePage = { id: string; name: string; path: string | null; depth: number; active: boolean };
-export type TreeDomain = {
-  id: string; name: string; host: string | null; kind: DomainKind; kindLabel: string;
-  purpose: string; active: boolean; pages: TreePage[];
-};
-export type TreeGroup = { id: string; label: string; badge: string | null; tone: TreeTone; active: boolean; domains: TreeDomain[] };
+export type TreePage = { node: CanvasNode; path: string | null; depth: number; active: boolean; first: boolean; last: boolean };
 
 export const SHARED_GROUP = "Sdílená struktura";
-const FIXED: { label: string; badge: string; tone: TreeTone }[] = [
-  { label: "Produkce", badge: "LIVE", tone: "live" },
-  { label: "Vývoj", badge: "DEV", tone: "dev" },
-];
 
 /** Jediné prostředí domény; vícehostová nebo prázdná aplikace žádné vlastní nemá. */
 export function environmentOf(node: CanvasNode): SiteEnvironment | null {
   return node.site?.kind === "application" && node.site.environments.length === 1 ? node.site.environments[0] : null;
 }
+
+/** Starší sdílená struktura: aplikace s víc hosty. Plátno 2 ji neotevře, nabídne oddělení hostu na přehledu. */
+export const isSharedDomain = (node: CanvasNode): boolean => node.site?.kind === "application" && node.site.environments.length > 1;
 
 /** Nejbližší stránka nad otevřeným rozsahem (nebo rozsah sám); `null`, když žádná není. */
 export function activePageId(graph: Graph, scopeId: string | null): string | null {
@@ -40,38 +30,11 @@ export function activePageId(graph: Graph, scopeId: string | null): string | nul
   return null;
 }
 
-function flatten(branches: ProductBranch[], activePage: string | null, depth = 0): TreePage[] {
-  return branches.flatMap(({ node, children }) => node.site?.kind !== "page" ? [] : [
-    { id: node.id, name: node.name, path: node.site.path || null, depth, active: node.id === activePage },
-    ...flatten(children, activePage, depth + 1),
+/** Stránky domény (`domainPageTree`) jako řádky stromu: hloubka, aktivní stránka a první/poslední mezi sourozenci (↑ ↓). */
+export function structureRows(pages: ProductBranch[], activePage: string | null, depth = 0): TreePage[] {
+  const own = pages.filter((branch) => branch.node.site?.kind === "page");
+  return own.flatMap(({ node, children }, index) => node.site?.kind !== "page" ? [] : [
+    { node, path: node.site.path || null, depth, active: node.id === activePage, first: index === 0, last: index === own.length - 1 },
+    ...structureRows(children, activePage, depth + 1),
   ]);
-}
-
-function domainOf(branch: ProductBranch, activeDomain: string | null, activePage: string | null): TreeDomain {
-  const node = branch.node;
-  const env = environmentOf(node);
-  const hosts = node.site?.kind === "application" ? node.site.environments.map(environmentAddress).filter(Boolean) : [];
-  const host = environmentAddress(env) || hosts.join(", ") || null;
-  const kind = domainKindOf(node);
-  return {
-    id: node.id, name: node.name, host, kind, kindLabel: DOMAIN_KIND_LABEL[kind], purpose: node.purpose,
-    active: node.id === activeDomain, pages: flatten(branch.children, activePage),
-  };
-}
-
-/** Skupiny prostředí v pevném pořadí: Produkce, Vývoj, další pojmenovaná prostředí, Sdílená struktura. */
-export function projectTree(graph: Graph, activeDomain: string | null, activePage: string | null): TreeGroup[] {
-  const apps = productTree(graph.nodes).filter((branch) => branch.node.site?.kind === "application");
-  const byGroup = new Map<string, TreeDomain[]>();
-  for (const branch of apps) {
-    const name = environmentOf(branch.node)?.name || SHARED_GROUP;
-    byGroup.set(name, [...(byGroup.get(name) ?? []), domainOf(branch, activeDomain, activePage)]);
-  }
-  const others = [...byGroup.keys()].filter((name) => name !== SHARED_GROUP && !FIXED.some((fixed) => fixed.label === name));
-  const order = [...FIXED, ...others.map((label) => ({ label, badge: null, tone: "other" as TreeTone })),
-    ...(byGroup.has(SHARED_GROUP) ? [{ label: SHARED_GROUP, badge: null, tone: "shared" as TreeTone }] : [])];
-  return order.map(({ label, badge, tone }) => {
-    const domains = byGroup.get(label) ?? [];
-    return { id: label, label, badge, tone, active: domains.some((domain) => domain.active), domains };
-  });
 }

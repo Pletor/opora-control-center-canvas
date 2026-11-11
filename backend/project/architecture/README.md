@@ -93,3 +93,17 @@ Cíl z MODELu (`docs/studio.md` §4a) skládá `node_model_target.py`: `read_mod
 přečte model domény karty (aplikace karty, nikdy `scenario:*`) a vrátí `{source, domain, revision, type, name,
 targets?, mustSurvive?, links?}` uzlu modelu navázaného na kartu, nebo None. `node_architecture(..., model=)` ho
 vloží jako `architecture.model` (i u karty mimo stránku) a ořízne ho jako stupeň 0b hned po `holes`.
+
+## Plán stránky (`page_plan.py`, `page_plan_scan.py`, `page_plan_proposal.py`, `page_plan_capture.py`)
+
+Plátno 2, verze 3 (`docs/navrhy/2026-11-10-platno-2.md`): `GET`/`POST /api/page-plan` čte a zapisuje layout stránky
+(`site.sections` přes `CanvasService.save_graph`, otisk jen layoutu), pravidla agenta (jen `proposed`, `approved` beze změny)
+a `source` od serveru; stav boxu `approved` / `draft` jen člověk. Sken `POST /api/page-plan/scan` běží ve vlákně
+s výzkumníkem srdce (prefetch, REA s prohlížečem, Haiku, limit a zabití stromu); stav v paměti a v
+`projects/<id>/page-plan-scans/<scanId>.json`, výstup validuje `validate_page_fields` a `ELEMENT_KINDS`. Router
+`backend/api/project/page_plan_routes.py`.
+
+Verze 6: prompt a validace návrhu (`intent`, `look`, `selector`, `design` přes `normalize_tokens`, `logic[].flow`,
+`notes`) jsou v `page_plan_proposal.py`; snímek stránky a výřezy boxů (bezhlavý Chrome/Edge přes DevTools,
+websocket ze standardní knihovny) v `page_plan_capture.py`. Převzetí a zahození označí sken `outcome`
+(`adopted` / `discarded`), `GET /api/page-plan/scan/latest` vrátí poslední neoznačený hotový sken stránky.

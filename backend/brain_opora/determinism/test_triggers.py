@@ -77,6 +77,59 @@ def test_over_budget_waits_for_the_price():
     assert triggers.evaluate([{**expensive, "costUsd": 2.0}], done(cost=1.0)) == []
 
 
+def use(identifier, action=None, target=None, state="progress", name="Edit"):
+    """`tool.use` karty, jak ho čte `facts` (`opora_events.tool_uses`)."""
+    tool = {"name": name, **({"action": action} if action else {}), **({"target": target} if target else {})}
+    return {"id": identifier, "state": state, "tool": tool}
+
+
+def test_failing_from_the_office_streak_or_three_same_failures_in_a_row():
+    """Kancelář hlásí sérii `action: failing` (její failStreak); jinak 3× stejný nástroj a cíl `fail` v řadě."""
+    office = card(tools=[use(9, "edit", "src/a.ts"), use(8, "failing", state="fail", name="tests"), use(7, "test")])
+    hit = triggers.failing(office)
+    assert triggers.card_key(hit) == "trigger:card:n1:failing:8" and hit["detail"].startswith("tests opakovaně")
+    three = [use(index, "test", "npm test", "fail", "Bash") for index in (5, 4, 3)]
+    assert triggers.card_key(triggers.failing(card(tools=three))) == "trigger:card:n1:failing:5"
+    assert triggers.failing(card(tools=three[:2] + [use(2, "test", "npm run build", "fail", "Bash")])) is None
+    assert triggers.failing(card(tools=[use(1, "test", "npm test", "progress", "Bash")])) is None
+    assert triggers.failing(card()) is None
+
+
+def test_drift_is_an_edit_outside_the_card_files_and_a_card_without_files_has_none():
+    expected = ["backend/canvas/", "backend/canvas//", "docs/a.md", "docs/a.md/"]
+    inside = [use(1, "edit", r"C:\wt\backend\canvas\x.py"), use(2, "edit", "docs/a.md"), use(3, "read", "frontend/x.ts")]
+    assert triggers.drift(card(tools=inside, expected=expected)) is None
+    away = card(tools=[*inside, use(4, "edit", "frontend/app.tsx"), use(5, "edit", "/home/w/wt/frontend/app.tsx")],
+                expected=expected)
+    hit = triggers.drift(away)
+    assert hit["kind"] == "card.drift" and "frontend/app.tsx" in hit["detail"]
+    assert triggers.card_key(hit) == triggers.card_key(triggers.drift(away))  # stejné soubory = stejný stav
+    more = card(tools=[*away["tools"], use(6, "edit", "README.md")], expected=expected)
+    assert triggers.card_key(triggers.drift(more)) != triggers.card_key(hit)  # nový soubor mimo budí znovu
+    assert triggers.drift(card(tools=away["tools"], expected=[])) is None  # karta bez očekávání drift nemá
+    assert triggers.drift(card(tools=[use(7, "edit", "C:/Users/Admin/AppData/Local/very/long/clipped/pat…")],
+                               expected=expected)) is None  # zkrácený cíl se nehodnotí
+
+
+def test_collision_on_conflict_or_impact_on_a_card_with_open_work():
+    """F4: konflikt sloučení, nebo dopad na kartu s vlastní otevřenou prací nad stejnými soubory; stejná kolize =
+    stejný stav. Propojená karta s otevřenou prací bez společných souborů dopad ani překryv nemá, takže nic."""
+    clean = {"verdict": "warning", "works": [{"conflicts": [], "impacts": [{"nodeId": "n2"}], "overlaps": []}]}
+    assert triggers.collision(card()) is None and triggers.collision(card(future=clean)) is None
+    other = {"verdict": "warning", "works": [{"conflicts": [], "impacts": [{"nodeId": "n2"}],
+                                              "overlaps": [{"nodeId": "n3", "paths": ["a.py"]}]}]}
+    assert triggers.collision(card(future=other)) is None  # překryv s nezasaženou kartou kolize není
+    blocked = card(future={"verdict": "blocked", "works": [{"conflicts": ["a.py"], "impacts": [], "overlaps": []}]})
+    hit = triggers.collision(blocked)
+    assert hit["kind"] == "card.collision" and "konfliktem v a.py" in hit["detail"]
+    assert triggers.card_key(hit) == triggers.card_key(triggers.collision(blocked))
+    shared = {"verdict": "warning", "works": [{"conflicts": [], "impacts": [{"nodeId": "n2"}],
+                                               "overlaps": [{"nodeId": "n2", "paths": ["a.py"]}]}]}
+    touched = triggers.collision(card(future=shared))
+    assert "n2" in touched["detail"] and triggers.card_key(touched) != triggers.card_key(hit)
+    assert "card.collision" in triggers.WATCH
+
+
 @pytest.fixture
 def service(tmp_path):
     canvas = CanvasService(tmp_path / "data")
@@ -96,6 +149,21 @@ def test_wakes_once_per_state_and_a_new_failure_wakes_again(service, monkeypatch
     state["cards"] = [card(failures=3, failedRun="e3")]
     assert [item["detail"] for _, item in triggers.wakes(service, "draft", {"w1"}, "t3", 0)] == [
         "3× selhal, doporučeno effort high"]
+
+
+def test_fired_signal_lands_in_the_card_log_with_its_actor(service, monkeypatch):
+    """Vystřelený spouštěč zapíše `card.signal`: hlídač u failing/drift/stalled, trigger u ostatních; jednou na stav."""
+    from database.repositories import opora_events
+
+    cards = [card(tools=[use(8, "failing", state="fail", name="tests")]), card(nodeId="n2", label="XL", points=16)]
+    monkeypatch.setattr(triggers, "facts", lambda *args: (cards, []))
+    assert [item["kind"] for _, item in triggers.wakes(service, "draft", {"draft"}, "t1", 0)] == [
+        "card.failing", "card.too_big"]
+    triggers.wakes(service, "draft", {"draft"}, "t2", 0)
+    events, _, _ = opora_events.page(service.db_for("draft"), "draft", "draft", 0, 50)
+    assert [(event["kind"], event["nodeId"], event["actor"]["name"], event["data"]["signal"]) for event in events] == [
+        ("card.signal", "n1", "hlídač", "card.failing"), ("card.signal", "n2", "trigger", "card.too_big")]
+    assert events[0]["title"].startswith("card.failing: tests opakovaně selhává")
 
 
 def test_step_failed_wakes_once_per_run_and_a_new_failed_run_wakes_again(service, monkeypatch):

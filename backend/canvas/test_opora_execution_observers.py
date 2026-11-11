@@ -185,3 +185,20 @@ def test_actual_context_one_with_budget_two_is_bound_without_protocol_downgrade(
     assert response.status_code == 200, response.text
     assert response.json()["contextProtocolVersion"] == 1 and response.json()["executionProtocolVersion"] == 2
     assert response.json()["budget"] == lease["budget"]
+
+
+def test_observed_list_cost_is_the_card_and_run_price(broker):
+    from backend.canvas.opora_agent_state import AgentState
+    from backend.canvas.opora_execution_observers import spent
+
+    client, body, lease = broker
+    service = client.app.state.service
+    assert spent(service, SCOPE["project"], SCOPE["workspace"]) == {"executions": {}, "nodes": {}}
+    bound = post(client, "/intents", body).json()
+    first = observation(bound)
+    first["cumulative"] = {**first["cumulative"], "listCostCents": "250"}
+    assert post(client, "/observations", first).status_code == 200
+    price = spent(service, SCOPE["project"], SCOPE["workspace"])
+    assert price == {"executions": {lease["executionId"]: 2.5}, "nodes": {lease["nodeId"]: 2.5}}
+    cards = AgentState(service).read(SCOPE["project"], SCOPE["workspace"])["cards"]
+    assert next(card for card in cards if card["nodeId"] == lease["nodeId"])["gauge"]["costUsd"] == 2.5

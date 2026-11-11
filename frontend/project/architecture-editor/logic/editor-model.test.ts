@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CanvasNode, Graph, PageSite } from "@/shared/types/logic/types";
-import { architectureEditorId, canRemoveEditorEdge, connectEditorNodes, connectionProblem, createEditorAreaPlan, editorScopeNode, isEditorScopeClosed, growEditorArea, moveEditorNode, resizeEditorNode, setEditorEdgeCarries, setEditorNodeSection, setEditorPageSite, validateEditorRoute } from "./editor-model";
+import { architectureEditorId, canRemoveEditorEdge, createEditorElementPlan, scanLogicPlan, editorScopeNode, isEditorScopeClosed, setEditorEdgeCarries, setEditorNodeSection, setEditorPageLayout, setEditorPageSite, validateEditorRoute } from "./editor-model";
 
 const node = (id: string, parentId: string | null = null, kind: CanvasNode["kind"] = "node"): CanvasNode => ({ id, parentId, kind, name: id, purpose: "Účel", x: 20, y: 40 });
 const graph = (): Graph => ({ nodes: [
@@ -41,90 +41,6 @@ describe("standalone architecture editor identity", () => {
   });
 });
 
-describe("whole graph patches", () => {
-  it("moves a card without losing metadata, edges or unrelated branches and does not mutate input", () => {
-    const original = graph();
-    const before = structuredClone(original);
-    const moved = moveEditorNode(original, "page", -10, 200);
-    expect(moved.nodes[1]).toEqual({ ...original.nodes[1], x: -10, y: 200 });
-    expect(moved.nodes[0]).toBe(original.nodes[0]);
-    expect(moved.nodes[3]).toBe(original.nodes[3]);
-    expect(moved.edges).toBe(original.edges);
-    expect(original).toEqual(before);
-    expect(moveEditorNode(original, "area", 0, 0).nodes[5]).toEqual({ ...original.nodes[5], x: 0, y: 0 });
-  });
-  it("rejects missing cards and invalid coordinates", () => {
-    expect(() => moveEditorNode(graph(), "missing", 0, 0)).toThrow();
-    for (const value of [NaN, Infinity, -Infinity, 1_000_001]) expect(() => moveEditorNode(graph(), "page", value, 0)).toThrow();
-  });
-  it("moves an area with its geometric members, preserving nested layer coordinates", () => {
-    const original = graph();
-    const moved = moveEditorNode(original, "area", 120, 140);
-    expect(moved.nodes[0]).toEqual({ ...original.nodes[0], x: 120, y: 140 });
-    expect(moved.nodes[3]).toEqual({ ...original.nodes[3], x: 120, y: 140 });
-    expect(moved.nodes[1]).toBe(original.nodes[1]);
-    expect(moved.nodes[2]).toBe(original.nodes[2]);
-    expect(original.nodes[0].x).toBe(20);
-  });
-  it("resizes only an area, clamped to the canvas limits, and keeps other nodes by reference", () => {
-    const original = graph();
-    const resized = resizeEditorNode(original, "area", 1368.4, 900);
-    expect(resized.nodes[5]).toEqual({ ...original.nodes[5], size: { w: 1368, h: 900 } });
-    expect(resized.nodes[0]).toBe(original.nodes[0]);
-    expect(resized.edges).toBe(original.edges);
-    expect(original.nodes[5].size).toEqual({ w: 720, h: 480 });
-    expect(resizeEditorNode(original, "area", 10, 50_000).nodes[5].size).toEqual({ w: 120, h: 20000 });
-    expect(resizeEditorNode(original, "area", 720, 480)).toBe(original);
-    expect(() => resizeEditorNode(original, "page", 500, 500)).toThrow("jen oblasti");
-    expect(() => resizeEditorNode(original, "missing", 500, 500)).toThrow();
-    for (const value of [NaN, Infinity, 0, -5]) expect(() => resizeEditorNode(original, "area", value, 400)).toThrow();
-  });
-  it("adds a next edge while preserving existing rules and the full node array", () => {
-    const original = graph();
-    const result = connectEditorNodes(original, "other", "page", "next");
-    expect(result.nodes).toBe(original.nodes);
-    expect(result.edges).toEqual([...original.edges, { id: "next", source: "other", target: "page", port: "next" }]);
-    expect(original.edges).toHaveLength(1);
-    expect(() => connectEditorNodes(result, "page", "other", "reverse")).toThrow(/cyklus/);
-    expect(connectEditorNodes(original, "app", "page", "sector-link").edges).toHaveLength(2);
-  });
-  it("refuses self, missing, comment/area endpoints and duplicate identities or next links", () => {
-    for (const [from, to, id] of [["page", "page", "new"], ["missing", "page", "new"], ["note", "page", "new"], ["page", "area", "new"], ["area", "other", "new"], ["other", "page", "existing"], ["other", "page", "bad id"]]) {
-      expect(() => connectEditorNodes(graph(), from, to, id)).toThrow();
-    }
-    for (const port of [undefined, "next"] as const) {
-      const original = graph();
-      original.edges.push({ id: "legacy", source: "page", target: "child", ...(port ? { port } : {}) });
-      expect(() => connectEditorNodes(original, "page", "child", "duplicate")).toThrow();
-    }
-  });
-  it("nese druh toku z nabídky vazby jen na vazbě next", () => {
-    expect(connectEditorNodes(graph(), "other", "page", "typed", "data").edges.at(-1)).toEqual({ id: "typed", source: "other", target: "page", port: "next", carries: "data" });
-    const original = graph();
-    original.nodes.push({ ...node("second-area", null, "area"), size: { w: 720, h: 480 } });
-    expect(connectEditorNodes(original, "area", "second-area", "flow", "data").edges.at(-1)).not.toHaveProperty("carries");
-  });
-  it("connectionProblem říká totéž co tah: null jen u povolené vazby", () => {
-    expect(connectionProblem(graph(), "other", "page")).toBeNull();
-    expect(connectionProblem(graph(), "page", "page")).toMatch(/sebou/);
-    expect(connectionProblem(graph(), "page", "area")).toMatch(/Oblast/);
-    expect(connectionProblem(graph(), "note", "page")).toMatch(/komentář/);
-  });
-  it("connectionProblem odmítne vazbu next, která by uzavřela cyklus karet (jako backend card_dag)", () => {
-    const original = graph();
-    original.edges.push({ id: "a", source: "page", target: "child", port: "next" }, { id: "b", source: "child", target: "other" });
-    expect(connectionProblem(original, "other", "page")).toMatch(/cyklus/);
-    expect(connectionProblem(original, "other", "app")).toBeNull();
-  });
-  it("connects two areas through flow and refuses duplicate flow links", () => {
-    const original = graph();
-    original.nodes.push({ ...node("second-area", null, "area"), size: { w: 720, h: 480 } });
-    const linked = connectEditorNodes(original, "area", "second-area", "flow");
-    expect(linked.edges.at(-1)).toEqual({ id: "flow", source: "area", target: "second-area", port: "flow" });
-    expect(() => connectEditorNodes(linked, "area", "second-area", "duplicate")).toThrow();
-  });
-});
-
 describe("scope and creation", () => {
   it("accepts root, application, page and ordinary nested scopes but rejects non-parents", () => {
     const original = graph();
@@ -142,22 +58,14 @@ describe("scope and creation", () => {
     original.nodes[0].parentId = "child";
     expect(() => isEditorScopeClosed(original, "page", new Set())).toThrow("cyklus");
   });
-  it("builds an existing atomic canvas-plan request without inventing another graph root", () => {
-    expect(createEditorAreaPlan(null)).toEqual({ nodes: [{ ref: "area", kind: "area", parent: null, name: "Nová oblast", purpose: "", size: { w: 720, h: 480 } }] });
-    expect(createEditorAreaPlan("page", " Obsah ").nodes[0]).toMatchObject({ parent: "@page", name: "Obsah" });
-    expect(() => createEditorAreaPlan("@page")).toThrow();
-    expect(() => createEditorAreaPlan("page.with.dot")).toThrow();
-    expect(() => createEditorAreaPlan(null, " ")).toThrow();
+  it("prvek z palety je uzel s druhem pod stránkou a českým názvem", () => {
+    expect(createEditorElementPlan("page", "service")).toEqual({ nodes: [{ ref: "element", kind: "node", parent: "@page", name: "Služba", purpose: "", element: { kind: "service" } }] });
+    expect(() => createEditorElementPlan("@page", "form")).toThrow();
   });
-});
-
-describe("growEditorArea", () => {
-  it("posune a natáhne jen oblast, členy nechá na místě", () => {
-    const original = graph();
-    const grown = growEditorArea(original, { id: "area", x: -16, y: 40, w: 1000, h: 480 });
-    expect(grown.nodes[5]).toMatchObject({ x: -16, y: 40, size: { w: 1000, h: 480 }, color: "teal" });
-    expect(grown.nodes.slice(0, 5)).toEqual(original.nodes.slice(0, 5));
-    expect(() => growEditorArea(original, { id: "page", x: 0, y: 0, w: 200, h: 200 })).toThrow();
+  it("prvek logiky do boxu nese card.section, celá stránka ho nemá", () => {
+    expect(createEditorElementPlan("page", "actor", "vyzva").nodes[0]).toMatchObject({ name: "Uživatel", element: { kind: "actor" }, card: { section: "vyzva" } });
+    expect(createEditorElementPlan("page", "action").nodes[0]).not.toHaveProperty("card");
+    expect(() => createEditorElementPlan("page", "action", "bad id")).toThrow();
   });
 });
 
@@ -220,5 +128,38 @@ describe("záměr a sekce stránky z Detailu prvku", () => {
     expect(() => setEditorPageSite(changed, stale, { kind: "page", path: "/", goal: "Cíl" })).toThrow("mezitím změnila");
     expect(() => setEditorPageSite(base, { ...stale, id: "nic" }, { kind: "page", path: "/" })).toThrow("neexistuje");
     expect(() => setEditorPageSite(base, base.nodes[2], { kind: "page", path: "/" })).toThrow("jen stránka");
+  });
+});
+
+describe("layout stránky", () => {
+  const withSections = (): Graph => {
+    const original = graph();
+    original.nodes[1] = { ...original.nodes[1], site: { kind: "page", path: "/", sections: [
+      { id: "head", role: "header", name: "Hlavička", intent: "", box: { x: 0, y: 0, w: 12, h: 2 } },
+      { id: "cta", role: "cta", name: "Výzva", intent: "", box: { x: 0, y: 0, w: 6, h: 2 }, parent: "head" },
+    ] } };
+    original.nodes[2] = { ...original.nodes[2], element: { kind: "action" }, card: { section: "cta", layer: "frontend" } };
+    return original;
+  };
+  it("uloží box a parent a prvkům odebraného boxu smaže sekci jednou změnou", () => {
+    const { graph: next, touched } = setEditorPageLayout(withSections(), "page", [{ id: "head", role: "header", name: "Hlavička", intent: "", box: { x: 0, y: 0, w: 12, h: 3 } }]);
+    expect(next.nodes[1].site).toEqual({ kind: "page", path: "/", sections: [{ id: "head", role: "header", name: "Hlavička", intent: "", box: { x: 0, y: 0, w: 12, h: 3 } }] });
+    expect(touched).toEqual(["child"]);
+    expect(next.nodes[2].card).toEqual({ layer: "frontend" });
+  });
+  it("prázdný layout vynechá klíč sections a stránku bez site odmítne", () => {
+    expect(setEditorPageLayout(withSections(), "page", []).graph.nodes[1].site).toEqual({ kind: "page", path: "/" });
+    expect(() => setEditorPageLayout(withSections(), "child", [])).toThrow();
+  });
+});
+
+describe("prvky logiky ze skenu", () => {
+  it("jeden plán s druhem, názvem, účelem a boxem; bez boxu celá stránka", () => {
+    expect(scanLogicPlan("page", [{ kind: "action", name: "Koupit", purpose: "Platba", section: "cta" }, { kind: "actor", name: "Člen", purpose: "", section: null }])).toEqual({ nodes: [
+      { ref: "logic-0", kind: "node", parent: "@page", name: "Koupit", purpose: "Platba", element: { kind: "action" }, card: { section: "cta" } },
+      { ref: "logic-1", kind: "node", parent: "@page", name: "Člen", purpose: "", element: { kind: "actor" } },
+    ] });
+    expect(() => scanLogicPlan("bad id", [])).toThrow();
+    expect(() => scanLogicPlan("page", [{ kind: "action", name: "x", purpose: "", section: "bad id" }])).toThrow("sekce");
   });
 });

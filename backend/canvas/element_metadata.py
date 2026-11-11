@@ -4,9 +4,9 @@ import unicodedata
 ELEMENT_KINDS = (
     "page", "form", "overview", "dialog", "action", "service", "process",
     "entity", "relationship", "storage", "condition", "permission", "constraint",
-    "input", "output", "event", "api_contract",
+    "input", "output", "event", "api_contract", "actor",
 )
-EDGE_RELATIONS = ("uses", "communicates_with", "requires", "evidences")
+EDGE_RELATIONS = ("uses", "communicates_with", "requires", "evidences", "shares_code")  # shares_code: plátno 3, čárkovaně
 RELATION_REASON_MAX = 1000
 
 

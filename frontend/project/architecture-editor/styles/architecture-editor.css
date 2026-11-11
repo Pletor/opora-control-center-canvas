@@ -1,8 +1,8 @@
 /* Architektura projektu má vlastní tmavý rám: uživatel tu „kreslí plán“, ne pracuje v Editoru,
    proto jiné pozadí a jiné barvy. Tokeny žijí jen na kořeni této feature; dílky (landing,
-   domain-map, page-editor, component-structure, element-detail) je čtou, nikdy nepřepisují.
+   domain-site, page-editor, element-detail) je čtou, nikdy nepřepisují.
    Barvy vrstev jsou závazné z kontraktu: frontend zelená, backend fialová, databáze jantarová,
-   security červená, infrastruktura modrá, cache levandulová, oblast jantarová přerušovaná. */
+   security červená, infrastruktura modrá, cache levandulová; boxy layoutu na plátně 2 z nich berou barvu role. */
 .architecture-editor {
   position: relative;
   --ae-bg: #0c1723;
@@ -116,16 +116,6 @@
 .ae-loading { padding: 25px; }
 .ae-route-error { padding: 28px; }
 
-/* Sdílené rozvržení Mapy domény (domain-map): úzký panel vlevo, pracovní plocha vpravo. */
-.ae-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); flex: 1; min-width: 0; min-height: 0; }
-.ae-sidebar {
-  overflow: auto;
-  border-right: 1px solid var(--ae-line);
-  background: var(--ae-panel);
-  /* Rezerva nad globálním ovladačem účtu v levém dolním rohu (token z design-tokens). */
-  padding-bottom: calc(var(--account-corner-safe) + 26px);
-  scroll-padding-bottom: calc(var(--account-corner-safe) + 26px);
-}
 .ae-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 
 /* Formulář stránky / domény: rámeček v barvě akcentu, popisky nad poli, aby šel vyplnit shora dolů. */
@@ -142,15 +132,12 @@
 }
 
 @media (max-width: 1400px) {
-  .ae-layout { grid-template-columns: 245px minmax(0, 1fr); }
   .ae-header__id { max-width: 170px; }
 }
 @media (max-width: 1050px) {
-  .ae-layout { grid-template-columns: 220px minmax(0, 1fr); }
   .ae-header { padding: 9px; gap: 10px; }
   .ae-header__crumbs { order: 3; flex-basis: 100%; padding-left: 0; border-left: 0; }
 }
 @media (max-width: 760px) {
-  .ae-layout { grid-template-columns: 190px minmax(0, 1fr); }
   .ae-header__actions { margin-left: 0; }
 }

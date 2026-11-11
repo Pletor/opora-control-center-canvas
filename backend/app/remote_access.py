@@ -36,6 +36,8 @@ PLETOR_PREFIX = "/api/pletor"
 JEV_PREFIX = "/api/brain/jev"
 # Graphify spouští extrakci na tomto stroji; přes tunel ne.
 GRAPHIFY_PREFIX = "/api/graphify"
+# Sken webu plánu stránky spouští `claude` a stahuje libovolnou URL z tohoto stroje; přes tunel ne.
+PAGE_PLAN_SCAN_PREFIX = "/api/page-plan/scan"
 # Běh toku pouští uzly (critic → codex, brain_eval → claude) na tomto stroji; čtení a úpravy grafu přes tunel smí.
 FLOW_RUN = re.compile(r"^/api/flow/(versions/[^/]+/runs|runs/[^/]+/advance)/?$")
 # Bez těchhle tří by se přihlašovací obrazovka neměla jak zeptat ani přihlásit.
@@ -94,7 +96,8 @@ def bearer_token(authorization):
 def is_loopback_only(path):
     return path in LOOPBACK_ONLY_PATHS or bool(FLOW_RUN.match(path)) or any(
         path == prefix or path.startswith(prefix + "/")
-        for prefix in (RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX, HEART_PREFIX, PLETOR_PREFIX, JEV_PREFIX, GRAPHIFY_PREFIX))
+        for prefix in (RLM_PREFIX, OPEN_FILE_PATH, GATE_PREFIX, HEART_PREFIX, PLETOR_PREFIX, JEV_PREFIX, GRAPHIFY_PREFIX,
+                        PAGE_PLAN_SCAN_PREFIX))
 
 
 def requires_token(path):

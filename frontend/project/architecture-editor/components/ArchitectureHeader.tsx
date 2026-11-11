@@ -3,14 +3,12 @@ import PageIcon from "../page-editor/components/PageIcon";
 type Props = {
   crumbs: string[]; step: string; workspace: string; readOnly: boolean; editorId: string;
   back: { disabled: boolean; onClick: () => void } | null;
-  /** Area / sector buttons exist only in the page editor. */
-  pageTools: { disabled: boolean; onArea: () => void; onSector: () => void } | null;
   exportDisabled: boolean; reloadDisabled: boolean; onExport: () => void; onReload: () => void; onCopyId: () => void;
 };
 
 /** Top bar of the architecture screen: where I am (environment / host / page) and what I can do here. */
 export default function ArchitectureHeader(props: Props) {
-  const { crumbs, step, workspace, readOnly, editorId, back, pageTools } = props;
+  const { crumbs, step, workspace, readOnly, editorId, back } = props;
   return <header className="ae-header">
     {back && <button type="button" className="ae-header__back" data-testid="architecture-back" disabled={back.disabled} onClick={back.onClick}>← Zpět</button>}
     <div className="ae-header__brand">
@@ -29,10 +27,6 @@ export default function ArchitectureHeader(props: Props) {
       </button>
       <button type="button" className="ae-header__button" disabled={props.exportDisabled} onClick={props.onExport}>Export JSON</button>
       <button type="button" className="ae-header__button" disabled={props.reloadDisabled} onClick={props.onReload}>Obnovit</button>
-      {pageTools && <>
-        <button type="button" className="ae-header__button ae-header__button--primary" disabled={pageTools.disabled} data-testid="architecture-add-area" onClick={pageTools.onArea}>+ Oblast</button>
-        <button type="button" className="ae-header__button ae-header__button--primary" disabled={pageTools.disabled} data-testid="architecture-add-sector" onClick={pageTools.onSector}>+ Sektor</button>
-      </>}
     </div>
   </header>;
 }

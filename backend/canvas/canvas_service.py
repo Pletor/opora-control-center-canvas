@@ -53,6 +53,8 @@ from database.schema.project_schema import REGISTRY_SCHEMA, ensure_flow_owner_re
 LOGGER = logging.getLogger(__name__)
 # Vrstva kresby skici momentu storyboardu: sb/<nodeId>/<momentId>.
 _SKETCH_LAYER = re.compile(r"sb/(?P<node>[A-Za-z0-9_-]{1,80})/(?P<moment>m-[0-9a-f]{8})")
+# Vrstva skici boxu plánu stránky (plátno 2): box/<pageId>/<sectionId>.
+_BOX_LAYER = re.compile(r"box/(?P<page>[A-Za-z0-9_-]{1,80})/(?P<section>[A-Za-z0-9_-]{1,80})")
 # Verzovaný graf v cílovém repu se už jen čte (main = Git HEAD). Pracovní prostory mají graf v datech plátna.
 GRAPH_FILE = LEGACY_GRAPH_FILE
 # Zapisovatel počká na zámek SQLite (WAL checkpoint, jiný proces), místo aby hned spadl na „database is locked“.
@@ -145,7 +147,8 @@ class CanvasService:
 
     def drawing(self, pid, wid, layer, payload=None):
         sketch = _SKETCH_LAYER.fullmatch(layer) if isinstance(layer, str) else None
-        if not sketch and (not isinstance(layer, str) or len(layer) > 80 or (layer and not valid_id(layer))):
+        box = _BOX_LAYER.fullmatch(layer) if isinstance(layer, str) else None
+        if not sketch and not box and (not isinstance(layer, str) or len(layer) > 80 or (layer and not valid_id(layer))):
             raise ValueError("Neplatná vrstva kresby.")
         if payload is not None and set(payload) != {
             "project",
@@ -164,6 +167,12 @@ class CanvasService:
                     or layer not in self.sketch_layers_provider(pid, wid, sketch["node"])
                 ):
                     raise ValueError("Skica momentu neexistuje.")
+            elif box:
+                # Skica boxu: uzel je stránka (`site.kind == "page"`) a má sekci s tímto id.
+                site = next((node.get("site") for node in view["graph"]["nodes"] if node["id"] == box["page"]), None)
+                sections = site.get("sections") if isinstance(site, dict) and site.get("kind") == "page" else None
+                if not any(isinstance(item, dict) and item.get("id") == box["section"] for item in sections or ()):
+                    raise ValueError("Box stránky neexistuje.")
             elif layer and not any(node["id"] == layer for node in view["graph"]["nodes"]):
                 raise ValueError("Vrstva kresby v tomto pracovním prostoru neexistuje.")
             if view["readOnly"]:

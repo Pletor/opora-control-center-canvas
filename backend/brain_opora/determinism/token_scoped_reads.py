@@ -73,6 +73,8 @@ PATHS = (
     '/api/oporahub/revisions/{identifier}',
     # Native Linie origin() also checks ticket workspace for worker sessions.
     '/api/pletor/linie/work/{ticket_id}',
+    '/api/page-plan',
+    '/api/page-plan/scan/{scan_id}',
     '/api/pletor/state',
     '/api/project-architecture',
     '/api/project-settings',

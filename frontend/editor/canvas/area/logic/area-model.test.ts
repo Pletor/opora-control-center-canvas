@@ -8,6 +8,7 @@ import {
   areaLabel,
   areaOf,
   areaRollup,
+  areaShare,
   EMPTY_AREA_ROLLUP,
   isArea,
   isFreeSpot,
@@ -192,6 +193,12 @@ describe("area-model", () => {
     expect(updated).not.toBe(a);
     expect(updated.color).toBe("rose");
     expect(a.color).toBeUndefined();
+  });
+
+  it("areaShare: podíl hotových členů, prázdná oblast bez lišty", () => {
+    expect(areaShare(1, 3)).toBe(33);
+    expect(areaShare(3, 3)).toBe(100);
+    expect(areaShare(0, 0)).toBeNull();
   });
 
   it("areaRollup ukáže jen nenulové části se skloňováním", () => {

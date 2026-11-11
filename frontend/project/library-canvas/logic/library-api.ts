@@ -26,6 +26,7 @@ export const libraryUrls = {
   adopt: (flow: string) => `${LIB}/flows/${id(flow)}/adopt`,
   contribute: (flow: string) => `${LIB}/flows/${id(flow)}/contribute`,
   promote: (flow: string) => `${LIB}/flows/${id(flow)}/promote`,
+  elementFlow: () => `${LIB}/project-flows`,
   types: () => `${FLOW}/node-types?kind=${KIND}`,
   nodePorts: () => `${FLOW}/node-ports`,
   check: () => `${FLOW}/graph-check`,
@@ -49,6 +50,9 @@ export const createFlow = (folder: string, slug: string, title: string, descript
 export const loadFlow = (flow: string) => api<LibraryFlowDetail>(libraryUrls.flow(flow));
 export const loadLibraryTypes = () => api<unknown>(libraryUrls.types()).then((raw) => field<NodeTypeSpec[]>(raw, "node_types", []));
 export const adoptFlow = (flow: string, project: string, nodeId?: string) => api<LibraryFlowDetail>(libraryUrls.adopt(flow), { project, ...(nodeId ? { nodeId } : {}) });
+/** Prázdné plátno logiky prvku plátna 2 (`opora:project-flow:<nodeId>`); druhé založení vrátí existující. */
+export const createElementFlow = (project: string, workspace: string, nodeId: string, title: string) =>
+  api<LibraryFlowDetail>(libraryUrls.elementFlow(), { project, workspace, nodeId, title });
 export const contributeFlow = (flow: string, folder: string, slug: string, title: string) => api<LibraryFlowDetail>(libraryUrls.contribute(flow), { folder, slug, title });
 export const promoteFlow = (flow: string) => api<LibraryFlowDetail>(libraryUrls.promote(flow), {});
 export const saveFlowDraft = (flow: string, graph: FlowGraph, parent: string | null) => api<FlowVersion>(libraryUrls.versions(flow), { graph, parent_version_id: parent });

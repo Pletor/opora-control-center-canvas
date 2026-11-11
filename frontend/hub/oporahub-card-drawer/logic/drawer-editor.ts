@@ -17,6 +17,10 @@ export type DrawerEditor = {
   onCloseCard?: (nodeId: string, note: string) => Promise<string>;
   /** Otevře modal „Nový worktree“ pro kartu (detail se předtím zavře, aby modal nebyl pod ním). */
   onWorkspace: () => void;
+  /** Zpráva srdci kanálem člověka (živá karta „Zeptat se srdce“); vrací, zda odešla. */
+  onAskHeart?: (text: string) => Promise<boolean>;
+  /** Vstup do vnitřního plátna uzlu (stejná akce jako inspektor „Otevřít vnitřní plátno“). */
+  onEnterCanvas?: (nodeId: string) => void;
   onOpenNode: (id: string) => void;
   onOpenVault?: (scope: string, focus?: string) => void;
   fragmentRefs: (nodeId: string) => FragmentRef[] | undefined;

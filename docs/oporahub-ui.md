@@ -32,6 +32,8 @@ kol) i starý drawer `hub/oporahub-card`. Otvírá ho kdokoli voláním `openCar
 (záložka Karta, rozhodnutí, cíl akce) i tlačítko „Detail karty“ v inspektoru. Přímý odkaz
 `?ohCard=<nodeId>&ohTab=spec|steps|lens|run|review|history` funguje v každém prostředí. ✕ vpravo nahoře i Escape
 detail zavřou, vymažou parametry z URL a vrátí fokus na prvek, odkud byl otevřen.
+Bez `ohTab` (`?ohCard=<nodeId>`, `openCardDrawer(id)` bez záložky) se nejdřív ukáže živá karta na 3/4
+(`frontend/editor/canvas/live-card`, kořen `data-oh-view="live-card"`, `data-oh-side`); tento drawer je její „Pracovní panel“.
 
 | Část | Co ukazuje | Zdroj |
 |---|---|---|
