@@ -82,6 +82,9 @@ def enforce(service, method, path, header, query, body=None):
     if path in GLOBAL_REGISTRY:
         denied("Global registry reads are not a project-scoped agent capability.")
     scoped = any(re.fullmatch(re.sub(r"\\\{[^}]+\\\}", r"[^/]+", re.escape(pattern)), path) for pattern in PATHS)
+    # OP-80B255.pin: immutable public plugin ZIPs carry no project content; keep token/scope checks above.
+    if re.fullmatch(r"/api/brain-registry/pins/[a-z0-9][a-z0-9-]{0,63}@[0-9a-f]{12}\.zip", path):
+        return session
     if (projects and scoped) or path in PUBLIC_METADATA or path == "/api/gate" or path.startswith("/api/gate/"):
         return session
     denied("Token-authenticated read requires an explicit project or an audited ownership resolver.")

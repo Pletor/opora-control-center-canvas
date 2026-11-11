@@ -75,3 +75,35 @@ def test_flow_id_owner_beats_spoofed_query_project(source):
             enforce(service, "GET", "/api/flow/workflows/" + foreign["id"] + "/versions", token, query)
         assert error.value.status == 403
     assert enforce(service, "GET", "/api/flow/workflows/" + own["id"] + "/versions", token, {})
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+def test_public_brain_pin_read_with_worker_token_preserves_identity_and_scope(source, method):
+    service, _, _ = source
+    worker = tokens.issue_worker(service, "draft", "draft", {"name": "office-pin-test"})
+    token = worker["token"]
+    path = "/api/brain-registry/pins/ponytail@a5bfdccd69db.zip"
+    for query in ({}, {"project": "draft", "workspace": "draft"}):
+        assert enforce(service, method, path, token, query)["id"] == worker["sessionId"]
+    for query in ({"project": "foreign"}, {"workspace": "foreign"}):
+        with pytest.raises(GateError) as error:
+            enforce(service, method, path, token, query)
+        assert error.value.status == 403
+    with pytest.raises(GateError) as error:
+        enforce(service, method, path, "invalid", {})
+    assert error.value.status == 401
+    tokens.revoke(service, "draft", worker["sessionId"])
+    with pytest.raises(GateError) as error:
+        enforce(service, method, path, token, {})
+    assert error.value.status == 401
+
+
+@pytest.mark.parametrize("path", ["/api/brain-registry/artifacts", "/api/brain-registry/pins",
+    "/api/brain-registry/pins/ponytail@a5bfdccd69db.zip/extra",
+    "/api/brain-registry/pins/ponytail@a5bfdccd69db.txt",
+    "/api/brain-registry/pins/ponytail@a5bfdcc.zip"])
+def test_public_pin_read_does_not_open_other_registry_reads(source, path):
+    service, _, token = source
+    with pytest.raises(GateError) as error:
+        enforce(service, "GET", path, token, {"project": "draft"})
+    assert error.value.status == 403
