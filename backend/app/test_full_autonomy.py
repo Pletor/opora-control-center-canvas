@@ -131,3 +131,23 @@ def test_agent_with_autonomy_accepts_specification_change_under_its_own_name(tmp
         assert accepted.json()["by"] == {"kind": "agent", "name": "lazy"}
         entry = next(item for item in agent_log(client) if item["path"].endswith("/accept"))
         assert entry["autonomy"] == "full" and entry["actor"] == "agent"
+
+
+def test_agent_state_follows_the_gate_switch(tmp_path):
+    """OP-E2C3FE.1: zapnutá brána bez `autonomyPassesGate` = akce „jen člověk“ zůstanou blokované, s polem ready."""
+    gate = "/api/brain/gate-setting"
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        assert autonomy(client, True).status_code == 200
+
+        def reasons():
+            actions = client.get("/api/oporahub/agent-state", params=SCOPE, headers=AGENT).json()["actions"]
+            return {action.get("blockReason") for action in actions}
+
+        assert "gate_required" not in reasons()
+        assert client.post(gate, headers=HEADERS, json={"project": "draft", "enabled": True}).status_code == 200
+        gated = reasons()
+        assert client.post(gate, headers=HEADERS,
+                           json={"project": "draft", "enabled": True, "autonomyPassesGate": True}).status_code == 200
+        assert "gate_required" not in reasons()
+        assert "gate_required" in gated and "human_only" not in gated

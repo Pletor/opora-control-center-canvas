@@ -170,3 +170,11 @@ def test_events_feed_missing_on_an_older_server_is_refused(monkeypatch, tmp_path
 def test_result_shape_is_checked_before_sending(result, message):
     with pytest.raises(ValueError, match=message):
         opora_hub.check_result(result)
+
+
+def test_summary_keeps_autonomy():
+    """Bez `autonomy` ve výstupu `state` agent nepozná plnou autonomii a přijetí nechá člověku."""
+    state = {'autonomy': {'full': True}, 'actions': [{'id': 'a', 'verb': 'accept', 'status': 'ready', 'autonomy': 'full'}]}
+    out = opora_hub.summary(state)
+    assert out['autonomy'] == {'full': True} and out['ready'][0]['autonomy'] == 'full'
+    assert opora_hub.summary({})['autonomy'] == {'full': False}

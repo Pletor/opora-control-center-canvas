@@ -1,11 +1,14 @@
 // Přepínač „Plná autonomie agentů“ v nastavení projektu. Zapnutí chce jedno potvrzení navíc (agent pak smí
 // skoro všechno); vypnutí je okamžité. Volbu hlásí `onChange` nahoru, ukládá rodič (hned, mimo revizi nastavení).
 import { useEffect, useState } from "react";
-import { sinceLabel, type AgentAutonomy } from "../logic/agent-autonomy";
+import { sinceLabel, type AgentAutonomy, type BrainGate } from "../logic/agent-autonomy";
 import "../styles/agent-autonomy.css";
 
-export default function AgentAutonomySwitch({ autonomy, disabled, saving, error, onChange }: {
+export default function AgentAutonomySwitch({ autonomy, gate, disabled, saving, error, onChange, onGateChange }: {
   autonomy: AgentAutonomy;
+  /** Brána mozku projektu; průchod autonomie se nabízí jen při zapnuté bráně a plné autonomii. */
+  gate: BrainGate;
+  onGateChange: (passes: boolean) => void;
   disabled: boolean;
   saving: boolean;
   error: string;
@@ -31,6 +34,14 @@ export default function AgentAutonomySwitch({ autonomy, disabled, saving, error,
         Agent smí v projektu všechno co člověk kromě přístupu, připojení repozitáře/složky a klíčů.
         Záznam činnosti dál říká, že to udělal agent.
       </p>
+      {autonomy.full && gate.on && (
+        <label className="agent-autonomy-switch__row agent-autonomy-switch__row--gate">
+          <input type="checkbox" role="switch" className="agent-autonomy-switch__toggle" aria-label="Autonomie projde bránou"
+            checked={gate.passes} disabled={locked} onChange={(e) => onGateChange(e.target.checked)} />
+          <span className="agent-autonomy-switch__label">Autonomie projde bránou mozku</span>
+          <span className="agent-autonomy-switch__state">{gate.passes ? "Agent zapisuje sám" : "Zapisuje jen člověk a srdce"}</span>
+        </label>
+      )}
       {confirming && !autonomy.full && (
         <div className="agent-autonomy-switch__confirm" role="alertdialog" aria-label="Potvrzení plné autonomie">
           <p>Opravdu svěřit agentům v tomto projektu plnou autonomii? Budou přijímat, uzavírat a commitovat bez tebe.</p>

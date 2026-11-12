@@ -8,6 +8,7 @@ import time
 from datetime import UTC, datetime
 from urllib.parse import urlencode
 
+from backend.brain_opora.determinism import gate_setting
 from backend.canvas import card_gauge, plan_reality
 from backend.canvas import opora_agent_state_auto_rebase as rebasing_state
 from backend.canvas import opora_agent_state_cards as card_stages
@@ -18,8 +19,8 @@ from backend.canvas import opora_agent_state_formal as formal
 from backend.canvas import opora_agent_state_guards as guards_state
 from backend.canvas import opora_agent_state_lease as lease_state
 from backend.canvas import opora_agent_state_map_gaps as map_gaps
-from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas import opora_agent_state_progress as progress_evidence
+from backend.canvas import opora_agent_state_pulls as pulls
 from backend.canvas import opora_agent_state_review_gates as review_gates
 from backend.canvas import opora_agent_state_reviews as reviews
 from backend.canvas import opora_agent_state_rules as rules
@@ -86,13 +87,18 @@ def _action(verb, method, path, target, head, preconditions, blocked=None, budge
     return value
 
 
-def _autonomous(actions):
-    """Při plné autonomii je akce blokovaná jen kvůli člověku pro agenta `ready` s `autonomy: "full"`."""
+def _autonomous(actions, gated=False):
+    """Při plné autonomii je akce blokovaná jen kvůli člověku pro agenta `ready` s `autonomy: "full"`.
+    `gated`: zapnutá brána bez `autonomyPassesGate` agenta zdí nepustí, akce zůstane blokovaná (`gate_required`)."""
     out = []
     for action in actions:
         if action.get("blockReason") == "human_only":
-            action = {key: value for key, value in action.items() if key != "blockReason"}
-            action.update(status="ready", autonomy="full")
+            if gated:
+                # OP-E2C3FE.1: nabídnout `ready`, které zeď odmítne 403, zasekne autonomní běh (Ample 12. 11.).
+                action = {**action, "blockReason": "gate_required"}
+            else:
+                action = {key: value for key, value in action.items() if key != "blockReason"}
+                action.update(status="ready", autonomy="full")
         out.append(action)
     return out
 
@@ -240,7 +246,8 @@ class AgentState:
         shown = plan_reality.attach(canvas, project, workspace, shown, graph, context["acceptedDocuments"])
         autonomy = project_autonomy(self.canvas, project)
         if autonomy["full"]:
-            actions = _autonomous(actions)
+            gated = gate_setting.is_on(self.canvas, project) and not gate_setting.autonomy_passes(self.canvas, project)
+            actions = _autonomous(actions, gated)
         actions = commands.attach(actions)  # ready akce nesou hotový řádek klienta (`command`)
         return {"schemaVersion": SCHEMA_VERSION,
                 "generatedAt": datetime.fromtimestamp(now, UTC).isoformat(timespec="seconds"),

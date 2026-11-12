@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autonomyReadUrl, autonomyTitle, autonomyWriteBody, readAutonomy, sinceLabel } from "./agent-autonomy";
+import { autonomyReadUrl, autonomyTitle, autonomyWriteBody, gateReadUrl, gateWriteBody, readAutonomy, readGate, sinceLabel } from "./agent-autonomy";
 
 describe("readAutonomy – stav z odpovědi nastavení projektu", () => {
   it("zapnutá autonomie nese since a by", () => {
@@ -45,5 +45,19 @@ describe("sinceLabel a autonomyTitle", () => {
   });
   it("bez času, jen s autorem", () => {
     expect(autonomyTitle({ full: true, by: "Eva" })).toContain("Zapnul(a) Eva.");
+  });
+});
+
+describe("brána mozku a průchod autonomie", () => {
+  it("čte zapnutou bránu i průchod", () => {
+    expect(readGate({ project: "p", enabled: true, autonomyPassesGate: true })).toEqual({ on: true, passes: true });
+  });
+  it.each([["bez pole", { enabled: true }], ["null", null], ["řetězec", { enabled: "true", autonomyPassesGate: "true" }]])(
+    "%s = nepustí", (_, response) => {
+      expect(readGate(response).passes).toBe(false);
+    });
+  it("zápis nechá bránu, jak je, a mění jen průchod", () => {
+    expect(gateWriteBody("p", { on: true, passes: false }, true)).toEqual({ project: "p", enabled: true, autonomyPassesGate: true });
+    expect(gateReadUrl("a b")).toBe("/api/brain/gate-setting?project=a+b");
   });
 });

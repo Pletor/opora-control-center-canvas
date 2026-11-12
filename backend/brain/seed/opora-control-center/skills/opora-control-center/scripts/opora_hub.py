@@ -182,16 +182,19 @@ def find_action(state, action_id):
         reason = action.get('blockReason')
         raise Refused(f'Akce {action_id} je {action.get("status")}/{reason}; blokovanou akci neopakuj.',
                       'Patří člověku (bez autonomy.full); napiš mu ID akce.' if reason == 'human_only'
+                      else 'Brána projektu agenta nepustí: člověk ve Velínu (Nastavení projektu) zapne '
+                           '„Autonomie projde bránou“, nebo akci provede sám.' if reason == 'gate_required'
                       else 'Počkej na změnu stavu (blockedBy, rozpočet) a vyber jinou ready akci (pick).')
     return action
 
 
 def summary(state, card=None):
     cards = [item for item in state.get('cards', []) if card is None or item.get('nodeId') == card]
-    return {'heads': state.get('heads'),
+    # `autonomy` musí projít: bez něj agent podle skillu bere přijetí/merge/close_card za akci jen pro člověka.
+    return {'heads': state.get('heads'), 'autonomy': state.get('autonomy') or {'full': False},
             'stages': [item for item in state.get('stages', []) if item.get('health') != 'ok'],
             'decisions': state.get('decisions', []),
-            'ready': [{k: a.get(k) for k in ('id', 'verb', 'targetId', 'path', 'command')} for a in ready_actions(state)],
+            'ready': [{k: a.get(k) for k in ('id', 'verb', 'targetId', 'path', 'command')} | ({'autonomy': a['autonomy']} if 'autonomy' in a else {}) for a in ready_actions(state)],
             'blocked': len(state.get('actions', [])) - len(ready_actions(state)),
             'cards': cards, 'truncated': state.get('truncated', False)}
 

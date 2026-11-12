@@ -50,3 +50,25 @@ export function autonomyTitle(autonomy: AgentAutonomy): string {
   else if (autonomy.by) parts.push(`Zapnul(a) ${autonomy.by}.`);
   return parts.join(" ");
 }
+
+/** Brána mozku projektu (`GET /api/brain/gate-setting`): zapnutá a zda ji plná autonomie agentů projde. */
+export type BrainGate = { on: boolean; passes: boolean };
+
+export const GATE_OFF: BrainGate = { on: false, passes: false };
+
+export const GATE_URL = "/api/brain/gate-setting";
+
+export function gateReadUrl(project: string): string {
+  return GATE_URL + "?" + new URLSearchParams({ project });
+}
+
+/** Cokoli jiného než `true` je vypnuto (starý server bez pole `autonomyPassesGate` = brána agenta nepustí). */
+export function readGate(response: unknown): BrainGate {
+  const value = response && typeof response === "object" ? (response as Record<string, unknown>) : {};
+  return { on: value.enabled === true, passes: value.autonomyPassesGate === true };
+}
+
+/** Zápis mění jen průchod autonomie; zapnutí brány posílá beze změny, aby ji přepínač omylem nevypnul. */
+export function gateWriteBody(project: string, gate: BrainGate, passes: boolean) {
+  return { project, enabled: gate.on, autonomyPassesGate: passes };
+}

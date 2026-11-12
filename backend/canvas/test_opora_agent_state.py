@@ -311,3 +311,12 @@ def test_result_after_own_spec_change_offers_a_claim_again_unless_its_pull_reque
     assert again["executionId"] != record["executionId"] and again["state"] == "running"
     card = next(item for item in read(service)["cards"] if item["nodeId"] == "a")
     assert (card["stage"], card["reason"]) == ("work", "runs_active")
+
+
+def test_full_autonomy_behind_a_closed_gate_stays_blocked():
+    """OP-E2C3FE.1: brána bez `autonomyPassesGate` agenta zdí nepustí, agent-state mu proto nenabídne `ready`."""
+    from backend.canvas.opora_agent_state import _autonomous
+    human_only = {"id": "a", "verb": "accept", "status": "blocked", "blockReason": "human_only"}
+    claim = {"id": "b", "verb": "claim", "status": "ready"}
+    assert _autonomous([human_only, claim]) == [{"id": "a", "verb": "accept", "status": "ready", "autonomy": "full"}, claim]
+    assert _autonomous([human_only, claim], gated=True) == [{**human_only, "blockReason": "gate_required"}, claim]

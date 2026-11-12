@@ -44,6 +44,12 @@
 .agent-autonomy-switch__toggle {
   margin: 0;
 }
+/* Druhý řádek pod autonomií: zapnutá brána mozku by agenta jinak zastavila, proto stojí hned pod
+   přepínačem, kterému patří, odsazený jako jeho podmínka. */
+.agent-autonomy-switch__row--gate {
+  margin-top: var(--sp-2, 8px);
+  padding-left: var(--sp-4, 16px);
+}
 .agent-autonomy-switch__label {
   font-weight: 600;
 }

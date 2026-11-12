@@ -124,7 +124,7 @@ export default function ProjectHome({ projects, draftProject, projectId, jobs, a
           <div className="hub-actions"><span role="status" data-testid="project-settings-status">{busy ? "Ukládám…" : form.dirty ? "Neuložené nastavení" : form.revision ? `Uloženo · verze ${form.revision}` : "Výchozí nastavení"}</span><button className="primary" disabled={busy || !form.dirty}>Uložit nastavení projektu</button></div>
         </form> : <p role="status">Načítám nastavení…</p>}
         {/* Plná autonomie se ukládá hned a mimo revizi nastavení (docs/plna-autonomie-agenta.md). */}
-        <AgentAutonomySwitch autonomy={autonomy.autonomy} disabled={autonomy.loading || busy} saving={autonomy.saving} error={autonomy.error} onChange={(full) => { void autonomy.setFull(full); }} />
+        <AgentAutonomySwitch autonomy={autonomy.autonomy} gate={autonomy.gate} onGateChange={(passes) => { void autonomy.setPassesGate(passes); }} disabled={autonomy.loading || busy} saving={autonomy.saving} error={autonomy.error} onChange={(full) => { void autonomy.setFull(full); }} />
       </section>
       <HeartPipelineCard summary={heartPipelineSummary(heart.workflow, heart.versions, heart.runs, heart.stalls)} loading={heart.loading} error={heart.error} onOpen={onOpenHeart} />
       <SiteDesignCard onOpen={onOpenSite} />
