@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import PletorWorkshop from "@/agi-pletor/workshop/components/PletorWorkshop";
 import { PARTS, parsePart, withPart, type PartId } from "../logic/dashboard-route";
 import { readNarrow, writeNarrow } from "../logic/dashboard-nav";
+import type { AgentAutonomyApi } from "@/shared/agent-autonomy/logic/use-agent-autonomy";
+import DashboardAutonomy from "./DashboardAutonomy";
 import DashboardBrain from "./DashboardBrain";
 import DashboardContext from "./DashboardContext";
 import DashboardHeart from "./DashboardHeart";
@@ -14,7 +16,7 @@ import DashboardOverview from "./DashboardOverview";
 import DashboardSettings from "./DashboardSettings";
 import DashboardVoice from "./DashboardVoice";
 
-type Props = { project: string; workspace: string; onBack: () => void };
+type Props = { project: string; workspace: string; autonomy: AgentAutonomyApi; onBack: () => void };
 
 /**
  * Velín AGI Pletor (`?screen=pletor`, docs/navrhy/2026-11-05-pletor-opora-dashboard.md §3): celá obrazovka s levou
@@ -22,7 +24,7 @@ type Props = { project: string; workspace: string; onBack: () => void };
  * Mozek a LLM, Hlas a Dílnu; V4 přidává Nastavení (modely LLM, konektory jen čtení), Linie Git větve, náhledy a přijetí. Esc vrací do kokpitu, kromě Dílny,
  * která si Esc bere sama (zavře se na Přehled).
  */
-export default function PletorDashboard({ project, workspace, onBack }: Props) {
+export default function PletorDashboard({ project, workspace, autonomy, onBack }: Props) {
   const [part, setPart] = useState<PartId>(() => parsePart(location.search));
   const title = useRef<HTMLHeadingElement>(null);
   const back = useRef(onBack);
@@ -76,6 +78,7 @@ export default function PletorDashboard({ project, workspace, onBack }: Props) {
         {part === "hlas" && <DashboardVoice />}
         {part === "srdce" && <DashboardHeart project={project} workspace={workspace} />}
         {part === "linie" && <DashboardLinie project={project} workspace={workspace} />}
+        {part === "autonomie" && <DashboardAutonomy project={project} workspace={workspace} autonomy={autonomy} />}
         {part === "podklady" && <DashboardContext project={project} workspace={workspace} />}
         {part === "rozhovor" && <DashboardMessages project={project} workspace={workspace} />}
         {part === "monitoring" && <DashboardMonitoring project={project} />}

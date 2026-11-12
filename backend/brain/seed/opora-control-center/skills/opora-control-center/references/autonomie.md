@@ -67,3 +67,10 @@ ověř čtením. Autonomie nemění pravidla obsahu: revize, CAS, lease, brány 
 Autonomie mění **oprávnění**, ne **původce**. Záznam činnosti, události, deník i záznamy review dál říkají
 `kind: agent` s tvým jménem; nikdy „člověk“. Každá akce provedená díky autonomii má v záznamu činnosti
 (`GET /api/activity-log`, položka `entries[]`) `autonomy: "full"`, aby šla zpětně dohledat a v UI odlišit.
+
+## Věř si
+
+Při `autonomy.full` chodí akce „jen člověk“ v agent-state jako `ready` s `autonomy: "full"`: proveď je hned sám
+(přijmi, uzavři kartu, začleň službou), neptej se a na schválení nečekej. Akce `blocked` s `gate_required` znamená, že brána
+mozku agenta nepustí (projekt nemá `autonomyPassesGate`): nezastavuj se, napiš to člověku jednou větou (Velín Pletora →
+Autonomie zapne autonomii i průchod bránou jedním přepínačem) a pokračuj jinou `ready` prací.

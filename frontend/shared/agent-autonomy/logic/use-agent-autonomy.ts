@@ -16,6 +16,8 @@ export type AgentAutonomyApi = {
   /** Brána mozku projektu; při zapnuté bráně ji autonomie projde jen s `passes` (docs/brain-gate.md §3). */
   gate: BrainGate;
   setPassesGate: (passes: boolean) => Promise<boolean>;
+  /** Jeden přepínač velínu: plná autonomie i průchod bránou najednou (průchod platí i pro bránu zapnutou později). */
+  setAutonomous: (on: boolean) => Promise<boolean>;
 };
 
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -70,5 +72,7 @@ export function useAgentAutonomy(project: string): AgentAutonomyApi {
     }
   }, [project, gate]);
 
-  return { autonomy, loading, saving, error, setFull, gate, setPassesGate };
+  const setAutonomous = useCallback(async (on: boolean) => (await setFull(on)) && (await setPassesGate(on)), [setFull, setPassesGate]);
+
+  return { autonomy, loading, saving, error, setFull, gate, setPassesGate, setAutonomous };
 }

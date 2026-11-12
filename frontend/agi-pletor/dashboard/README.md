@@ -25,3 +25,5 @@ L8a (`docs/navrhy/2026-11-06-linie-rebrand.md` §9): přepínač „⛶ Celá ob
 Dluh V1: část Hlas je jen ke čtení. Výběr hlasu a „Vyzkoušet“ jsou v `usePletorVoice`, který drží jen `PletorWindow`; výběr zůstává v kokpitu (ozubené kolo). Vyřešit vytažením hlasu do sdíleného kontextu.
 
 `logic/dashboard-nav.ts`: zasunutí levého menu do ikon (`localStorage` `pletor.nav`, klávesa `[`).
+
+Autonomie (`?part=autonomie`, `DashboardAutonomy`, logika `autonomy-waiting.ts`, styl `pletor-dashboard-autonomy.css`): jedno ovládání plné autonomie pro otevřený projekt. Přepínač zapíše `agentAutonomy.full` i `autonomyPassesGate` brány mozku (`useAgentAutonomy.setAutonomous`, stav drží App), věta říká, zda agenti jednají sami, a tabulka ukazuje akce agent-state blokované kvůli člověku (`human_only`) nebo bráně (`gate_required`).

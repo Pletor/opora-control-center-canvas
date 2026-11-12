@@ -84,3 +84,12 @@ def test_autonomy_passes_gate_is_stored_survives_toggle_and_is_strict(service):
         with pytest.raises(GateError) as error:
             gate_setting.write(service, body)
         assert error.value.status == 422
+
+
+def test_passes_set_while_gate_is_off_holds_when_gate_turns_on(service):
+    """OP-3B2DB9.2: přepínač velínu zapíše průchod i bez brány; pozdější zapnutí brány agenty znovu nezastaví."""
+    service.project_hub.set_agent_autonomy({"project": "draft", "full": True})
+    off = gate_setting.write(service, {"project": "draft", "enabled": False, "autonomyPassesGate": True})
+    assert off == {"project": "draft", "enabled": False, "autonomyPassesGate": True}
+    gate_setting.write(service, {"project": "draft", "enabled": True}, now=NOW)
+    assert gate_setting.autonomy_passes(service, "draft") is True

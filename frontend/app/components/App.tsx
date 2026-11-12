@@ -1083,7 +1083,7 @@ export default function App() {
     {appSettingsOpen && <SettingsDialog onClose={() => setAppSettingsOpen(false)} surface={{ value: settings, onChange: updateSettings }} />}
     {pletorLayer}
   </>;
-  if (screen === "pletor") return <><PletorDashboard project={project} workspace={workspace} onBack={() => { setScreen("home"); setPletorMode("hud"); }} />{pletorLayer}</>;
+  if (screen === "pletor") return <><PletorDashboard project={project} workspace={workspace} autonomy={agentAutonomy} onBack={() => { setScreen("home"); setPletorMode("hud"); }} />{pletorLayer}</>;
   if (screen === "heart") return <><HeartScreen project={project} projectName={projects.find((p) => p.id === project)?.name ?? draftProject?.name} onBack={() => setScreen("home")} />{pletorLayer}</>;
   const artifactMapOpen = mode === "map" || mode === "office" || mode === "storyboard";
   const inspectorTools =

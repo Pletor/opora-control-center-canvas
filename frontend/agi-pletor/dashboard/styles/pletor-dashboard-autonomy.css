@@ -1,0 +1,51 @@
+/* AUTONOMIE (blok `pletor-autonomy`)
+   Člověk sem přijde s jedinou otázkou: jednají agenti sami, nebo na mě čekají? Proto nahoře stojí
+   jedna velká věta stavu, pod ní tři krátká fakta v řádcích a jedno tlačítko. Seznam čekajícího
+   je až pod tím, aby odpověď na hlavní otázku byla vidět bez posouvání. */
+.pletor-autonomy {
+  display: grid;
+  gap: 12px;
+  max-width: 720px;
+  justify-items: start;
+}
+.pletor-autonomy__verdict {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--pletor-line);
+  color: var(--pletor-ink);
+  font-size: 15px;
+}
+/* Zelený rámeček až ve chvíli, kdy agenti opravdu nikoho nečekají: barva nese výsledek, ne vypínač. */
+.pletor-autonomy__verdict--on {
+  border-color: var(--pletor-accent);
+  background: var(--pletor-accent-soft);
+}
+.pletor-autonomy__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 0;
+}
+.pletor-autonomy__facts dt {
+  color: var(--pletor-dim);
+}
+.pletor-autonomy__facts dd {
+  margin: 0;
+  color: var(--pletor-ink);
+}
+.pletor-autonomy__start {
+  border-color: var(--pletor-accent);
+  color: var(--pletor-accent);
+}
+/* Potvrzení stojí na místě tlačítka, takže oko zůstane tam, kde člověk klikl. */
+.pletor-autonomy__confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.pletor-autonomy__confirm p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--pletor-ink);
+}

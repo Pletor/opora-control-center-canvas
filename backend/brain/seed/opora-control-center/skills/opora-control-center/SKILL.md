@@ -16,7 +16,7 @@ Chybí-li mu v OPOŘE proces nebo cesta, podá návrh nebo kartu na OPORU, míst
 
 **Jeden zdroj stavu:** OporaHub `agent-state`. **Jeden model plánu:** přijatá revize
 verzovaná návrhy změn (changesety). **Jedna definice hotovo:** všechny kroky `done` +
-acceptance karty + brána review `ready` + merge + zápis do plánu + ověřená cesta zákazníka + `close_card` člověkem.
+acceptance karty + brána review `ready` + merge + zápis do plánu + ověřená cesta zákazníka + `close_card` (člověk, při `autonomy.full` agent sám).
 Projekt bez GitHubu (`dod.gate: "local"`): `opora_hub.py start` a `deliver` udělají kroky, výsledky, `local-merge`,
 check-run a při plné autonomii i uzavření; [hub-loop.md](references/hub-loop.md) „Projekt bez GitHubu“.
 Karta na cestě zákazníka se uzavře až po prošlém čerstvém ověření cesty (plán `journey-plan`, doklad `journey-runs`):
@@ -35,7 +35,7 @@ Heart runtime: `canvas describe opora_graph_routes.read`; exact saved-proposal r
 | Převzetí karty | už proběhlo; další neber | `opora_hub.py start --node N` (nebo `pick` → `claim`) |
 | Zápis | jen pomocný příkaz výsledku z promptu | `opora_write.py`, `opora_hub.py` |
 | Identita | daná Office | `OPORA_AGENT_NAME` v prostředí: `<role>-<relace>` (`[\w .:()-]`, bez lomítka) |
-| Push, PR, merge | nikdy (PR otevře Office) | nikdy bez výslovného pokynu; merge nikdy |
+| Push, PR, merge | nikdy (PR otevře Office) | nikdy bez výslovného pokynu; merge jen službou (`act`, `linie.py merge`), nikdy vlastní `git merge` do sdílené větve |
 
 Tunel na vzdálený počítač: jen čtení (`opora_read.py --api-base https://<host>`, token v `OPORA_ACCESS_TOKEN`).
 
@@ -120,13 +120,13 @@ Karta z knihovny nese v `node-brief.node` `fetch` (co stáhnout do kontextu) a `
 ## Plná autonomie agentů
 
 Projekt má přepínač **plná autonomie agentů** (výchozí vypnuto, `GET /api/project-settings` → `agentAutonomy`).
-Zapíná ho jen člověk v UI; agent si ho nikdy nezapne sám. Poznáš ho podle `autonomy.full` v `agent-state`
+Zapíná ho jen člověk v UI (Velín Pletora → Autonomie, nebo Nastavení projektu); agent si ho nikdy nezapne sám. Poznáš ho podle `autonomy.full` v `agent-state`
 a v `node-brief`. Když je `true`, smíš v projektu i akce níže „jen člověk“ (`opora_hub.py act` na `ready`
 akci z agent-state, jinak `opora_api.py METHOD PATH`), kromě §4: přepínač sám, `/api/access/*`, připojení a odpojení repozitáře
 a složky, smazání projektu, klíče (`/api/brain/jev/key`, `/api/memory/provision`). Původce zůstává
-agent, záznam činnosti nese `autonomy: "full"`. Detail: [autonomie.md](references/autonomie.md).
+agent, záznam činnosti nese `autonomy: "full"`. Detail: [autonomie.md](references/autonomie.md). **Věř si:** `ready` akci s `autonomy: "full"` proveď hned sám, neptej se; `gate_required` viz autonomie.md.
 
-## Co patří jen člověku (bez autonomie agent dostane 403/428, skript odmítne předem)
+## Co patří jen člověku, dokud projekt nemá plnou autonomii (agent dostane 403/428, skript odmítne předem)
 
 - Přijetí (`accept_baseline`, `accept`), kontrola výsledku (`review`), schválení PR, merge, uzavření karty (`close_card`).
 - Starší brána 1:1: commit zadání a merge (`/api/opora-commit`, `/api/opora-merge`); připojení repozitáře
@@ -136,7 +136,7 @@ agent, záznam činnosti nese `autonomy: "full"`. Detail: [autonomie.md](referen
   sledování PR (`reconciliation`), přepočet historie, zápis backfillu sparse kontextu.
 - Starší plátno: svěření autonomie, obnova verze, `gateNodeId` / `checks` / `goal_mode`
   existující karty, vazba `next` mezi sektory, mazání sektoru, brány nebo > 20 uzlů.
-Pravidlo nebo plán od agenta je jen **návrh**, dokud ho člověk nepřijme.
+Pravidlo nebo plán od agenta je jen **návrh**, dokud ho někdo nepřijme (člověk, při `autonomy.full` i agent).
 
 ## Chci X → udělám Y
 
@@ -189,7 +189,7 @@ Skripty: `opora_hub.py` (stav, akce, `start`, `deliver`, review; tokeny jen v so
 - Po zápisu nečti stav znovu „pro jistotu“: odpověď nese `next`. Build a test jednou na kartu, ne po každém kroku.
 - Čti nejmenší cíl (`--card`, `assignment`), `--raw` jen pro cíl, který opravdu potřebuješ celý.
 - Víc změn plánu = jeden návrh, ne desítky zápisů; delší payload přes `--json -`.
-- Kód 3 (409) a 6 (422): řiď se `hint` / `field`, `example`. Kód 5 = blokované nebo lidské: neobcházej, napiš to člověku.
+- Kód 3 (409) a 6 (422): řiď se `hint` / `field`, `example`. Kód 5 = blokované nebo lidské: neobcházej, napiš to člověku jednou větou a pokračuj jinou prací.
 - „ok“ ze skriptu není důkaz tvrzení o kódu: build a test spusť sám. Stav OPORY zjistíš z `next` a `missing` v odpovědi.
 
 ## Hranice
