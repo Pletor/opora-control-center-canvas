@@ -124,3 +124,37 @@ def test_check_reads_switch_and_verifies_token(service):
 def test_relevant_skips_human_and_plain_reads():
     assert not wall.relevant("POST", "human", "t") and not wall.relevant("GET", "agent", None)
     assert wall.relevant("POST", "unknown", None) and wall.relevant("GET", "agent", "t")
+
+
+def test_autonomy_passes_gate_lets_identified_agent_write():
+    """Pole + plná autonomie: agent projde bez práv srdce; tokeny a scope zůstávají, člověk a srdce beze změny."""
+    allowed = wall.decide("POST", PLAN, "agent", True, None, "draft", True)
+    assert allowed.allow and not allowed.heart
+    assert wall.decide("POST", PLAN, "agent", True, WORKER, "draft", True).allow
+    assert wall.decide("POST", PLAN, "agent", True, None, "draft", False).code == "gate_required"
+    assert wall.decide("POST", PLAN, "unknown", True, None, "draft", True).code == "gate_required"
+    assert wall.decide("POST", PLAN, "agent", True, wall.INVALID, "draft", True).code == "gate_token_invalid"
+    assert wall.decide("POST", PLAN, "agent", True, {"role": "worker", "project": "jiny"}, "draft", True).code == "gate_scope"
+    assert wall.decide("POST", PLAN, "human", True, None, "draft", True) is wall.ALLOW
+    assert wall.decide("POST", PLAN, "agent", True, HEART, "draft", True).heart
+
+
+def test_check_autonomy_passes_needs_field_and_full_autonomy(service):
+    def check(project="draft", **kwargs):
+        return wall.check(service, "POST", PLAN, "agent", kwargs.get("header"), project, lambda: "")
+
+    gate_setting.write(service, {"project": "draft", "enabled": True})
+    folder = service.folder("draft")
+    assert check().code == "gate_required"
+    gate_setting.write(service, {"project": "draft", "enabled": True, "autonomyPassesGate": True})
+    assert check().code == "gate_required"  # pole bez plné autonomie
+    service.project_hub.set_agent_autonomy({"project": "draft", "full": True})
+    verdict = check()
+    assert verdict.allow and not verdict.heart
+    gate_setting.write(service, {"project": "draft", "enabled": True, "autonomyPassesGate": False})
+    assert check().code == "gate_required"  # autonomie full, pole false
+    gate_setting.write(service, {"project": "draft", "enabled": True, "autonomyPassesGate": True})
+    _, heart = tokens.issue_heart(service, "draft", "draft")
+    assert check(header=heart).heart
+    assert check(header="x" * 43).code == "gate_token_invalid"
+    assert folder.read()["settings"]["brain"]["autonomyPassesGate"] is True

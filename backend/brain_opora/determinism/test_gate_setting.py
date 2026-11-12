@@ -66,3 +66,21 @@ def test_switching_gate_keeps_brief_and_drops_old_stamp(service):
     gate_setting.write(service, {"project": "draft", "enabled": False})
     assert brief_setting.read(service, "draft")["enabled"] is False
     assert service.folder("draft").read()["settings"]["brain"].keys() == {"gate", "brief"}
+
+
+def test_autonomy_passes_gate_is_stored_survives_toggle_and_is_strict(service):
+    assert "autonomyPassesGate" not in gate_setting.read(service, "draft")
+    saved = gate_setting.write(service, {"project": "draft", "enabled": True, "autonomyPassesGate": True}, now=NOW)
+    assert saved["autonomyPassesGate"] is True and saved["enabled"] is True
+    off = gate_setting.write(service, {"project": "draft", "enabled": False})  # vypnutí brány pole nemaže
+    assert off == {"project": "draft", "enabled": False, "autonomyPassesGate": True}
+    assert gate_setting.write(service, {"project": "draft", "enabled": True})["autonomyPassesGate"] is True
+    cleared = gate_setting.write(service, {"project": "draft", "enabled": True, "autonomyPassesGate": False})
+    assert "autonomyPassesGate" not in cleared
+    assert gate_setting.autonomy_passes(service, "draft") is False
+    for body in ({"project": "draft", "enabled": True, "autonomyPassesGate": "ano"},
+                 {"project": "draft", "autonomyPassesGate": True},
+                 {"project": "draft", "enabled": True, "autonomyPassesGate": True, "x": 1}):
+        with pytest.raises(GateError) as error:
+            gate_setting.write(service, body)
+        assert error.value.status == 422

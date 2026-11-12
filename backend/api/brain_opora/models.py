@@ -99,6 +99,8 @@ class AnswerIn(BaseModel):
 class GateSettingIn(BaseModel):
     project: str
     enabled: bool
+    autonomyPassesGate: bool | None = Field(
+        None, description="Při plné autonomii agentů projektu zeď pustí zápis agentů. Chybí = beze změny.")
 
 
 class GateSettingOut(BaseModel):
@@ -106,6 +108,7 @@ class GateSettingOut(BaseModel):
     enabled: bool
     since: str | None = None
     by: str | None = None
+    autonomyPassesGate: bool | None = None
 
 
 class IntakeSettingIn(BaseModel):

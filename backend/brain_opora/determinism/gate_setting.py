@@ -1,4 +1,4 @@
-"""Přepínač brány projektu (docs/brain-gate.md §1): `settings.brain = {gate, since?, by?}` v `project.json`.
+"""Přepínač brány projektu (docs/brain-gate.md §1): `settings.brain = {gate, since?, by?, autonomyPassesGate?}` v `project.json`.
 
 Leží vedle `settings.agentAutonomy` a čte se i zapisuje stejně jako `project_hub.agent_autonomy` /
 `set_agent_autonomy`: chybějící nebo poškozená hodnota znamená vypnuto. Zapíná a vypíná ho jen člověk;
@@ -9,7 +9,8 @@ from datetime import UTC, datetime
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
 from backend.canvas.graph import valid_id
 
-EXAMPLE = {"project": "draft", "enabled": True}
+EXAMPLE = {"project": "draft", "enabled": True, "autonomyPassesGate": True}
+PASSES = "autonomyPassesGate"  # při plné autonomii agentů projektu zeď agenta pustí (docs/brain-gate.md §3)
 
 
 def read(service, pid):
@@ -19,9 +20,12 @@ def read(service, pid):
         stored = folder.read().get("settings", {}).get("brain") if folder.exists() else None
     except (ValueError, OSError, AttributeError):
         stored = None
-    if not isinstance(stored, dict) or stored.get("gate") is not True:
+    if not isinstance(stored, dict):
         return {"gate": False}
-    return {"gate": True, **{key: stored[key] for key in ("since", "by") if isinstance(stored.get(key), str)}}
+    passes = {PASSES: True} if stored.get(PASSES) is True else {}
+    if stored.get("gate") is not True:
+        return {"gate": False, **passes}
+    return {"gate": True, **passes, **{key: stored[key] for key in ("since", "by") if isinstance(stored.get(key), str)}}
 
 
 def is_on(service, pid):
@@ -31,9 +35,15 @@ def is_on(service, pid):
     return read(service, pid)["gate"]
 
 
+def autonomy_passes(service, pid):
+    """Pustí zeď agenta projektu? Pole je zapnuté A projekt má plnou autonomii (jediný zdroj: `ProjectHub`)."""
+    return read(service, pid).get(PASSES) is True and service.project_hub.agent_autonomy(pid)["full"] is True
+
+
 def answer(pid, value):
     """Tvar odpovědi rout: `{project, enabled, since?, by?}`."""
-    return {"project": pid, "enabled": value["gate"], **{key: value[key] for key in ("since", "by") if key in value}}
+    return {"project": pid, "enabled": value["gate"],
+            **{key: value[key] for key in ("since", "by", PASSES) if key in value}}
 
 
 def _project(service, pid):
@@ -51,8 +61,10 @@ def get(service, pid):
 
 def write(service, payload, now=None):
     """Zapne nebo vypne bránu projektu; volá jen routa za `require_human`."""
-    if not isinstance(payload, dict) or set(payload) != {"project", "enabled"} or type(payload["enabled"]) is not bool:
-        raise invalid("Tělo je přesně {project, enabled: true | false}.", f"Příklad: {EXAMPLE}.")
+    if (not isinstance(payload, dict) or not {"project", "enabled"} <= set(payload) <= {"project", "enabled", PASSES}
+            or type(payload["enabled"]) is not bool or type(payload.get(PASSES, False)) is not bool):
+        raise invalid("Tělo je {project, enabled: true | false} a volitelně autonomyPassesGate: true | false.",
+                      f"Příklad: {EXAMPLE}.")
     pid = _project(service, payload["project"])
     with service.lock_for(pid):
         folder = service.folder(pid)
@@ -65,5 +77,7 @@ def write(service, payload, now=None):
         # Ostatní nastavení mozku (intake, brief) přežije přepnutí brány; staré since/by ne.
         stored = stored if isinstance(stored, dict) else {}
         rest = {key: item for key, item in stored.items() if key not in ("gate", "since", "by")}
-        folder.update(settings={"brain": {**rest, **value}})
+        # autonomyPassesGate bez pole v těle zůstává; vypnutí brány ho nemaže.
+        passes = {PASSES: payload[PASSES]} if PASSES in payload else {}
+        folder.update(settings={"brain": {**rest, **value, **passes}})
     return answer(pid, read(service, pid))

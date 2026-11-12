@@ -77,11 +77,12 @@ def in_lane(path):
                else path == prefix or path.startswith(prefix + "/") for prefix in LANE)
 
 
-def decide(method, path, actor, gate_on, token, project=""):
+def decide(method, path, actor, gate_on, token, project="", autonomy_passes=False):
     """Tabulka §3. `token`: None (bez hlavičky), `INVALID`, nebo `{role, project}` platné relace.
 
     `project` je jediný projekt požadavku; když query a tělo jmenují různé projekty, je prázdný
-    a token srdce pak neplatí pro „tento projekt“.
+    a token srdce pak neplatí pro „tento projekt“. `autonomy_passes`: projekt má `autonomyPassesGate` A plnou
+    autonomii agentů; identifikovaný agent pak projde bez práv srdce (až po kontrole tokenu: 401 a `gate_scope` platí).
     """
     if not gate_on or actor == "human":
         return ALLOW
@@ -106,6 +107,8 @@ def decide(method, path, actor, gate_on, token, project=""):
     if isinstance(token, dict) and token.get("project") != project:
         return _refuse(403, "gate_scope", "Token brány platí jen pro svůj projekt.",
                        "Pro jiný projekt založte novou relaci: POST /api/gate/sessions.")
+    if autonomy_passes and actor == "agent":
+        return ALLOW
     return _refuse(403, "gate_required", "Projekt má zapnutou bránu; zapisuje jen člověk a srdce.", GATE_HINT)
 
 
@@ -135,4 +138,5 @@ def check(service, method, path, actor, header, query_project, body_project):
     if not any(gate_setting.is_on(service, name) for name in named):
         return ALLOW
     project = next(iter(named)) if len(named) == 1 else ""
-    return decide(method, path, actor, True, _token(service, header), project)
+    passes = bool(project) and gate_setting.autonomy_passes(service, project)
+    return decide(method, path, actor, True, _token(service, header), project, passes)

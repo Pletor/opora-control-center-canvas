@@ -43,6 +43,19 @@ def test_setting_is_readable_and_only_human_flips_it(tmp_path):
         assert toggle(client, False).json() == {"project": "draft", "enabled": False}
 
 
+def test_autonomy_passes_gate_only_human_sets_it_and_agent_with_full_autonomy_writes(tmp_path):
+    body = {"project": "draft", "enabled": True, "autonomyPassesGate": True}
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        assert client.post(SETTING, headers=AGENT, json=body).status_code == 403
+        saved = client.post(SETTING, headers=HEADERS, json=body)
+        assert saved.status_code == 200 and saved.json()["autonomyPassesGate"] is True
+        assert client.get(SETTING, params={"project": "draft"}).json()["autonomyPassesGate"] is True
+        assert code(plan(client, AGENT)) == "gate_required"  # bez plné autonomie
+        client.app.state.service.project_hub.set_agent_autonomy({"project": "draft", "full": True})
+        assert code(plan(client, AGENT)) != "gate_required"
+
+
 def test_wall_end_to_end(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         seed(client)

@@ -11,6 +11,7 @@ human and the heart. This layer never calls a model.
 
 `project.json` → `settings.brain.gate: bool`, default `false`.
 - Only a human may change it: `POST /api/brain/gate-setting {project, enabled}`, guarded by `require_human`.
+- Optional `settings.brain.autonomyPassesGate: bool` (default `false`), set by the same route (`POST /api/brain/gate-setting {project, enabled, autonomyPassesGate?}`; a missing field keeps the stored value, turning the gate off does not clear it). With the gate on, the field `true` and `settings.agentAutonomy.full = true` (`ProjectHub.agent_autonomy`), the wall lets an identified agent write (`actor = agent`, without the heart's rights). Tokens still apply: an invalid token is 401, a token of another project 403 `gate_scope`.
 - A project with the gate off behaves exactly as today. Nothing in this contract changes it.
 
 ## 2. Roles and tokens
@@ -40,6 +41,7 @@ or the body, the same way `_authority` does it.
 | `/api/gate/*` with a valid worker token | allowed |
 | orchestrator lane (`LANE` in `determinism/wall.py`: card work such as `/api/oporahub/executions/*`, review jobs, `agent-output`; list in `docs/brain-heart-orchestrator.md` §2) | allowed with any token or none; canvas, proposals and rules stay walled |
 | intent relay `POST /api/brain/heart/messages` (`RELAY` in `determinism/wall.py`, `docs/brain-heart-orchestrator.md` §8) with a valid worker token of this project | allowed; the route stores `via` = session name |
+| agent write, `autonomyPassesGate = true` and full agent autonomy of this project (checked after the token rules above) | allowed, `heart = false` |
 | anything else that writes | 403 `{error, code: "gate_required", hint: "Write through the gate: POST /api/gate/requests"}` |
 
 ## 4. Gate API (`backend/api/brain_opora/gate_routes.py`)
