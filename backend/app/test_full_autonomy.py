@@ -151,3 +151,17 @@ def test_agent_state_follows_the_gate_switch(tmp_path):
                            json={"project": "draft", "enabled": True, "autonomyPassesGate": True}).status_code == 200
         assert "gate_required" not in reasons()
         assert "gate_required" in gated and "human_only" not in gated
+
+
+def test_linie_human_routes_follow_autonomy(tmp_path):
+    """OP-8569C2.1: řádky Linie řídí člověk, nebo agent projektu s plnou autonomií (Linie není výjimka §4)."""
+    rows = "/api/pletor/linie/rows"
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        body = {"name": "Uzel", "type": "work"}
+        assert client.post(rows, headers=AGENT, params={"project": "draft"}, json=body).status_code == 403
+        assert autonomy(client, True).status_code == 200
+        made = client.post(rows, headers=AGENT, params={"project": "draft"}, json=body)
+        assert made.status_code == 200, made.text
+        assert autonomy(client, False).status_code == 200
+        assert client.post(rows, headers=AGENT, params={"project": "draft"}, json=body).status_code == 403

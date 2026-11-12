@@ -69,7 +69,7 @@ from backend.api.agi_pletor.models import (
 from backend.api.agi_pletor.pletor_routes import _check
 from backend.brain_opora.determinism import gate, tokens
 from backend.brain_opora.determinism.gate_payloads import GateError
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.paths import REPO_ROOT
 
 HUMAN = "Tento krok Linie dělá jen člověk v UI."
@@ -121,7 +121,7 @@ def create_linie_work_router(service, pletor, root=None):
     root = root or REPO_ROOT  # čteno až tady, ať test může podvrhnout repozitář
 
     def human(request, project, act, workspace="main"):
-        require_human(request.state.actor, HUMAN)
+        require_authority(request.state.actor, HUMAN)  # OP-8569C2.1: plná autonomie projektu (kontrakt §2), Linie není výjimka §4
         return answer(lambda: (_check(service, project, workspace), act())[1])
 
     def anyone(request, project, ticket_id, act):

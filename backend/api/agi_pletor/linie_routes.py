@@ -20,7 +20,7 @@ from backend.agi_pletor.linie.view import linie_view
 from backend.api.agi_pletor.models import LinieDeployedIn, LiniePreviewIn
 from backend.api.agi_pletor.pletor_routes import _check
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
-from backend.canvas.activity_log import require_human
+from backend.canvas.activity_log import require_authority
 from backend.paths import REPO_ROOT
 
 HUMAN = "Linii ve Velínu řídí jen člověk v UI."
@@ -36,7 +36,7 @@ def create_linie_router(service, pletor, root=None):
     root = root or REPO_ROOT  # čteno až tady, ať test může podvrhnout repozitář
 
     def guarded(request, act):
-        require_human(request.state.actor, HUMAN)
+        require_authority(request.state.actor, HUMAN)  # OP-8569C2.1: plná autonomie projektu (kontrakt §2), Linie není výjimka §4
         try:
             return act()
         except ValueError as error:
