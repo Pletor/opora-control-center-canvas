@@ -46,6 +46,8 @@ TOOLS = "Read,Grep,Glob,Bash,Write,Edit"
 ALLOWED_TOOLS = f"Read,Grep,Glob,Bash(python {TOOL_NAME}:*)"
 # Srdce jede na předplatném Claude Code (rozhodnutí vlastníka 12. 11. 2026): klíč API z prostředí OPORY by předplatné
 # přebil a účtoval by organizaci klíče ("Credit balance is too low"), proto se nikdy nepředá.
+# Cokoli, co by přebilo přihlášení `claude` (účet spravuje cswap): klíče, OAuth token, cloud přepínače, jiná složka konfigurace.
+SUBSCRIPTION_OVERRIDES = ("ANTHROPIC_", "CLAUDE_CODE_OAUTH", "CLAUDE_CODE_USE_", "CLAUDE_CODE_API_KEY", "CLAUDE_CONFIG_DIR")
 STRIPPED = ("TYPESAFE_API_KEY", "CELERIS_API_KEY", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
 SECRETS = ("Read(**/.env)", "Read(**/.env.*)", "Read(**/*.pem)", "Read(**/*.key)")
 SETTINGS_FILE, MCP_FILE = "heart-settings.json", "heart-mcp.json"
@@ -193,7 +195,7 @@ def child_env(*, base_url, token, project, workspace, source_root=None, environ=
     """Prostředí procesu bez klíčů API, s adresou instance, tokenem srdce, projektem, pracovním prostorem
     a kořenem zdroje (`OPORA_SOURCE_ROOT` pro `rlm.py`; bez zdroje chybí)."""
     env = dict(os.environ if environ is None else environ)
-    for key in (*STRIPPED, "OPORA_SOURCE_ROOT"):
+    for key in [*STRIPPED, "OPORA_SOURCE_ROOT", *(k for k in env if k.upper().startswith(SUBSCRIPTION_OVERRIDES))]:
         env.pop(key, None)
     env.update({"OPORA_BASE_URL": base_url, "OPORA_HEART_TOKEN": token, "OPORA_PROJECT": project,
                 "OPORA_WORKSPACE": workspace, "PYTHONIOENCODING": "utf-8",
