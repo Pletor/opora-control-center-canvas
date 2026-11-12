@@ -143,7 +143,7 @@ SKILLS = "skills"  # složka postupů režimů vedle nástroje (dávka srdce ji 
 RUN_TIMEOUT, STDOUT_LIMIT, STDERR_LIMIT = 120, 8000, 2000
 # Prostředí skriptu: bez tokenu srdce a adresy (skript OPORU nemění) a bez klíčů API (kopie command.STRIPPED,
 # nástroj je jen stdlib).
-SCRIPT_STRIPPED = ("OPORA_HEART_TOKEN", "OPORA_BASE_URL", "ANTHROPIC_API_KEY", "TYPESAFE_API_KEY", "CELERIS_API_KEY")
+SCRIPT_STRIPPED = ("OPORA_HEART_TOKEN", "OPORA_BASE_URL", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "TYPESAFE_API_KEY", "CELERIS_API_KEY")
 # `-I` nedá cwd do sys.path: zavaděč ho přidá, aby skript našel `rlm.py`, a spustí skript jako __main__.
 BOOT = ("import os,runpy,sys;sys.path.insert(0,os.getcwd());sys.argv=sys.argv[1:];"
         "runpy.run_path(sys.argv[0],run_name='__main__')")

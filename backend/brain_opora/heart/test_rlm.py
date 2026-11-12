@@ -76,7 +76,7 @@ def test_sub_answers_in_input_order_with_cost_and_no_keys(subs):
     line, text, env = seen[0]
     assert line[:4] == ["claude", "-p", "--model", "haiku"] and line[line.index("--tools") + 1] == ""
     assert "--strict-mcp-config" in line and text.startswith("Ohodnoť\n")
-    assert env["ANTHROPIC_API_KEY"] == "sk-tajne" and env["OPORA_RLM_DEPTH"] == "1"
+    assert "ANTHROPIC_API_KEY" not in env and env["OPORA_RLM_DEPTH"] == "1"  # předplatné, ne klíč API
     costs = [json.loads(row)["costUsd"] for row in subs.read_text(encoding="utf-8").splitlines()]
     assert costs == [0.001] * 5
 

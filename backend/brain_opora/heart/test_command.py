@@ -123,11 +123,12 @@ def test_rule_path_on_windows_drive():
     assert command.rule_path("C:\\Users\\a") == "//c/Users/a"
 
 
-def test_child_env_strips_foreign_keys_keeps_anthropic_and_sets_the_heart():
+def test_child_env_strips_api_keys_so_the_heart_runs_on_the_subscription_and_sets_the_heart():
     env = command.child_env(base_url="http://127.0.0.1:9", token="t", project="p", workspace="w",
-                            environ={"ANTHROPIC_API_KEY": "x", "TYPESAFE_API_KEY": "y", "CELERIS_API_KEY": "z",
-                                     "PATH": "/bin"})
-    assert not set(command.STRIPPED) & set(env) and env["PATH"] == "/bin" and env["ANTHROPIC_API_KEY"] == "x"
+                            environ={"ANTHROPIC_API_KEY": "x", "ANTHROPIC_AUTH_TOKEN": "a", "TYPESAFE_API_KEY": "y",
+                                     "CELERIS_API_KEY": "z", "PATH": "/bin"})
+    assert not set(command.STRIPPED) & set(env) and env["PATH"] == "/bin"
+    assert "ANTHROPIC_API_KEY" not in env and "ANTHROPIC_AUTH_TOKEN" not in env
     assert (env["OPORA_BASE_URL"], env["OPORA_HEART_TOKEN"], env["OPORA_PROJECT"], env["OPORA_WORKSPACE"]) == (
         "http://127.0.0.1:9", "t", "p", "w")
     assert "OPORA_SOURCE_ROOT" not in env

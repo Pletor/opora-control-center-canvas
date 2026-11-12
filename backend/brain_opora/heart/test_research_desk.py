@@ -95,7 +95,7 @@ def test_one_researcher_verifies_and_sonnet_distills(tmp_path, monkeypatch):
     assert [line[i + 1] for i, part in enumerate(line) if part == "--add-dir"] == [
         str(tmp_path / "src"), str(tmp_path / "data" / "frag")]
     for call in fake.calls:
-        assert not {"OPORA_HEART_TOKEN", "OPORA_BASE_URL"} & set(call["env"]) and call["env"]["ANTHROPIC_API_KEY"] == "x"
+        assert not {"OPORA_HEART_TOKEN", "OPORA_BASE_URL", "ANTHROPIC_API_KEY"} & set(call["env"])  # předplatné, ne klíč API
     assert gather["env"]["REA_MCP_INPUT_SCHEMA_PROFILE"] == "compact" and 180 < gather["timeout"] <= 420
     assert distill["argv"][distill["argv"].index("--model") + 1] == "sonnet" and distill["argv"][-6:-4] == ["--tools", ""]
     assert "INCR je atomický" in distill["prompt"] and "Lua je nutná" not in distill["prompt"]
