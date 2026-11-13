@@ -39,13 +39,14 @@ def stops(service, heart, project, view):
          "detail": status.get("error") or "—", "lever": "Opravit příčinu z textu chyby; vstupy počkají a pustí se znovu."},
         {"id": "git", "label": "Chyba čtení gitu", "active": bool(status.get("gitError")),
          "detail": status.get("gitError") or "—", "lever": "Opravit repozitář projektu (git status v jeho složce)."},
-        {"id": "lock", "label": "Zápisy čekají na zámek projektu", "active": write_share >= SLOW_WRITE_SHARE
+        {"id": "lock", "label": "Zápisy srdce čekají na server", "active": write_share >= SLOW_WRITE_SHARE
             or snapshot_ms > 30000,
-         "detail": f"Poslední dávka čekala na zápis {round(write_share * 100)} % času; poslední dokončený snímek "
-                   f"trval {round(snapshot_ms / 1000)} s.",
-         "lever": "Zámek drží dlouhá čtení (agent-state); zrychlit je, ne zvyšovat timeout."},
+         "detail": f"Dávka {last.get('at') or '—'} čekala na zápis {round(write_share * 100)} % času; poslední "
+                   f"dokončený snímek trval {round(snapshot_ms / 1000)} s.",
+         "lever": "Server zdržel zámek projektu (dlouhé čtení pod zámkem) nebo jiná práce; kdo to byl, ukazují "
+                  "pomalé požadavky serveru. Zrychlit ten požadavek, ne zvyšovat timeout."},
         {"id": "timeout", "label": "Zápis srdce vypršel (60 s)", "active": bool(timeouts), "detail": "; ".join(timeouts[:3]) or "—",
-         "lever": "Srdce zápis zopakuje; trvalé řešení je rychlý server (viz zámek)."},
+         "lever": "Srdce zápis zopakuje; trvalé řešení je rychlý server (viz zápisy čekají na server)."},
         {"id": "unknown_command", "label": "Srdce volá neexistující příkaz", "active": bool(unknown),
          "detail": "; ".join(unknown[:3]) or "—", "lever": "Skill srdce v Brainu je jiný než nástroj opora_heart.py; srovnat verze."},
         {"id": "human_only", "label": "Krok patří člověku", "active": bool(human) or now.get("state") == "idle"

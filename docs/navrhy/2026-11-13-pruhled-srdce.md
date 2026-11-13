@@ -38,7 +38,7 @@ Je to odhad z časů kroků; deník drží nejvýš 80 kroků (`truncated`).
 ## §3 Kde se srdce zastaví (`heart_stops.py`)
 
 Pevný seznam zarážek, u každé `active`, příčina a páka: vypnuté srdce, vypnutá brána, strop za hodinu, spánek po limitu
-předplatného, chyba toku, chyba gitu, zápisy čekají na zámek projektu, zápis vypršel (60 s), neexistující příkaz
+předplatného, chyba toku, chyba gitu, zápisy srdce čekají na server (zámek projektu nebo jiná práce; kdo, ukazují pomalé požadavky), zápis vypršel (60 s), neexistující příkaz
 (skill srdce ≠ nástroj), krok patří člověku.
 
 ## §4 Páky
@@ -70,3 +70,7 @@ předplatného, chyba toku, chyba gitu, zápisy čekají na zámek projektu, zá
 - Zámek projektu pod zátěží: když se zarážka `lock` vrátí, hledat držitele zámku (další dlouhé čtení pod
   `graph_lock_for`/`lock_for`), ne zvyšovat timeout CLI srdce.
 - `per_project` je pevně 1: srdce má na projekt jeden soubor relace a jeden slot běžící dávky.
+- Dávka 01:42 (po M1): `brief` čekal 60 s a při opakování 30 s, srdce souběžně nic nevolalo a výpočet trvá 0,8 s.
+  Zahřátý agent-state drží zámek 0,4–1,3 s (3 souběžná čtení, zápisová cesta 0,43 s), server byl 4 min po restartu
+  (studené čtení 18 s). Držitele nešlo zpětně určit, proto průhled od OP-0A8666 vede **pomalé požadavky serveru**
+  (`backend/app/slow_requests.py`: požadavky nad 5 s, kruhová paměť procesu, po restartu prázdná).

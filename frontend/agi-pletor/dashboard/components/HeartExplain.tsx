@@ -21,6 +21,13 @@ export default function HeartExplain({ view }: { view: ExplainView }) {
       )}
       <h3 className="pletor-dashboard__group-title">Kam šel čas dávek</h3>
       {view.batches.error ? <Err text={view.batches.error} /> : <HeartPhases batches={view.batches.rows} />}
+      <h3 className="pletor-dashboard__group-title">Pomalé požadavky serveru (nad 5 s, poslední hodina)</h3>
+      {view.slow.error ? <Err text={view.slow.error} /> : (
+        <ul className="heart-explain__pipeline">
+          {view.slow.rows.map((line, i) => <li key={i}>{line}</li>)}
+          {view.slow.rows.length === 0 && <li className="pletor-dashboard__empty">Žádné.</li>}
+        </ul>
+      )}
       <h3 className="pletor-dashboard__group-title">Fronta</h3>
       {view.queue.error ? <Err text={view.queue.error} /> : (
         <table className="pletor-dashboard__table">

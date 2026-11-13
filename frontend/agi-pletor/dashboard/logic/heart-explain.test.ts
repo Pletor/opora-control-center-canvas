@@ -21,6 +21,10 @@ describe("explainView", () => {
     const v = explainView({ batches: [{ at: "1", slowest: [{ tool: "opora_heart.py intake", ms: 218000, category: "opora_write", parallel: true }] }] });
     expect(v.batches.rows[0].slowest[0]).toBe("opora_heart.py intake 218 s (opora_write, souběžně)");
   });
+  it("pomalý požadavek serveru řekne čas, cestu a trvání", () => {
+    const v = explainView({ slow: [{ at: "2026-11-13T01:42:21Z", method: "POST", path: "/api/brain/heart/brief", ms: 60400, status: 200 }] });
+    expect(v.slow.rows).toEqual(["01:42:21 POST /api/brain/heart/brief 60 s (200)"]);
+  });
   it("chyba jedné sekce neshodí ostatní", () => {
     const v = explainView({ now: { error: "x" }, stops: [{ id: "a", active: true }] });
     expect(v.now.error).toContain("x");

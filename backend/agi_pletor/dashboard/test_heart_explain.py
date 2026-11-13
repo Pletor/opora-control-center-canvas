@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from backend.agi_pletor.dashboard import heart_explain, heart_stops
+from backend.app import slow_requests
 from backend.brain_opora.heart import batch
 from backend.flow.catalogs.heart.state import HeartState
 from backend.flow.conftest import db  # noqa: F401 - fixture registru s tabulkami toků
@@ -51,7 +52,7 @@ def test_hour_cap_queue_pipeline_and_stops(heart, db):  # noqa: F811
     active = {item["id"] for item in view["stops"] if item["active"]}
     assert active == {"hour_cap", "lock", "timeout"}
     text = heart_explain.text(view)
-    assert "TEĎ: Strop 6" in text and "! Zápisy čekají na zámek projektu" in text and "snímek projektu 118 s" in text
+    assert "TEĎ: Strop 6" in text and "! Zápisy srdce čekají na server" in text and "snímek projektu 118 s" in text
 
 
 def test_idle_without_inputs(heart, db):  # noqa: F811
@@ -83,3 +84,14 @@ def test_stops_follow_the_last_batch_not_history(heart, db, tmp_path):  # noqa: 
     view = heart_explain.explain(services, heart, P, NOW)
     active = {item["id"] for item in view["stops"] if item["active"]}
     assert not active & {"lock", "timeout"}
+
+
+def test_slow_server_requests_show_who_held_the_server(heart, db, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(slow_requests, "_RECENT", type(slow_requests._RECENT)(maxlen=5))
+    slow_requests._RECENT.append({"at": NOW - 120, "method": "GET", "path": "/api/oporahub/agent-state",
+                                  "project": P, "ms": 65_000, "status": 200})
+    slow_requests._RECENT.append({"at": NOW - 7200, "method": "GET", "path": "/old", "project": P, "ms": 9000,
+                                  "status": 200})
+    view = heart_explain.explain(service(db), heart, P, NOW)
+    assert [(i["path"], i["ms"]) for i in view["slow"]] == [("/api/oporahub/agent-state", 65_000)]
+    assert "GET /api/oporahub/agent-state 65 s (200)" in heart_explain.text(view)

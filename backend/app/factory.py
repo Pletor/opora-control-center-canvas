@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import sqlite3
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -111,6 +112,7 @@ from backend.api.project.workspace_routes import create_workspace_router
 from backend.api.project_setup.project_routes import create_project_setup_router
 from backend.app.embed_origins import ENV_NAME as EMBED_ORIGINS_ENV
 from backend.app.embed_origins import frame_policy, parse_embed_origins
+from backend.app import slow_requests
 from backend.app.human_session import HumanSession
 from backend.app.remote_access import (
     COOKIE_NAME,
@@ -166,6 +168,17 @@ from backend.semantic_retrieval.service import SemanticRetrieval
 
 LOGGER = logging.getLogger(__name__)
 WORKER_SCRIPT = re.compile(r"/assets/code-animation\.worker-[A-Za-z0-9_-]+\.js")
+
+
+def track_slow(app):
+    """Pomalé požadavky do průhledu srdce (backend/app/slow_requests.py): kdo držel server, když zápis čekal."""
+    @app.middleware("http")
+    async def slow(request: Request, call_next):
+        started = time.perf_counter()
+        response = await call_next(request)
+        slow_requests.note(request.method, request.url.path, request.query_params.get("project"), started,
+                           response.status_code)
+        return response
 
 
 def create_app(data_root=None):
@@ -307,6 +320,8 @@ def create_app(data_root=None):
         except Exception:  # noqa: BLE001 - neznámý projekt nebo chyba čtení = bez autonomie
             full = False
         return authority_context.resolve(actor, full)
+
+    track_slow(app)  # vnitřní vrstva: měří jen požadavky, které prošly hranicí
 
     @app.middleware("http")
     async def boundary(request: Request, call_next):

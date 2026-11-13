@@ -9,6 +9,7 @@ import time
 from backend.agi_pletor.dashboard.heart_phases import analyze, headline
 from backend.agi_pletor.dashboard.heart_stops import stops
 from backend.agi_pletor.dashboard.heart_view import safe
+from backend.app import slow_requests
 from backend.brain_opora.heart import batch
 from backend.brain_opora.heart.steps import redact
 from backend.flow.catalogs.heart import caps_settings, model_settings
@@ -18,6 +19,7 @@ NODES = {"udalost": "událost", "zprava": "zpráva člověka", "jev": "Jev (zař
          "snimek": "snímek projektu", "srdce": "srdce (claude -p)"}
 REF_KEYS = ("ticketId", "requestId", "nodeId", "continuationId", "entryId", "messageId")
 BATCHES = 5
+SLOW = 8  # nejdelších pomalých požadavků v průhledu
 
 
 def _ref(item):
@@ -119,6 +121,11 @@ def batches(heart, project):
     return out
 
 
+def slow(now):
+    """Pomalé požadavky celého serveru za hodinu: co drželo server nebo zámek, když zápis srdce čekal."""
+    return [{**item, "at": iso(item["at"])} for item in slow_requests.recent(now - HOUR)[:SLOW]]
+
+
 def explain(service, heart, project, now=None):
     now = time.time() if now is None else now
     with service.registry_lock:  # ensure_active toku srdce smí zapisovat do registru
@@ -129,7 +136,7 @@ def explain(service, heart, project, now=None):
     view = {"project": project, "at": iso(now), "now": safe(lambda: waiting(heart, project, limits, now, runs)),
             "queue": safe(lambda: queue(heart, project, now)), "pipeline": runs,
             "batches": safe(lambda: batches(heart, project)), "caps": caps,
-            "model": model}
+            "model": model, "slow": safe(lambda: slow(now))}
     view["stops"] = safe(lambda: stops(service, heart, project, view))
     return view
 
@@ -151,6 +158,9 @@ def text(view):
     lines.append("DÁVKY (kam šel čas):")
     lines += part(view["batches"], lambda items: [f"  {b['at']} {b['headline']} Shrnutí: {b.get('summary') or '—'}"
                                                    for b in items])
+    lines.append(f"POMALÉ POŽADAVKY SERVERU (nad {slow_requests.THRESHOLD_MS // 1000} s, poslední hodina, od restartu):")
+    lines += part(view["slow"], lambda items: [f"  {i['at'][11:19]} {i['method']} {i['path']} {round(i['ms'] / 1000)} s "
+                                                f"({i['status']})" for i in items] or ["  žádné"])
     caps = view["caps"]
     if "error" not in caps:
         lines.append(f"STROPY: {caps['per_hour']} dávek/h, {caps['per_project']} běh na projekt, "

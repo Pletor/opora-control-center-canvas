@@ -11,6 +11,7 @@ export type ExplainView = {
   pipeline: { runs: PipelineRun[]; error: string };
   batches: { rows: BatchView[]; error: string };
   queue: { rows: QueueRow[]; error: string };
+  slow: { rows: string[]; error: string };
 };
 
 const seconds = (ms: unknown) => (typeof ms === "number" && Number.isFinite(ms) ? `${Math.round(ms / 1000)} s` : "");
@@ -41,11 +42,16 @@ export function explainView(raw: unknown): ExplainView {
     const q = rec(item);
     return { type: str(q.type), ref: str(q.ref), workspace: str(q.workspace), dueIn: typeof q.dueInS === "number" ? String(Math.round(q.dueInS)) : "" };
   });
+  const slow = list(root.slow).map((item) => {
+    const s = rec(item);
+    return `${str(s.at).slice(11, 19)} ${str(s.method)} ${str(s.path)} ${seconds(s.ms)} (${str(s.status)})`;
+  });
   return {
     now: { sentence: str(now.sentence), state: str(now.state), error: unavailable(root.now) },
     stops: { rows: [...stops.filter((s) => s.active), ...stops.filter((s) => !s.active)], error: unavailable(root.stops) },
     pipeline: { runs, error: unavailable(root.pipeline) },
     batches: { rows: batches.reverse(), error: unavailable(root.batches) },
     queue: { rows: queue, error: unavailable(root.queue) },
+    slow: { rows: slow, error: unavailable(root.slow) },
   };
 }
