@@ -1,0 +1,40 @@
+/* Věta „Teď“ je hlavní odpověď Průhledu: velká, s akcentním pruhem vlevo, aby ji člověk přečetl dřív než cokoli jiného. */
+.heart-explain__now {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-left: 4px solid var(--pletor-accent);
+  background: var(--pletor-accent-soft);
+  color: var(--pletor-ink);
+  font-size: 1.1em;
+}
+
+/* Aktivní zarážka je výrazná (červený pruh a tučně), volné jsou tlumené, takže oko padne na to, co srdce právě drží. */
+.heart-explain__stop { color: var(--pletor-dim); }
+.heart-explain__stop--active {
+  color: var(--pletor-ink);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--pletor-error) 12%, transparent);
+  box-shadow: inset 4px 0 0 var(--pletor-error);
+}
+
+/* Tok srdce je jedna řádka na běh: uzly za sebou, v sekundách, ať je vidět, kde se běh zdržel. */
+.heart-explain__pipeline { margin: 0 0 12px; padding: 0; list-style: none; font-family: var(--mono); font-size: 0.9em; }
+.heart-explain__pipeline li { padding: 4px 0; border-bottom: 1px solid var(--pletor-line); }
+
+/* Každá dávka je kartička: věta nahoře, pod ní proužek, jehož šířky odpovídají podílu času fází; barvy se střídají a legenda pod proužkem je jmenuje. */
+.heart-explain__batches { margin: 0 0 12px; padding: 0; list-style: none; }
+.heart-explain__batch { padding: 8px 0; border-bottom: 1px solid var(--pletor-line); }
+.heart-explain__headline { margin: 0 0 6px; color: var(--pletor-ink); }
+.heart-explain__bar { display: flex; height: 14px; overflow: hidden; border: 1px solid var(--pletor-line); border-radius: 3px; }
+.heart-explain__phase { display: block; height: 100%; }
+.heart-explain__phase--accent { background: var(--pletor-accent); }
+.heart-explain__phase--ink { background: var(--pletor-ink); }
+.heart-explain__phase--dim { background: var(--pletor-dim); }
+.heart-explain__phase--error { background: var(--pletor-error); }
+.heart-explain__phase--line { background: var(--pletor-line); }
+.heart-explain__legend, .heart-explain__slow { margin: 4px 0 0; color: var(--pletor-dim); font-size: 0.85em; }
+.heart-explain__fail { margin: 4px 0 0; color: var(--pletor-error); font-size: 0.85em; }
+
+/* Stropy jsou krátký formulář pod sebou: popisek, číslo a případná věta, proč hodnota neprojde. */
+.heart-caps__field { display: grid; gap: 4px; max-width: 360px; margin-bottom: 10px; color: var(--pletor-dim); }
+.heart-caps__problem { color: var(--pletor-error); font-size: 0.85em; }

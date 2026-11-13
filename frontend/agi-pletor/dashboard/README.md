@@ -25,3 +25,5 @@ L8a (`docs/navrhy/2026-11-06-linie-rebrand.md` §9): přepínač „⛶ Celá ob
 Dluh V1: část Hlas je jen ke čtení. Výběr hlasu a „Vyzkoušet“ jsou v `usePletorVoice`, který drží jen `PletorWindow`; výběr zůstává v kokpitu (ozubené kolo). Vyřešit vytažením hlasu do sdíleného kontextu.
 
 `logic/dashboard-nav.ts`: zasunutí levého menu do ikon (`localStorage` `pletor.nav`, klávesa `[`).
+
+Srdce → Průhled a Stropy: `HeartExplain` (+ `HeartStops`, `HeartPhases`, `logic/heart-explain.ts`) čte `GET /api/pletor/heart/explain` každých 5 s a nad kartami ukazuje větu „Teď“, zarážky (aktivní nahoře), tok srdce, kam šel čas dávek a frontu; sekce s `{error}` ukáže chybu, ostatní fungují. `HeartCaps` (`logic/heart-caps.ts`) čte a ukládá `GET/PUT /api/pletor/heart/caps` (jen změněná pole, meze z `bounds`). Styl `pletor-dashboard-heart-explain.css`.

@@ -5,20 +5,23 @@
 - `GET /api/pletor/context?project&workspace` → `{text, sections: [{title, chars, cap, truncated}]}`.
 - `GET /api/pletor/messages?project&workspace&limit=50&q=` → `{messages: [{role, text, at}], total}` (limit 1–500).
 - `GET /api/pletor/monitoring?project` → `{hosts, events, enabled}`.
+- `GET /api/pletor/heart/explain?project&format=json|text` → průhled srdce pro agenty i člověka: `{now, queue, stops,
+  pipeline, batches, caps, model}` (docs/navrhy/2026-11-13-pruhled-srdce.md); `format=text` jsou řádky pro agenta.
+- `GET|PUT /api/pletor/heart/caps` → `{per_hour, per_project, rate_sleep_seconds, bounds}`; PUT mění jen člověk, nová verze toku.
 - `GET|PUT /api/pletor/heart/model` → `{model, advisor, models, effort, efforts}`; PUT `{model, advisor, effort?}` zapíše novou verzi toku Srdce (M2e), neplatný alias 422.
 Zdroj, který selže, vrátí v sekci `{error}`; routa nikdy 500.
 """
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from backend.agi_pletor import context
-from backend.agi_pletor.dashboard import views
+from backend.agi_pletor.dashboard import heart_explain, views
 from backend.agi_pletor.dashboard.heart_view import heart_view, safe
 from backend.api.agi_pletor import models
 from backend.api.agi_pletor.pletor_routes import _check
 from backend.brain_opora.determinism.gate_payloads import GateError, invalid
-from backend.flow.catalogs.heart import model_settings
 from backend.canvas.activity_log import require_human
+from backend.flow.catalogs.heart import caps_settings, model_settings
 
 HUMAN = "Velín Pletora čte jen člověk v UI."
 
@@ -56,6 +59,32 @@ def create_dashboard_router(service, heart, pletor):
     @router.get("/monitoring")
     def monitoring_state(request: Request, project: str = ""):
         return guarded(request, project, "main", lambda: views.monitoring_view(service, project))
+
+    @router.get("/heart/explain")
+    def heart_explained(project: str = "", format: str = "json"):
+        # Čtou agenti i člověk: průhled srdce je podklad pro práci, ne ovládání (ovládání níž je jen pro člověka).
+        try:
+            _check(service, project, "main")
+        except GateError as error:
+            return JSONResponse(error.body(), status_code=error.status)
+        view = heart_explain.explain(service, heart, project)
+        return PlainTextResponse(heart_explain.text(view)) if format == "text" else view
+
+    def heart_caps(request, write=None):
+        require_human(request.state.actor, "Stropy srdce mění jen člověk v UI.")
+        try:
+            with service.registry_lock:
+                return caps_settings.write(service.db, write) if write is not None else caps_settings.read(service.db)
+        except ValueError as error:
+            return JSONResponse(invalid(str(error), 'Příklad: {"per_hour": 12}').body(), status_code=422)
+
+    @router.get("/heart/caps")
+    def heart_caps_state(request: Request):
+        return heart_caps(request)
+
+    @router.put("/heart/caps")
+    def heart_caps_set(body: dict, request: Request):
+        return heart_caps(request, body)
 
     def heart_model(request, write=None):
         require_human(request.state.actor, "Model srdce čte a mění jen člověk v UI.")

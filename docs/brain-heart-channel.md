@@ -150,3 +150,11 @@ matter (2026-10-31: 3 of 5 open escalations were obsolete).
 - Heart tool: `python opora_heart.py escalate --withdraw TICKET_ID --reason R`. The prompt tells the heart to check
   `OTÁZKY U ČLOVĚKA` in every batch. It withdraws a question that the facts already answer, with a one-sentence
   reason, and never asks the same question again.
+
+## Průhled srdce pro agenty (2026-11-13)
+
+`GET /api/pletor/heart/explain?project=<id>` (agent i člověk, jen čtení, `&format=text` pro řádky) odpoví, co srdce
+právě dělá a proč čeká (`now.sentence`), co je ve frontě, kde se může zastavit (`stops` s pákou), průchod tokem srdce
+s časem každého uzlu (zpráva/událost → Jev → snímek → srdce) a kam šel čas posledních dávek (fáze: model, čtení
+podkladů, zápis do OPORY, …). Stropy dávek mění člověk `PUT /api/pletor/heart/caps`. Kontrakt:
+`docs/navrhy/2026-11-13-pruhled-srdce.md`.

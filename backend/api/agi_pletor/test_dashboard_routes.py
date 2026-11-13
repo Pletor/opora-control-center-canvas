@@ -49,3 +49,20 @@ def test_heart_model(tmp_path):
         assert client.put("/api/pletor/heart/model", headers=AGENT, json={"model": "opus", "advisor": "opus"}).status_code == 403
         bad = client.put("/api/pletor/heart/model", headers=HEADERS, json={"model": "gpt", "advisor": "opus"})
         assert bad.status_code == 422
+
+
+def test_heart_explain_reads_for_agents_and_caps_only_for_humans(tmp_path):
+    # Průhled srdce čte i agent (docs/navrhy/2026-11-13-pruhled-srdce.md §5); stropy mění jen člověk.
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        project = {"project": SCOPE["project"]}
+        explained = client.get("/api/pletor/heart/explain", headers=AGENT, params=project)
+        assert explained.status_code == 200
+        assert {"now", "queue", "stops", "pipeline", "batches", "caps", "model"} <= set(explained.json())
+        text = client.get("/api/pletor/heart/explain", headers=AGENT, params={**project, "format": "text"})
+        assert text.status_code == 200 and text.text.startswith("SRDCE ") and "ZARÁŽKY" in text.text
+        assert client.get("/api/pletor/heart/explain", headers=AGENT, params={"project": "nikde"}).status_code == 404
+        assert client.put("/api/pletor/heart/caps", headers=AGENT, json={"per_hour": 12}).status_code == 403
+        assert client.put("/api/pletor/heart/caps", headers=HEADERS, json={"per_hour": 12}).json()["per_hour"] == 12
+        assert client.put("/api/pletor/heart/caps", headers=HEADERS, json={"per_hour": 0}).status_code == 422
+        assert client.get("/api/pletor/heart/caps", headers=HEADERS).json()["per_hour"] == 12
