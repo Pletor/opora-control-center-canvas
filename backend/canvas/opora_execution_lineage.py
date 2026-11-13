@@ -1,5 +1,7 @@
 """Bounded proof that an accepted target scope stayed unchanged across revisions."""
 import re
+import threading
+from collections import OrderedDict
 
 from backend.canvas.graph import digest
 from backend.canvas.opora_content_execution import selected_content
@@ -9,6 +11,24 @@ from database.repositories.opora_changesets import ChangesetRepository
 from database.repositories.opora_graph_proposals import GraphProposals
 
 _REVISION_ID = re.compile(r"[a-f0-9]{40}\Z")
+# Přijatá revize, její manifest i obsah jsou neměnné a adresované otiskem, takže (rozsah, revize, karta) → (rodič,
+# otisk průmětu) platí navždy. Agent-state bez paměti počítal tytéž průměty stokrát pod zámkem projektu (OP-A3AE94).
+_PROJECTIONS, _PROJECTIONS_LOCK, _PROJECTIONS_LIMIT = OrderedDict(), threading.Lock(), 8192
+
+
+def _projection(db, repo, project, workspace, revision_id, node_id):
+    key = (project, workspace, revision_id, node_id)
+    with _PROJECTIONS_LOCK:
+        if key in _PROJECTIONS:
+            _PROJECTIONS.move_to_end(key)
+            return _PROJECTIONS[key]
+    record, projection_digest = _read_revision_projection(db, repo, project, workspace, revision_id, node_id)
+    value = (record.get("parentRevision"), projection_digest)
+    with _PROJECTIONS_LOCK:
+        _PROJECTIONS[key] = value
+        if len(_PROJECTIONS) > _PROJECTIONS_LIMIT:
+            _PROJECTIONS.popitem(last=False)
+    return value
 
 
 def _read_revision_projection(db, repo, project, workspace, revision_id, node_id, *, include_affected=True):
@@ -74,12 +94,10 @@ def validate_accepted_lineage(db, project, workspace, node_id, origin, current, 
         if len(backwards) >= max_steps:
             raise ValueError("Accepted revision ancestry exceeds the configured bound")
         seen.add(revision_id)
-        record, projection_digest = _read_revision_projection(db, repo, project, workspace,
-                                                              revision_id, node_id)
+        parent, projection_digest = _projection(db, repo, project, workspace, revision_id, node_id)
         backwards.append((revision_id, projection_digest))
         if revision_id == origin:
             break
-        parent = record.get("parentRevision")
         if parent is None:
             raise ValueError("Origin is not an ancestor of the current accepted revision")
         if not isinstance(parent, str) or _REVISION_ID.fullmatch(parent) is None:

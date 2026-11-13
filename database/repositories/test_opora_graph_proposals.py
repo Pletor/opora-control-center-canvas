@@ -50,3 +50,16 @@ def test_self_consistent_malformed_record_is_rejected(graphs, mutation):
                          canonical({**content, "id": identifier})))
     with pytest.raises(ValueError):
         repo.read(identifier)
+
+
+def test_tampered_row_is_rejected_after_a_verified_read(graphs):
+    # OP-A3AE94: paměť ověření nese otisk textu, podvržený řádek pod stejným ID neprojde.
+    item = proposal(graphs)
+    repo = graphs.repository("draft", "draft")
+    assert repo.read(item["id"])["id"] == item["id"]
+    content = {key: value for key, value in item.items() if key != "accepted"}
+    content["graphDigest"] = "0" * 64
+    with repo.db:
+        repo.db.execute("UPDATE opora_graph_proposals SET content=? WHERE id=?", (canonical(content), item["id"]))
+    with pytest.raises(ValueError):
+        repo.read(item["id"])

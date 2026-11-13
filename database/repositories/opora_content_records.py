@@ -4,6 +4,7 @@ import json
 from backend.canvas.opora_change_validation import identifier, scope
 from backend.canvas.opora_content_validation import validate_record
 from backend.canvas.opora_hub_store import canonical, content_id
+from database.repositories import verified_records
 from database.schema.opora_content_schema import TABLES
 
 PROPOSAL_LIMIT = 12 * 1024 * 1024
@@ -36,10 +37,13 @@ class ContentRecords:
             raise ValueError("Stored content record exceeds its byte bound.")
         try:
             record = json.loads(row[0], object_pairs_hook=_pairs)
-            validate_record(record, manifest=manifest)
-            if (record.get("id") != record_id or (record["project"], record["workspace"]) != self.scope
-                    or content_id({key: value for key, value in record.items() if key != "id"}) != record_id):
-                raise ValueError("Content record scope or hash integrity mismatch.")
+
+            def check():
+                validate_record(record, manifest=manifest)
+                if (record.get("id") != record_id or (record["project"], record["workspace"]) != self.scope
+                        or content_id({key: value for key, value in record.items() if key != "id"}) != record_id):
+                    raise ValueError("Content record scope or hash integrity mismatch.")
+            verified_records.once(table, self.scope, record_id, row[0], check)
             return record
         except (KeyError, TypeError, RecursionError, UnicodeError, json.JSONDecodeError) as error:
             raise ValueError("Malformed stored content record.") from error

@@ -4,6 +4,7 @@ import json
 from backend.canvas.opora_change_validation import identifier
 from backend.canvas.opora_graph_records import validate_record
 from backend.canvas.opora_hub_store import canonical, content_id
+from database.repositories import verified_records
 
 
 class GraphProposals:
@@ -19,11 +20,14 @@ class GraphProposals:
             raise ValueError("Graph record does not exist in this scope.")
         try:
             record = json.loads(row[0])
-            if (not isinstance(record, dict) or record.get("id") != record_id
-                    or (record.get("project"), record.get("workspace")) != self.scope
-                    or content_id({k: v for k, v in record.items() if k != "id"}) != record_id):
-                raise ValueError("Graph record integrity mismatch.")
-            validate_record(record, manifest=manifest)
+
+            def check():
+                if (not isinstance(record, dict) or record.get("id") != record_id
+                        or (record.get("project"), record.get("workspace")) != self.scope
+                        or content_id({k: v for k, v in record.items() if k != "id"}) != record_id):
+                    raise ValueError("Graph record integrity mismatch.")
+                validate_record(record, manifest=manifest)
+            verified_records.once(table, self.scope, record_id, row[0], check)
             return record
         except (TypeError, KeyError, json.JSONDecodeError) as exc:
             raise ValueError("Invalid graph record.") from exc

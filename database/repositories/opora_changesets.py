@@ -3,6 +3,7 @@ import json
 import re
 
 from backend.canvas.opora_hub_store import canonical, content_id
+from database.repositories import verified_records
 
 
 class ChangesetRepository:
@@ -23,13 +24,17 @@ class ChangesetRepository:
         if row is None:
             raise ValueError("Revize zadání v tomto prostoru neexistuje.")
         record = json.loads(row[0])
-        if (not isinstance(record, dict) or record.get("id") != identifier
-                or (record.get("project"), record.get("workspace")) != self.scope
-                or content_id({key: value for key, value in record.items() if key != "id"}) != identifier):
-            raise ValueError("Otisk uložené revize zadání nesouhlasí.")
+
+        def check():
+            if (not isinstance(record, dict) or record.get("id") != identifier
+                    or (record.get("project"), record.get("workspace")) != self.scope
+                    or content_id({key: value for key, value in record.items() if key != "id"}) != identifier):
+                raise ValueError("Otisk uložené revize zadání nesouhlasí.")
+            if not proposal:
+                from backend.canvas.opora_graph_records import validate_accepted
+                validate_accepted(record, self.scope)
+        verified_records.once(table, self.scope, identifier, row[0], check)
         if not proposal:
-            from backend.canvas.opora_graph_records import validate_accepted
-            validate_accepted(record, self.scope)
             if record.get("graphManifestId") is not None:
                 from database.repositories.opora_graph_proposals import GraphProposals
                 GraphProposals(self.db, *self.scope).read(record["graphManifestId"], manifest=True)
