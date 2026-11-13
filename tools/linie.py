@@ -4,6 +4,8 @@
     uv run python tools/linie.py report [--check "npm test=green"]… [--sha HEAD] [--allow-unmarked]
                                         [--try "screen=pletor&part=linie"] [--step "Klikni na … → uvidíš …"]…
     uv run python tools/linie.py trace [--mark OP-…]
+    uv run python tools/linie.py new "<název>" --branch feat/… [--base <rodič>] --essence … --build … --done …
+    uv run python tools/linie.py finish --check "npm test=green" [--try …] [--step …]   # report+accept+allow-merge+merge
     uv run python tools/linie.py board [--mine] [--all]   # text přehledu jako obrazovka Linie (GET /board.txt)
     uv run python tools/linie.py status | preview | merge | defer | resume | block --reason "…"
 
@@ -250,7 +252,37 @@ def trace(cwd, args):
     return "\n".join(out + ["", t.get("sentence") or ""]).rstrip()
 
 
-COMMANDS = {"task": task, "status": status, "board": board, "report": report, "trace": trace, "accept": accept,
+def new(cwd, args):  # OP-A5A3E1.1: úkol bez ručního JSON a curl, rodič je aktuální větev (§10 deníku chyb)
+    project, workspace = scope(cwd, args)
+    if not (project and workspace):
+        raise Stop(EXIT_CONTEXT, "Neznám projekt: zadej --project a --workspace (OPORA_PROJECT/…).")
+    base = args.base or git(cwd, "branch", "--show-current")
+    if not base:
+        raise Stop(EXIT_CONTEXT, "Neznám rodiče: zadej --base, nebo stůj na větvi rodiče.")
+    created = call(cwd, "POST", "/work", {"branch": args.branch, "baseBranch": base, "title": args.title,
+                                          "essence": args.essence, "build": args.build, "doneCriteria": args.done})
+    ticket, mark = created.get("ticketId"), (created.get("work") or {}).get("mark")
+    folder = "../wt-" + args.branch.rsplit("/", 1)[-1]
+    return (f"Úkol {ticket} ({mark or 'bez vodotisku'}): {args.branch} z {base}\n"
+            f"Dál: git worktree add -b {args.branch} {folder} origin/{base} && cd {folder} && "
+            f"uv run python tools/linie.py task --ticket {ticket} --project {project} --workspace {workspace}")
+
+
+def finish(cwd, args):  # OP-A5A3E1.2: konec úkolu jedním příkazem, řádka na krok; stojí na prvním odmítnutí
+    done = []
+    steps = (("report", lambda: report(cwd, args)), ("accept", lambda: accept(cwd, args)),
+             ("allow-merge", lambda: post(cwd, args, "allow-merge", {"target": args.target})),
+             ("merge", lambda: post(cwd, args, "merge")))
+    for name, step in steps:
+        try:
+            found = json.loads(step())
+        except Stop as stop:
+            raise Stop(stop.code, "\n".join(done + [f"{name}: {stop.text}"])) from None
+        done.append(f"{name}: {found.get('stateLabel') or found.get('state') or 'ok'}")
+    return "\n".join(done)
+
+
+COMMANDS = {"task": task, "new": new, "finish": finish, "status": status, "board": board, "report": report, "trace": trace, "accept": accept,
             "allow-merge": lambda cwd, args: post(cwd, args, "allow-merge", {"target": args.target}),
             "block": lambda cwd, args: post(cwd, args, "block", {"reason": args.reason})}
 COMMANDS |= {action: lambda cwd, args, action=action: post(cwd, args, action)
@@ -270,7 +302,17 @@ def parser():
             command.add_argument("--untested", action="store_true", help="výslovně bez lidské zkoušky")
         if name == "allow-merge":
             command.add_argument("--target")
-        if name == "report":
+        if name == "new":
+            command.add_argument("title")
+            command.add_argument("--branch", required=True, help="feat/<rodič>-<dílek>")
+            command.add_argument("--base", help="rodič, výchozí aktuální větev")
+            command.add_argument("--essence", required=True)
+            command.add_argument("--build", required=True)
+            command.add_argument("--done", action="append", default=[], help="kritérium hotovo (opakovatelné)")
+        if name == "finish":  # agent přijímá technicky pod svou identitou, lidská zkouška zůstává člověku
+            command.set_defaults(untested=True, note=None)
+            command.add_argument("--target")
+        if name in ("report", "finish"):
             command.add_argument("--check", action="append", default=[], help='"npm test=green"')
             command.add_argument("--sha", help="výchozí HEAD")
             command.add_argument("--allow-unmarked", action="store_true", help="přeskočí kontrolu Opora-Mark")

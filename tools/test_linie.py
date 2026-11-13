@@ -228,3 +228,38 @@ def test_board_prints_text_of_route_and_mine_flag(repo, monkeypatch, capsys):
     assert code == 0 and server.calls[1][1].endswith("/board.txt?project=p&workspace=main&all=1")
     code, out = run(monkeypatch, capsys, server, repo, "board")
     assert code == 2 and "projekt" in out
+
+
+def test_new_creates_task_from_current_branch_without_json(repo, monkeypatch, capsys):
+    server = Server(repo, {("POST", "/work"): {"ticketId": "tk_new", "work": {"mark": "OP-NEW"}}})
+    code, out = run(monkeypatch, capsys, server, repo, "new", "Dílek", "--branch", "feat/x-y", "--essence", "E",
+                    "--build", "B", "--done", "D1", "--done", "D2", "--project", "P", "--workspace", "W")
+    assert code == 0 and server.calls[-1][2] == {"branch": "feat/x-y", "baseBranch": "feat/x", "title": "Dílek",
+                                                 "essence": "E", "build": "B", "doneCriteria": ["D1", "D2"]}
+    assert "tk_new (OP-NEW)" in out and "git worktree add -b feat/x-y ../wt-x-y origin/feat/x" in out
+
+
+def finished(override=None):
+    return {("GET", f"/work/{TICKET}"): {"work": {"mark": None}},
+            ("POST", f"/work/{TICKET}/report"): {"stateLabel": "čeká na přijetí"},
+            ("POST", f"/work/{TICKET}/accept"): {"stateLabel": "přijato"},
+            ("POST", f"/work/{TICKET}/allow-merge"): {"stateLabel": "čeká na začlenění"},
+            ("POST", f"/work/{TICKET}/merge"): {"stateLabel": "začleněno"}} | (override or {})
+
+
+def test_finish_reports_accepts_untested_allows_and_merges(repo, monkeypatch, capsys):
+    server = Server(repo, finished())
+    code, out = run(monkeypatch, capsys, server, repo, "finish", "--ticket", TICKET, "--check", "pytest=green")
+    posts = [(path.rsplit("/", 1)[-1], body) for method, path, body, _ in server.calls if method == "POST"]
+    assert code == 0 and [name for name, _ in posts] == ["report", "accept", "allow-merge", "merge"]
+    assert posts[1][1]["untested"] is True
+    assert out.splitlines() == ["report: čeká na přijetí", "accept: přijato", "allow-merge: čeká na začlenění",
+                                "merge: začleněno"]
+
+
+def test_finish_stops_on_first_refusal_and_never_merges(repo, monkeypatch, capsys):
+    refused = HTTPError("u", 409, "Conflict", {}, io.BytesIO(json.dumps({"message": "Hlava se pohnula."}).encode()))
+    server = Server(repo, finished({("POST", f"/work/{TICKET}/accept"): refused}))
+    code, out = run(monkeypatch, capsys, server, repo, "finish", "--ticket", TICKET)
+    assert code == 1 and out.splitlines()[0] == "report: čeká na přijetí" and "Hlava se pohnula." in out
+    assert not any(path.endswith(("/allow-merge", "/merge")) for _, path, _, _ in server.calls)
