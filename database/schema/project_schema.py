@@ -113,6 +113,10 @@ CREATE TABLE IF NOT EXISTS opora_errors(
   message TEXT NOT NULL, cause TEXT, lever TEXT, data TEXT);
 CREATE INDEX IF NOT EXISTS opora_errors_open ON opora_errors(resolved_at, last_at);
 CREATE INDEX IF NOT EXISTS opora_errors_project ON opora_errors(project, last_at);
+-- backend/app/guards.py: režimy pojistek (enforce|warn|off); prázdná tabulka = výchozí režimy z katalogu (docs/navrhy/2026-11-13-denik-chyb.md §9)
+CREATE TABLE IF NOT EXISTS opora_guards(
+  id TEXT NOT NULL, scope TEXT NOT NULL, project TEXT NOT NULL, mode TEXT NOT NULL, changed_at TEXT NOT NULL,
+  changed_by TEXT NOT NULL, reason TEXT NOT NULL, PRIMARY KEY(id, project));
 """ + CONTEXT_BINDING_SCHEMA + ";" + OBSERVER_REGISTRY_SCHEMA + FLOW_SCHEMA + BRAIN_SCHEMA + LIBRARY_REVIEW_SCHEMA  # backend/flow/, backend/brain/
 
 # projects/<id>/project.sqlite – vše o jednom projektu; vlastník tabulky v komentáři.

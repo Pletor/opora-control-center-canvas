@@ -95,6 +95,7 @@ from backend.api.flow.library_review_routes import create_library_review_router
 from backend.api.agi_pletor.pletor_routes import create_pletor_router
 from backend.api.agi_pletor.dashboard_routes import create_dashboard_router
 from backend.api.agi_pletor.errors_routes import create_errors_router
+from backend.api.agi_pletor.guards_routes import create_guards_router
 from backend.api.agi_pletor.linie_routes import create_linie_router
 from backend.api.agi_pletor.linie_work_routes import create_linie_work_router
 from backend.api.agi_pletor.pletor_requests_routes import create_pletor_requests_router
@@ -114,7 +115,7 @@ from backend.api.project.workspace_routes import create_workspace_router
 from backend.api.project_setup.project_routes import create_project_setup_router
 from backend.app.embed_origins import ENV_NAME as EMBED_ORIGINS_ENV
 from backend.app.embed_origins import frame_policy, parse_embed_origins
-from backend.app import error_log, errors, slow_requests
+from backend.app import error_log, errors, guards, slow_requests
 from backend.app.human_session import HumanSession
 from backend.app.remote_access import (
     COOKIE_NAME,
@@ -193,6 +194,7 @@ def refused(request, exc, severity="warn"):
 def create_app(data_root=None):
     service = CanvasService(data_root or os.environ.get("OPORA_CANVAS_DATA", ".data/production"))
     errors.configure(service.root)  # deník chyb (docs/navrhy/2026-11-13-denik-chyb.md): tabulka už je v registru
+    guards.configure(service.root)  # registr pojistek (tamtéž §9)
     error_log.install()
 
     desktop_state = DesktopV3State(service)
@@ -595,6 +597,7 @@ def create_app(data_root=None):
     app.include_router(create_workshop_router(service))  # Dílna D0 (docs/navrhy/2026-11-05-dilna-skillu.md)
     app.include_router(create_dashboard_router(service, heart, app.state.pletor))  # velín Pletora V2/V3, jen čtení
     app.include_router(create_errors_router())  # deník chyb, čte agent i člověk (docs/navrhy/2026-11-13-denik-chyb.md)
+    app.include_router(create_guards_router(service))  # registr pojistek §9: čte agent, přepíná člověk
     app.include_router(create_linie_router(service, app.state.pletor))  # Linie velínu (docs/navrhy/2026-11-06-velin-git-linie.md)
     app.include_router(create_linie_work_router(service, app.state.pletor))  # editor a vynucení (…-linie-editor-a-vynuceni.md)
     app.include_router(create_pletor_requests_router(service))  # žádosti srdci (…-linie-rebrand.md §4a)

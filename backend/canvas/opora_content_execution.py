@@ -70,6 +70,11 @@ def require_accepted_content(canvas, project, workspace, head, card_ids, graph):
                                      lambda: _live(canvas, project, workspace, graph))
     if seen is not graph:
         live = _live(canvas, project, workspace, graph)[1]
-    if any(item["entry"] is None or live.get((item["kind"], item["target"], item["field"])) != item["entry"]
-           for item in selected["entries"]):
+    from backend.app import guards  # líně: balíček backend.app načítá factory (cyklus importů)
+
+    differs = sorted({item["target"] or "(plátno)" for item in selected["entries"] if item["entry"] is None
+                      or live.get((item["kind"], item["target"], item["field"])) != item["entry"]})
+    # OP-F43588.content: jediné místo predikátu; z něj čte unavailableReason v agent-state i vynucení při claimu
+    if guards.check("content_manifest", project, blocked=bool(differs), subject=",".join(differs)[:200],
+                    message="Živý obsah karty se liší od přijatého manifestu obsahu, převzetí stojí."):
         raise ValueError("Relevant live content differs from its accepted manifest.")

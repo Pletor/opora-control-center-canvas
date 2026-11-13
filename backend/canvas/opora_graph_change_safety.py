@@ -72,8 +72,11 @@ def _memberships(before, after, label):
 
 
 def preflight(accepted, working, result, accepted_result, state, removed_nodes, removed_edges,
-              *, adopt_architecture=False):
-    """No cascades, implicit retargeting, architecture changes or completed-card edits."""
+              *, adopt_architecture=False, project=None):
+    """No cascades, implicit retargeting, architecture changes or completed-card edits.
+
+    `project` jen na živé cestě (návrh, přebudování): tam rozhoduje pojistka `confirmed_reopen`. Přehrání uloženého
+    záznamu (`validate_record`) ji nevolá, ať záznam vzniklý ve warn nepřestane být čitelný po návratu na enforce."""
     if type(adopt_architecture) is not bool:
         raise ValueError("Architecture context adoption must be explicit.")
     if adopt_architecture and digest(split(accepted_result)[0]) != digest(split(working)[0]):
@@ -101,8 +104,12 @@ def preflight(accepted, working, result, accepted_result, state, removed_nodes, 
     for node, block, via, target in branch_targets(state):
         if node not in removed_nodes and target in removed_nodes:
             raise ValueError(f"Surviving block reference must be resolved first: {node}/{block}/{via} -> {target}.")
+    from backend.app import guards  # líně: balíček backend.app načítá factory (cyklus importů)
+
     closed = [key for key in sorted(checked)
               if state["nodes"].get(key, {}).get("done", {}).get("confirmed")]
-    if closed:
+    # OP-F43588.reopen: rozhodne režim pojistky jen na živé cestě; přehrání záznamu má týž vstup, už prověřený
+    if project is not None and guards.check("confirmed_reopen", project, blocked=bool(closed), subject=",".join(closed)[:200],
+                                            message="Změna grafu sahá na potvrzené karty: " + ",".join(closed)):
         raise ValueError("A human must reopen confirmed cards before these graph changes: " + ",".join(closed))
     return sorted(checked), memberships

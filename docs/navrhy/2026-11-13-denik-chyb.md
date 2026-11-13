@@ -5,7 +5,9 @@ Stav: návrh (13. 11. 2026). Kontrakt pro stavbu. Inventura zdrojů je v §8.
 Postup: **M1 jádro postaveno** (OP-82F712): tabulka `opora_errors` v registry, `backend/app/errors.py`
 (záznam, otisk, počet, redakce), `backend/app/error_log.py` (handler kořenového loggeru přes frontu, nikdy neblokuje),
 odmítnutí 409/428/503 a obecná 500 ve `factory.py`, `GET /api/pletor/errors` (+ `format=text`), řádek DENÍK CHYB
-v průhledu srdce. Další na řadě M6 (pojistky), M7, M2–M5, M8.
+v průhledu srdce. **M6a registr pojistek postaven** (OP-F43588): tabulka `opora_guards`, `backend/app/guards.py`,
+`GET|PUT /api/pletor/guards`; napojené `content_manifest`, `confirmed_reopen` a `budget`, strop srdce, brána
+a autonomie jen jako propojené přepínače, `sql_context_pin` zatím nenapojený. Další na řadě M6b (Velín → Pojistky), M7, M2–M5, M8.
 
 ## §0 Proč
 

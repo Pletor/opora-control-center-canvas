@@ -64,7 +64,7 @@ def prepare_state(canvas, project, workspace, acceptedGraph, workingGraph, resul
     stored = DesktopV3State(canvas).current(project, workspace)
     before = deepcopy(stored["state"])
     checked, memberships = preflight(acceptedGraph, workingGraph, resultGraph, acceptedResultGraph,
-                                     before, nodes, edges, adopt_architecture=adopt_architecture)
+                                     before, nodes, edges, adopt_architecture=adopt_architecture, project=project)
     # OP-B171BE.graph: enforce next-only DAG on creation/acceptance, while old history remains readable.
     check_save(acceptedGraph, acceptedResultGraph)
     check_save(workingGraph, resultGraph)

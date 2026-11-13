@@ -19,6 +19,13 @@ def status(db, project, workspace, node, accepted):
         reason = "Execution attempt budget is exhausted."
     elif matching and family["hasReported"] and repairs >= matching["limits"]["maxRepairRounds"]:
         reason = "Execution repair budget is exhausted."
+    if reason and "exhausted" in reason:
+        from backend.app import guards  # líně: balíček backend.app načítá factory (cyklus importů)
+
+        # OP-F43588.budget: jediný výpočet vyčerpání; čte ho agent-state (blockReason) i before_claim
+        if not guards.check("budget", project, blocked=True, subject=node,
+                            message=f"Rozpočet karty vyčerpán: {attempts} pokusů, {repairs} kol oprav."):
+            reason = None
     clock = db.execute("SELECT frozen FROM opora_execution_budget_clock WHERE id=1").fetchone()
     if enrolled and clock and clock[0]:
         reason = "Budget server clock is frozen after an observed regression."
