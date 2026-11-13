@@ -69,6 +69,47 @@ def _git_root(service, project):
         return None
 
 
+NO_CLONE = "projekt nemá klon z GitHubu"
+
+
+def refresh_clone(service, project):
+    """Jednou dotáhne klon OPORY z origin; None = dotaženo, jinak důvod, proč ne (bez výjimky).
+
+    # OP-857D80.1: klon jinak dotahuje jen hlídač gitu, takže commit pushnutý před chvílí by deliver neviděl.
+    """
+    from backend.canvas.canvas_service import fast_forward
+
+    try:
+        row = service.row("projects", project)
+        if service.project_hub.source_info(row)["sourceKind"] != "git":
+            return NO_CLONE
+        fast_forward(row)
+        return None
+    except Exception as error:  # noqa: BLE001 – důvod jde do odpovědi; odevzdání kvůli němu nespadne
+        return str(error) or type(error).__name__
+
+
+def unseen(project, node, what, root, reason):
+    """Věta pro agenta i deník: commit karty v klonu OPORY chybí i po dotažení z origin."""
+    from backend.app import error_log
+
+    message = (f"OPORA nevidí {what} ve svém klonu {root} ani po stažení z origin"
+               f"{' (' + reason + ')' if reason else ''}. Commit je nejspíš jen ve tvém checkoutu: "
+               "pushni větev s commitem na origin a odevzdej znovu.")
+    error_log.submit("card", "blocked", message, severity="warn", project=project, subject=node,
+                     lever="git push origin <větev s commitem>, pak znovu deliver")
+    return message
+
+
+def see_commit(service, project, node, root, commit):
+    """Zadaný commit karty musí být v klonu OPORY; chybí-li, klon se jednou dotáhne, jinak 422 s pákou a deník."""
+    if root and commit and not git_read.head(root, commit):
+        reason = refresh_clone(service, project)
+        if not git_read.head(root, commit):
+            raise invalid("deliver", "commit", unseen(project, node, f"commit {commit}", root, reason),
+                          "SHA commitu karty pushnutého na origin, nebo null = HEAD", body_rules.EXAMPLE)
+
+
 def resolve_head(root, commit):
     """Plné SHA: zadaný commit (musí existovat), jinak HEAD pracovní kopie; bez repa None."""
     if not root:
@@ -154,10 +195,19 @@ def deliver(service, identifier, payload, token, actor):
     record, renewed = authenticate(executions, identifier, project, workspace, token)
     node = record["nodeId"]
     root = _git_root(service, project)
+    warning = None
+    see_commit(service, project, node, root, body["commit"])
     head = resolve_head(root, body["commit"])
     if record["state"] == "running":
         graph = service.view(project, workspace)["graph"]
-        receipt = submit(executions, record, body, body_rules.card_commits(root, node, graph["nodes"]), head)
+        commits = body_rules.card_commits(root, node, graph["nodes"])
+        if root and not commits:  # commity karty mohou být jen na originu
+            reason = refresh_clone(service, project)
+            head = resolve_head(root, body["commit"])
+            commits = body_rules.card_commits(root, node, graph["nodes"])
+            if not commits and reason != NO_CLONE:  # lokální projekt: karta bez commitu je jeho věc
+                warning = unseen(project, node, "žádný commit karty", root, reason)
+        receipt = submit(executions, record, body, commits, head)
     else:  # výsledek už odevzdaný: pokračuje sloučení, kontroly a uzavření
         receipts = executions.receipts(identifier, project, workspace)["results"]
         if not receipts:
@@ -189,4 +239,4 @@ def deliver(service, identifier, payload, token, actor):
                 {"stepId": item["stepId"], "status": item["status"]}
                 for item in (receipt.get("result") or {}).get("stepResults", [])]},
             "merged": merged, "checks": written, "closed": closed, "missing": missing,
-            "leaseRenewed": renewed, "next": next_step(record, missing, red, closed, autonomy)}
+            "leaseRenewed": renewed, "next": next_step(record, missing, red, closed, autonomy)}         | ({"warning": warning} if warning else {})

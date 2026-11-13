@@ -147,6 +147,7 @@ Každý milník je vlastní úkol Linie, vlak PR (M2 z M1 atd.).
 | Náhled 8810 neodpovídá | `stall` preview |
 | Restart zahodí běžící dávku | `exception` heart + obnova uzlu |
 | Logování bez konfigurace (INFO mizí) | odstraní M1 |
+| Commit karty jen v lokálním checkoutu agenta (Ample 2.13b `b9f878f`), OPORA ho ve svém klonu nevidí, `deliver` ho tiše vynechal a karta nešla uzavřít (za ní 2.16b a dalších 6 karet) | `blocked` card s pákou „pushni větev s commitem“; od OP-857D80 `deliver` klon jednou dotáhne z origin (stejná cesta jako `sync`), zadaný commit, který chybí i potom, odmítne 422 a karta bez commitu dostane `warning` |
 | Plná backendová sada přes 90 min (timeout bez výsledku) | mimo deník: patří do CI/testů, zmíněno jako dluh |
 
 ## §8 Inventura zdrojů (13. 11.)

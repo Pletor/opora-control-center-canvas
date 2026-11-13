@@ -104,6 +104,22 @@ def now():
     return datetime.now(UTC).isoformat()
 
 
+def fast_forward(project):
+    """Dotáhne klon projektu z origin (fetch + ff-only); sync i deliver (OP-857D80) sdílí tuto jednu cestu."""
+    repo = project["repo"]
+    if (
+        git(repo, "remote", "get-url", "origin") != project["url"]
+        or git(repo, "branch", "--show-current") != project["branch"]
+        or git(repo, "status", "--porcelain")
+    ):
+        raise ValueError("Main není čistý nebo nesouhlasí upstream.")
+    git(repo, "fetch", "origin", timeout=120)
+    target = "refs/remotes/origin/" + project["branch"]
+    git(repo, "merge", "--ff-only", target, timeout=30)
+    if git(repo, "rev-parse", "HEAD") != git(repo, "rev-parse", target):
+        raise ValueError("Revize nebyla synchronizována.")
+
+
 class CanvasService:
     def __init__(self, root):
         self.root = Path(root).resolve()
@@ -1090,18 +1106,7 @@ class CanvasService:
                 raise ValueError("Lokální a prázdné projekty nelze synchronizovat přes Git.")
 
         def synchronize():
-            repo = project["repo"]
-            if (
-                git(repo, "remote", "get-url", "origin") != project["url"]
-                or git(repo, "branch", "--show-current") != project["branch"]
-                or git(repo, "status", "--porcelain")
-            ):
-                raise ValueError("Main není čistý nebo nesouhlasí upstream.")
-            git(repo, "fetch", "origin", timeout=120)
-            target = "refs/remotes/origin/" + project["branch"]
-            git(repo, "merge", "--ff-only", target, timeout=30)
-            if git(repo, "rev-parse", "HEAD") != git(repo, "rev-parse", target):
-                raise ValueError("Revize nebyla synchronizována.")
+            fast_forward(project)
             return pid
 
         return self.job("sync", synchronize, pid)
