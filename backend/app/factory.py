@@ -4,6 +4,7 @@ import os
 import re
 import sqlite3
 import time
+import traceback
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -93,6 +94,7 @@ from backend.api.flow.library_routes import create_library_router
 from backend.api.flow.library_review_routes import create_library_review_router
 from backend.api.agi_pletor.pletor_routes import create_pletor_router
 from backend.api.agi_pletor.dashboard_routes import create_dashboard_router
+from backend.api.agi_pletor.errors_routes import create_errors_router
 from backend.api.agi_pletor.linie_routes import create_linie_router
 from backend.api.agi_pletor.linie_work_routes import create_linie_work_router
 from backend.api.agi_pletor.pletor_requests_routes import create_pletor_requests_router
@@ -112,7 +114,7 @@ from backend.api.project.workspace_routes import create_workspace_router
 from backend.api.project_setup.project_routes import create_project_setup_router
 from backend.app.embed_origins import ENV_NAME as EMBED_ORIGINS_ENV
 from backend.app.embed_origins import frame_policy, parse_embed_origins
-from backend.app import slow_requests
+from backend.app import error_log, errors, slow_requests
 from backend.app.human_session import HumanSession
 from backend.app.remote_access import (
     COOKIE_NAME,
@@ -181,8 +183,17 @@ def track_slow(app):
         return response
 
 
+def refused(request, exc, severity="warn"):
+    """Odmítnutí API do deníku chyb; zápis jde frontou, odpověď nečeká."""
+    error_log.submit("server", "refusal", str(exc) or type(exc).__name__, severity=severity,
+                     subject=f"{request.method} {request.url.path}", project=request.query_params.get("project"),
+                     data={"error": type(exc).__name__})
+
+
 def create_app(data_root=None):
     service = CanvasService(data_root or os.environ.get("OPORA_CANVAS_DATA", ".data/production"))
+    errors.configure(service.root)  # deník chyb (docs/navrhy/2026-11-13-denik-chyb.md): tabulka už je v registru
+    error_log.install()
 
     desktop_state = DesktopV3State(service)
     service.desktop_v3_state = desktop_state
@@ -431,6 +442,7 @@ def create_app(data_root=None):
 
     @app.exception_handler(HumanRequired)
     async def human_required(request, exc):
+        refused(request, exc)
         # 428: UI si obnoví doklad a zkusí to znovu; agent dostane jasné 403.
         return JSONResponse({"error": str(exc), "humanRequired": True},
                             status_code=403 if exc.actor == "agent" else 428)
@@ -443,6 +455,7 @@ def create_app(data_root=None):
 
     @app.exception_handler(ValueError)
     async def invalid(request, exc):
+        refused(request, exc)
         return JSONResponse({"error": str(exc)}, status_code=409)
 
     @app.exception_handler(ProjectNotFound)
@@ -452,6 +465,7 @@ def create_app(data_root=None):
 
     @app.exception_handler(sqlite3.Error)
     async def storage_error(request, exc):
+        refused(request, exc, "error")
         return JSONResponse(
             {
                 "error": "Úložiště není dostupné; uložení nebylo potvrzeno. Rozepsaný text zachovejte."
@@ -461,9 +475,26 @@ def create_app(data_root=None):
 
     @app.exception_handler(OSError)
     async def unavailable(request, exc):
+        refused(request, exc, "error")
         return JSONResponse(
             {"error": "Zdroj není dostupný; soubory nebyly přepsány."}, status_code=503
         )
+
+    @app.exception_handler(Exception)
+    async def internal(request, exc):
+        # Starlette tuto obsluhu volá v ServerErrorMiddleware mimo http middleware (bez bezpečnostních hlaviček)
+        # a výjimku pak vyhodí dál; příznak brání druhému záznamu z logování.
+        leaf = exc
+        while isinstance(leaf, BaseExceptionGroup) and len(leaf.exceptions) == 1:  # obal z BaseHTTPMiddleware
+            leaf = leaf.exceptions[0]
+        error_log.submit("server", "exception", f"{type(leaf).__name__}: {leaf}",
+                         subject=f"{request.method} {request.url.path}", project=request.query_params.get("project"),
+                         cause="".join(traceback.format_exception(leaf)), data={"method": request.method})
+        try:
+            exc._opora_recorded = True
+        except Exception:  # noqa: BLE001, S110 – výjimka bez __dict__
+            pass
+        return JSONResponse({"error": "Interní chyba serveru.", "code": "internal_error"}, status_code=500)
 
     # aplikace
     app.include_router(create_app_router(service, identity))
@@ -563,6 +594,7 @@ def create_app(data_root=None):
     app.include_router(create_pletor_router(service, app.state.pletor))  # Pletor, P1
     app.include_router(create_workshop_router(service))  # Dílna D0 (docs/navrhy/2026-11-05-dilna-skillu.md)
     app.include_router(create_dashboard_router(service, heart, app.state.pletor))  # velín Pletora V2/V3, jen čtení
+    app.include_router(create_errors_router())  # deník chyb, čte agent i člověk (docs/navrhy/2026-11-13-denik-chyb.md)
     app.include_router(create_linie_router(service, app.state.pletor))  # Linie velínu (docs/navrhy/2026-11-06-velin-git-linie.md)
     app.include_router(create_linie_work_router(service, app.state.pletor))  # editor a vynucení (…-linie-editor-a-vynuceni.md)
     app.include_router(create_pletor_requests_router(service))  # žádosti srdci (…-linie-rebrand.md §4a)

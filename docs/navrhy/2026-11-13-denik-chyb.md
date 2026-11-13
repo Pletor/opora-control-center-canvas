@@ -2,6 +2,11 @@
 
 Stav: návrh (13. 11. 2026). Kontrakt pro stavbu. Inventura zdrojů je v §8.
 
+Postup: **M1 jádro postaveno** (OP-82F712): tabulka `opora_errors` v registry, `backend/app/errors.py`
+(záznam, otisk, počet, redakce), `backend/app/error_log.py` (handler kořenového loggeru přes frontu, nikdy neblokuje),
+odmítnutí 409/428/503 a obecná 500 ve `factory.py`, `GET /api/pletor/errors` (+ `format=text`), řádek DENÍK CHYB
+v průhledu srdce. Další na řadě M6 (pojistky), M7, M2–M5, M8.
+
 ## §0 Proč
 
 Dnešní noc ukázala, že OPORA se zastaví a nikdo neví proč:

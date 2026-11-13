@@ -53,6 +53,7 @@ def test_hour_cap_queue_pipeline_and_stops(heart, db):  # noqa: F811
     assert active == {"hour_cap", "lock", "timeout"}
     text = heart_explain.text(view)
     assert "TEĎ: Strop 6" in text and "! Zápisy srdce čekají na server" in text and "snímek projektu 118 s" in text
+    assert text.splitlines()[-1].startswith("DENÍK CHYB: ")  # počet otevřených + odkaz na /api/pletor/errors
 
 
 def test_idle_without_inputs(heart, db):  # noqa: F811

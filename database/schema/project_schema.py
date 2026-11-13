@@ -105,6 +105,14 @@ CREATE TABLE IF NOT EXISTS activity_log(
   method TEXT NOT NULL, path TEXT NOT NULL, project_id TEXT NOT NULL, workspace_id TEXT NOT NULL,
   node_ids TEXT NOT NULL, status INTEGER NOT NULL, summary TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS activity_log_scope ON activity_log(project_id, workspace_id, actor, id);
+-- backend/app/errors.py: deník chyb napříč projekty; opakování zvedá count u otisku (docs/navrhy/2026-11-13-denik-chyb.md §2)
+CREATE TABLE IF NOT EXISTS opora_errors(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, fingerprint TEXT NOT NULL UNIQUE, first_at TEXT NOT NULL, last_at TEXT NOT NULL,
+  count INTEGER NOT NULL, resolved_at TEXT, severity TEXT NOT NULL, kind TEXT NOT NULL, source TEXT NOT NULL,
+  project TEXT, workspace TEXT, subject TEXT, actor_kind TEXT, actor_name TEXT, session TEXT,
+  message TEXT NOT NULL, cause TEXT, lever TEXT, data TEXT);
+CREATE INDEX IF NOT EXISTS opora_errors_open ON opora_errors(resolved_at, last_at);
+CREATE INDEX IF NOT EXISTS opora_errors_project ON opora_errors(project, last_at);
 """ + CONTEXT_BINDING_SCHEMA + ";" + OBSERVER_REGISTRY_SCHEMA + FLOW_SCHEMA + BRAIN_SCHEMA + LIBRARY_REVIEW_SCHEMA  # backend/flow/, backend/brain/
 
 # projects/<id>/project.sqlite – vše o jednom projektu; vlastník tabulky v komentáři.

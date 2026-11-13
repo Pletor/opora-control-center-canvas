@@ -9,7 +9,7 @@ import time
 from backend.agi_pletor.dashboard.heart_phases import analyze, headline
 from backend.agi_pletor.dashboard.heart_stops import stops
 from backend.agi_pletor.dashboard.heart_view import safe
-from backend.app import slow_requests
+from backend.app import errors, slow_requests
 from backend.brain_opora.heart import batch
 from backend.brain_opora.heart.steps import redact
 from backend.flow.catalogs.heart import caps_settings, model_settings
@@ -136,7 +136,7 @@ def explain(service, heart, project, now=None):
     view = {"project": project, "at": iso(now), "now": safe(lambda: waiting(heart, project, limits, now, runs)),
             "queue": safe(lambda: queue(heart, project, now)), "pipeline": runs,
             "batches": safe(lambda: batches(heart, project)), "caps": caps,
-            "model": model, "slow": safe(lambda: slow(now))}
+            "model": model, "slow": safe(lambda: slow(now)), "errors": safe(lambda: errors.counts(project))}
     view["stops"] = safe(lambda: stops(service, heart, project, view))
     return view
 
@@ -165,4 +165,8 @@ def text(view):
     if "error" not in caps:
         lines.append(f"STROPY: {caps['per_hour']} dávek/h, {caps['per_project']} běh na projekt, "
                      f"spánek po limitu {caps['rate_sleep_seconds']} s (mění člověk ve Velínu → Srdce).")
+    found = view.get("errors") or {}
+    lines.append(f"DENÍK CHYB: nedostupný ({found['error']})" if "error" in found else
+                 f"DENÍK CHYB: {found.get('open', 0)} otevřených (z toho srdce {found.get('heart', 0)}) → "
+                 f"GET /api/pletor/errors?project={view['project']}&format=text")
     return "\n".join(lines)
