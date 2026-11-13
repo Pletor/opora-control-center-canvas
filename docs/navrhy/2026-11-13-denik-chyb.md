@@ -7,7 +7,10 @@ Postup: **M1 jádro postaveno** (OP-82F712): tabulka `opora_errors` v registry, 
 odmítnutí 409/428/503 a obecná 500 ve `factory.py`, `GET /api/pletor/errors` (+ `format=text`), řádek DENÍK CHYB
 v průhledu srdce. **M6a registr pojistek postaven** (OP-F43588): tabulka `opora_guards`, `backend/app/guards.py`,
 `GET|PUT /api/pletor/guards`; napojené `content_manifest`, `confirmed_reopen` a `budget`, strop srdce, brána
-a autonomie jen jako propojené přepínače, `sql_context_pin` zatím nenapojený. Další na řadě M6b (Velín → Pojistky), M7, M2–M5, M8.
+a autonomie jen jako propojené přepínače, `sql_context_pin` zatím nenapojený. Další na řadě M6b (Velín → Pojistky), M2–M5, M8.
+**M7 průchodový test cesty postaven** (OP-803AC7): `backend/app/path_probe.py` projde pískoviště (projekt → karta návrhem
+grafu → přijetí → start → commit a krok → deliver → uzavření) bez modelu, `POST|GET /api/pletor/path-probe`, denní tik
+v lifespanu routeru, selhání do deníku (`source=path`), řádka PRŮCHOD CESTY v průhledu srdce; pískoviště zakládá jen člověk.
 
 ## §0 Proč
 
