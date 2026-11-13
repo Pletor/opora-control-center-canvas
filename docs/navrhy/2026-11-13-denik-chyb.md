@@ -1,4 +1,4 @@
-# Deník chyb OPORY: jedno místo pro všechno, co se pokazí, zasekne nebo cyklí
+# Průchodná OPORA: deník chyb, přepínatelné pojistky a rychlost jako terminál
 
 Stav: návrh (13. 11. 2026). Kontrakt pro stavbu. Inventura zdrojů je v §8.
 
@@ -15,7 +15,16 @@ Inventura (§8) potvrdila, že většina chyb končí v `LOGGER` bez konfigurace
 a neošetřená 500 se nikam nezapíšou. Chyba tahu Pletora se uloží jako běžná odpověď.
 Frontend neodesílá nic.
 
-Cíl: **jeden souhrnný deník chyb**, který čte člověk ve Velínu i agent jedním příkazem. U každé
+Měřítko vlastníka: OPORA musí fungovat **stejně efektivně, jako když agent pracuje jen s terminálem a soubory .md**.
+Všechno běží, cesty jsou průchodné, práce je autonomní, jednoduchá a rychlá. Z toho plynou tři pilíře:
+
+1. **Deník chyb** (§1–§5): každá chyba, zaseknutí a cyklení se zachytí po cestě, ne až při ručním pátrání.
+2. **Pojistky cílené a přepínatelné** (§9): každá zarážka chrání jen to, co má, má režim zapnuto/varovat/vypnuto
+   a při zablokování říká proč a čím ji uvolnit.
+3. **Průchodnost a rychlost** (§10–§11): cesta záměr → karta → převzetí → práce → PR → sloučení se každý den
+   projde sama a má rozpočty času srovnané s terminálem.
+
+Cíl pilíře 1: **jeden souhrnný deník chyb**, který čte člověk ve Velínu i agent jedním příkazem. U každé
 chyby je vidět, co se stalo, kde, komu, proč a čím to uvolnit. Opakování se nesčítá do záplavy
 řádků, ale do počtu u jednoho záznamu. Takže je vidět i cyklení.
 
@@ -109,6 +118,11 @@ Detektor zapisuje i vyřešení (`resolved_at`), takže deník ukazuje, co plat�
 | M3 Karty a integrita | §3 body 5–6 | karta 2.13b s nedostupným claimem by byla v deníku s důvodem |
 | M4 Detektory | §4 | test: karta ready 30 min → stall; 5× stejná chyba → loop; vyřešení zavře |
 | M5 Velín a UI | panel Chyby, frontend hlášení | `npm test`, náhled, pád komponenty je v deníku |
+| M6 Registr pojistek | §9: všechny pojistky z tabulky v registru, režim enforce/warn/off, zablokování píše do deníku | test každé pojistky ve třech režimech; Velín → Pojistky přepne a platí hned |
+| M7 Průchodový test | §11: denní průchod cesty na pískovišti, výsledek a časy v deníku | průchod zelený; rozbitá cesta = záznam s místem selhání |
+| M8 Rychlost a jednoduchost | §10: rozpočty dodrženy, kroky agenta zkrácené | měření před/po; agent-state, claim a zápis srdce v rozpočtu |
+
+Pořadí: M1 → M6 → M7 → M2–M5 → M8. Bez jádra deníku a registru pojistek nejde ostatní měřit ani ovládat.
 
 Každý milník je vlastní úkol Linie, vlak PR (M2 z M1 atd.).
 
@@ -138,3 +152,65 @@ server (žádná konfigurace logování, žádný handler 500, `slow_requests` j
 Nejbližší existující záznam je `opora_events` (čas, projekt, aktér, druh, data, retence 14 dní):
 deník ho nenahrazuje. Události procesu zůstávají tam, chyby a jejich stav (otevřené/vyřešené, počet) jsou v deníku,
 `*.failed` z `opora_events` se do deníku zrcadlí.
+
+## §9 Pojistky: cílené, přepínatelné, s důvodem
+
+Dnes je pojistka buď tvrdá a nepřepínatelná (pin SQL kontextu, manifest obsahu), nebo roztroušená po
+nastavení (strop dávek, brána, autonomie). Pravidla:
+
+1. **Registr pojistek** (`opora_guards` v registry.sqlite, jedna řádka na pojistku a rozsah):
+   `id, scope (app|project), project, mode (enforce|warn|off), changed_at, changed_by, reason`.
+   Výchozí režim je dnešní chování. Čte se jednou funkcí `guards.mode(id, project)`, s mezipamětí,
+   změna platí hned (bez restartu).
+2. **Režimy:** `enforce` zablokuje a zapíše do deníku (`blocked`, s pákou); `warn` pustí dál a zapíše `warn`
+   (vidíme, co by blokovalo, bez zastavení práce); `off` nic nekontroluje a zapíše jen změnu režimu.
+3. **Cílenost:** pojistka smí blokovat jen to, co chrání. Karta bez neschváleného obsahu nesmí stát kvůli
+   manifestu, nevinný index nesmí shodit pin, zámek projektu nesmí držet dlouhé čtení. Každá pojistka má
+   v registru větu „co chrání“ a test, že nezasahuje mimo to.
+4. **Kdo přepíná:** člověk ve Velínu → Pojistky (a API). Agent přepínač číst smí, měnit jen u pojistek
+   označených `agent_may_toggle` a jen s důvodem; každá změna je v deníku. Lidská zkouška (`tried`) zůstává
+   pravdivou evidencí člověka a není pojistka k vypnutí.
+5. **Autonomie:** při plné autonomii projektu jsou pojistky typu „krok patří člověku“ v režimu `warn`
+   a krok udělá agent pod vlastní identitou (pravdivý autor), člověk to vidí v deníku.
+
+Pojistky k převedení do registru (z dneška a inventury):
+
+| Pojistka | Co chrání | Dnešní problém |
+|---|---|---|
+| pin SQL kontextu (`opora_context_events`, `_bindings`) | že se kontext běhu nezměnil bez záznamu | 302 vs 303 shodilo Ample (řetězec generací už zaveden) |
+| manifest obsahu před claimem | že agent nepracuje nad neschváleným textem/kresbou | nová karta z plánu srdce nešla převzít (opraveno OP-65BA9C) |
+| přijetí návrhu grafu/obsahu jen člověkem (`human_only`) | že plán schválí člověk | srdce eskalovalo přijetí, karty čekaly |
+| znovuotevření potvrzené karty (409) | uzavřenou práci | srdce narazilo na 409 u 2.13/2.16 |
+| brána projektu (`gate_setting`) | že srdce nejedná bez povolení | |
+| strop dávek srdce `per_hour`, spánek po limitu | náklady a limity předplatného | srdce čeká mezi dávkami |
+| rozpočet pokusů a oprav (`budget_exhausted`) | nekonečné opravy | |
+| zámek projektu a timeout CLI srdce 60 s | konzistenci zápisů | zápisy srdce vypršely |
+| pojistky mrtvých tabulek (`dead_tables.py`) | pin před DDL | teď přísnější, než je nutné |
+
+## §10 Rychlost a jednoduchost: parita s terminálem
+
+Měřítko je agent s terminálem a .md: přečte soubor, upraví, spustí test, commitne. OPORA nesmí přidat víc než
+pár sekund a jeden krok navíc. Rozpočty (teplý server, Ample):
+
+| Krok | Rozpočet | Dnes naměřeno |
+|---|---|---|
+| `agent-state` | ≤ 2 s teplý, ≤ 5 s studený | 0,4–1,3 s teplý, 8–20 s studený (65 s před OP-A3AE94) |
+| zápis srdce (`steps`, `brief`, `intake`) | ≤ 1 s | 0,1–0,8 s, ojediněle 30–60 s |
+| claim karty | ≤ 2 s | neměřeno |
+| Linie `report`/`accept`/`merge` | ≤ 10 s celkem | jednotky sekund |
+| dávka srdce bez modelu (režie OPORY) | ≤ 20 % dávky | 19 s z 85 s po opravě (dříve 50–85 %) |
+
+Každý krok nad rozpočtem se zapíše do deníku (`slow`) s cestou a trváním. Zjednodušení kroků agenta:
+
+- `linie.py` odvodí úkol a projekt z větve a worktree (dnes `--ticket` a `--project` ručně).
+- Jeden příkaz na celý konec úkolu: `linie.py finish --check …` = report + accept + allow-merge + merge.
+- Založení úkolu bez ručního JSON těla: `linie.py new "<název>" --essence … --build …` (dnes curl a kódování).
+- Chybová hláška každé zarážky obsahuje přesný příkaz nebo místo ve Velínu, kterým ji uvolnit.
+
+## §11 Průchodový test cesty
+
+Každý den (a po každém nasazení) projde **pískovištní projekt** celou cestu tak, jak ji dělá agent:
+záměr → srdce přidá kartu → přijetí → claim → kroky → report → PR → sloučení → uzavření karty.
+Každý krok má čas a výsledek; selhání se zapíše do deníku s místem (krok, endpoint, důvod, páka),
+průchod se zastaví a zbytek je vidět jako „neprověřeno“. Velín ukáže poslední průchod jednou řádkou
+(zelený / kde stojí). Tím se zjistí rozbitá cesta dřív, než na ní uvízne Ample.
