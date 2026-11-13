@@ -9,6 +9,9 @@ def selected_content(db, project, workspace, revision, card_ids, accepted=None):
         return {"manifestPresent": False}
     if accepted is None:
         accepted = _accepted_entries(db, project, workspace, identifier)
+    known = {key[1] for key in accepted}
+    for target in set(card_ids) - known:
+        accepted = {**accepted, **_never_written(target, workspace)}
     keys = [("drawing", "", "scene")]
     for target in sorted(card_ids):
         keys.extend([("text", target, "text"), ("drawing", target, "scene")])
@@ -18,6 +21,20 @@ def selected_content(db, project, workspace, revision, card_ids, accepted=None):
     return {"manifestPresent": True, "entries": [
         {"kind": kind, "target": target, "field": field, "entry": accepted.get((kind, target, field))}
         for kind, target, field in sorted(keys)]}
+
+
+def _never_written(target, workspace):  # OP-65BA9C.1: nová karta z plánu srdce jde převzít
+    """karta přidaná návrhem grafu nemá v manifestu obsahu záznam (graph-acceptance manifest jen převezme).
+    Přijatá je tedy jen v nativní prázdné podobě: stejné záznamy, jaké zapíše úplné přijetí nové karty
+    (`opora_graph_complete_acceptance`), a výchozí konfigurace. Cokoli neschváleného navíc ji dál zablokuje."""
+    from backend.canvas.opora_content_sources import native_empty, normalize_config
+
+    entries = native_empty(target, workspace)
+    entries.pop(("storyboard", target, "storyboard"))  # storyboard se porovnává jen u karet, které ho přijatý mají
+    for field, value in normalize_config(None).items():
+        entries[("config", target, field)] = {"kind": "config", "target": target, "field": field,
+                                              "ownerWorkspace": workspace, "value": value}
+    return entries
 
 
 def _accepted_entries(db, project, workspace, identifier):

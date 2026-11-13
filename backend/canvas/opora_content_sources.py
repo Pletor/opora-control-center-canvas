@@ -26,6 +26,15 @@ def normalize_config(node_state):
     return {field: value.get(field) for field in CONFIG_FIELDS}
 
 
+NATIVE_EMPTY = (("text", "text", ""), ("drawing", "scene", {"elements": []}), ("storyboard", "storyboard", None))
+
+
+def native_empty(node, workspace):
+    """Nativní prázdný obsah karty, kterou nikdo nepsal: prázdný text, prázdná kresba, žádný storyboard."""
+    return {(kind, node, field): {"kind": kind, "target": node, "field": field, "ownerWorkspace": workspace,
+                                  "revision": 0, "value": deepcopy(value)} for kind, field, value in NATIVE_EMPTY}
+
+
 def _nodes(graph):
     if not isinstance(graph, dict) or not isinstance(graph.get("nodes"), list):
         raise TypeError("Content scope requires a validated graph.")

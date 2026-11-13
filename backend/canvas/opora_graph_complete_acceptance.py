@@ -3,7 +3,7 @@ from copy import deepcopy
 
 from backend.canvas.graph import digest, encode
 from backend.canvas.opora_content_changes import entry_key, index, manifest_entries
-from backend.canvas.opora_content_sources import normalize_config
+from backend.canvas.opora_content_sources import native_empty, normalize_config
 from backend.editor.agent_memory.desktop_v3_state import DesktopV3State, now
 from database.repositories.opora_content_records import ContentRecords
 
@@ -45,11 +45,8 @@ def persist(canvas, db, project, workspace, proposal, documents, specs, *, actor
     new_ids = {node["id"] for node in proposal["additions"]["nodes"]}
     # Empty native sources are evidence too. Never adopt unrelated live documents.
     for node in new_ids:
-        for kind, field, value in (("text", "text", ""), ("drawing", "scene", {"elements": []}), ("storyboard", "storyboard", None)):
-            key = (kind, node, field)
-            if key not in entries:
-                entries[key] = {"kind": kind, "target": node, "field": field,
-                                "ownerWorkspace": workspace, "revision": 0, "value": value}
+        for key, entry in native_empty(node, workspace).items():
+            entries.setdefault(key, entry)
     for node in {node["id"] for node in proposal["resultGraph"]["nodes"]}:
         old = normalize_config(review["before"]["nodes"].get(node))
         proposed = normalize_config(after["nodes"].get(node))

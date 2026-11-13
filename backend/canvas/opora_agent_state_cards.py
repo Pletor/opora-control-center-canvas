@@ -65,6 +65,9 @@ def card_stage(card, accepted, latest, claim, link, gate, now):
         return _entry(node, "claim", "blocking", claim["blockReason"])
     if accepted is None:
         return _entry(node, "plan", "blocking", "no_accepted_baseline")
+    if card.get("status") == "blocked":  # převzetí nedostupné (obsah, kontext, rozpočet): důvod nese process sync
+        return {**_entry(node, "claim", "blocking", "card_unavailable"),
+                "detail": (card.get("nextAction") or {}).get("reason")}
     return _entry(node, "plan", "ok", "card_in_plan")
 
 

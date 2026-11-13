@@ -61,8 +61,12 @@ def test_spec_graph_addition_and_graph_patch_preserve_content_manifest(sparse):
     assert graph["contentManifestId"] == original["contentManifestId"]
     patched = graph_change(graphs, {"updateNodes": [{"id": refs["b"], "fields": {"name": "B renamed"}}]})
     assert patched["contentManifestId"] == original["contentManifestId"]
-    # A newly introduced card lacks accepted content entries until separately reviewed.
+    # A card added by a graph proposal has no content entries: accepted only in its native empty form.
     new_id = next(item["id"] for item in authority.canvas.view("draft", "draft")["graph"]["nodes"] if item["name"] == "New C")
+    context = authority.context(**SCOPE, node=new_id)
+    assert "content differs" not in (context.get("unavailableReason") or "")
+    with authority.canvas.db_for("draft") as db:
+        db.execute("INSERT INTO node_text_revisions VALUES(?,?,?,?,?,?)", ("draft", "draft", new_id, 1, "Unreviewed", "now"))
     context = authority.context(**SCOPE, node=new_id)
     assert not context["available"] and "content differs" in context["unavailableReason"]
 

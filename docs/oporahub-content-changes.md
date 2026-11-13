@@ -151,8 +151,12 @@ V2 navíc porovná vybrané položky v každé přijaté mezirevizi. Nesouvisej�
 jiné karty tak může projít, relevantní změna i návrat A→B→A původní běh zneplatní.
 Revize bez pole `contentManifestId` zůstávají čitelné s původní legacy sémantikou;
 odkaz na chybějící nebo poškozený manifest se odmítne. Jakmile manifest existuje,
-nová karta bez jeho požadovaných položek nemá execution dostupné do jejich
-výslovného obsahového přijetí. Chybějící položky se nedoplňují z živého Canvasu.
+nová karta, kterou manifest vůbec nezná (přidaná návrhem grafu, který manifest jen
+převezme), je přijatá jen v nativní prázdné podobě: prázdný text, prázdná kresba
+a výchozí konfigurace, tedy totéž, co úplné přijetí nové karty zapíše. Jakýkoli
+neschválený obsah navíc (text, kresba, konfigurace) ji drží nedostupnou do výslovného
+obsahového přijetí. Chybějící položky se nedoplňují z živého Canvasu. Agent-state
+pak u karty ukáže `claim / blocking / card_unavailable` s důvodem v `detail`.
 
 OporaHub na stejné stránce zobrazí návrhy obsahu. Drawer otevře přesné ID, ukáže
 tři hodnoty rozdílu, případnou adopci základu, konflikty a lidské přijetí přes
