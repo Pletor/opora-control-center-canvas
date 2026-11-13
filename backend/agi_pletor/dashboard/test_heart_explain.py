@@ -57,3 +57,15 @@ def test_hour_cap_queue_pipeline_and_stops(heart, db):  # noqa: F811
 def test_idle_without_inputs(heart, db):  # noqa: F811
     view = heart_explain.explain(service(db), heart, P, NOW)
     assert view["now"]["state"] == "idle" and view["queue"] == []
+
+
+def test_running_without_batch_names_the_open_node_and_message_text(heart, db):  # noqa: F811
+    services = service(db)
+    db.execute("UPDATE flow_node_runs SET status='running', ended_at=NULL")
+    db.execute("UPDATE flow_runs SET status='running'")
+    heart.running.add(P)
+    heart._add(P, "w", {"type": "message", "text": "Čekají 2 žádosti\n o kroky"}, NOW)
+    view = heart_explain.explain(services, heart, P, NOW)
+    assert view["now"]["sentence"].startswith("Tok srdce stojí v uzlu „snímek projektu“")
+    assert "heartbeat" in view["now"]["sentence"]
+    assert view["queue"][0]["ref"] == "Čekají 2 žádosti o kroky"

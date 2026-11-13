@@ -20,10 +20,19 @@ BATCHES = 5
 
 
 def _ref(item):
-    return next((str(item[key]) for key in REF_KEYS if isinstance(item.get(key), str)), "")
+    found = next((str(item[key]) for key in REF_KEYS if isinstance(item.get(key), str)), "")
+    return found or " ".join(str(item.get("text") or "").split())[:60]  # zpráva člověka: začátek textu
 
 
-def waiting(heart, project, caps, now):
+def _open_node(pipeline):
+    """Uzel, ve kterém stojí otevřený běh toku srdce (snímek čeká na zámek, srdce běží), nebo None."""
+    for run in pipeline if isinstance(pipeline, list) else []:
+        if run["status"] in ("queued", "running", "waiting"):
+            return next((node for node in run["nodes"] if node["status"] in ("running", "waiting")), None)
+    return None
+
+
+def waiting(heart, project, caps, now, pipeline=None):
     """Stav srdce jednou větou: `{state, sentence, until?}`."""
     status = heart.status(project, now)
     with heart.lock:
@@ -31,6 +40,12 @@ def waiting(heart, project, caps, now):
         recent = [start for start in heart.starts.get(project, []) if start > now - HOUR]
     if not status["enabled"]:
         return {"state": "off", "sentence": "Srdce je vypnuté (OPORA_HEART=off nebo server neposlouchá jen na loopbacku)."}
+    node = _open_node(pipeline)
+    if status["running"] and not (status.get("current") or {}).get("startedAt") and node:
+        seconds = round((node["ms"] or 0) / 1000)
+        stalled = " Uzel nehlásí heartbeat; plánovač ho po 5 min obnoví." if seconds > 300 else ""
+        return {"state": "running", "sentence": f"Tok srdce stojí v uzlu „{node['label']}“ {seconds} s; model ještě "
+                                                f"neběží.{stalled}"}
     if status["running"]:
         current = status.get("current") or {}
         steps = current.get("steps") or []
@@ -107,8 +122,9 @@ def explain(service, heart, project, now=None):
     now = time.time() if now is None else now
     caps = safe(lambda: caps_settings.read(service.db))
     limits = caps if "error" not in caps else {"per_hour": 6}
-    view = {"project": project, "at": iso(now), "now": safe(lambda: waiting(heart, project, limits, now)),
-            "queue": safe(lambda: queue(heart, project, now)), "pipeline": safe(lambda: pipeline(service, project)),
+    runs = safe(lambda: pipeline(service, project))
+    view = {"project": project, "at": iso(now), "now": safe(lambda: waiting(heart, project, limits, now, runs)),
+            "queue": safe(lambda: queue(heart, project, now)), "pipeline": runs,
             "batches": safe(lambda: batches(heart, project)), "caps": caps,
             "model": safe(lambda: model_settings.read(service.db))}
     view["stops"] = safe(lambda: stops(service, heart, project, view))
