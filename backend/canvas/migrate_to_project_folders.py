@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from backend.canvas.project_folder import ProjectFolder
+from database.repositories.schema_generations import witness
 from database.schema.project_schema import (
     PROJECT_SCHEMA,
     PROJECT_TABLES,
@@ -77,7 +78,7 @@ def migrate(data_root: Path) -> dict:
     legacy = sqlite3.connect(legacy_path)
     legacy.row_factory = sqlite3.Row
     registry = sqlite3.connect(registry_path)
-    registry.executescript(REGISTRY_SCHEMA)
+    witness(registry, "migrate_to_project_folders: REGISTRY_SCHEMA (registr ze staré canvas.sqlite)", lambda: registry.executescript(REGISTRY_SCHEMA))
     counts = {table: _copy_rows(legacy, registry, table) for table in REGISTRY_TABLES}
     merged = merge_duplicate_git_projects(registry, legacy)
     registry.commit()
@@ -105,7 +106,7 @@ def migrate(data_root: Path) -> dict:
             else:
                 folder.create(project[0] if project else pid, "git", project[1] if project else "", branch=(project[2] if project else "") or "")
         db = sqlite3.connect(folder.database)
-        db.executescript(PROJECT_SCHEMA)
+        witness(db, "migrate_to_project_folders: PROJECT_SCHEMA (projekt ze staré canvas.sqlite)", lambda db=db: db.executescript(PROJECT_SCHEMA))
         for table, column in PROJECT_TABLES.items():
             _copy_rows(legacy, db, table, f"WHERE {column}=?", (pid,))
         db.commit()

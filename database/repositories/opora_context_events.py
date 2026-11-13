@@ -2,7 +2,8 @@
 
 4096 transitions, 8 MiB per raw payload and 128 MiB per project are hard bounds.
 Source writers freeze at these bounds and continue legacy writes. DDL generation
-is pinned: even restoring a dropped guard cannot silently repair lost coverage.
+is pinned to a recorded chain of application generations (schema_generations):
+even restoring a dropped guard cannot silently repair lost coverage.
 SQLite database owners can forge all evidence; this is not a security boundary.
 """
 import json
@@ -19,6 +20,7 @@ from database.repositories.opora_context_events_sources import (
 )
 from database.repositories.opora_context_events_triggers import install as install_triggers
 from database.repositories.opora_context_events_triggers import verify_triggers
+from database.repositories.schema_generations import explain, reaches
 
 
 def install(db):
@@ -88,8 +90,8 @@ def _checkpoint(db, project):
         raise ValueError("SQL context coverage is frozen: " + str(frozen))
     if not db.execute("PRAGMA recursive_triggers").fetchone()[0]:
         raise ValueError("SQL context recursive triggers are disabled.")
-    if version != db.execute("PRAGMA schema_version").fetchone()[0]:
-        raise ValueError("SQL context schema generation changed.")
+    if not reaches(db, version):
+        raise ValueError("SQL context schema generation changed." + explain(db, version))
     if schema != schema_digest(db) or triggers != digest(verify_triggers(db)):
         raise ValueError("SQL context schema or trigger fingerprint changed.")
     if (not isinstance(coverage, str) or len(coverage) != 32 or type(sequence) is not int

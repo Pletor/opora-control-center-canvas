@@ -100,6 +100,11 @@ i mazací část `INSERT OR REPLACE`. Zápis jiným spojením s vypnutým nastav
 pokrytí zmrazí. Limity jsou 4 096 událostí, 8 MiB na událost a 128 MiB bajtů
 na projekt. Zmrazení ani změněná generace DDL se automaticky neopravují;
 běžné starší zápisy mohou pokračovat, nové sparse oprávnění se nepřizná.
+Aplikace každé své DDL zapisuje jako generaci schématu do `opora_schema_generations`
+v téže databázi (append-only, `from_version → to_version`, autor a důvod). Pin
+proto přijímá souvislý řetězec zapsaných generací od své verze k aktuální
+`PRAGMA schema_version`; cizí DDL nechá mezeru a pin dál odmítne. Tabulka generací
+nevstupuje do otisků schématu ani triggerů.
 Přenos projektových dat kopíruje události před coverage metadaty, aby trigger
 počítadla znovu nepřičetl již zaznamenané bajty. Přenáší se i profil projektu,
 hlava sdílené architektury a její historie. Původní generace DDL zůstává

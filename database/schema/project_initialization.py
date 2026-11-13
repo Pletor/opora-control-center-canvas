@@ -12,23 +12,23 @@ from database.schema.project_schema import (
 
 
 def initialize_project_schema(db):
-    db.executescript(PROJECT_SCHEMA)
-    ensure_canvas_version_columns(db)
-    ensure_brief_fragment_columns(db)
-    ensure_ticket_columns(db)
-    ensure_milestone_proposed(db)
-    ensure_ticket_feedback_heart(db)
-    from database.schema.milestone_lifecycle import ensure_milestone_lifecycle
-    ensure_milestone_lifecycle(db)
-    from database.schema.opora_review_gate_schema import ensure_review_job_kind
-    ensure_review_job_kind(db)
-    from database.schema.opora_event_schema import ensure_process_columns
-    ensure_process_columns(db)
+    """Each additive step is witnessed on its own, so a generation row names the exact step."""
     from database.repositories.opora_context_events import install
-    install(db)
+    from database.repositories.schema_generations import witness
     from database.schema.dead_tables import drop_dead_tables, drop_retired_tables
-    drop_dead_tables(db)
-    drop_retired_tables(db)
+    from database.schema.milestone_lifecycle import ensure_milestone_lifecycle
+    from database.schema.opora_event_schema import ensure_process_columns
+    from database.schema.opora_review_gate_schema import ensure_review_job_kind
+    steps = [("PROJECT_SCHEMA (nové tabulky, indexy a triggery projektu)", lambda: db.executescript(PROJECT_SCHEMA))]
+    steps += [(step.__name__, lambda step=step: step(db)) for step in (
+        ensure_canvas_version_columns, ensure_brief_fragment_columns, ensure_ticket_columns,
+        ensure_milestone_proposed, ensure_ticket_feedback_heart, ensure_milestone_lifecycle,
+        ensure_review_job_kind, ensure_process_columns)]
+    steps += [("opora_context_events.install (triggery SQL kontextu)", lambda: install(db)),
+              ("drop_dead_tables", lambda: drop_dead_tables(db)),
+              ("drop_retired_tables", lambda: drop_retired_tables(db))]
+    for name, step in steps:
+        witness(db, "initialize_project_schema: " + name, step)
 
 
 def restore_project_backup(db, path):

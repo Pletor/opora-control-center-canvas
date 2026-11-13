@@ -5,6 +5,7 @@ import sqlite3
 import uuid
 
 from database.repositories.opora_context_binding_triggers import SOURCES, TABLE, statements, verify
+from database.repositories.schema_generations import explain, reaches
 from database.schema.opora_context_binding_schema import SCHEMA
 
 
@@ -95,8 +96,10 @@ def _checkpoint(db, project, workspace):
         if row is None:
             raise ValueError("Registry source binding is not enrolled.")
         identity, generation, schema, triggers, version, frozen = row
+        if type(version) is int and not reaches(db, version):
+            raise ValueError("Registry source binding coverage unavailable." + explain(db, version))
         if (frozen is not None or not db.execute("PRAGMA recursive_triggers").fetchone()[0]
-                or version != db.execute("PRAGMA schema_version").fetchone()[0]
+                or type(version) is not int
                 or schema != _schema(db) or triggers != _digest(verify(db))
                 or not isinstance(identity, str) or len(identity) != 32
                 or type(generation) is not int or not 0 <= generation <= 2147483647):

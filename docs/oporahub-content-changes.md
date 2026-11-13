@@ -118,15 +118,22 @@ nedůvěryhodné vstupy. Návrh tuto podmínku neobchází.
 ## Upgrade projektu s dřívějším kontextem v2
 
 Přidání `CONTENT_SCHEMA` do databáze, která již má aktivované sparse SQL pokrytí
-z předchozí verze, změní `PRAGMA schema_version`. Původní v2 checkpoint se proto
-odmítne jako změněná generace DDL, i když jsou obě nové tabulky prázdné. Staré
-události, coverage metadata, klíče, soukromé piny a přijatá historie zůstávají
-beze změny a po opětovném otevření jsou dostupné. Starý sparse běh tím nezíská
-nové oprávnění; opakovaná příprava coverage neopraví ani znovu nezařadí.
+z předchozí verze, změní `PRAGMA schema_version`. Dřív se proto původní v2
+checkpoint odmítl jako změněná generace DDL. Teď aplikace každé své DDL dosvědčí
+jako generaci (`database/repositories/schema_generations.py`) a pin přes souvislý
+řetězec od své verze projde; otisky schématu a triggerů se dál porovnávají beze
+změny. Staré události, coverage metadata, klíče, soukromé piny a přijatá historie
+zůstávají beze změny. DDL mimo aplikaci nechá mezeru a pin dál odmítne; opakovaná
+příprava coverage ji neopraví ani znovu nezařadí. Mezeru, kterou aplikace
+neviděla (DDL starší verze po zápisu pinu, cizí DDL), lze přijmout jen výslovnou adopcí `tools/schema_adopt.py` s pravdivým autorem a důvodem;
+přidá jeden řádek generace, nic nepřepisuje ani nemaže a bez `--write` jen ukáže,
+zda by checkpointy prošly. Samotné `--db` vypíše stav: verzi teď, piny, celý
+řetězec (kdo, kdy, proč), mezeru a přesný příkaz, který by ji uznal. Odmítnutý
+pin říká totéž přímo ve zprávě chyby.
 
 Běžný kontext v1 zůstává použitelný při splnění jeho dosavadních podmínek.
-Tato verze nemá reset ani migrační API pro bezpečné obnovení dřívější v2 coverage;
-nepřepisujte fingerprinty nebo generace a nemažte důkazy pro obnovení běhu.
+Tato verze nemá reset pro obnovení dřívější v2 coverage; nepřepisujte
+fingerprinty, piny ani zapsané generace a nemažte důkazy pro obnovení běhu.
 Jde o záměrné odmítnutí nedoložené kontinuity, které vyplývá z
 [pravidel SQL pokrytí](oporahub-sparse-context.md). Nové projekty se zařazují
 až po instalaci úplného schématu.

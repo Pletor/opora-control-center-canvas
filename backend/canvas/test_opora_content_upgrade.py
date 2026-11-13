@@ -1,4 +1,4 @@
-"""Adding content DDL preserves history but cannot renew older sparse coverage."""
+"""Witnessed content DDL keeps older sparse coverage and history; foreign DDL still breaks it."""
 import pytest
 
 from backend.canvas.canvas_service import CanvasService
@@ -17,7 +17,7 @@ def rows(db, table):
     return [tuple(row) for row in db.execute(f"SELECT * FROM {table}")]
 
 
-def test_content_schema_upgrade_rejects_old_sparse_coverage_without_erasing_history(sparse):
+def test_witnessed_content_schema_upgrade_keeps_old_sparse_coverage_and_history(sparse):
     graphs, _, refs = sparse
     db = graphs.service.db_for("draft")
     # Simulate the preceding release before enrollment, only in the isolated fixture.
@@ -38,23 +38,24 @@ def test_content_schema_upgrade_rejects_old_sparse_coverage_without_erasing_hist
     assert db.execute("PRAGMA schema_version").fetchone()[0] > generation
     for table in preserved_tables:
         assert rows(db, table) == before[table]
-    with pytest.raises(ValueError, match="schema generation"):
-        checkpoint(db, "draft")
+    assert checkpoint(db, "draft")["sequence"] >= 0
     with db:
         db.execute("BEGIN IMMEDIATE")
-        with pytest.raises(ValueError, match="schema generation"):
-            enroll(db, "draft")
+        assert enroll(db, "draft")["sequence"] >= 0
     assert private.read(db, "draft", "draft", record["executionId"]) == original_pin
     reopened = CanvasService(graphs.service.root)
     try:
         reopened_db = reopened.db_for("draft")
-        with pytest.raises(ValueError, match="schema generation"):
-            checkpoint(reopened_db, "draft")
+        assert checkpoint(reopened_db, "draft")["sequence"] >= 0
         assert private.read(reopened_db, "draft", "draft", record["executionId"]) == original_pin
         for table in preserved_tables:
             assert rows(reopened_db, table) == before[table]
         context = ExecutionResults(reopened).context(**SCOPE, node=refs["a"])
         assert context["available"] is True
         assert context.get("contextProtocolVersion", 1) == 1
+        reopened_db.execute("CREATE INDEX foreign_index ON opora_context_events(bytes)")
+        reopened_db.commit()
+        with pytest.raises(ValueError, match="schema generation"):
+            checkpoint(reopened_db, "draft")
     finally:
         reopened.close()

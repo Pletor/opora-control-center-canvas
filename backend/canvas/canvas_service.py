@@ -47,6 +47,7 @@ from backend.project.worktrees.workspace_archive import archived_workspaces
 from backend.project.worktrees.workspace_domain import require_domain
 from backend.project_setup.project_hub import ProjectHub
 from database.repositories.opora_context_bindings import install as install_context_bindings
+from database.repositories.schema_generations import witness
 from database.schema.project_initialization import initialize_project_schema
 from database.schema.project_schema import REGISTRY_SCHEMA, ensure_flow_owner_ref
 
@@ -118,9 +119,10 @@ class CanvasService:
         self.pool = ThreadPoolExecutor(max_workers=2)
         # registry.sqlite: jen seznam projektů, workspaces, jobs a archiv; vše ostatní má projekt ve své složce
         self.db = open_sqlite(self.root / "registry.sqlite")
-        self.db.executescript(REGISTRY_SCHEMA)
-        ensure_flow_owner_ref(self.db)
-        install_context_bindings(self.db)
+        witness(self.db, "CanvasService registry init: REGISTRY_SCHEMA", lambda: self.db.executescript(REGISTRY_SCHEMA))
+        witness(self.db, "CanvasService registry init: ensure_flow_owner_ref", lambda: ensure_flow_owner_ref(self.db))
+        witness(self.db, "CanvasService registry init: opora_context_bindings.install",
+                lambda: install_context_bindings(self.db))
         self._project_dbs = {}
         # Rozpracované snímky vlákna ({pid: spojení}); volná čtecí spojení po projektech (pod _locks_guard)
         # a seznam všech otevřených čtecích spojení kvůli close().

@@ -20,6 +20,7 @@ from database.repositories import opora_execution_contexts as private
 from database.repositories.opora_changesets import ChangesetRepository
 from database.repositories.opora_context_events import enroll
 from database.repositories.opora_context_snapshot import capture
+from database.repositories.schema_generations import witness
 
 
 def claim_fields(payload):
@@ -140,7 +141,7 @@ def prepare(executions, payload):
             raise RuntimeError("Context preparation requires its own registry transaction.")
         with registry:
             registry.execute("BEGIN IMMEDIATE")
-            bindings.install(registry)
+            witness(registry, "execution context prepare: opora_context_bindings.install", lambda: bindings.install(registry))
             bindings.enroll(registry, project, workspace)
         from backend.canvas.opora_context_graph_storage import promote_sql_draft
         promote_sql_draft(executions.canvas, project, workspace,
