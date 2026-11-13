@@ -10,6 +10,7 @@ from backend.agi_pletor.dashboard.heart_phases import analyze, headline
 from backend.agi_pletor.dashboard.heart_stops import stops
 from backend.agi_pletor.dashboard.heart_view import safe
 from backend.brain_opora.heart import batch
+from backend.brain_opora.heart.steps import redact
 from backend.flow.catalogs.heart import caps_settings, model_settings
 from backend.flow.catalogs.heart.state import HOUR, iso
 
@@ -21,7 +22,7 @@ BATCHES = 5
 
 def _ref(item):
     found = next((str(item[key]) for key in REF_KEYS if isinstance(item.get(key), str)), "")
-    return found or " ".join(str(item.get("text") or "").split())[:60]  # zpráva člověka: začátek textu
+    return found or redact(" ".join(str(item.get("text") or "").split()))[:60]  # zpráva člověka: začátek textu
 
 
 def _open_node(pipeline):
@@ -120,13 +121,15 @@ def batches(heart, project):
 
 def explain(service, heart, project, now=None):
     now = time.time() if now is None else now
-    caps = safe(lambda: caps_settings.read(service.db))
+    with service.registry_lock:  # ensure_active toku srdce smí zapisovat do registru
+        caps = safe(lambda: caps_settings.read(service.db))
+        model = safe(lambda: model_settings.read(service.db))
     limits = caps if "error" not in caps else {"per_hour": 6}
     runs = safe(lambda: pipeline(service, project))
     view = {"project": project, "at": iso(now), "now": safe(lambda: waiting(heart, project, limits, now, runs)),
             "queue": safe(lambda: queue(heart, project, now)), "pipeline": runs,
             "batches": safe(lambda: batches(heart, project)), "caps": caps,
-            "model": safe(lambda: model_settings.read(service.db))}
+            "model": model}
     view["stops"] = safe(lambda: stops(service, heart, project, view))
     return view
 

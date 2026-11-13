@@ -117,7 +117,9 @@ class HeartState:
                 "nextAllowedAt": iso(allowed), "error": self.errors.get(project),
                 "gitError": self.git_errors.get(project), "activeWorkspace": brain_files.active_workspace(brain),
                 "current": current, "idleReason": self.idle.get(project),
-                "typicalMs": batch.typical_ms(brain)}
+                "typicalMs": batch.typical_ms(brain),
+                # Průhled: proč srdce čeká, kde se může zastavit a kam šel čas dávek (docs/navrhy/2026-11-13-pruhled-srdce.md)
+                "explain": f"/api/pletor/heart/explain?project={project}&format=text"}
 
 
 def iso(moment):

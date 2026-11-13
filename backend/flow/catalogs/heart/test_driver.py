@@ -59,7 +59,8 @@ def test_seed_is_idempotent(db):
 
 def test_message_runs_the_whole_batch_and_frees_the_project(heart_env):
     env = heart_env
-    assert env.heart.status("p1")["enabled"] == enabled()
+    status = env.heart.status("p1")
+    assert status["enabled"] == enabled() and status["explain"] == "/api/pletor/heart/explain?project=p1&format=text"
     env.heart.message("p1", "draft", "Postav stránku", now=1000.0, record_intake=False)
     [run_id] = env.driver.tick()
     assert env.heart.running == {"p1"}

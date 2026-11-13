@@ -11,24 +11,28 @@ from database.repositories.opora_changesets import ChangesetRepository
 from database.repositories.opora_graph_proposals import GraphProposals
 
 _REVISION_ID = re.compile(r"[a-f0-9]{40}\Z")
-# Přijatá revize, její manifest i obsah jsou neměnné a adresované otiskem, takže (rozsah, revize, karta) → (rodič,
-# otisk průmětu) platí navždy. Agent-state bez paměti počítal tytéž průměty stokrát pod zámkem projektu (OP-A3AE94).
+# Přijatá revize, její manifest i obsah jsou neměnné a adresované otiskem, takže (rozsah, revize, karta)
+# → otisk průmětu platí navždy. Revize se čte vždy znovu (ověření pamatuje `verified_records` podle otisku textu),
+# pamatuje se jen drahý průmět. Agent-state bez paměti počítal tytéž průměty stokrát pod zámkem projektu (OP-A3AE94).
 _PROJECTIONS, _PROJECTIONS_LOCK, _PROJECTIONS_LIMIT = OrderedDict(), threading.Lock(), 8192
 
 
 def _projection(db, repo, project, workspace, revision_id, node_id):
-    key = (project, workspace, revision_id, node_id)
+    try:
+        record = repo.read(revision_id)
+    except (TypeError, AttributeError, KeyError, IndexError, RecursionError) as exc:
+        raise ValueError("Invalid accepted lineage record") from exc
+    key = (project, workspace, revision_id, node_id)  # úspěšné read = text odpovídá otisku revision_id
     with _PROJECTIONS_LOCK:
         if key in _PROJECTIONS:
             _PROJECTIONS.move_to_end(key)
-            return _PROJECTIONS[key]
-    record, projection_digest = _read_revision_projection(db, repo, project, workspace, revision_id, node_id)
-    value = (record.get("parentRevision"), projection_digest)
+            return record.get("parentRevision"), _PROJECTIONS[key]
+    _, projection_digest = _read_revision_projection(db, repo, project, workspace, revision_id, node_id)
     with _PROJECTIONS_LOCK:
-        _PROJECTIONS[key] = value
+        _PROJECTIONS[key] = projection_digest
         if len(_PROJECTIONS) > _PROJECTIONS_LIMIT:
             _PROJECTIONS.popitem(last=False)
-    return value
+    return record.get("parentRevision"), projection_digest
 
 
 def _read_revision_projection(db, repo, project, workspace, revision_id, node_id, *, include_affected=True):

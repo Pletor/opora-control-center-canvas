@@ -12,6 +12,10 @@ vědět, co, jak, proč dělá, kde se to může zastavit, ať je pro ostatní a
 | M3 Ovládání a Velín | Velín → Srdce ukazuje totéž a člověk mění stropy (`PUT /api/pletor/heart/caps`) | `npm test`, `npm run build`, náhled |
 | M4 Čitelné pro ostatní agenty | `opora_hub.py heart` vypíše průhled; skill na něj ukazuje | test skriptu, výpis |
 
+Naměřeno po M1 naživo (13. 11.): první dávka Ample 85 s, zápis 19 s (dříve 213–613 s); dávka 01:42 114 s, zápis 80 %,
+`brief` 30 s a jednou timeout 60 s, tedy zámek se pod zátěží ještě občas drží. Na kopii dat agent-state 65 s → 8–17 s
+se shodným výstupem. Další dávky sleduje zarážka `lock` (zápis ≥ 50 % dávky nebo snímek > 30 s).
+
 Poctivý východ: co nejde dokončit, se zapíše jako blokace v tomto dokumentu (§6) a v hlášení, ne čekáním.
 
 ## §1 Co jsme naměřili (výchozí stav)
@@ -60,3 +64,9 @@ předplatného, chyba toku, chyba gitu, zápisy čekají na zámek projektu, zá
 
 - Skill srdce v Brainu volá `escalate`, který `opora_heart.py` už nemá (exit 2). Patří práci jiné relace (OP-33C186,
   srdce bez dotazů na člověka); průhled ji ukazuje zarážkou `unknown_command`, neopravuje ji.
+- M4 jen zčásti: `GET /api/brain/heart/status` nese odkaz `explain` na textový průhled, takže ho agent najde ze stavu
+  srdce. Příkaz `opora_hub.py heart` a odkaz ve skillu nejsou: seed skillu `opora-control-center` má v pracovním stromu
+  rozdělanou změnu jiné práce a kopii seedu do Brainu dělá člověk.
+- Zámek projektu pod zátěží: když se zarážka `lock` vrátí, hledat držitele zámku (další dlouhé čtení pod
+  `graph_lock_for`/`lock_for`), ne zvyšovat timeout CLI srdce.
+- `per_project` je pevně 1: srdce má na projekt jeden soubor relace a jeden slot běžící dávky.

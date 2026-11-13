@@ -16,7 +16,9 @@ PHASES = {
     "write_files": "příprava souborů",
     "commands": "jiné příkazy",
     "agents": "podagenti",
+    "untraced": "nezaznamenáno (deník kroků je useknutý)",
 }
+MAX_STEPS = 80  # steps.MAX_STEPS
 HEART_CMD = re.compile(r"opora_heart\.py\s+([\w-]+)")
 CODE = re.compile(r'"code":\s*"([\w.-]+)"')
 
@@ -54,7 +56,9 @@ def analyze(batch):
         last = max(last, step["t"])
         if step["kind"] == "tool":
             call = {"tool": _short(step["text"]), "category": category(step["text"]), "start": step["t"],
-                    "ms": None, "failed": None}
+                    "ms": None, "failed": None, "parallel": bool(open_tools)}
+            for other in open_tools:  # souběžná volání sdílejí čas skupiny, ne každé zvlášť
+                other["parallel"] = True
             open_tools.append(call)
             calls.append(call)
         elif step["kind"] == "result" and open_tools:
@@ -64,18 +68,19 @@ def analyze(batch):
             if text.startswith("Exit code") or '"error"' in text[:200]:
                 code = CODE.search(text)
                 call["failed"] = code.group(1) if code else text[:120]
-    totals[open_tools[0]["category"] if open_tools else "model"] += max(end - last, 0)
+    truncated = len(steps) >= MAX_STEPS
+    totals["untraced" if truncated else open_tools[0]["category"] if open_tools else "model"] += max(end - last, 0)
     whole = sum(totals.values()) or 1
     phases = [{"id": key, "label": PHASES[key], "ms": ms, "share": round(ms / whole, 2)}
               for key, ms in sorted(totals.items(), key=lambda item: -item[1]) if ms]
     timed = [call for call in calls if call["ms"] is not None]
     return {
         "phases": phases,
-        "slowest": [{"tool": c["tool"], "ms": c["ms"], "category": c["category"]}
+        "slowest": [{"tool": c["tool"], "ms": c["ms"], "category": c["category"], "parallel": c["parallel"]}
                     for c in sorted(timed, key=lambda c: -c["ms"])[:5]],
         "failures": [{"tool": c["tool"], "error": c["failed"], "ms": c["ms"]} for c in calls if c["failed"]],
         "unanswered": [c["tool"] for c in calls if c["ms"] is None],
-        "truncated": len(steps) >= 80,  # steps.MAX_STEPS: konec dávky v deníku chybí
+        "truncated": truncated,
         "durationMs": end,
     }
 

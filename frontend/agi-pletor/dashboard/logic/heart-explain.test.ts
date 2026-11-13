@@ -17,6 +17,10 @@ describe("explainView", () => {
     expect(v.batches.rows[1].phases[0]).toMatchObject({ percent: 50, seconds: "2 s" });
     expect(v.queue.rows[0].dueIn).toBe("5");
   });
+  it("souběžné volání je označené, protože sdílí čas skupiny", () => {
+    const v = explainView({ batches: [{ at: "1", slowest: [{ tool: "opora_heart.py intake", ms: 218000, category: "opora_write", parallel: true }] }] });
+    expect(v.batches.rows[0].slowest[0]).toBe("opora_heart.py intake 218 s (opora_write, souběžně)");
+  });
   it("chyba jedné sekce neshodí ostatní", () => {
     const v = explainView({ now: { error: "x" }, stops: [{ id: "a", active: true }] });
     expect(v.now.error).toContain("x");

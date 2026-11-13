@@ -33,7 +33,7 @@ export function explainView(raw: unknown): ExplainView {
     return {
       at: str(b.at), headline: str(b.headline) || str(b.summary), status: str(b.status), truncated: b.truncated === true,
       phases: list(b.phases).map((p) => ({ id: str(rec(p).id), label: str(rec(p).label), seconds: seconds(rec(p).ms), percent: Math.max(0, Math.min(100, Math.round(Number(rec(p).share) * 100) || 0)) })),
-      slowest: list(b.slowest).map((x) => `${str(rec(x).tool)} ${seconds(rec(x).ms)} (${str(rec(x).category)})`),
+      slowest: list(b.slowest).map((x) => `${str(rec(x).tool)} ${seconds(rec(x).ms)} (${str(rec(x).category)}${rec(x).parallel === true ? ", souběžně" : ""})`),
       failures: list(b.failures).map((x) => `${str(rec(x).tool)}: ${str(rec(x).error)}`),
     };
   });

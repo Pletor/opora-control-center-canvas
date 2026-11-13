@@ -10,7 +10,8 @@ from backend.flow.catalogs.heart import seed
 from backend.flow.catalogs.heart.nodes import AGENT_DEFAULTS
 
 NODE = "agent.claude"
-BOUNDS = {"per_hour": (1, 60), "per_project": (1, 4), "rate_sleep_seconds": (60, 3 * 3600)}
+# per_project jen 1: srdce má na projekt jeden soubor relace a jeden slot `current`; souběh není ověřený.
+BOUNDS = {"per_hour": (1, 60), "per_project": (1, 1), "rate_sleep_seconds": (60, 3 * 3600)}
 
 
 def _active(db):
