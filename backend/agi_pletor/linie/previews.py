@@ -27,6 +27,7 @@ PROTECTED = {8740, 8768, 8780}
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 LOCK = threading.Lock()
 RUNNING = {}  # slug → Popen; po restartu serveru prázdné, stav se pak ověřuje portem
+DEAD = set()  # slug náhledů, jejichž pád už je v deníku chyb (vymaže ho nový start)
 
 
 def slug(branch):
@@ -185,10 +186,14 @@ def start(folder, root, branch, project, data_root, now, *, fresh=False, build=_
             built = False
         if not built:
             _update(folder, name, state="failed")
+            _journal("exception", f"Sestavení náhledu větve {branch} selhalo.", project, branch,
+                     lever=f"Log sestavení: {base / 'build.log'}; opravit build a spustit náhled znovu.")
             return
         process = spawn(tree, port, data, base / "server.log")
         RUNNING[name] = process
+        DEAD.discard(name)
         _update(folder, name, pid=process.pid, state="running")
+        _journal(None, None, project, branch)
 
     run(work)
     return record
@@ -225,12 +230,29 @@ def _alive(record):
     return bool(record.get("pid")) and _pid_alive(record["pid"])
 
 
+def _journal(kind, message, project, branch, **extra):
+    """OP-32F3B3.3: selhaný build a spadlý náhled do deníku (subject = větev, náhled úkol nezná); `kind` None
+    = náhled běží, záznamy větve se uzavřou."""
+    from backend.app import error_log
+
+    if kind is None:
+        error_log.resolve(source="linie", project=project, subject=branch)
+        return
+    error_log.submit("linie", kind, message, project=project, subject=branch, **extra)
+
+
 def status(folder):
     """Záznamy registru se živě ověřeným stavem: `running`, který neběží, je `stopped`."""
     records = list(_read(folder).values())
     for record in records:
         if record.get("state") == "running" and not _alive(record):
             record["state"] = "stopped"
+            if record.get("slug") not in DEAD:  # stav se čte často: jeden záznam na pád, ne na čtení
+                DEAD.add(record.get("slug"))
+                _journal("stall", f"Náhled větve {record.get('branch')} (port {record.get('port')}) spadl.",
+                         record.get("project"), record.get("branch"), severity="warn",
+                         data={"buildLog": record.get("log"), "port": record.get("port")},  # server.log leží vedle
+                         lever="Velín → Linie: spustit náhled znovu.")
     return records
 
 

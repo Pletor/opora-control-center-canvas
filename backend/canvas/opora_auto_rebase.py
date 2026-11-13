@@ -97,22 +97,33 @@ class AutoRebase:
                 outcome, result, conflicts, reason = "skipped", None, [], str(error)[:500]
             db.execute("RELEASE auto_rebase")
             if outcome == "conflict":
+                from backend.app import error_log
+
                 result = store.open_conflict(kind, ident, head, conflicts, stamp())
+                # OP-32F3B3.4: konflikt byl jen v tabulce auto-rebase; frontou, držíme zámky projektu
+                error_log.submit("card", "blocked", f"Návrh {kind} nejde sám přenést na nový plán: konflikt.",
+                                 severity="warn", project=project, workspace=workspace, subject=ident,
+                                 lever="Vyřešit konflikt ručně: GET /api/oporahub/auto-rebase/conflicts?project=….",
+                                 data={"conflictId": result, "acceptedHead": head, "fields": len(conflicts)})
             store.record(kind, ident, head, outcome, result, reason, stamp())
         return outcome, result, reason
 
     def _obsolete(self, db, project, workspace, head):
         store = AutoRebaseStore(db, project, workspace)
         _, accepted, superseded = proposals(db, project, workspace)
-        stale_conflicts = [item["id"] for item in store.conflicts("open", limit=10000)
+        stale_conflicts = [item for item in store.conflicts("open", limit=10000)
                            if item["acceptedHead"] != head or item["proposalId"] in accepted
                            or item["proposalId"] in superseded]
         if not stale_conflicts:
             return
         with db:
             db.execute("BEGIN IMMEDIATE")
-            for conflict_id in stale_conflicts:
-                store.transition(conflict_id, "obsolete", None, stamp())
+            for item in stale_conflicts:
+                store.transition(item["id"], "obsolete", None, stamp())
+        from backend.app import error_log
+
+        for proposal in {item["proposalId"] for item in stale_conflicts}:  # zastaralý konflikt už nic neblokuje
+            error_log.resolve(source="card", project=project, subject=proposal, kind="blocked")
 
     def conflicts(self, project, workspace, status=None):
         scope({"project": project, "workspace": workspace})

@@ -122,3 +122,30 @@ def explain(db, pin):
             f" svůj krok nedosvědčila. Změnu schématu mimo aplikaci uznej jen vědomě:"
             f' python tools/schema_adopt.py --db "{path}" --from {end} --to {until}'
             f' --author "<kdo>" --reason "<proč>" (bez --write jen ukáže stav).')
+
+
+_BROKEN = set()  # (projekt, předmět) s nepropustným pinem v deníku chyb; uzavírá se jen tehdy, levně
+
+
+def pin_broken(db, pin, project, subject):
+    """`explain` a k tomu záznam `integrity` do deníku chyb (frontou: checkpoint běží pod zámky); páka = příkaz."""
+    from backend.app import error_log
+
+    text = explain(db, pin)
+    if (project, subject) in _BROKEN:
+        return text  # checkpoint se volá při čtení: jeden záznam na rozbití, ne na každé čtení
+    command = text[text.index("python tools/schema_adopt.py"):] if "schema_adopt" in text else None
+    error_log.submit("integrity", "integrity", f"Pin SQL kontextu ({subject}) neprošel: schéma se změnilo mimo "
+                     "zapsaný řetězec generací.", project=project, subject=subject, cause=text.strip(),
+                     lever=command, data={"pin": pin, "current": _version(db)})
+    _BROKEN.add((project, subject))
+    return text
+
+
+def pin_ok(project, subject):
+    """Checkpoint prošel: dřív zapsaný záznam pinu se uzavře (bez dotazu, když žádný nebyl)."""
+    if (project, subject) in _BROKEN:
+        from backend.app import error_log
+
+        _BROKEN.discard((project, subject))
+        error_log.resolve(source="integrity", project=project, subject=subject)

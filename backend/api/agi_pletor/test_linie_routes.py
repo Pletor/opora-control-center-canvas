@@ -168,6 +168,31 @@ def test_linie_work_derives_parent_and_refuses_wrong_one(tmp_path, repo):
         assert stray.status_code == 422 and stray.json()["code"] == "target_not_parent"
 
 
+def test_linie_refused_accept_merge_and_block_land_in_the_error_journal(tmp_path, repo, monkeypatch):
+    from backend.app import error_log
+
+    records, resolved = [], []
+    monkeypatch.setattr(error_log, "submit", lambda source, kind, message, **kw: records.append((source, kind, kw)))
+    monkeypatch.setattr(error_log, "resolve", lambda **kw: resolved.append(kw))
+    q = {"project": "draft", "workspace": "main"}
+    with TestClient(create_app(tmp_path / "data"), base_url=ORIGIN) as client:
+        row = client.post(f"{BASE}/rows", headers=HEADERS, params=q, json={"name": "Uzel", "type": "work"}).json()["id"]
+        body = {"rowId": row, "title": "Uzel", "essence": "Proč.", "build": "Uzel.", "doneCriteria": ["testy"]}
+        tid = client.post(f"{BASE}/work", headers=HEADERS, params=q, json={**body, "branch": "feat/uzel"}).json()[
+            "ticketId"]
+        work = f"{BASE}/work/{tid}"
+        assert client.post(f"{work}/merge", headers=AGENT, params=q).status_code == 409
+        assert client.post(f"{work}/accept", headers=AGENT, params=q, json={"sha": "a" * 40}).status_code == 409
+        assert client.post(f"{work}/block", headers=AGENT, params=q, json={"reason": "čeká na API"}).status_code == 200
+        assert client.post(f"{work}/unblock", headers=AGENT, params=q).status_code == 200
+    linie = [(kind, kw["subject"], kw["project"]) for source, kind, kw in records if source == "linie"]
+    assert linie == [("refusal", tid, "draft"), ("refusal", tid, "draft"), ("blocked", tid, "draft")]
+    assert {"source": "linie", "project": "draft", "subject": tid, "kind": "blocked"} in resolved
+    resolved.clear()
+    assert linie_work_routes.answer(lambda: "hotovo", ("merge", "draft", tid)) == "hotovo"  # krok později prošel
+    assert resolved == [{"source": "linie", "project": "draft", "subject": tid, "kind": "refusal"}]
+
+
 ATTACH = {"rowId": "main", "branch": "feat/x", "baseBranch": "develop"}
 
 

@@ -569,9 +569,21 @@ def abandon(service, project, ticket_id, sha, why, now, by):
 
 # Rozhodnutí bez gitu (§7 bod 5): jen záznam s původcem; `decided` nese poslední defer / unblock / resume.
 def block(service, project, ticket_id, reason, now, by="human"):
-    return _change(service, project, ticket_id, now,
-                   lambda ticket: {**ticket["work"], "blocked": {"reason": reason, "at": now, "by": by}},
-                   "linie.block", by)
+    from backend.app import error_log
+
+    shown = _change(service, project, ticket_id, now,
+                    lambda ticket: {**ticket["work"], "blocked": {"reason": reason, "at": now, "by": by}},
+                    "linie.block", by)
+    # OP-32F3B3.3: blokace kuličky je jinak jen událost deníku Linie
+    error_log.submit("linie", "blocked", f"Úkol Linie je zablokovaný: {reason}", severity="warn", project=project,
+                     subject=ticket_id, actor=by, lever="Velín → Linie: odblokovat, obnovit, nebo zapomenout kuličku.")
+    return shown
+
+
+def _unblocked(project, ticket_id):
+    from backend.app import error_log
+
+    error_log.resolve(source="linie", project=project, subject=ticket_id, kind="blocked")
 
 
 def defer(service, project, ticket_id, now, by="human"):
@@ -580,8 +592,10 @@ def defer(service, project, ticket_id, now, by="human"):
 
 
 def unblock(service, project, ticket_id, now, by="human"):
-    return _change(service, project, ticket_id, now, lambda ticket: {
+    shown = _change(service, project, ticket_id, now, lambda ticket: {
         **ticket["work"], "blocked": None, "decided": {"action": "unblock", "at": now, "by": by}}, "linie.unblock", by)
+    _unblocked(project, ticket_id)
+    return shown
 
 
 def forget(service, project, ticket_id, now, by="human"):
@@ -608,13 +622,16 @@ def forget(service, project, ticket_id, now, by="human"):
         journal.write(store.db, project, "linie.forget", by, {"ticket": ticket_id, "mark": w.get("mark"),
                                                                 "title": w.get("title"), "branch": w.get("branch")},
                       ticket["workspaceId"])
-        return {"forgotten": ticket_id, "mark": w.get("mark"), "branch": w.get("branch")}
+    _unblocked(project, ticket_id)
+    return {"forgotten": ticket_id, "mark": w.get("mark"), "branch": w.get("branch")}
 
 
 def resume(service, project, ticket_id, now, by="human"):
-    return _change(service, project, ticket_id, now, lambda ticket: {
+    shown = _change(service, project, ticket_id, now, lambda ticket: {
         **ticket["work"], "blocked": None, "deferred": False, "decided": {"action": "resume", "at": now, "by": by}},
         "linie.resume", by)
+    _unblocked(project, ticket_id)
+    return shown
 
 
 def set_preview(service, project, ticket_id, record, now):

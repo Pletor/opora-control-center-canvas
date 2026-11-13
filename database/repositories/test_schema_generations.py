@@ -117,6 +117,47 @@ def test_registry_binding_witness_adopt_and_foreign(registry):
     assert bindings.checkpoint(registry, "draft", "draft")["generation"] == 0
 
 
+@pytest.fixture
+def journal(monkeypatch):
+    from backend.app import error_log
+    from database.repositories import schema_generations
+
+    monkeypatch.setattr(schema_generations, "_BROKEN", set())  # pin z jiného testu nesmí nic uzavírat
+    calls = {"records": [], "resolved": []}
+    monkeypatch.setattr(error_log, "submit", lambda source, kind, message, **kw: calls["records"].append(
+        (source, kind, kw)))
+    monkeypatch.setattr(error_log, "resolve", lambda **kw: calls["resolved"].append(kw))
+    return calls
+
+
+def test_broken_pin_is_integrity_with_adopt_command_and_resolves_once_it_passes(project, journal):
+    pin = project.execute("SELECT schema_version FROM opora_context_coverage").fetchone()[0]
+    checkpoint(project, "p")
+    assert journal["resolved"] == []  # bez dřívějšího záznamu se nic neuzavírá
+    project.execute("CREATE TABLE foreign_table(x)")
+    for _ in range(2):  # druhé čtení rozbitého pinu nový záznam nedá
+        with pytest.raises(ValueError):
+            checkpoint(project, "p")
+    [(source, kind, kw)] = journal["records"]
+    assert (source, kind, kw["project"], kw["subject"]) == ("integrity", "integrity", "p", "sql-context")
+    assert kw["lever"].startswith("python tools/schema_adopt.py") and f"--from {pin}" in kw["lever"]
+    adopt(project, pin, version(project), "tester", "foreign table reviewed")
+    project.commit()
+    checkpoint(project, "p")
+    assert journal["resolved"] == [{"source": "integrity", "project": "p", "subject": "sql-context"}]
+
+
+def test_broken_registry_binding_pin_is_integrity(registry, journal):
+    registry.execute("CREATE TABLE foreign_table(x)")
+    registry.commit()
+    with pytest.raises(ValueError):
+        bindings.checkpoint(registry, "draft", "draft")
+    [(source, kind, kw)] = journal["records"]
+    assert (source, kind, kw["project"], kw["subject"]) == ("integrity", "integrity", "draft",
+                                                            "registry-binding/draft")
+    assert "schema_adopt.py" in kw["lever"]
+
+
 def test_without_generation_table_pin_must_equal_pragma(tmp_path):
     db = sqlite3.connect(tmp_path / "old.sqlite")
     db.executescript(PROJECT_SCHEMA)

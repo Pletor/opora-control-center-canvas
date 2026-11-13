@@ -123,3 +123,20 @@ def test_advance_one_swallows_exceptions(monkeypatch):
     heart = _bare(monkeypatch, boom)
     heart._advance_one("p", "w1", "main-sha")
     assert heart.heads == {}
+
+
+def test_git_error_goes_to_the_error_journal_once_and_resolves(local, monkeypatch):
+    from backend.app import error_log
+
+    _, heart, _, _, project, _, _ = local
+    records, resolved = [], []
+    monkeypatch.setattr(error_log, "submit", lambda *a, **kw: records.append((a, kw)))
+    monkeypatch.setattr(error_log, "resolve", lambda **kw: resolved.append(kw))
+    monkeypatch.setattr(heart, "_kind", lambda pid: (_ for _ in ()).throw(OSError("repo pryč")))
+    heart.watch_git()
+    heart.watch_git()  # stejná chyba z dalšího průchodu nový záznam nepřidá
+    [((source, kind, _), kw)] = records
+    assert (source, kind, kw["project"], kw["subject"]) == ("heart", "exception", project, "git") and kw["lever"]
+    monkeypatch.setattr(heart, "_kind", lambda pid: "local")
+    heart.watch_git()
+    assert resolved == [{"source": "heart", "project": project, "subject": "git"}]

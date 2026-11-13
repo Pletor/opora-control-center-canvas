@@ -106,6 +106,28 @@ def test_failed_build_and_dead_process(tmp_path):
     assert {p["branch"]: p["state"] for p in previews.status(folder)} == {"items/1-t": "failed", "feat/a": "stopped"}
 
 
+def test_failed_build_and_dead_preview_land_in_the_error_journal(tmp_path, monkeypatch):
+    from backend.app import error_log
+
+    records, resolved = [], []
+    monkeypatch.setattr(error_log, "submit", lambda source, kind, message, **kw: records.append((source, kind, kw)))
+    monkeypatch.setattr(error_log, "resolve", lambda **kw: resolved.append(kw))
+    previews.DEAD.clear()
+    repo, folder = make_repo(tmp_path / "r"), tmp_path / "pletor"
+    data = data_root(tmp_path / "data")
+    previews.start(folder, repo, "items/1-t", "p1", data, "t", build=lambda tree, log: False,
+                   spawn=lambda *a: pytest.fail("bez buildu se server nespouští"), run=lambda work: work())
+    process = Process()
+    previews.start(folder, repo, "feat/a", "p1", data, "t", build=lambda tree, log: True,
+                   spawn=lambda *a: process, run=lambda work: work())
+    assert resolved == [{"source": "linie", "project": "p1", "subject": "feat/a"}]  # náhled běží
+    process.code = 1
+    previews.status(folder)
+    previews.status(folder)  # druhé čtení pád znovu nezapíše
+    assert [(s, k, kw["subject"], kw["project"]) for s, k, kw in records] == [
+        ("linie", "exception", "items/1-t", "p1"), ("linie", "stall", "feat/a", "p1")]
+
+
 def test_start_refuses_unknown_branch(tmp_path):
     repo = make_repo(tmp_path / "r")
     with pytest.raises(ValueError, match="neexistuje"):

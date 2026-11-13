@@ -20,7 +20,7 @@ from database.repositories.opora_context_events_sources import (
 )
 from database.repositories.opora_context_events_triggers import install as install_triggers
 from database.repositories.opora_context_events_triggers import verify_triggers
-from database.repositories.schema_generations import explain, reaches
+from database.repositories.schema_generations import pin_broken, pin_ok, reaches
 
 
 def install(db):
@@ -91,7 +91,8 @@ def _checkpoint(db, project):
     if not db.execute("PRAGMA recursive_triggers").fetchone()[0]:
         raise ValueError("SQL context recursive triggers are disabled.")
     if not reaches(db, version):
-        raise ValueError("SQL context schema generation changed." + explain(db, version))
+        # OP-32F3B3.5: nepropustný pin byl jen v textu odmítnutí; deník ho drží s příkazem schema_adopt.py
+        raise ValueError("SQL context schema generation changed." + pin_broken(db, version, project, "sql-context"))
     if schema != schema_digest(db) or triggers != digest(verify_triggers(db)):
         raise ValueError("SQL context schema or trigger fingerprint changed.")
     if (not isinstance(coverage, str) or len(coverage) != 32 or type(sequence) is not int
@@ -110,6 +111,7 @@ def _checkpoint(db, project):
         total += _verify_event(event, project, coverage, number)["bytes"]
     if total != size:
         raise ValueError("SQL context byte counter mismatch.")
+    pin_ok(project, "sql-context")
     return {"coverageId": coverage, "sequence": sequence, "bytes": size,
             "sources": list(SOURCES), "fileSourcesCovered": False, "registriesCovered": False}
 

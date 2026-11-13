@@ -40,10 +40,18 @@ HEALABLE = ("github-unavailable",) + AUTH
 
 def fail(links, row, code, now, *, retry):
     """A missing or rejected token needs a human (attention) but heals once the token is fixed: it keeps retrying."""
+    from backend.app import error_log
+
     failures = row["enrollment_failures"] + 1
     extra = {}
     if code in AUTH:
         retry, extra = True, {"attention": code}
+    # OP-32F3B3.4: enrollment_error byl jen sloupec; frontou, volající drží zámky a transakci projektu
+    error_log.submit("card", "exception", f"PR karty se nezapsal do sledování: {code}", project=links.scope[0],
+                     workspace=links.scope[1], subject=row["execution_id"], severity="warn" if retry else "error",
+                     lever="Nahradit GitHub token a restartovat OPORU." if code in AUTH else
+                     "Zkontrolovat PR a konfiguraci review projektu (repozitář, větev).",
+                     data={"code": code, "failures": failures, "retry": retry, "pr": row["number"]})
     return links.update(row["execution_id"], enrollment="pending" if retry else "failed", enrollment_error=code,
                         enrollment_failures=failures, enrollment_retry_at=now + retry_delay(failures) if retry else None,
                         updated_at=stamp(), **extra)
@@ -79,6 +87,10 @@ def apply_enrollment(service, links, row, pr, now=None):
             "requestId": None, "requestDigest": None, "by": AUTO_ENROLL_AUTHOR, "createdAt": stamp()}, 0)
         ReconciliationJobs(links.db, project, workspace).create(binding, control, now)
     cleared = {"attention": None} if row["attention"] in AUTH else {}
+    if row["enrollment_error"]:
+        from backend.app import error_log
+
+        error_log.resolve(source="card", project=project, subject=row["execution_id"])
     return links.update(row["execution_id"], binding_id=binding["id"], enrollment="enrolled", enrollment_error=None,
                         enrollment_retry_at=None, head_sha=pr["headSha"], head_ref=pr["headRef"], updated_at=stamp(),
                         **cleared)

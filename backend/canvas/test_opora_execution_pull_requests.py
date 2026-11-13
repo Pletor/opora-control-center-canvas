@@ -248,6 +248,29 @@ def test_missing_token_is_told_as_auth_missing_and_heals_once_set(world, monkeyp
     manager.close()
 
 
+def test_enrollment_failure_and_heal_go_to_the_error_journal(world, monkeypatch):
+    from backend.app import error_log
+
+    records, resolved = [], []
+    monkeypatch.setattr(error_log, "submit", lambda source, kind, message, **kw: records.append((source, kind, kw)))
+    monkeypatch.setattr(error_log, "resolve", lambda **kw: resolved.append(kw))
+    service, scope, executions = world
+    monkeypatch.setenv("OPORA_EXECUTION_PR_DISCOVERY_SECONDS", "0")
+    record = claim(executions, scope)
+    reader = Reader(error=GitHubMergeError("github-auth-missing", action_required=True))
+    now = [1000.0]
+    links = ExecutionPullRequestLinks(service, reader, clock=lambda: now[0])
+    links.link(record["executionId"], body(record), "agent")
+    [(_, kind, kw)] = [item for item in records if item[0] == "card"]
+    assert (kind, kw["subject"], kw["project"], kw["data"]["code"]) == (
+        "exception", record["executionId"], scope["project"], "github-auth-missing") and "token" in kw["lever"]
+    manager = ExecutionPullRequestManager(service, links, clock=lambda: now[0])
+    reader.error, now[0] = None, 2000.0
+    manager.run_once()
+    assert {"source": "card", "project": scope["project"], "subject": record["executionId"]} in resolved
+    manager.close()
+
+
 def test_rejected_token_heals_after_restart_and_merged_pr_is_written_back(world, monkeypatch):
     """Live case: a 401 with a stale token failed the link for good, so the merged PR was never observed."""
     service, scope, executions = world

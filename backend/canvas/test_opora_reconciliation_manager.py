@@ -192,3 +192,27 @@ def test_paused_inflight_response_retains_only_provider_cooldown(tmp_path):
     restart = manager(Service(db), reader(lambda _: pytest.fail('provider cooldown bypass')), now)
     assert restart.run_one() is None
     assert restart.cooldown_until == 1600
+
+
+def test_retry_pause_and_recovery_go_to_the_error_journal(tmp_path, monkeypatch):
+    from backend.app import error_log
+
+    records, resolved = [], []
+    monkeypatch.setattr(error_log, 'submit', lambda source, kind, message, **kw: records.append((source, kind, kw)))
+    monkeypatch.setattr(error_log, 'resolve', lambda **kw: resolved.append(kw))
+    db, _, _, binding = setup(tmp_path / 'state.sqlite')
+    now = [1000]
+    worker = manager(Service(db), reader(lambda pin: (_ for _ in ()).throw(GitHubMergeError())), now)
+    worker.run_one()
+    [(source, kind, kw)] = records
+    assert (source, kind, kw['subject'], kw['project'], kw['severity']) == (
+        'card', 'exception', binding['id'], binding['project'], 'warn')
+    worker.reader = reader(lambda pin: data(pin, 'open'))
+    now[0] = 5000
+    worker.run_one()
+    assert resolved == [{'source': 'card', 'project': binding['project'], 'subject': binding['id']}]
+    worker.reader = reader(lambda pin: (_ for _ in ()).throw(GitHubMergeError('github-auth-missing',
+                                                                               action_required=True)))
+    now[0] = 9000
+    worker.run_one()
+    assert records[-1][1] == 'blocked' and records[-1][2]['data']['code'] == 'github-auth-missing'

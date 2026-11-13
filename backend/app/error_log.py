@@ -23,15 +23,24 @@ _inside = threading.local()
 def _drain_forever():
     _inside.active = True  # cokoli zalogované z vlákna deníku se do deníku nevrací (jinak smyčka přes frontu)
     while True:
-        args, kwargs = QUEUE.get()
+        name, args, kwargs = QUEUE.get()
         try:
-            errors.record(*args, **kwargs)
+            getattr(errors, name)(*args, **kwargs)
         finally:
             QUEUE.task_done()
 
 
 def submit(*args, **kwargs):
     """Stejné argumenty jako `errors.record`; nikdy nečeká ani nevyhodí."""
+    _put("record", args, kwargs)
+
+
+def resolve(**kwargs):
+    """`errors.resolve` stejnou frontou: uzavření nepředběhne záznam, který čeká před ním."""
+    _put("resolve", (), kwargs)
+
+
+def _put(name, args, kwargs):
     global _worker
     try:
         if _worker is None:
@@ -39,7 +48,7 @@ def submit(*args, **kwargs):
                 if _worker is None:
                     _worker = threading.Thread(target=_drain_forever, name="opora-errors", daemon=True)
                     _worker.start()
-        QUEUE.put_nowait((args, kwargs))
+        QUEUE.put_nowait((name, args, kwargs))
     except Exception:  # noqa: BLE001, S110 – plná fronta nebo vlákno nejde spustit: záznam se ztratí, práce ne
         pass
 

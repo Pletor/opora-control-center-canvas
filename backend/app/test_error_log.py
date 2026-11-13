@@ -50,3 +50,12 @@ def test_emit_does_not_wait_for_locked_registry(registry):  # noqa: F811
         holder.rollback()
         holder.close()
     error_log.drain()
+
+
+def test_queued_resolve_runs_after_the_record_before_it(registry):  # noqa: F811
+    error_log.submit("heart", "timeout", "dávka vypršela", project="p1", subject="b1")
+    error_log.submit("heart", "timeout", "dávka vypršela", project="p2", subject="b1")
+    error_log.resolve(source="heart", project="p1", subject="b1")
+    error_log.drain()
+    by_project = {row["project"]: row["resolved_at"] for row in errors.read(open_only=False)}
+    assert by_project["p1"] and by_project["p2"] is None

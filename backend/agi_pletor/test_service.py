@@ -81,6 +81,24 @@ def test_gate_off_refuses_heart_message_and_model_failure_is_a_reply(tmp_path):
         assert state["heart"]["pending"] == 0 and state["escalations"] == []
 
 
+def test_turn_failure_and_refused_action_land_in_the_error_journal(tmp_path, monkeypatch):
+    from backend.app import error_log
+
+    records, resolved = [], []
+    monkeypatch.setattr(error_log, "submit", lambda source, kind, message, **kw: records.append((source, kind, kw)))
+    monkeypatch.setattr(error_log, "resolve", lambda **kw: resolved.append(kw))
+    with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
+        seed(client)
+        runner = Runner({"reply": "Zkusím.", "actions": [{"type": "heart_message", "text": "Postav web."}]},
+                        Outcome(None, "", "", timed_out=True))
+        pletor = pletor_for(client, runner)
+        pletor.message("draft", "draft", "Postav web.")
+        pletor.message("draft", "draft", "Haló?")
+    mine = [(source, kind, kw["subject"], kw["project"]) for source, kind, kw in records if source == "pletor"]
+    assert mine == [("pletor", "refusal", "heart_message", "draft"), ("pletor", "exception", "turn", "draft")]
+    assert {"source": "pletor", "project": "draft", "subject": "turn"} in resolved  # první tah prošel
+
+
 def test_voice_adds_the_spoken_mode_line_only_when_asked(tmp_path):
     with TestClient(create_app(tmp_path), base_url=ORIGIN) as client:
         seed(client)

@@ -82,8 +82,14 @@ class HeartDriver:
                     "source": "heart", "node_id": node_id,
                     "payload": {"project": project, "workspace": workspace, "items": items}})
         except Exception as error:  # vadná verze nesmí shodit plánovač; vstupy počkají na opravu
-            LOGGER.exception("Tok srdce: běh projektu %s nešel založit.", project)
+            from backend.app import error_log
+
             self.heart.errors[project] = f"{type(error).__name__}: {error}"[:500]
+            error_log.submit("heart", "exception", "Tok srdce: běh projektu nešel založit.", project=project,
+                             workspace=workspace, subject="run", cause=self.heart.errors[project],
+                             lever="Opravit aktivní verzi toku Srdce v1 (Velín → Toky); vstupy počkají.")
+            error._opora_recorded = True  # log zůstává na stderr, deník už má záznam s projektem
+            LOGGER.exception("Tok srdce: běh projektu %s nešel založit.", project)
             for item in items:
                 self.heart._add(project, workspace, item, self.heart.clock() + 60)
             self._free(project)

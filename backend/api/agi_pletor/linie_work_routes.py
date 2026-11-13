@@ -99,11 +99,21 @@ def origin(service, request, project, ticket_id=None, *, workspace=None):
                     "Pošlete X-Opora-Actor: agent; name=<jméno> nebo X-Opora-Gate-Token.")
 
 
-def answer(act):
+def answer(act, refusal=None):
+    """`refusal = (krok, projekt, ticket)`: odmítnutí jde i do deníku chyb (accept a merge, docs/navrhy/2026-11-13-denik-chyb.md §3)."""
+    from backend.app import error_log
+
     try:
-        return act()
+        done = act()
     except GateError as error:
+        if refusal:
+            step, project, ticket_id = refusal
+            error_log.submit("linie", "refusal", f"Linie odmítla {step}: {error}", severity="warn", project=project,
+                             subject=ticket_id, lever=error.hint, data={"code": error.code, "status": error.status})
         return JSONResponse(error.body(), status_code=error.status)
+    if refusal:  # krok prošel: dřívější odmítnutí úkolu už neplatí
+        error_log.resolve(source="linie", project=refusal[1], subject=refusal[2], kind="refusal")
+    return done
 
 
 ENCODED = {}  # poslední hotový board → jeho JSON; opakovaný board se nekóduje znovu (~0,5 MB)
@@ -120,14 +130,15 @@ def create_linie_work_router(service, pletor, root=None):
     router = APIRouter(prefix="/api/pletor/linie", tags=["pletor"])
     root = root or REPO_ROOT  # čteno až tady, ať test může podvrhnout repozitář
 
-    def human(request, project, act, workspace="main"):
+    def human(request, project, act, workspace="main", refusal=None):
         require_human(request.state.actor, HUMAN)
-        return answer(lambda: (_check(service, project, workspace), act())[1])
+        return answer(lambda: (_check(service, project, workspace), act())[1], refusal)
 
-    def anyone(request, project, ticket_id, act):
+    def anyone(request, project, ticket_id, act, step=None):
         """Agent i člověk; `act(by)` dostane původce do záznamu (`human` / `agent:<jméno>`). Bez `ticket_id` se
-        prostor ticketu nekontroluje (nasazení)."""
-        return answer(lambda: act(origin(service, request, project, ticket_id)))
+        prostor ticketu nekontroluje (nasazení). Se `step` jde odmítnutí do deníku chyb."""
+        return answer(lambda: act(origin(service, request, project, ticket_id)),
+                      (step, project, ticket_id) if step else None)
 
     @router.get("/board")
     def board_state(request: Request, project: str = "", workspace: str = "main", group: str = "branch",
@@ -279,7 +290,7 @@ def create_linie_work_router(service, pletor, root=None):
     @router.post("/work/{ticket_id}/accept")
     def work_accept(request: Request, ticket_id: str, body: LinieAcceptIn, project: str = ""):
         return anyone(request, project, ticket_id, lambda by: work.accept(
-            service, project, ticket_id, body.sha, body.note, tokens.stamp(), body.untested, by=by))
+            service, project, ticket_id, body.sha, body.note, tokens.stamp(), body.untested, by=by), "accept")
 
     @router.delete("/work/{ticket_id}/accept")
     def work_revoke(request: Request, ticket_id: str, project: str = ""):
@@ -293,7 +304,8 @@ def create_linie_work_router(service, pletor, root=None):
     @router.post("/work/{ticket_id}/accept-merge")
     def work_accept_merge(request: Request, ticket_id: str, body: LinieAcceptMergeIn, project: str = ""):
         return human(request, project, lambda: human_queue.accept_merge(service, project, ticket_id, body.sha, body.op,
-                                                                        body.note, tokens.stamp(), body.untested))
+                                                                        body.note, tokens.stamp(), body.untested),
+                     refusal=("accept-merge", project, ticket_id))
 
     @router.post("/work/{ticket_id}/merge")
     def work_merge(request: Request, ticket_id: str, body: LinieMergeIn | None = None, project: str = ""):
@@ -305,7 +317,7 @@ def create_linie_work_router(service, pletor, root=None):
             if body and body.op:  # stejné op jen pro týž úkol (jinak 409 idempotency_conflict)
                 idempotency.claim(service.root, project, "merge", body.op, {"ticket": ticket_id})
             return merge.merge(service, project, ticket_id, tokens.stamp(), op=body.op if body else None, by=by)
-        return anyone(request, project, ticket_id, act)
+        return anyone(request, project, ticket_id, act, "merge")
 
     @router.post("/work/{ticket_id}/abandon")
     def work_abandon(request: Request, ticket_id: str, body: LinieAbandonIn, project: str = ""):

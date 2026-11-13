@@ -28,6 +28,19 @@ def _iso(moment):
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(moment))
 
 
+def _report(kind, message, project, workspace, subject, **extra):
+    """OP-32F3B3.3: chyba tahu se ukládá jako běžná odpověď a neúspěšná akce jen v odpovědi; deník je vidí."""
+    from backend.app import error_log
+
+    error_log.submit("pletor", kind, message, project=project, workspace=workspace, subject=subject, **extra)
+
+
+def _turn_ok(project, workspace):
+    from backend.app import error_log
+
+    error_log.resolve(source="pletor", project=project, subject="turn")
+
+
 VOICE = ("REŽIM: HLAS – odpověz nejvýš dvěma větami, prostým textem bez výčtů a markdownu, čitelným nahlas, česky. "
          "Čísla piš slovy, kde to jde, a nepiš zkratky, emoji, odkazy, ID ani znaky jako * # / _ `, syntéza je čte špatně.")
 
@@ -148,6 +161,10 @@ class Pletor:
                 reply, raw = self._turn(project, workspace, context, text, history, emit if on_delta else None,research_access=research_access)
         except RuntimeError as error:
             reply, raw = str(error), []
+            _report("exception", f"Tah Pletora selhal: {error}", project, workspace, "turn",
+                     lever="Zkontrolovat mozek Pletora (Velín → Pletor) a zkusit zprávu znovu.")
+        else:
+            _turn_ok(project, workspace)
         so_far = "".join(sent)
         if on_delta and reply.startswith(so_far) and reply != so_far:
             on_delta(reply[len(so_far):])  # prostý text, Ollama nebo zbytek po ořezu: složené kousky = reply
@@ -161,6 +178,9 @@ class Pletor:
             else:
                 ok, detail = False, problem
             done.append({**action, "ok": ok, "detail": detail})
+            if not ok:
+                _report("refusal", f"Akce Pletora {action.get('type')} neprošla: {detail}", project, workspace,
+                         action.get("type"), severity="warn")
         if done:
             self.contexts.clear()  # akce změnila stav srdce nebo rozhodnutí, příští podklady se přečtou znovu
         failed_questions = [item for item in done if item.get("type") == "heart_question" and not item["ok"]]
@@ -182,6 +202,10 @@ class Pletor:
                 reply, _ = self._turn(project, workspace, self._podklady(project, workspace), prompt, history)
         except Exception as error:  # noqa: BLE001 – tah běží na pozadí po události srdce, výpadek modelu je jen věta
             reply = f"{failure}: {error}"
+            _report("exception", f"Proaktivní tah Pletora selhal: {error}", project, workspace, "turn",
+                     cause=f"{type(error).__name__}: {error}")
+        else:
+            _turn_ok(project, workspace)
         store.append_message(self.folder, _iso(self.clock()), project, workspace, "pletor", reply)
         return reply
 

@@ -134,3 +134,28 @@ def test_sub_ports_are_config_not_steps(db):
     assert run["status"] == "succeeded" and set(by_node(run)) == {"t", "a"}
     assert seen == {"model": [{"node_id": "m", "type": "model", "params": {"name": "haiku"}, "port": "model"}]}
     assert get_run(db, run["id"])["trigger"]["node_id"] == "t"
+
+
+def test_node_failure_and_interrupted_attempt_land_in_error_journal(db, monkeypatch):
+    from backend.app import error_log
+
+    records = []
+    monkeypatch.setattr(error_log, "submit", lambda source, kind, message, **kw: records.append((source, kind, kw)))
+    calls = []
+
+    def flaky(ctx):
+        calls.append(1)
+        if len(calls) == 1:
+            raise KeyboardInterrupt  # pád procesu: řádek zůstane running, další advance ho obnoví
+        raise RuntimeError("rozbito")
+
+    registry = {**NODE_TYPES, "flaky": NodeType("flaky", 1, (Port("main", "in"),), flaky)}
+    graph = {"nodes": [node("t", "trigger.manual"), node("f", "flaky")], "edges": [edge("1", "t", "f")]}
+    with pytest.raises(KeyboardInterrupt):
+        start_run(db, version(db, graph, registry), {"payload": {"project": "p1", "workspace": "draft"}},
+                  registry=registry, now=NOW)
+    run_id = db.execute("SELECT id FROM flow_runs").fetchone()[0]
+    assert advance(db, run_id, registry=registry, now=NOW)["status"] == "failed"
+    (s1, k1, stall), (s2, k2, failed) = records
+    assert (s1, k1, stall["subject"], stall["project"], stall["severity"]) == ("flow", "stall", run_id, "p1", "warn")
+    assert (s2, k2, failed["subject"], failed["data"]["node_id"]) == ("flow", "exception", run_id, "f")

@@ -174,3 +174,23 @@ def test_keep_accepted_is_settled_for_good_when_head_moves(service, started):
     assert first["id"] not in {item["proposalId"] for key in ("rebased", "redundant", "conflicts", "skipped")
                                for item in again[key]}
     assert rebase.conflicts("draft", "draft", "open")["items"] == []
+
+
+def test_conflict_goes_to_the_error_journal_and_obsolete_resolves_it(service, started, monkeypatch):
+    from backend.app import error_log
+
+    records, resolved = [], []
+    monkeypatch.setattr(error_log, "submit", lambda source, kind, message, **kw: records.append((source, kind, kw)))
+    monkeypatch.setattr(error_log, "resolve", lambda **kw: resolved.append(kw))
+    first = propose(service, "a", goal="Ours")
+    sibling = propose(service, "a", goal="Theirs")
+    later = propose(service, "b", goal="Later")
+    head = accept(service, sibling, started["id"])["id"]
+    rebase = AutoRebase(service)
+    summary = rebase.run("draft", "draft")
+    [(source, kind, kw)] = records
+    assert (source, kind, kw["subject"], kw["project"]) == ("card", "blocked", first["id"], "draft")
+    moved = next(item["resultId"] for item in summary["rebased"] if item["proposalId"] == later["id"])
+    accept(service, OporaChangesets(service).read("draft", "draft", moved), head)
+    rebase.run("draft", "draft")
+    assert {"source": "card", "project": "draft", "subject": first["id"], "kind": "blocked"} in resolved

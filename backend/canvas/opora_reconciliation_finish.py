@@ -46,7 +46,20 @@ def retry_delay(failures, jitter):
     return min(3600, 30 * 2 ** min(failures, 7)) * (0.8 + 0.2 * jitter)
 
 
+def journal(binding, kind, what, code, severity, lever):
+    """Deník chyb frontou (volající drží zámky projektu a transakci): subject = vazba sledování PR."""
+    from backend.app import error_log
+
+    pr = (binding.get('pr') or {}).get('number')
+    error_log.submit('card', kind, f'Sledování PR {pr} karty: {what} ({code})', project=binding['project'],
+                     workspace=binding['workspace'], subject=binding['id'], severity=severity, lever=lever,
+                     data={'code': code, 'pr': pr})
+
+
 def system_pause(repo, jobs, binding, now, reason):
+    # OP-32F3B3.4: pozastavení systémem bylo jen v error_code úlohy; obnoví ho až člověk
+    journal(binding, 'blocked', 'pozastaveno', reason, 'error',
+            'Opravit příčinu (token, kontext plánu) a znovu zapnout sledování PR ve Velínu.')
     previous = repo.latest_control(binding['id'])
     content = {'schemaVersion': 1, 'project': binding['project'], 'workspace': binding['workspace'],
                'bindingId': binding['id'], 'createdAt': stamp(now), 'parentControlId': previous['id'],

@@ -94,10 +94,10 @@ def record(source, kind, message, *, severity="error", project=None, workspace=N
         print(f"opora errors: zápis selhal: {type(error).__name__}: {error}", file=sys.stderr)
 
 
-def resolve(fingerprint=None, *, source=None, subject=None, kind=None):
+def resolve(fingerprint=None, *, source=None, subject=None, kind=None, project=None):
     """Uzavře otevřené záznamy (detektor: podmínka zmizela). Vrátí počet uzavřených, při chybě 0."""
     where = [(col, value) for col, value in (("fingerprint", fingerprint), ("source", source), ("subject", subject),
-                                               ("kind", kind)) if value is not None]
+                                               ("kind", kind), ("project", project)) if value is not None]
     if not where:
         return 0
     try:

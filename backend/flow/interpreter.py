@@ -64,6 +64,20 @@ def _run_row(db, run_id):
     return row
 
 
+def _failed(db, run_id, row, error, now, kind="exception"):
+    """`node.failed` do logu a deníku chyb (frontou: volající drží transakci registru)."""
+    from backend.app import error_log
+
+    append(db, run_id, row["id"], "node.failed", {"error": error}, moment=now)
+    trigger = json.loads(_run_row(db, run_id)["trigger"] or "{}")
+    payload = trigger.get("payload") if isinstance(trigger.get("payload"), dict) else {}
+    # OP-32F3B3.2: selhání uzlu bylo jen ve flow_log_events; obnova bez heartbeatu je `stall`
+    error_log.submit("flow", kind, f"Uzel toku {row['node_id']} selhal: {error}", project=payload.get("project"),
+                     workspace=payload.get("workspace"), subject=run_id, severity="warn" if kind == "stall" else "error",
+                     lever=f"Běh toku: GET /api/flow/runs/{run_id}",
+                     data={"node_id": row["node_id"], "node_run_id": row["id"], "attempt": row["attempt"]})
+
+
 def _set_status(db, run_id, status, now):
     if _run_row(db, run_id)["status"] != status:
         append(db, run_id, None, "run.status", {"status": status}, moment=now)
@@ -102,7 +116,7 @@ def _expire_and_resume(db, run_id, graph, registry, now):
     for row in db.execute("SELECT * FROM flow_node_runs WHERE run_id=? AND status='running'", (run_id,)).fetchall():
         if types[row["node_id"]].detached and stall_reason(dict(row), now) is None:
             continue  # běží jinde a hlásí se
-        append(db, run_id, row["id"], "node.failed", {"error": "Pokus přerušen, uzel se spustí znovu."}, moment=now)
+        _failed(db, run_id, row, "Pokus přerušen, uzel se spustí znovu.", now, "stall")
         append(db, run_id, uuid.uuid4().hex, "node.queued",
                {"node_id": row["node_id"], "attempt": row["attempt"] + 1,
                 "idempotency_key": row["idempotency_key"], "input": json.loads(row["input_ref"])}, moment=now)
@@ -123,7 +137,7 @@ def _execute(db, run_id, row, graph, registry, now):
             result = registry[node["type"]].run(ctx)
     except Exception as error:  # noqa: BLE001 – chyba uzlu = neúspěšný běh, ne pád plánovače
         with db:
-            append(db, run_id, row["id"], "node.failed", {"error": str(error) or type(error).__name__}, moment=now)
+            _failed(db, run_id, row, str(error) or type(error).__name__, now)
             _set_status(db, run_id, "failed", now)
         return False
     if result.get("detach"):
@@ -195,7 +209,7 @@ def fail(db, node_run_id, error, now=None):
     if row is None:
         return None
     with db:
-        append(db, row["run_id"], node_run_id, "node.failed", {"error": error}, moment=now)
+        _failed(db, row["run_id"], row, error, now)
         _set_status(db, row["run_id"], "failed", now)
     return get_run(db, row["run_id"])
 

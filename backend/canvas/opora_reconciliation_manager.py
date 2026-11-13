@@ -6,7 +6,12 @@ import threading
 import time
 import uuid
 
-from backend.canvas.opora_reconciliation_finish import record_success, retry_delay, system_pause
+from backend.canvas.opora_reconciliation_finish import (
+    journal,
+    record_success,
+    retry_delay,
+    system_pause,
+)
 from backend.canvas.opora_reconciliation_observation import observation
 from backend.canvas.opora_reconciliation_scope import historical_context
 from backend.integrations.github_merge_reader import GitHubMergeReader
@@ -166,6 +171,12 @@ class ReconciliationManager:
                         due = max(now + retry_delay(claim['failures'], self.jitter()), self.cooldown_until)
                         jobs.finish(claim, now, state='retrying', next_attempt_at=due, error_code=error.code,
                                     provider_retry_until=self.cooldown_until if wait else None)
+                        journal(binding, 'exception', 'čtení GitHubu selhalo, zkusí se znovu', error.code, 'warn',
+                                'Zkontrolovat dostupnost GitHubu a token; sledování se opakuje samo.')
                     else:
                         record_success(repo, jobs, claim, binding, data, now)
+                        if claim['failures']:
+                            from backend.app import error_log
+
+                            error_log.resolve(source='card', project=pid, subject=binding['id'])
             return claim

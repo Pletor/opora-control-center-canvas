@@ -57,7 +57,9 @@ class GitWatch:
 
     def watch_git(self):
         """Jeden průchod hlídače: projekty se zapnutou bránou a zdrojem `git` / `local`; změna HEAD = vstup `commits`.
-        Selhání projektu se jen zapíše (log a `git_errors`) a srdce nebudí."""
+        Selhání projektu se jen zapíše (deník chyb a `git_errors`) a srdce nebudí."""
+        from backend.app import error_log
+
         for project in self.service.project_ids():
             try:
                 if not gate_setting.is_on(self.service, project):
@@ -70,10 +72,17 @@ class GitWatch:
                     self._advance_workspaces(project, kind)
                 for workspace in self._watched(project, kind):
                     self._watch_head(project, workspace, kind)
-                self.git_errors.pop(project, None)
+                if self.git_errors.pop(project, None):
+                    error_log.resolve(source="heart", project=project, subject="git")
             except Exception as error:  # noqa: BLE001 - selhaný zdroj jen zapsat, ostatní projekty běží dál
-                LOGGER.warning("Srdce: hlídač gitu projektu %s: %s", project, error)
-                self.git_errors[project] = f"{type(error).__name__}: {error}"[:500]
+                text = f"{type(error).__name__}: {error}"[:500]
+                if self.git_errors.get(project) == text:
+                    continue  # stejná chyba z dalšího průchodu: záznam už je, počet by jen nafoukl hlídač
+                self.git_errors[project] = text
+                # OP-32F3B3.1: místo logu bez projektu záznam s projektem a pákou (gitError je jinak jen v paměti)
+                error_log.submit("heart", "exception", f"Srdce: hlídač gitu projektu selhal: {error}", project=project,
+                                 subject="git", cause=self.git_errors[project],
+                                 lever="Opravit repozitář projektu (git status v jeho složce).")
 
     def _advance_one(self, project, workspace, main_sha):
         """Posune jeden prostor za `main_sha`; nový HEAD zapíše do `heads`. Selhání jen do logu."""

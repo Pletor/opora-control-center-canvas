@@ -15,6 +15,9 @@ from backend.flow.node_spec import NodeType, Port
 AGENT_DEFAULTS = {"per_hour": 6, "per_project": 1, "rate_sleep_seconds": 15 * 60}
 MODEL_DEFAULTS = {"model": "haiku", "advisor": "opus"}
 SCHEDULE_DEFAULT_SECONDS = 600
+EXPLAIN = "Průhled srdce: GET /api/pletor/heart/explain?project={}&format=text"
+# Selhání nástroje v dávce podle textu chyby (stejné vzorky jako zarážky srdce v `heart_stops.py`).
+FAILURE_KINDS = (("timeout", ("server_unreachable", "timed out")), ("refusal", ("http_4", "usage:", "human must")))
 
 
 def params(node, defaults):
@@ -81,12 +84,18 @@ def _agent(ctx, runtime):
     claude = heart.find()
     if claude is None:
         heart.errors[project] = "Claude Code nenalezen."
+        _journal("exception", "Srdce nespustilo dávku: Claude Code nenalezen.", project, workspace, "claude",
+                 lever="Nainstalovat Claude Code nebo doplnit PATH procesu OPORY.")
         return "main", {"status": "skipped", "error": heart.errors[project]}, None
     models = ctx["config"].get("model") or [{"params": {}}]
     model = params(models[0], MODEL_DEFAULTS)
     if not any(item.get("type") == "message" for item in inputs):
+        per_hour = int(params(ctx["node"], AGENT_DEFAULTS)["per_hour"])
         with heart.lock:  # do stropu za hodinu se počítá dávka, která opravdu běží (prázdná ne)
             heart.starts.setdefault(project, deque()).append(heart.clock())
+            until = heart.next_allowed(project, heart.clock(), per_hour)
+            capped = len(heart.starts[project]) == per_hour  # OP-32F3B3.1: jen přechod na strop, ne každý tik
+        _hour_cap(project, workspace, per_hour, until if capped else None)
     service = runtime.service
     with service.registry_lock:  # skilly srdce = aktivní verze v Brainu (pin jde do záznamu dávky)
         skills = command.heart_skills(service.db, service.root)
@@ -107,9 +116,61 @@ def _agent(ctx, runtime):
         heart.sleeping_until = heart.clock() + sleep
         for item in data["items"]:
             heart._add(project, workspace, item, heart.sleeping_until)
+        if sleep:
+            _journal("blocked", f"Srdce spí po limitu předplatného do {iso_utc(heart.sleeping_until)}.", project,
+                     workspace, "rate_limit", severity="warn", data={"until": iso_utc(heart.sleeping_until)},
+                     lever="Počkat, nebo zkrátit rate_sleep_seconds ve Velínu → Srdce → Stropy.")
+    try:
+        _report_batch(heart.brain(project), project, workspace, entry)
+    except Exception:  # noqa: BLE001, S110 – deník nesmí shodit hotovou dávku
+        pass
     output = {key: entry.get(key) for key in ("at", "status", "sessionId", "costUsd", "numTurns", "summary", "error",
                                          "brainPins")}
     return "main", output, {"provider": "anthropic", "model": model["model"], "cost_usd": entry.get("costUsd")}
+
+
+def _journal(kind, message, project, workspace, subject, **extra):
+    from backend.app import error_log
+
+    error_log.submit("heart", kind, message, project=project, workspace=workspace, subject=subject, **extra)
+
+
+def _hour_cap(project, workspace, per_hour, until):
+    """Strop dávek za hodinu: záznam při dosažení (s časem, do kdy), jinak uzavření."""
+    from backend.app import error_log
+    from backend.flow.catalogs.heart.state import iso_utc
+
+    if until is None:
+        error_log.resolve(source="heart", project=project, subject="hour_cap")
+        return
+    _journal("blocked", f"Srdce vyčerpalo strop {per_hour} dávek za hodinu; další automatická dávka nejdřív "
+             f"{iso_utc(until)}.", project, workspace, "hour_cap", severity="warn", data={"until": iso_utc(until)},
+             lever="Velín → Srdce → Stropy (per_hour), nebo zpráva člověka strop obejde.")
+
+
+def _report_batch(brain, project, workspace, entry):
+    """OP-32F3B3.1: dávka ≠ ok a každé selhání nástroje v ní → deník (subject = `at` dávky); dávka ok uzavře
+    záznamy předchozích dávek, spánek po limitu, chybějící Claude Code a nezaložený běh."""
+    from backend.agi_pletor.dashboard.heart_phases import analyze
+    from backend.app import error_log
+    from backend.brain_opora.heart import batch
+
+    at, status, lever = entry.get("at"), entry.get("status"), EXPLAIN.format(project)
+    if status == "ok":
+        for subject in [old.get("at") for old in batch.read_journal(brain, 10) if old.get("at") != at] + [
+                "rate_limit", "claude", "run"]:
+            error_log.resolve(source="heart", project=project, subject=subject)
+    elif status in ("timeout", "error"):
+        _journal("timeout" if status == "timeout" else "exception",
+                 f"Dávka srdce skončila stavem {status} po {round((entry.get('durationMs') or 0) / 1000)} s.",
+                 project, workspace, at, cause=entry.get("error"), lever=lever,
+                 data={"durationMs": entry.get("durationMs"), "sessionId": entry.get("sessionId")})
+    for failure in analyze(entry)["failures"]:
+        error = str(failure["error"])
+        kind = next((name for name, needles in FAILURE_KINDS if any(n in error for n in needles)), "exception")
+        _journal(kind, f"Nástroj srdce {failure['tool']} v dávce selhal: {error[:160]}", project, workspace, at,
+                 severity="warn" if kind == "refusal" else "error", lever=lever,
+                 data={"tool": failure["tool"], "ms": failure["ms"]})
 
 
 def _schedule(ctx):
