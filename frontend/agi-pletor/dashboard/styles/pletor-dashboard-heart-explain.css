@@ -10,6 +10,7 @@
 
 /* Aktivní zarážka je výrazná (červený pruh a tučně), volné jsou tlumené, takže oko padne na to, co srdce právě drží. */
 .heart-explain__stop { color: var(--pletor-dim); }
+.heart-explain__stop td:nth-child(2) { white-space: nowrap; } /* Stav „drží/volno“ se čte jedním pohledem, nelámat */
 .heart-explain__stop--active {
   color: var(--pletor-ink);
   font-weight: 600;

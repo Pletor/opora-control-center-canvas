@@ -69,3 +69,17 @@ def test_running_without_batch_names_the_open_node_and_message_text(heart, db): 
     assert view["now"]["sentence"].startswith("Tok srdce stojí v uzlu „snímek projektu“")
     assert "heartbeat" in view["now"]["sentence"]
     assert view["queue"][0]["ref"] == "Čekají 2 žádosti o kroky"
+
+
+def test_stops_follow_the_last_batch_not_history(heart, db, tmp_path):  # noqa: F811
+    fast = {"at": "2026-11-13T01:40:19Z", "status": "ok", "durationMs": 85_000, "steps": [
+        {"t": 1000, "kind": "tool", "text": "Bash: python opora_heart.py plan"},
+        {"t": 7000, "kind": "result", "text": '{"ok": true}'}]}
+    with (tmp_path / batch.JOURNAL).open("a", encoding="utf-8") as journal:
+        journal.write(json.dumps(fast) + "\n")
+    services = service(db)
+    db.execute("UPDATE flow_node_runs SET ended_at='2026-11-13T01:00:48+00:00'")  # snímek 11 s
+    db.execute("UPDATE flow_runs SET status='succeeded'")
+    view = heart_explain.explain(services, heart, P, NOW)
+    active = {item["id"] for item in view["stops"] if item["active"]}
+    assert not active & {"lock", "timeout"}

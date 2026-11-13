@@ -6,13 +6,10 @@ from backend.brain_opora.determinism import gate_setting
 SLOW_WRITE_SHARE = 0.5  # víc než polovina dávky čekala na zápis do OPORY
 
 
-def _failures(view, *needles):
-    found = []
-    for entry in view["batches"] if isinstance(view.get("batches"), list) else []:
-        for item in entry.get("failures") or []:
-            if any(needle in str(item.get("error")) for needle in needles):
-                found.append(f"{entry.get('at')}: {item['tool']} → {str(item['error'])[:80]}")
-    return found
+def _failures(last, *needles):
+    """Selhání jen z poslední dávky: zarážka říká, co platí teď, starší dávky jsou v rozpadu dávek."""
+    return [f"{last.get('at')}: {item['tool']} → {str(item['error'])[:80]}" for item in last.get("failures") or []
+            if any(needle in str(item.get("error")) for needle in needles)]
 
 
 def stops(service, heart, project, view):
@@ -21,11 +18,11 @@ def stops(service, heart, project, view):
     last = view["batches"][-1] if isinstance(view.get("batches"), list) and view["batches"] else {}
     write_share = next((phase["share"] for phase in last.get("phases") or [] if phase["id"] == "opora_write"), 0)
     pipeline = view.get("pipeline") if isinstance(view.get("pipeline"), list) else []
-    snapshot_ms = max((node["ms"] or 0 for run in pipeline for node in run["nodes"] if node["node"] == "snimek"),
-                      default=0)
-    timeouts = _failures(view, "server_unreachable", "timed out")
-    unknown = _failures(view, "usage:")
-    human = _failures(view, "http_409", "human must", "Člověk")
+    done = next((run for run in pipeline if run["status"] == "succeeded"), {"nodes": []})  # poslední dokončený běh
+    snapshot_ms = max((node["ms"] or 0 for node in done["nodes"] if node["node"] == "snimek"), default=0)
+    timeouts = _failures(last, "server_unreachable", "timed out")
+    unknown = _failures(last, "usage:")
+    human = _failures(last, "http_409", "human must", "Člověk")
     caps = view.get("caps") if isinstance(view.get("caps"), dict) else {}
     return [
         {"id": "off", "label": "Srdce vypnuté", "active": not status["enabled"],
@@ -44,7 +41,8 @@ def stops(service, heart, project, view):
          "detail": status.get("gitError") or "—", "lever": "Opravit repozitář projektu (git status v jeho složce)."},
         {"id": "lock", "label": "Zápisy čekají na zámek projektu", "active": write_share >= SLOW_WRITE_SHARE
             or snapshot_ms > 30000,
-         "detail": f"Poslední dávka čekala na zápis {round(write_share * 100)} % času; snímek trval {round(snapshot_ms / 1000)} s.",
+         "detail": f"Poslední dávka čekala na zápis {round(write_share * 100)} % času; poslední dokončený snímek "
+                   f"trval {round(snapshot_ms / 1000)} s.",
          "lever": "Zámek drží dlouhá čtení (agent-state); zrychlit je, ne zvyšovat timeout."},
         {"id": "timeout", "label": "Zápis srdce vypršel (60 s)", "active": bool(timeouts), "detail": "; ".join(timeouts[:3]) or "—",
          "lever": "Srdce zápis zopakuje; trvalé řešení je rychlý server (viz zámek)."},
