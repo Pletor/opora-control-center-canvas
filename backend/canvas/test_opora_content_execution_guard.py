@@ -1,4 +1,4 @@
-"""Pojistka content_manifest: enforce drží kartu s neschváleným obsahem, warn ji pustí a zapíše do deníku."""
+"""Pojistka content_manifest: enforce drží kartu s neschváleným obsahem bez zápisu při čtení stavu, warn ji pustí a zapíše do deníku."""
 import pytest
 
 from backend.app import error_log, errors, guards
@@ -28,12 +28,11 @@ def journal():
     return [r for r in errors.read() if r["kind"] == "blocked"]
 
 
-def test_enforce_blocks_claim_and_records_reason(unreviewed):
+def test_enforce_blocks_claim_without_journal_noise(unreviewed):
     _, authority, refs = unreviewed
     context = authority.context("draft", "draft", refs["a"])
     assert not context["available"] and "accepted manifest" in context["unavailableReason"]
-    [row] = journal()
-    assert row["subject"] == refs["a"] and row["project"] == "draft" and row["lever"] and row["count"] >= 1
+    assert journal() == []  # výpočet stavu nezapisuje; odmítnutý claim zapíše factory.refused
 
 
 def test_warn_lets_claim_through_and_records_it(unreviewed):

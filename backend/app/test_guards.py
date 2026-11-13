@@ -62,9 +62,9 @@ def test_check_in_three_modes(registry):
     guards.set_mode("content_manifest", "p", "off", HUMAN, "zkouška")
     assert guards.check("content_manifest", "p", blocked=True, message="vypnuto mlčí", subject="card") is False
     found = journal()
-    blocked = found[("blocked", "warn", "obsah se liší")]
-    assert blocked["project"] == "p" and blocked["subject"] == "card" and blocked["lever"] and blocked["source"] == "card"
-    assert ("blocked", "warn", "pojistka content_manifest ve warn: by blokovala: obsah se liší") in found
+    assert ("blocked", "warn", "obsah se liší") not in found  # enforce: zapisuje až odmítnutí převzetí (refusal)
+    warned = found[("blocked", "warn", "pojistka content_manifest ve warn: by blokovala: obsah se liší")]
+    assert warned["project"] == "p" and warned["subject"] == "card" and warned["lever"] and warned["source"] == "card"
     assert not any("vypnuto mlčí" in message for _, _, message in found)
 
 

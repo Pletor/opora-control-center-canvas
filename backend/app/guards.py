@@ -80,18 +80,21 @@ def mode(guard, project=""):
 
 
 def check(guard, project, *, blocked, message, subject=None, lever=None):
-    """True = blokovat. enforce zapíše `blocked`, warn zapíše varování a pustí dál, off mlčí."""
+    """True = blokovat. enforce jen blokuje, warn zapíše varování a pustí dál, off mlčí."""
     if not blocked:
         return False
     current = mode(guard, project)
     if current == "off":
         return False
+    if current == "enforce":
+        # OP-C436BA.1: predikát běží i při každém výpočtu agent-state (i u karet, které nikdo nepřebírá); deník
+        # dostane skutečné odmítnutí převzetí nebo změny (409/422 přes factory.refused), ne každé čtení stavu
+        return True
     entry = CATALOG[guard]
-    enforce = current == "enforce"
-    error_log.submit(entry["source"], "blocked", message if enforce else f"pojistka {guard} ve warn: by blokovala: {message}",
+    error_log.submit(entry["source"], "blocked", f"pojistka {guard} ve warn: by blokovala: {message}",
                      severity="warn", project=project or None, subject=subject, lever=lever or entry["lever"],
                      data={"guard": guard, "mode": current})
-    return enforce
+    return False
 
 
 def read(project=""):

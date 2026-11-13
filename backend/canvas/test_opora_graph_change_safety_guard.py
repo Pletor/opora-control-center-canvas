@@ -32,7 +32,7 @@ def test_enforce_blocks_and_warn_lets_change_through(closed):
     error_log.drain()
     messages = [r["message"] for r in errors.read() if r["kind"] == "blocked"]
     assert any(m.startswith("pojistka confirmed_reopen ve warn") for m in messages)
-    assert any(m.startswith("Změna grafu sahá na potvrzené karty") for m in messages)
+    assert not any(m.startswith("Změna grafu sahá na potvrzené karty") for m in messages)  # enforce: zapíše 409
 
 
 def test_replay_of_stored_record_ignores_mode(closed):
